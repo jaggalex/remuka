@@ -15,7 +15,7 @@
     "@remo/metrics": "workspace:*",
     "@remo/outbound": "workspace:*",
     "@remo/text": "workspace:*",
-    "lib0": "^0.2.102",
+    "lib0": "^0.2.120",
     "nodemailer": "^10.6.0",
     "pg": "^8.13.1",
     "sharp": "^0.35.5",
