@@ -1,0 +1,25 @@
+{
+  "id": "text.format",
+  "type": "how-to",
+  "title": {
+    "ru": "Оформить текст",
+    "en": "Format text"
+  },
+  "summary": {
+    "ru": "Заголовки, списки и чек-лист, пометки внутри строки, Markdown при наборе и вставка без форматирования.",
+    "en": "Headings, lists and a checklist, marks inside a line, Markdown while typing and pasting without formatting."
+  },
+  "related": [
+    "objects.name",
+    "section.table"
+  ],
+  "verifiedAgainst": "2026-11-22",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:ef5d339ab8db64099e412fce2302247e7833dd3ffbc492383b4e1451afb6b6b3",
+      "targetHash": "sha256:149bfa921d947395298a256b5114409b8945bc2273033148cc2f5cfee93ac211"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+# Architecture notes
+
+These are the longer product specifications behind the code. They describe the intended
+behaviour, the boundaries and the invariants; the numbered decisions behind them are in
+[ADR.md](../../ADR.md).
+
+| Note | What it answers |
+|---|---|
+| [Brand: name, addresses and the move](../../spec/rebrand.md) | the public name Ремука/Remuka, the cloud hosts, the code name `remo` that stays, and the transition from old addresses (ADR-254) |
+| [Design system](../design/DESIGN.md) | the visual language: tokens, components, canvas chrome, panels (ADR-181) |
+| [Design system v1](../../spec/design-system.md) | accessibility, localisation, keyboard model, grid and layers, glossary; its visual sections are replaced by DESIGN.md |
+| [IAM v1](../../spec/IAM-v1.md) | organisations, teams, room roles, links, sessions, enforcement |
+| [AI agents v1](../../spec/AI-agents-v1.md) | principals, tasks, budgets, skills, the plan contract |
+| [AI agents architecture](../../spec/AI-agents-architecture.md) | provider keys, evidential log, change sets, MCP vs skills |
+| [MCP v0](../../spec/MCP.md) | the stdio façade over rooms, skills and change sets |
+| [Apps](../../spec/apps.md) | declarative first-party panels |
+| [Integrations](../../spec/integrations.md) | tokens, scopes and the command boundary |
+| [Webhooks](../../spec/webhooks.md) | signed delivery, retries and the dead-letter queue |
+| [Metrics](../../spec/metrics.md) | typed events, no content or PII |
+| [Forms](../../spec/forms.md) | dialog and form rules |
+| [Mail](../../spec/mail.md) | one outbox, four drivers, password reset and address verification (ADR-246) |
+| [Images](../../spec/images.md) | the file store, uploads, painting, quotas and backup (ADR-249) |
+| [Billing](../../spec/billing.md) | plans, entitlements, subscriptions and the money ledger (ADR-247) |
+| [Payment providers](../../spec/payment-providers.md) | adapters, connections and webhook intake (ADR-248) |
+| [Support](../../spec/support.md) | the thin help layer, Chatwoot and the first-line agent (ADR-250) |
+| [AI gateway](../../spec/ai-gateway.md) | provider isolation, kill switches and limits (ADR-251) |
+| [Canvas objects: next steps](canvas-objects-next.md) | what to adopt from Excalidraw, what stays ours, and the plan for selection resize, snapping, shape text and label wrapping |
+| [Agent skills](../../spec/skills/) | the brief-to-room, cards and tidy-selection contracts |
+
+Visual baselines live in `spec/baselines` and `spec/ds-baselines`; they are test assets,
+not documentation.

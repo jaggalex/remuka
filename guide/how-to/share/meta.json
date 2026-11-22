@@ -1,0 +1,27 @@
+{
+  "id": "how-to/share",
+  "type": "how-to",
+  "status": "available",
+  "order": 10,
+  "title": {
+    "ru": "Открыть доступ к комнате и поделиться ссылкой",
+    "en": "Grant access to a room and share a link"
+  },
+  "summary": {
+    "ru": "Выдать роль человеку или команде, включить ссылку с паролем и сроком, отозвать доступ.",
+    "en": "Grant a role to a person or team, enable a link with a password and expiry, and revoke access."
+  },
+  "related": [
+    "concepts/access",
+    "reference/roles",
+    "capabilities/access",
+    "how-to/export-backup"
+  ],
+  "updated": "2026-11-04",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:c868d4bd067d16b22f67295eab93670bbe2d6d0b50c36546cfa4a0762e321f4e",
+      "targetHash": "sha256:dc4e8e3eb1d52712bbe684b889067c7c9da3b21fca3ce528928351f97d8bf889"
+    }
+  }
+}

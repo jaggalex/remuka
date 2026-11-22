@@ -1,0 +1,27 @@
+{
+  "id": "support/changelog",
+  "type": "reference",
+  "status": "available",
+  "order": 30,
+  "title": {
+    "ru": "История изменений",
+    "en": "Changelog"
+  },
+  "summary": {
+    "ru": "Версии схемы и что появилось в каждой: от почты и изображений до биллинга, текста и планов агента.",
+    "en": "Schema versions and what each introduced: from mail and images to billing, text and agent plans."
+  },
+  "related": [
+    "support/migrations",
+    "reference/events",
+    "capabilities/apps",
+    "admin/deploy"
+  ],
+  "updated": "2026-11-22",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:0d9ec767eeb843f8dc1c4e57efcb03837509f4ac786cf1a31a5536451e57ef86",
+      "targetHash": "sha256:4754057fe74c6561256505073ddb1b57bd3eb5c8da8ac9742294bb6dabc073de"
+    }
+  }
+}

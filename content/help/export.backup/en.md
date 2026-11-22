@@ -1,0 +1,47 @@
+## Result
+
+You get a file that can restore the room, and you can restore a room from such a file. A backup always contains the whole room, regardless of the selection.
+
+## What is inside
+
+- `manifest` — format, version, date, object count and checksum.
+- `widgets` — room objects: notes, cards, shapes, frames, connectors, kanbans.
+- `texts` and `textDeltas` — text and formatting.
+- `kanbans` — columns, swimlanes and card placements.
+- `groupNames`, `tags`, `presentation` — group names, the tag vocabulary and presentation order.
+- `comments` — threads and messages; author names are kept, the account link is not.
+- `assets` — the room's images: `fileId`, hash, type, size, description and the bytes themselves in base64 (format version 3). If the room is over 200 MiB, Remuka offers a backup without images: the same objects, but `assets` without bytes, and the pictures come back as "Image unavailable" placeholders.
+
+It is plain JSON: you can read, verify and keep it without Remuka.
+
+## Download a backup
+
+1. Open the room menu (the room’s name) and choose Export….
+2. Choose the Room backup format.
+3. Click Export.
+
+The downloaded filename comes from the room title and preserves Cyrillic letters, for example `план-ёж.remo-backup.json`.
+
+You need the `board.backup` grant; editors, co-owners and owners have it. Every download is recorded in the audit log.
+
+## Restore a room
+
+1. Open the room menu → Restore from backup…: the dialog opens on the restore section, with the file picker.
+2. Choose a file. Remuka checks the format, version and checksum.
+3. Check the file name and object count, then confirm the replacement.
+
+Import replaces the whole room content, not adds objects, and replaces the discussion: an empty comment list clears the threads. An object lock is restored with the object. The action cannot be undone for everyone, so back up the current room first.
+
+## Check
+
+- The file opens as JSON, with `manifest` and a checksum.
+- After import the object count matches the dialog and the room opens for every participant.
+- Comments and tags are visible in the same places after import.
+
+## If it did not work
+
+- **"This is not a room backup".** The file was made by another program, or it is not JSON.
+- **"The checksum does not match".** The file is damaged or was edited; use the original backup.
+- **"This backup was made by a newer version".** Update the app or use a backup in a supported version.
+- **A room over 200 MiB.** A full backup is unavailable; Remuka offers "Back up without images". Objects and connectors are kept, and the pictures come back as placeholders.
+- **No restore section.** You need both `board.edit` and `board.backup`.

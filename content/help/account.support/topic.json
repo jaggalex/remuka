@@ -1,0 +1,25 @@
+{
+  "id": "account.support",
+  "type": "how-to",
+  "title": {
+    "ru": "Как обратиться в поддержку",
+    "en": "How to contact support"
+  },
+  "summary": {
+    "ru": "Где кнопка «Помощь», что уходит вместе с обращением и что остаётся у вас; когда отвечает человек.",
+    "en": "Where the help button is, what travels with a request and what stays with you; when a person replies."
+  },
+  "related": [
+    "account.email",
+    "account.profile"
+  ],
+  "verifiedAgainst": "2026-11-21",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:3ba048ecee5e1d782c263565fcd419e71e7213ead0d995943902efa0372755d7",
+      "targetHash": "sha256:f750c8047722e1bb042075574f1da5b020758c3410b5107d2dc5e4f32aaaf05a"
+    }
+  }
+}

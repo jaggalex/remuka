@@ -1,0 +1,26 @@
+{
+  "id": "how-to/format-text",
+  "type": "how-to",
+  "status": "available",
+  "order": 6,
+  "title": {
+    "ru": "Оформить текст: заголовки, списки, чек-лист",
+    "en": "Format text: headings, lists, a checklist"
+  },
+  "summary": {
+    "ru": "Сочетания клавиш, Markdown при наборе и вставка из Docs, Notion и Word без лишней разметки.",
+    "en": "Shortcuts, Markdown while typing, and a paste from Docs, Notion and Word without extra markup."
+  },
+  "related": [
+    "capabilities/canvas",
+    "how-to/build-board",
+    "reference/keyboard"
+  ],
+  "updated": "2026-11-22",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:280d9c7ea2e3733c59c4b888aafd065a8adbc21be4560fecd6919f05509e9490",
+      "targetHash": "sha256:e696d236dfe76bc0b17bb44d31dae224fa3b7e4d81fe70b5889928a556e93c68"
+    }
+  }
+}

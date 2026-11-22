@@ -1,0 +1,290 @@
+import { describe, expect, it } from "vitest";
+import { Y } from "./y.mjs";
+import {
+  buildBoardBackup,
+  checksumOf,
+  usedImageFiles,
+  verifyBoardBackup,
+} from "./backup.mjs";
+import { applyBoardBackup, assetOutcome } from "./backup-restore.mjs";
+
+function fixture() {
+  const doc = new Y.Doc();
+  const widgets = doc.getMap("widgets");
+  const note = new Y.Map();
+  note.set("id", "note-1");
+  note.set("type", "sticky_note");
+  note.set("x", 10);
+  note.set("y", 20);
+  widgets.set("note-1", note);
+  const connector = new Y.Map();
+  connector.set("id", "line-1");
+  connector.set("type", "connector");
+  connector.set("routing", "elbow");
+  connector.set("waypoints", [{ id: "p1", x: 30, y: 40, rigid: true }]);
+  connector.set("start", { item: "note-1" });
+  connector.set("end", { item: "other" });
+  widgets.set("line-1", connector);
+  const texts = doc.getMap("texts");
+  const text = new Y.Text();
+  text.insert(0, "hello");
+  texts.set("note-1", text);
+  doc.getMap("groupNames").set("grp-1", "Cluster");
+  doc.getMap("tags").set("tag-1", { id: "tag-1", name: "Priority", color: "blue" });
+  doc.getArray("presentation").push(["frame-1"]);
+  const state = Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  return state;
+}
+
+function tableState() {
+  const doc = new Y.Doc();
+  const widgets = doc.getMap("widgets");
+  const frame = new Y.Map();
+  frame.set("id", "frame-1");
+  frame.set("type", "frame");
+  frame.set("x", 0);
+  frame.set("y", 0);
+  frame.set("width", 600);
+  frame.set("height", 400);
+  frame.set("layout", {
+    kind: "table",
+    columns: [
+      { id: "col-1", title: "Now", size: "wide" },
+      { id: "col-2", title: "Next" },
+    ],
+    rows: [{ id: "row-1", title: "Step" }],
+    appearance: { headers: "#f3f1ec", cells: { "row-1:col-2": "#d8c79e" } },
+  });
+  widgets.set("frame-1", frame);
+  const note = new Y.Map();
+  note.set("id", "note-1");
+  note.set("type", "sticky_note");
+  note.set("parentId", "frame-1");
+  note.set("x", 10);
+  note.set("y", 20);
+  note.set("cell", { rowId: "row-1", columnId: "col-1" });
+  widgets.set("note-1", note);
+  const state = Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  return state;
+}
+
+function richState() {
+  const doc = new Y.Doc();
+  const note = new Y.Map();
+  note.set("id", "note-1");
+  note.set("type", "sticky_note");
+  note.set("x", 10);
+  note.set("y", 20);
+  doc.getMap("widgets").set("note-1", note);
+
+  const text = new Y.XmlText();
+  doc.getMap("texts").set("note-1", text);
+  text.insert(0, "Title", { bold: true });
+  text.insert(5, "\n", { block: "h1" });
+  text.insert(6, "body", { href: "https://example.com/" });
+  text.insert(10, "\n", { block: "check", checked: true });
+
+  const state = Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  return state;
+}
+
+describe("board backup (ADR-071)", () => {
+  it("keeps text attributes in the delta and writes plain text in the readable section", () => {
+    const backup = buildBoardBackup({ state: richState(), boardId: "board-1" });
+    expect(backup.textDeltas["note-1"]).toEqual([
+      { insert: "Title", attributes: { bold: true } },
+      { insert: "\n", attributes: { block: "h1" } },
+      { insert: "body", attributes: { href: "https://example.com/" } },
+      { insert: "\n", attributes: { block: "check", checked: true } },
+    ]);
+    // The plain section never carries Yjs tags, so a foreign parser can read it.
+    expect(backup.texts["note-1"]).toBe("Title\nbody\n");
+    // Optional attributes do not change the format: older readers still open it.
+    expect(backup.manifest.version).toBe(3);
+    expect(verifyBoardBackup(JSON.parse(JSON.stringify(backup)))).toBe(true);
+  });
+
+  it("is plain JSON with a verifiable checksum and connector waypoints", () => {
+    const backup = buildBoardBackup({
+      state: fixture(),
+      boardId: "board-1",
+      title: "Backup test",
+    });
+    expect(backup.manifest.format).toBe("remo.board.backup");
+    expect(backup.manifest.boardId).toBe("board-1");
+    expect(backup.manifest.counts).toMatchObject({ widgets: 2, connectors: 1 });
+    expect(backup.widgets["line-1"].routing).toBe("elbow");
+    expect(backup.widgets["line-1"].waypoints).toEqual([
+      { id: "p1", x: 30, y: 40, rigid: true },
+    ]);
+    expect(backup.texts["note-1"]).toBe("hello");
+    expect(backup.textDeltas["note-1"]).toEqual([{ insert: "hello" }]);
+    expect(backup.groupNames["grp-1"]).toBe("Cluster");
+    expect(backup.tags["tag-1"]).toMatchObject({ name: "Priority", color: "blue" });
+    expect(backup.presentation).toEqual(["frame-1"]);
+    expect(backup.manifest.version).toBe(3);
+    expect(backup.assets).toEqual([]);
+    expect(verifyBoardBackup(JSON.parse(JSON.stringify(backup)))).toBe(true);
+  });
+
+  it("names the files the document uses, once each and with the first description", () => {
+    const used = usedImageFiles({
+      "img-a": { type: "image", fileId: "file-1", alt: "" },
+      "img-b": { type: "image", fileId: "file-1", alt: "Sales funnel" },
+      "img-c": { type: "image", fileId: "file-2" },
+      note: { type: "sticky_note", fileId: "file-3" },
+      broken: { type: "image" },
+    });
+    expect([...used.entries()]).toEqual([
+      ["file-1", "Sales funnel"],
+      ["file-2", ""],
+    ]);
+  });
+
+  it("carries embedded assets in the checksum and the counts", () => {
+    const asset = {
+      fileId: "file-1",
+      sha256: "a".repeat(64),
+      mime: "image/png",
+      width: 100,
+      height: 50,
+      data: "AAAA",
+    };
+    const backup = buildBoardBackup({
+      state: fixture(),
+      boardId: "board-1",
+      assets: [asset],
+    });
+    expect(backup.assets).toEqual([asset]);
+    expect(backup.manifest.counts.assets).toBe(1);
+    expect(verifyBoardBackup(JSON.parse(JSON.stringify(backup)))).toBe(true);
+    const changed = structuredClone(backup);
+    changed.assets[0].data = "BBBB";
+    expect(verifyBoardBackup(changed)).toBe(false);
+  });
+
+  it("still reads version 1 and 2 bundles", () => {
+    // The older shapes are what a self-hoster's archive holds today: version 2 added
+    // `groupNames` and `tags`, version 1 had neither, and neither had `assets`.
+    const v1 = {
+      format: "remo.board",
+      version: 1,
+      board: { id: "board-1", title: "Old" },
+      widgets: {},
+      texts: {},
+      kanbans: {},
+      meta: {},
+      presentation: [],
+      comments: [],
+    };
+    const v2 = { ...v1, version: 2, groupNames: {}, tags: {} };
+    for (const content of [v1, v2]) {
+      const bundle = {
+        manifest: {
+          format: "remo.board.backup",
+          version: content.version,
+          boardId: "board-1",
+          title: "Old",
+          checksum: checksumOf(content),
+        },
+        ...content,
+      };
+      expect(verifyBoardBackup(JSON.parse(JSON.stringify(bundle)))).toBe(true);
+    }
+    // A version this reader does not know is refused, not guessed at.
+    const future = { ...v2, version: 4 };
+    expect(
+      verifyBoardBackup({
+        manifest: { format: "remo.board.backup", version: 4, checksum: checksumOf(future) },
+        ...future,
+      }),
+    ).toBe(false);
+  });
+
+  it("carries the table layout and cell membership", () => {
+    const backup = buildBoardBackup({ state: tableState(), boardId: "board-1" });
+    expect(backup.widgets["frame-1"].layout).toMatchObject({
+      kind: "table",
+      columns: [
+        { id: "col-1", title: "Now", size: "wide" },
+        { id: "col-2", title: "Next" },
+      ],
+      rows: [{ id: "row-1", title: "Step" }],
+      appearance: { headers: "#f3f1ec", cells: { "row-1:col-2": "#d8c79e" } },
+    });
+    expect(backup.widgets["note-1"].cell).toEqual({
+      rowId: "row-1",
+      columnId: "col-1",
+    });
+    expect(verifyBoardBackup(JSON.parse(JSON.stringify(backup)))).toBe(true);
+  });
+
+  it("rebuilds the document and rewrites only the images it restored", () => {
+    const source = new Y.Doc();
+    const image = new Y.Map();
+    image.set("id", "img-1");
+    image.set("type", "image");
+    image.set("fileId", "file-1");
+    image.set("width", 480);
+    image.set("height", 320);
+    source.getMap("widgets").set("img-1", image);
+    const broken = new Y.Map();
+    broken.set("id", "img-2");
+    broken.set("type", "image");
+    broken.set("fileId", "file-2");
+    source.getMap("widgets").set("img-2", broken);
+    const note = new Y.Text();
+    note.insert(0, "kept");
+    source.getMap("texts").set("img-1", note);
+    const kanban = new Y.Map();
+    kanban.set("newColumnWidth", 500);
+    kanban.set("headerHeight", 96);
+    const column = new Y.Map();
+    column.set("id", "col-1");
+    column.set("title", "Now");
+    column.set("accent", "#9ca3af");
+    column.set("width", 500);
+    const columns = new Y.Array();
+    columns.push([column]);
+    kanban.set("columns", columns);
+    kanban.set("swimlanes", new Y.Array());
+    kanban.set("cards", new Y.Map());
+    source.getMap("kanbans").set("kb-1", kanban);
+    const state = Y.encodeStateAsUpdate(source);
+    source.destroy();
+
+    const bundle = buildBoardBackup({
+      state,
+      boardId: "board-1",
+      title: "Restored",
+      assets: [
+        { fileId: "file-1", sha256: "a".repeat(64), mime: "image/png", width: 1, height: 1, data: "AAAA" },
+        { fileId: "file-2", sha256: "b".repeat(64), mime: "image/png", width: 1, height: 1 },
+      ],
+    });
+    expect(verifyBoardBackup(JSON.parse(JSON.stringify(bundle)))).toBe(true);
+    expect(assetOutcome(bundle)).toEqual({ restored: 1, placeholders: 1 });
+
+    const target = new Y.Doc();
+    applyBoardBackup(target, bundle, { fileIds: new Map([["file-1", "new-1"]]) });
+    const widgets = target.getMap("widgets").toJSON();
+    // The restored picture is the new row; the one without bytes keeps the id the
+    // target organisation cannot resolve, which is what shows the placeholder.
+    expect(widgets["img-1"].fileId).toBe("new-1");
+    expect(widgets["img-2"].fileId).toBe("file-2");
+    expect(target.getMap("texts").get("img-1").toString()).toBe("kept");
+    expect(target.getMap("kanbans").get("kb-1").get("columns").length).toBe(1);
+    expect(target.getMap("meta").get("title")).toBe("Restored");
+    target.destroy();
+  });
+
+  it("detects a changed bundle", () => {
+    const backup = buildBoardBackup({ state: fixture(), boardId: "board-1" });
+    const changed = structuredClone(backup);
+    changed.widgets["note-1"].x = 999;
+    expect(verifyBoardBackup(changed)).toBe(false);
+  });
+});

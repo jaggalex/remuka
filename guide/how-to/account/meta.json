@@ -1,0 +1,27 @@
+{
+  "id": "how-to/account",
+  "type": "how-to",
+  "status": "available",
+  "order": 3,
+  "title": {
+    "ru": "Аккаунт, организация и команда",
+    "en": "Account, organisation and team"
+  },
+  "summary": {
+    "ru": "Имя и уникальный @ник, сброс пароля и подтверждение почты, личная и общая организация, переименование и участники команды.",
+    "en": "Name and unique @handle, password reset and address confirmation, personal and shared organisation, renaming and team members."
+  },
+  "related": [
+    "how-to/create-board",
+    "capabilities/home",
+    "capabilities/access",
+    "how-to/contact-support"
+  ],
+  "updated": "2026-11-20",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:25809f9cb5fc405c02891cadf596beaff439bd50d8e5d923b9ec2db51a277468",
+      "targetHash": "sha256:c89fe702c2639ff7d6ed0f2593face46ac1efc262aceaec74e8a545e352eb9cc"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "about.remo",
+  "type": "reference",
+  "title": {
+    "ru": "О Ремуке: версия и лицензия",
+    "en": "About Remuka: version and licence"
+  },
+  "summary": {
+    "ru": "Версия, автор, лицензия AGPL-3.0-only и ссылка на исходный код.",
+    "en": "Version, author, AGPL-3.0-only licence and the source link."
+  },
+  "related": [
+    "rooms.create",
+    "export.backup"
+  ],
+  "verifiedAgainst": "2026-11-04",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:2c63c129298989e7b63a40edd3e73b8a924a8b48a79069614e72b3ace4a06fd9",
+      "targetHash": "sha256:42f68d689979bb17723e30439a77a1aed99595585395dbbee556b8d7185af989"
+    }
+  }
+}

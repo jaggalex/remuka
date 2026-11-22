@@ -1,0 +1,154 @@
+# Dedicated PostgreSQL for tests (ADR-136).
+#
+# This file is deliberately separate from docker-compose.yml: it has its own project
+# name, container, volume, credentials and loopback port, so no test command can resolve
+# to the development database by accident.
+#
+# Start:  pnpm test:db:up       (compose + bootstrap the test-environment identity)
+# Check:  pnpm test:db:check
+# Stop:   pnpm test:db:down     (keeps the volume)
+# Logs:   pnpm test:db:logs
+#
+# There is intentionally no volume-deletion command here. Removing
+# remo-test_postgres-data is a manual maintenance action, documented in TESTING.md.
+#
+# The AI gateway pair (`ai-gateway`, `fake-provider`) belongs to the `ai` profile, so the
+# database commands above never start it and `pnpm test:db:up` stays a database. The only
+# entry point is `pnpm e2e:gateway`, which generates the certificates the pair mounts and
+# removes the containers afterwards (`spec/ai-gateway.md` §10, ADR-251).
+name: remo-test
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: remo-test-postgres
+    # Explicit lifecycle: no restart policy, so Docker does not start the test server
+    # behind the developer's back or recreate it during another project's `up`.
+    restart: "no"
+    environment:
+      POSTGRES_USER: remo_test
+      POSTGRES_PASSWORD: remo_test
+      POSTGRES_DB: remo_test_control
+      # Deterministic collation, so ordering does not depend on the host locale.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      # Loopback only: the test server is never reachable from another machine.
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - remo-test-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remo_test -d remo_test_control"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  # A fake model provider that answers OpenAI-compatible JSON over HTTPS. It exists only
+  # for the acceptance run; the published port is loopback, for the scenario's counters.
+  fake-provider:
+    profiles: ["ai"]
+    image: node:22-bookworm-slim
+    container_name: remo-test-fake-provider
+    restart: "no"
+    working_dir: /app
+    command: ["node", "fake-provider.mjs"]
+    environment:
+      FAKE_PROVIDER_PORT: "8443"
+      FAKE_PROVIDER_TLS_CERT: /certs/provider.pem
+      FAKE_PROVIDER_TLS_KEY: /certs/provider-key.pem
+      # The key the gateway holds as `keyEnv` for this provider (spec §4.1).
+      FAKE_PROVIDER_KEY: ${REMO_TEST_PROVIDER_KEY:-test-provider-key}
+      FAKE_PROVIDER_SLOW_MS: "2500"
+      # The certificate is signed by the run's CA, so the probe trusts it on purpose.
+      NODE_EXTRA_CA_CERTS: /certs/ca.pem
+    volumes:
+      - ./e2e/gateway:/app:ro
+      - ${REMO_TEST_GATEWAY_CERTS:-./e2e/gateway/.certs}:/certs:ro
+    networks:
+      - ai
+    ports:
+      - "127.0.0.1:${REMO_TEST_PROVIDER_PORT:-18443}:8443"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        # The probe is inside the container and the certificate names `fake-provider`,
+        # not loopback, so it verifies the cert on the service name instead of the IP.
+        - "fetch('https://fake-provider:8443/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+  # sync's counterpart: the real gateway from `apps/ai-gateway`, with a registry whose
+  # providers are the fake one. Loopback-only published port, tmpfs state, read-only root.
+  ai-gateway:
+    profiles: ["ai"]
+    build:
+      context: .
+      dockerfile: e2e/gateway/Dockerfile
+    image: remo-test-ai-gateway:local
+    container_name: remo-test-ai-gateway
+    restart: "no"
+    working_dir: /srv/remo
+    command: ["node", "apps/ai-gateway/server.mjs"]
+    read_only: true
+    tmpfs:
+      - /var/lib/remo-ai-gateway:mode=1777
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      # A test token, overridden per run by `pnpm e2e:gateway`; nothing here is a secret.
+      GATEWAY_TOKEN: ${REMO_TEST_GATEWAY_TOKEN:-test-gateway-token}
+      GATEWAY_ADMIN_TOKEN: ${REMO_TEST_GATEWAY_ADMIN_TOKEN:-test-gateway-admin-token}
+      GATEWAY_METRICS_TOKEN: ${REMO_TEST_GATEWAY_METRICS_TOKEN:-test-gateway-metrics-token}
+      GATEWAY_CONFIG: /etc/remo-ai-gateway/config.json
+      GATEWAY_STATE_DIR: /var/lib/remo-ai-gateway
+      GATEWAY_TLS_CERT: /certs/gateway.pem
+      GATEWAY_TLS_KEY: /certs/gateway-key.pem
+      # The provider certificate is signed by the run's CA; the gateway trusts it here and
+      # nowhere in production (`spec/ai-gateway.md` §4.1 keeps providers public HTTPS).
+      NODE_EXTRA_CA_CERTS: /certs/ca.pem
+      FAKE_PROVIDER_KEY: ${REMO_TEST_PROVIDER_KEY:-test-provider-key}
+    volumes:
+      - ./e2e/gateway/config.json:/etc/remo-ai-gateway/config.json:ro
+      - ${REMO_TEST_GATEWAY_CERTS:-./e2e/gateway/.certs}:/certs:ro
+    networks:
+      - ai
+    ports:
+      # sync and the scenario talk to this listener over HTTPS with the run's CA.
+      - "127.0.0.1:${REMO_TEST_GATEWAY_PORT:-18080}:8080"
+    depends_on:
+      fake-provider:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('https://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+volumes:
+  # Project-scoped name is `remo-test_remo-test-postgres-data`; the development volume
+  # (`remo-db`) is never referenced.
+  remo-test-postgres-data:
+
+networks:
+  # Docker would hand out a private RFC1918 address, and the outbound client refuses
+  # private provider addresses by design. A reserved-for-testing-looking block would be
+  # refused too (203.0.113.0/24 is in `isPrivateHost`). This block is outside every range
+  # that check blocks, so the gateway exercises its real DNS-pinning path without a test
+  # seam in the gateway or in `@remo/outbound`.
+  ai:
+    name: remo-test-ai
+    ipam:
+      config:
+        - subnet: 11.77.0.0/24

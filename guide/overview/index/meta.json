@@ -1,0 +1,27 @@
+{
+  "id": "overview/index",
+  "type": "overview",
+  "status": "available",
+  "order": 10,
+  "title": {
+    "ru": "Что такое Ремука",
+    "en": "What Remuka is"
+  },
+  "summary": {
+    "ru": "Визуальный холст для совместной работы команды.",
+    "en": "A shared visual canvas for teamwork."
+  },
+  "related": [
+    "overview/map",
+    "start/quickstart",
+    "concepts/board",
+    "concepts/access"
+  ],
+  "updated": "2026-11-16",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:d639ec7b32320711989c23f255cb1bf7613dbaa07ead071b1ca9cc84f12501e7",
+      "targetHash": "sha256:f564a44437a4bd467fc19a9883b6658119e2a3c9f7db464a18cdb44e053c7b29"
+    }
+  }
+}

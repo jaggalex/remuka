@@ -1,0 +1,27 @@
+{
+  "id": "capabilities/agents",
+  "type": "explanation",
+  "status": "available",
+  "order": 55,
+  "title": {
+    "ru": "Агенты",
+    "en": "Agents"
+  },
+  "summary": {
+    "ru": "Задача со скиллом, обязательный бюджет и четыре пути записи: план с превью, диаграмма сразу, карточки пакетом и упорядочивание колонками.",
+    "en": "A task with a skill, a required budget and four ways to write: a plan with a preview, a diagram at once, cards as a package and tidying into columns."
+  },
+  "related": [
+    "concepts/extensions",
+    "capabilities/tokens",
+    "capabilities/events",
+    "reference/api"
+  ],
+  "updated": "2026-11-02",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:e9210b3c0d78333d8ee3348b89f71f11e2523b65a61ebb04be1bfb7f5c8166a4",
+      "targetHash": "sha256:4abc6d05f66f04f1c065dcae476e370a45f2bcf7b7044ce2226b15fd887103d9"
+    }
+  }
+}
