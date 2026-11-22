@@ -1,0 +1,28 @@
+{
+  "id": "overview/routes",
+  "type": "overview",
+  "status": "available",
+  "order": 30,
+  "title": {
+    "ru": "Как читать эту документацию",
+    "en": "How to read this documentation"
+  },
+  "summary": {
+    "ru": "Семь маршрутов чтения: понять продукт, сделать задачу, найти точный факт, подключить интеграцию, эксплуатировать установку, обслуживать клиентов, дать документацию AI.",
+    "en": "Seven reading paths: understand the product, do a task, look up a fact, connect an integration, run the installation, serve customers, give the documentation to AI."
+  },
+  "related": [
+    "overview/index",
+    "overview/map",
+    "start/quickstart",
+    "concepts/board",
+    "reference/roles"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:4c0778c81ea259111f2f36149fe2d0207987d8b016aa8283111e38d2b3b82f6c",
+      "targetHash": "sha256:e865e6a8bc0f02f86810a862c424bb8454e59b044c162825f5c7cf2f0058012e"
+    }
+  }
+}

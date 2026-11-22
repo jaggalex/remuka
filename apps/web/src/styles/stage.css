@@ -1,0 +1,30 @@
+/*
+ * The stand's strip (ADR-261, `spec/stage.md` §5).
+ *
+ * A fixed band above the shell, so it survives every route without each screen having to
+ * mount it. `StageBanner` sets `data-stage` on the body; the page then reserves exactly
+ * the band's height instead of letting the strip cover the top bar.
+ */
+:root {
+  --stage-banner-height: calc(var(--space-8) + var(--space-1));
+}
+
+body[data-stage] {
+  padding-top: var(--stage-banner-height);
+}
+
+.stage-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: var(--z-toast);
+  height: var(--stage-banner-height);
+  display: flex;
+  align-items: center;
+  background: var(--warning-soft);
+}
+
+.stage-banner .rm-banner {
+  flex: 1;
+  border-radius: 0;
+  justify-content: center;
+}

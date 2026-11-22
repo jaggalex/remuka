@@ -1,0 +1,222 @@
+/* The legal document pages (`/legal/<doc>`), built by `scripts/legal-build.mjs`.
+   A legal text is read like a document, not like the product: one column, a 70-character
+   measure and no navigation that competes with the text. Colours and spacing come from the
+   design tokens (`assets/tokens.css`), never from a literal value (AGENTS.md rule 6). */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  background: var(--bg-app);
+}
+
+a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* ------------------------------------------------------------------ header -- */
+
+.legal-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px) var(--space-6, 24px);
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-4, 16px) var(--space-6, 24px);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+}
+
+.legal-brand {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px) var(--space-4, 16px);
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.legal-nav a {
+  padding: 2px var(--space-2, 8px);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-secondary);
+}
+
+.legal-nav a:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+.legal-nav a[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  background: var(--bg-hover);
+}
+
+/* ----------------------------------------------------------------- article -- */
+
+.legal-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-8, 32px) var(--space-6, 24px) var(--space-12, 48px);
+}
+
+.legal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px) var(--space-4, 16px);
+  margin: 0 0 var(--space-6, 24px);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.legal-plate {
+  display: inline-block;
+  margin: 0 0 var(--space-2, 8px);
+  padding: 2px var(--space-3, 12px);
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.legal-plate-draft {
+  background: var(--sticker-yellow);
+  color: var(--neutral-900);
+}
+
+.legal-note {
+  margin: 0 0 var(--space-6, 24px);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.legal-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px) var(--space-2, 8px);
+  margin: 0 0 var(--space-6, 24px);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.legal-versions a[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+article h1 {
+  margin: 0 0 var(--space-4, 16px);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+article h2,
+article h3,
+article h4 {
+  margin: var(--space-8, 32px) 0 var(--space-2, 8px);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+article h2 {
+  font-size: 22px;
+}
+
+article h3 {
+  font-size: 18px;
+}
+
+article p {
+  margin: 0 0 var(--space-4, 16px);
+}
+
+article ul,
+article ol {
+  margin: 0 0 var(--space-4, 16px);
+  padding-left: var(--space-6, 24px);
+}
+
+article li {
+  margin: 0 0 var(--space-1, 4px);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 0 var(--space-4, 16px);
+}
+
+article table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+article th,
+article td {
+  padding: var(--space-1, 4px) var(--space-2, 8px);
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+article th {
+  background: var(--bg-hover);
+  font-weight: 600;
+}
+
+article code {
+  font-size: 0.9em;
+}
+
+article a {
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ footer -- */
+
+.legal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px) var(--space-4, 16px);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--space-6, 24px) var(--space-8, 32px);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .legal-nav {
+    margin-left: 0;
+  }
+
+  article h1 {
+    font-size: 26px;
+  }
+}

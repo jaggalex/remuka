@@ -1,0 +1,27 @@
+{
+  "id": "reference/api",
+  "type": "reference",
+  "status": "available",
+  "order": 40,
+  "title": {
+    "ru": "HTTP API: маршруты и команды",
+    "en": "HTTP API: routes and commands"
+  },
+  "summary": {
+    "ru": "Точные маршруты, команды комнаты, идемпотентность и версия документа — в одной таблице.",
+    "en": "Exact routes, room commands, idempotency and document version in one table."
+  },
+  "related": [
+    "capabilities/tokens",
+    "reference/errors",
+    "reference/events",
+    "how-to/connect-integration"
+  ],
+  "updated": "2026-11-04",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:7b4cffea35ee033b8b2e4b00aa2dcb7c0db17d518c53cca67735a88166e613ba",
+      "targetHash": "sha256:d86624fe4f4e80e61619ac3fb4861916e6316c060cbdc86d5ab19c4dc90def24"
+    }
+  }
+}

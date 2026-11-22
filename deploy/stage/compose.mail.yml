@@ -1,0 +1,51 @@
+# Mailpit for one stand instance (ADR-261, spec/stage.md §4).
+#
+# SMTP is reachable only on the instance's backend network, where sync finds it as `mail`.
+# The web inbox is reachable only on the shared `edge` network, where the stand's nginx
+# finds it as <project>-mail and puts it behind the stand's basic auth. No port is
+# published on the host.
+#
+#   docker compose -p stage-ru --env-file /srv/stage-ru/shared/production.env \
+#     -f deploy/stage/compose.mail.yml up -d
+#
+# `production.env` then sets the driver to `smtp`, REMO_SMTP_URL=smtp://mail:1025 and
+# REMO_MAIL_FROM to the stand's domain. The stand's REMO_STAGE=1 allow-list decides whether
+# a message leaves for a real address (spec/stage.md §5).
+#
+# `latest` is deliberate for a test tool: pin a version in your own copy once you have one
+# that works, rather than freezing an untested tag here.
+
+name: ${REMO_COMPOSE_PROJECT:-remo}
+
+services:
+  mail:
+    image: axllent/mailpit:latest
+    container_name: ${REMO_COMPOSE_PROJECT:-remo}-mail
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "1000"
+      MP_SMTP_BIND_ADDR: 0.0.0.0:1025
+      MP_UI_BIND_ADDR: 0.0.0.0:8025
+      # The SMTP listener is on a private Docker network. Accept any credentials so the
+      # service's REMO_SMTP_URL may or may not carry a user and password; Mailpit does not
+      # authenticate senders here, the network is the boundary.
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_DISABLE_VERSION_CHECK: "1"
+    networks:
+      backend:
+        aliases: [mail]
+      edge:
+        aliases: ["${REMO_COMPOSE_PROJECT:-remo}-mail"]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+networks:
+  backend:
+    name: ${REMO_COMPOSE_PROJECT:-remo}_backend
+    external: true
+  edge:
+    name: ${REMO_EDGE_NETWORK:?Set REMO_EDGE_NETWORK}
+    external: true

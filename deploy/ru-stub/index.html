@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Регион Россия готовится — Ремука / Remuka</title>
+    <!--
+      The Russia-region stub (spec/rebrand-fixes.md §2). A static page with inline styles
+      and no JavaScript, fonts or images: the host must answer at once, must never point at
+      the EU cloud as if it were the Russian one, and must not be indexed. Colours are the
+      design tokens from packages/ui, written as custom properties because a standalone
+      page cannot load the app stylesheet.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg-app: #fbfbfa; /* neutral-25 */
+        --bg-panel: #ffffff; /* neutral-0 */
+        --text-primary: #1e2136; /* neutral-900 */
+        --text-secondary: #565b73; /* neutral-600 */
+        --border-subtle: #e4e1dc; /* neutral-150 */
+        --accent: #1f5fbf; /* accent-600 */
+        --accent-soft: #efece8; /* neutral-100 */
+        --radius-lg: 14px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 24px;
+        --space-6: 32px;
+        --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-app: #1e2136; /* neutral-900 */
+          --bg-panel: #2b2f45; /* neutral-850 */
+          --text-primary: #fbfbfa; /* neutral-50 */
+          --text-secondary: #c4c7d4; /* neutral-200 */
+          --border-subtle: #3f4256; /* neutral-700 */
+          --accent: #8ab4f8; /* accent-300 */
+          --accent-soft: #3f4256; /* neutral-700 */
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: var(--space-5);
+        background: var(--bg-app);
+        color: var(--text-primary);
+        font: 400 15px/22px var(--font-sans);
+      }
+      main {
+        width: min(560px, 100%);
+        padding: var(--space-6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        background: var(--bg-panel);
+      }
+      h1 {
+        margin: 0 0 var(--space-2);
+        font: 600 24px/30px var(--font-sans);
+      }
+      h2 {
+        margin: 0 0 var(--space-4);
+        color: var(--text-secondary);
+        font: 400 15px/22px var(--font-sans);
+      }
+      p {
+        margin: 0 0 var(--space-4);
+      }
+      .muted {
+        color: var(--text-secondary);
+      }
+      .links {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin-top: var(--space-5);
+      }
+      a {
+        color: var(--accent);
+      }
+      a.primary {
+        display: inline-block;
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-lg);
+        background: var(--accent-soft);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .divider {
+        margin: var(--space-5) 0;
+        border: 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section lang="ru">
+        <h1>Регион Россия готовится</h1>
+        <p>Облако Ремуки сейчас работает в Европейском союзе.</p>
+        <div class="links">
+          <a class="primary" href="https://app.remuka.com">Открыть Ремуку (ЕС)</a>
+          <a href="https://remuka.ru">remuka.ru</a>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <section lang="en">
+        <h1>The Russia region is coming</h1>
+        <p>The Remuka cloud currently runs in the European Union.</p>
+        <div class="links">
+          <a class="primary" href="https://app.remuka.com">Open Remuka (EU)</a>
+          <a href="https://remuka.ru">remuka.ru</a>
+        </div>
+      </section>
+
+      <p class="muted">app.remuka.ru</p>
+    </main>
+  </body>
+</html>

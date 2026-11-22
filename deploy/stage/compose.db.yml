@@ -1,0 +1,47 @@
+# PostgreSQL for one stand instance (ADR-261, spec/stage.md §4).
+#
+# The password is the instance's own, read from the same file the service uses. Nothing is
+# published on the host: the database answers only on the instance's network.
+#
+#   docker compose -p stage-ru --env-file /srv/stage-ru/shared/production.env \
+#     -f deploy/stage/compose.db.yml up -d
+#
+# `production.env` then carries REMO_DB_HOST=<project>-postgres, REMO_DB_NETWORK=<project>-db,
+# and a DATABASE_URL whose host is the same container. The network is created by this file
+# under its exact name, because the application's compose file declares it external.
+#
+# Two instances never share a cluster. A PostgreSQL role is cluster-wide, and `remo_app` is
+# named in the schema: in one cluster the `stage-ru` service could open the `stage-eu`
+# database (spec/stage.md §1.2).
+
+name: ${REMO_COMPOSE_PROJECT:-remo}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${REMO_COMPOSE_PROJECT:-remo}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${REMO_DB_NAME:-remo}
+      POSTGRES_USER: ${REMO_DB_OWNER:-remo}
+      POSTGRES_PASSWORD: ${REMO_DB_PASSWORD:?Set REMO_DB_PASSWORD}
+    volumes:
+      - pg:/var/lib/postgresql/data
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U ${REMO_DB_OWNER:-remo} -d ${REMO_DB_NAME:-remo}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+networks:
+  database:
+    name: ${REMO_DB_NETWORK:?Set REMO_DB_NETWORK}
+
+volumes:
+  pg:
+    name: ${REMO_COMPOSE_PROJECT:-remo}-pg

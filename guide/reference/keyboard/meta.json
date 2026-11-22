@@ -1,0 +1,26 @@
+{
+  "id": "reference/keyboard",
+  "type": "reference",
+  "status": "available",
+  "order": 5,
+  "title": {
+    "ru": "Клавиши: текст",
+    "en": "Keyboard: text"
+  },
+  "summary": {
+    "ru": "Заголовки, списки, чек-лист и пометки с клавиатуры: одно место со всеми сочетаниями.",
+    "en": "Headings, lists, a checklist and marks from the keyboard: every shortcut in one place."
+  },
+  "related": [
+    "how-to/format-text",
+    "capabilities/canvas",
+    "capabilities/connectors"
+  ],
+  "updated": "2026-11-22",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:7f4798f891e16bdaf75ef975ad0c20259425b701c1bd832042a9fbc26774c3f1",
+      "targetHash": "sha256:ff43c015162b0ee647e886d34d26604ed0e8273ccfb52d230e552679f86f96cf"
+    }
+  }
+}

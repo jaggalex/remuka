@@ -1,0 +1,26 @@
+{
+  "id": "operator/account-deletion",
+  "type": "how-to",
+  "status": "available",
+  "order": 100,
+  "title": {
+    "ru": "Удаление аккаунта оператором",
+    "en": "Operator account deletion"
+  },
+  "summary": {
+    "ru": "Предварительный просмотр, удаление без срока и с --now, необратимость и отказ LAST_ADMIN.",
+    "en": "The preview, deletion with a delay or with --now, irreversibility and the LAST_ADMIN refusal."
+  },
+  "related": [
+    "operator/limits",
+    "operator/journal",
+    "operator/totp"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:5b464981b65a1e627adfe37086a83060fb0c4961ceacd9c19c52c25fb4cdffe6",
+      "targetHash": "sha256:97e61a56d3bdbbc3409b088958dd3e995bedc190650311c00b28fb9fa082a9f8"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@remo/consent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One registry of browser storage and the notice/consent rules of the compliance zones (ADR-255).",
+  "main": "src/index.mjs",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs",
+      "default": "./src/index.mjs"
+    }
+  },
+  "license": "AGPL-3.0-only",
+  "author": "Alexander Kostylev"
+}

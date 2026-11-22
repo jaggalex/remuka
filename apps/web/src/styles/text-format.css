@@ -1,0 +1,30 @@
+/* --------------------------------------------------------- text format bar --- */
+
+/*
+ * The line-format row of the object bar (ADR-252 §6): five format toggles, inline code
+ * and the link window. Sizes match the marks beside them, so the bar reads as one row.
+ */
+.sb-format {
+  gap: 2px;
+}
+
+.sb-block-mark {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font: var(--type-label);
+  font-weight: 600;
+}
+
+/* The window anchors to its button, like the colour sample's window (ADR-129). */
+.link-window {
+  display: block;
+}
+
+.link-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}

@@ -1,0 +1,25 @@
+{
+  "id": "operator/pulse",
+  "type": "explanation",
+  "status": "available",
+  "order": 40,
+  "title": {
+    "ru": "Пульс: метрики установки",
+    "en": "Pulse: installation metrics"
+  },
+  "summary": {
+    "ru": "Шесть плиток, откуда берутся числа, почему «—» вместо нуля и чего Пульс не показывает.",
+    "en": "The six tiles, where the numbers come from, why a dash replaces zero and what Pulse does not show."
+  },
+  "related": [
+    "operator/console",
+    "operator/customers"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:a18c6b9e5436f6f8d34334ee601647e8f745f69b950a08a9bf5d759011ff7832",
+      "targetHash": "sha256:e126c9296cfe4f8c1225aa0354c3555834df1026adf941aeb9fe0f36d47d5d01"
+    }
+  }
+}

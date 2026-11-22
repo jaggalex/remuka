@@ -1,0 +1,27 @@
+{
+  "id": "admin/security",
+  "type": "explanation",
+  "status": "available",
+  "order": 20,
+  "title": {
+    "ru": "Безопасность установки",
+    "en": "Installation security"
+  },
+  "summary": {
+    "ru": "Что защищает доступ, где лежат секреты и какие настройки нельзя оставлять по умолчанию.",
+    "en": "What protects access, where secrets live, and which defaults must not be left as they are."
+  },
+  "related": [
+    "admin/deploy",
+    "concepts/access",
+    "capabilities/tokens",
+    "capabilities/events"
+  ],
+  "updated": "2026-11-06",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:96ade6aaed84e8d0542684249f1686648b3094bf275a5bb38aa78318fb585687",
+      "targetHash": "sha256:9f99229e9509c099364f6a975d989bdc6caf33ca59a7484e67a5c614b49fdc29"
+    }
+  }
+}

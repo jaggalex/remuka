@@ -1,0 +1,15 @@
+{
+  "$comment": "Registry of legal documents (ADR-256, spec/legal-acceptance.md §2). A draft may be edited in place; a published version never changes — publish a new version file instead. `sha256` records the text of each published revision: `pnpm legal:build` writes a missing hash, `pnpm legal:check` refuses a changed one.",
+  "documents": [
+    { "zone": "ru", "doc": "offer",   "title": { "ru": "Договор-оферта" },                       "current": 1, "status": "draft", "effective": null, "required": "signup", "reaccept": true,  "lang": ["ru"] },
+    { "zone": "ru", "doc": "consent", "title": { "ru": "Согласие на обработку персональных данных" }, "current": 1, "status": "draft", "effective": null, "required": "signup", "reaccept": true,  "withdrawable": true, "lang": ["ru"] },
+    { "zone": "ru", "doc": "privacy", "title": { "ru": "Политика обработки персональных данных" }, "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["ru"] },
+    { "zone": "ru", "doc": "cookies", "title": { "ru": "Политика cookie" },                      "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["ru"] },
+    { "zone": "ru", "doc": "rules",   "title": { "ru": "Правила использования сервиса" },        "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["ru"] },
+    { "zone": "eu", "doc": "terms",   "title": { "en": "Terms of Service" },                     "current": 1, "status": "draft", "effective": null, "required": "signup", "reaccept": true,  "lang": ["en"] },
+    { "zone": "eu", "doc": "privacy", "title": { "en": "Privacy Policy" },                       "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["en"] },
+    { "zone": "eu", "doc": "cookies", "title": { "en": "Cookie Policy" },                        "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["en"] },
+    { "zone": "eu", "doc": "rules",   "title": { "en": "Acceptable Use, AI Agents and Disclaimer" }, "current": 1, "status": "draft", "effective": null, "required": "none", "reaccept": false, "lang": ["en"] },
+    { "zone": "eu", "doc": "dpa",     "title": { "en": "Data Processing Agreement" },            "current": 1, "status": "draft", "effective": null, "required": "none",   "reaccept": false, "lang": ["en"] }
+  ]
+}

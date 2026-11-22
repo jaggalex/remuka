@@ -1,0 +1,92 @@
+/* -------------------------------------------------------------- support --- */
+
+/* The operator's widget in an isolated frame (ADR-250). The panel is a side sheet below
+   the header, the same shape as the discussion panel (ADR-119): the room's own controls —
+   the account menu, the theme, the title — stay reachable while it is open, so signing out
+   with the chat on screen is a thing a person can do. */
+.support-panel {
+  position: fixed;
+  top: calc(var(--topbar-height) + var(--space-6));
+  right: 12px;
+  bottom: 12px;
+  z-index: var(--z-bar);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--dialog-sm), calc(100vw - 24px));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.support-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.support-panel-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.support-panel-titles strong {
+  font: var(--type-title);
+}
+
+.support-panel-hours {
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.support-panel-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Consent lives above the frame: what is attached is a decision, not a setting hidden
+   behind the operator's page. */
+.support-consent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.support-consent-note {
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.support-panel-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg-app);
+}
+
+/* The page is already loading behind this line; it says what is happening rather than
+   showing an empty rectangle. */
+.support-panel-status {
+  position: absolute;
+  inset: auto var(--space-4) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}

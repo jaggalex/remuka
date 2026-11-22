@@ -1,0 +1,37 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+.claude
+/.config/remo/deploy.env
+
+# sync service room data
+apps/sync/.data
+
+# database dumps
+backups
+
+# built documentation portal (pnpm guide:build)
+docs-site/
+
+# built legal document pages (pnpm legal:build)
+legal-site/
+
+# Playwright (ADR-090)
+e2e-report/
+test-results/
+playwright-report/
+
+# Certificates `pnpm e2e:gateway` generates when a run does not point elsewhere
+e2e/gateway/.certs/
+
+# Generated design preview and Python bytecode cache
+/docs/design/assets/preview.html
+__pycache__/
+
+# Design workspace stays local; only product docs and baselines are tracked.
+/docs/design/sketches/
+/docs/design/visual/

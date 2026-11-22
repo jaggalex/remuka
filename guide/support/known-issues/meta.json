@@ -1,0 +1,28 @@
+{
+  "id": "support/known-issues",
+  "type": "reference",
+  "status": "available",
+  "order": 20,
+  "title": {
+    "ru": "Известные проблемы и ограничения",
+    "en": "Known issues and limitations"
+  },
+  "summary": {
+    "ru": "Что продукт осознанно не делает в этой версии — чтобы не искать дефект там, где его нет.",
+    "en": "What the product deliberately does not do in this version, so you do not hunt for a defect that is not there."
+  },
+  "related": [
+    "support/troubleshooting",
+    "how-to/contact-support",
+    "concepts/access",
+    "capabilities/apps",
+    "admin/deploy"
+  ],
+  "updated": "2026-11-06",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:1d4f34082e1ec2fab219e871ea8053d00dd8ee4b7e2eec72d8c3b8a0d39e5a6a",
+      "targetHash": "sha256:f4f9fd98542c69bf266d208326ba007635a8f57e995c7b7efa1a74f26aabe2d7"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "operator/first-operator",
+  "type": "how-to",
+  "status": "available",
+  "order": 20,
+  "title": {
+    "ru": "Первый оператор установки",
+    "en": "The first installation operator"
+  },
+  "summary": {
+    "ru": "Как выдать первую роль на новой установке, назвать автора команды и что делать, если доступ потерян.",
+    "en": "How to grant the first role on a new installation, name the author of a command and recover when access is lost."
+  },
+  "related": [
+    "operator/what-is-an-operator",
+    "operator/console",
+    "operator/totp"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:dcf6646ffa5321fe533e9d4acf2e525b7c5f4a7751e71d3f444a19b215ea5238",
+      "targetHash": "sha256:35f630449b48f1624939b40defeb49e2c776fc0362acb558d91c63a1dcd40941"
+    }
+  }
+}

@@ -1,0 +1,1932 @@
+-- remo board storage (ADR-016).
+--
+-- Two layers: an append-only update log plus a compacted snapshot (the room can
+-- always be rebuilt from these), and a queryable projection that is refreshed as
+-- a diff while people edit.
+--
+-- Idempotent: the sync service runs this on every start.
+
+create table if not exists boards (
+  id text primary key,
+  -- Board name: the document's `meta` title once it has one, otherwise the name the
+  -- board was created with. An empty document title never clears it.
+  title text not null default '',
+  -- A board's tile image is one emoji for now (ADR-168); images come later.
+  icon text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- Full Yjs state as of `snapshot_through`; the log after that point is replayed on load.
+  snapshot bytea,
+  snapshot_through bigint not null default 0
+);
+
+-- Older deployments created `boards` without these columns.
+alter table boards add column if not exists title text not null default '';
+alter table boards add column if not exists icon text not null default '';
+alter table boards add column if not exists snapshot bytea;
+alter table boards add column if not exists snapshot_through bigint not null default 0;
+-- Older boards have no creation time. `updated_at` is the best available approximation;
+-- the migration is honest about that rather than pretending the date is exact.
+alter table boards add column if not exists created_at timestamptz;
+update boards set created_at = updated_at where created_at is null;
+alter table boards alter column created_at set default now();
+alter table boards alter column created_at set not null;
+
+create table if not exists board_updates (
+  id bigserial primary key,
+  board_id text not null references boards (id) on delete cascade,
+  update bytea not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists board_updates_board_id_id_idx on board_updates (board_id, id);
+
+create table if not exists widgets (
+  board_id text not null references boards (id) on delete cascade,
+  id text not null,
+  type text not null,
+  parent_id text,
+  x double precision,
+  y double precision,
+  width double precision,
+  height double precision,
+  title text,
+  content text,
+  fill_color text,
+  card_theme text,
+  rotation double precision not null default 0,
+  -- Modelled extras the read path keeps without a column per idea: a sticker or lane
+  -- caption, a shape kind, connector endpoints and card fields (see
+  -- apps/sync/project.mjs).
+  props jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (board_id, id)
+);
+
+-- Older deployments created `widgets` without the modelled extras. This must follow
+-- the `create table`: on a fresh database the table does not exist yet, and the whole
+-- migration used to fail there (found on a new volume at stage 6).
+alter table widgets add column if not exists props jsonb;
+
+create index if not exists widgets_board_id_type_idx on widgets (board_id, type);
+create index if not exists widgets_parent_idx on widgets (board_id, parent_id);
+
+create table if not exists kanban_columns (
+  board_id text not null references boards (id) on delete cascade,
+  kanban_id text not null,
+  id text not null,
+  title text not null default '',
+  accent text,
+  width double precision,
+  wip_limit integer,
+  position integer not null default 0,
+  primary key (board_id, kanban_id, id)
+);
+
+create table if not exists kanban_swimlanes (
+  board_id text not null references boards (id) on delete cascade,
+  kanban_id text not null,
+  id text not null,
+  title text not null default '',
+  position integer not null default 0,
+  primary key (board_id, kanban_id, id)
+);
+
+-- Card placement: the part the source product never exposes, so it is worth its own table.
+create table if not exists kanban_cards (
+  board_id text not null references boards (id) on delete cascade,
+  kanban_id text not null,
+  card_id text not null,
+  column_id text not null,
+  swimlane_id text not null,
+  order_key text not null default 'n',
+  primary key (board_id, kanban_id, card_id)
+);
+
+create index if not exists kanban_cards_cell_idx
+  on kanban_cards (board_id, kanban_id, column_id, swimlane_id, order_key);
+
+-- Read path: board list and text search over the projection.
+--
+-- Trigram indexes so `ILIKE '%…%'` can use an index instead of scanning the table.
+-- One index per column: the search filters `title` and `content` separately, so a
+-- single index over a concatenated expression would never match the query.
+create extension if not exists pg_trgm;
+
+create index if not exists widgets_title_trgm_idx on widgets using gin (title gin_trgm_ops);
+create index if not exists widgets_props_gin_idx on widgets using gin (props jsonb_path_ops);
+create index if not exists widgets_content_trgm_idx on widgets using gin (content gin_trgm_ops);
+
+-- Drop the earlier, unusable expression index if it exists.
+drop index if exists widgets_text_trgm_idx;
+
+-- ---------------------------------------------------------------------------
+-- IAM v1 (ADR-061…064, spec/IAM-v1.md).
+--
+-- The board row is the same row the projection uses: a room *is* a board, and the
+-- IAM columns are what turn it from "anybody who knows the name" into a resource with
+-- an owner. A board with `owner_id IS NULL` is unclaimed and keeps the legacy access
+-- rule until somebody claims it (ADR-064).
+-- ---------------------------------------------------------------------------
+
+alter table boards add column if not exists org_id uuid;
+alter table boards add column if not exists team_id uuid;
+alter table boards add column if not exists owner_id uuid;
+alter table boards add column if not exists visibility text not null default 'private';
+alter table boards add column if not exists acl_version bigint not null default 1;
+alter table boards add column if not exists archived_at timestamptz;
+alter table boards add column if not exists claimed_at timestamptz;
+alter table boards add column if not exists claim_token_hash bytea;
+
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  password_hash text not null,
+  name text not null,
+  -- Public, mentionable identity (ADR-164). Unique case-insensitively.
+  handle text,
+  state text not null default 'active'
+    check (state in ('active', 'suspended', 'deleting', 'deleted')),
+  -- Interface preferences that follow the person, not the browser (ADR-150). Null means
+  -- "this account has not chosen yet": the first browser to sign in seeds it locally.
+  theme text,
+  lang text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Older deployments created `users` without the preference columns.
+alter table users add column if not exists theme text;
+alter table users add column if not exists lang text;
+alter table users add column if not exists handle text;
+-- Nobody proved the address until a token was used (ADR-246). Existing accounts stay
+-- null on purpose: nothing ever checked them, so claiming otherwise would be a lie.
+alter table users add column if not exists email_verified_at timestamptz;
+
+-- Support identity (ADR-250): a separate, rotatable id the help desk may know. It is not
+-- the account id, because the Chatwoot HMAC has no expiry: one leaked hash must never
+-- point at the account itself. Created on the first `POST /api/support/identity`.
+alter table users add column if not exists support_id text unique;
+
+-- Account deletion (schema 29, ADR-257, `spec/account-deletion.md`). An account stops
+-- working in `deleting` and becomes a tombstone in `deleted`; the date is what the purge
+-- job counts fourteen days from, and it stays on the tombstone as history. The inline
+-- check above already carries the four values on a fresh database; this block moves an
+-- older one, whose auto-named constraint accepts only the first two.
+alter table users add column if not exists deletion_requested_at timestamptz;
+alter table users drop constraint if exists users_state_check;
+alter table users add constraint users_state_check
+  check (state in ('active', 'suspended', 'deleting', 'deleted'));
+
+-- The author of a board is its creator, not its current owner: ownership can be
+-- transferred, history should not be rewritten (ADR-168).
+alter table boards add column if not exists created_by uuid;
+update boards set created_by = owner_id where created_by is null and owner_id is not null;
+do $$
+begin
+  alter table boards
+    add constraint boards_created_by_fkey
+    foreign key (created_by) references users (id) on delete set null not valid;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Backfill a mandatory handle from the email local part, then deduplicate it.
+update users
+   set handle = lower(regexp_replace(split_part(email, '@', 1), '[^a-zA-Z0-9]', '', 'g'))
+ where handle is null;
+update users set handle = 'user' where handle is null or handle = '';
+update users set handle = handle || 'user' where length(handle) < 3;
+with ranked as (
+  select id, handle,
+         row_number() over (partition by lower(handle) order by created_at, id) as rn
+    from users
+)
+update users u
+   set handle = left(u.handle, 28) || r.rn
+  from ranked r
+ where u.id = r.id and r.rn > 1;
+alter table users alter column handle set not null;
+create unique index if not exists users_handle_idx on users (lower(handle));
+
+create table if not exists sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users (id) on delete cascade,
+  token_hash bytea not null unique,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  user_agent text,
+  -- The operator console's step-up: the last time this session re-entered the password
+  -- (ADR-259 §1 rule 6, stage 2). Reads do not need it; changing actions will.
+  operator_confirmed_at timestamptz
+);
+
+create index if not exists sessions_user_idx on sessions (user_id);
+
+-- Stage 2 of the operator console (ADR-259 §5): an existing installation gets the
+-- step-up column without recreating the session table.
+alter table sessions add column if not exists operator_confirmed_at timestamptz;
+
+-- One-off tokens for a password reset or an address confirmation (ADR-246). A row is a
+-- hash, never the token: the link exists in the mail and in the sealed parameters, not
+-- here. A new token of the same purpose marks the old ones used, and a changed address
+-- voids the token because `email` must still be the account's address.
+create table if not exists auth_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users (id) on delete cascade,
+  purpose text not null check (purpose in ('password_reset', 'email_verify', 'account_restore')),
+  token_hash bytea not null unique,
+  -- the address the token proves; a later change of address voids it
+  email text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+create index if not exists auth_tokens_user_idx on auth_tokens (user_id, purpose)
+  where used_at is null;
+
+-- Schema 30 adds the cancellation link of an account on its way out (ADR-257 §2.4). The
+-- constraint is replaced rather than the table, so an existing outbox and its rows stay.
+alter table auth_tokens drop constraint if exists auth_tokens_purpose_check;
+alter table auth_tokens add constraint auth_tokens_purpose_check
+  check (purpose in ('password_reset', 'email_verify', 'account_restore'));
+
+/* ---------------------------------------------------------------- mfa -- */
+-- The operator's second factor (ADR-260, `spec/totp.md` §3, schema 35). A factor belongs
+-- to a person, not to an organisation, exactly like `sessions`: it follows the account
+-- across every room, there is no `org_id` to scope it with, and it stays outside tenant
+-- RLS (`scripts/rls-inventory.mjs` lists it as global). Every read names the `user_id`.
+--
+-- The secret is sealed with the KEK before it is written: `encryptSecret` scope `mfa`,
+-- scope id and row id both the user id, so ciphertext moved to another account no longer
+-- decrypts. `secret_dek_wrapped`/`secret_dek_nonce` are the envelope's data key, the same
+-- shape as `payment_methods`. No API answer contains any of these columns after enrolment.
+--
+-- `confirmed_at` is null between "a secret was generated" and "a code proved it"; the
+-- installation's hourly retention pass removes such a row after a day, and an expired
+-- `mfa_challenges` row with it (`spec/operator-actions.md` §6). `last_step` is the last
+-- accepted RFC 6238 step and is what makes a code single-use (§1 rule 4).
+create table if not exists user_mfa (
+  user_id uuid primary key references users (id) on delete cascade,
+  kind text not null default 'totp' check (kind = 'totp'),
+  secret_ciphertext bytea not null,
+  secret_nonce bytea not null,
+  secret_dek_wrapped bytea not null,
+  secret_dek_nonce bytea not null,
+  kek_id text not null,
+  confirmed_at timestamptz,
+  last_step bigint,
+  created_at timestamptz not null default now()
+);
+
+-- Ten one-time codes, stored as SHA-256 digests: the code itself has 50 bits of entropy,
+-- so a digest is enough and a database dump cannot be replayed (§3). `used_at` is the
+-- lock that makes "one code, one sign-in" true under parallel requests.
+create table if not exists user_mfa_recovery_codes (
+  user_id uuid not null references users (id) on delete cascade,
+  code_hash bytea not null,
+  used_at timestamptz,
+  primary key (user_id, code_hash)
+);
+
+-- A password was proved and a code is still owed (§5). Only the digest of the challenge
+-- token is stored, `attempts` counts wrong answers up to five, and the row dies after
+-- five minutes. The token never grants a session on its own.
+create table if not exists mfa_challenges (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users (id) on delete cascade,
+  token_hash bytea not null unique,
+  purpose text not null check (purpose in ('login', 'step_up')),
+  attempts integer not null default 0,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists mfa_challenges_user_idx
+  on mfa_challenges (user_id, created_at desc);
+
+-- Schema 39: one row per wrong second-factor code typed at the operator's shell
+-- (`spec/operator-actions.md` §5, D1 in `spec/stage-operator-acceptance.md`). Each
+-- `pnpm billing:*` command is its own process, so an in-memory counter could never close
+-- the next run; the row is the counter and survives a restart. Five rows inside fifteen
+-- minutes close the operator's money and measure commands, the fifth row's own `at` starts
+-- the window's expiry, a correct code deletes the operator's rows, and the hourly retention
+-- pass drops rows older than the window. Keyed by the account like `sessions`, outside
+-- tenant RLS.
+create table if not exists mfa_cli_attempts (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references users (id) on delete cascade,
+  at timestamptz not null
+);
+create index if not exists mfa_cli_attempts_user_idx
+  on mfa_cli_attempts (user_id, at desc);
+
+-- When this session last proved a code (ADR-260 §6). The operator console reads it:
+-- a code no older than twelve hours for reading, fifteen minutes for changing.
+alter table sessions add column if not exists mfa_at timestamptz;
+-- Schema 37: which factor opened the step-up window (`spec/operator-actions.md` §3.1
+-- rule 5). The audit row names `totp` or `recovery`; without this column a console action
+-- could only guess, because both kinds of code refresh the same `mfa_at`.
+alter table sessions add column if not exists mfa_factor text;
+alter table sessions drop constraint if exists sessions_mfa_factor_check;
+alter table sessions add constraint sessions_mfa_factor_check
+  check (mfa_factor is null or mfa_factor in ('totp', 'recovery'));
+
+-- Cookie choices of signed-in accounts (ADR-255, `spec/cookies.md` §4).
+--
+-- A choice belongs to a person, not to an organisation: it follows the account across
+-- every room and organisation and there is no tenant to scope it to. The table therefore
+-- stays outside tenant RLS, beside `users` and `sessions` (ADR-178), and is listed as
+-- global in `scripts/rls-inventory.mjs`. Guests make a choice in the browser only and
+-- never get a row, which is why `user_id` is nullable.
+--
+-- A row proves what a person chose under which edition of the policy: that is the
+-- evidence for GDPR art. 7(1) and for 152-ФЗ. The address is stored as a keyed digest,
+-- never as an address, and without `REMO_KEK` the digest stays null.
+create table if not exists consent_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users (id) on delete cascade,
+  zone text not null check (zone in ('eu', 'ru')),
+  -- Only the optional tracking categories; `necessary` is never a choice (§2).
+  choices jsonb not null check (jsonb_typeof(choices) = 'object'),
+  policy_version text not null,
+  user_agent text,
+  ip_hash text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists consent_events_user_idx
+  on consent_events (user_id, created_at desc);
+
+-- Legal acceptances (ADR-256, `spec/legal-acceptance.md` §4). This is the proof of what a
+-- person accepted, in which zone, at which revision and with which hash; the registry of
+-- documents stays in `content/legal/`, because the texts are shipped data and a second
+-- copy in the database would be a second source of truth.
+--
+-- The row belongs to a person, not to an organisation, so it lives outside tenant RLS
+-- beside `users` and `consent_events` (ADR-178) and every read is keyed by `user_id`.
+-- `on delete cascade` is never exercised in practice: an account becomes a tombstone, and
+-- the journal keeps pointing at it as the pseudonym (ADR-257 §3); the purge clears
+-- `ip_hash` and `user_agent` immediately.
+--
+-- `ip_hash` is an HMAC-SHA-256 keyed with `REMO_KEK`, never an address. Whether it is
+-- written and for how long is a setting (`REMO_LEGAL_STORE_IP`,
+-- `REMO_LEGAL_IP_RETENTION_DAYS`); EU keeps none by default, RU keeps three years.
+create table if not exists legal_acceptances (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users (id) on delete cascade,
+  zone text not null check (zone in ('eu', 'ru')),
+  doc text not null,
+  version integer not null check (version >= 1),
+  sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
+  accepted_at timestamptz not null default now(),
+  ip_hash text,
+  user_agent text,
+  -- An acceptance and a withdrawal are both immutable journal rows (ADR-256 §6); the
+  -- latest row per document is the person's current state. Schema 32.
+  event text not null default 'accept' check (event in ('accept', 'withdraw'))
+);
+
+-- Migration for an installation created before schema 32: the column is additive and
+-- every existing row is an acceptance, which is what the default says.
+alter table legal_acceptances add column if not exists event text not null default 'accept';
+alter table legal_acceptances drop constraint if exists legal_acceptances_event_check;
+alter table legal_acceptances add constraint legal_acceptances_event_check
+  check (event in ('accept', 'withdraw'));
+
+create index if not exists legal_acceptances_user_idx
+  on legal_acceptances (user_id, accepted_at desc);
+-- The operator's question is usually "who accepted this revision", not one person's list.
+create index if not exists legal_acceptances_doc_idx
+  on legal_acceptances (zone, doc, version, accepted_at desc);
+-- The retention pass reads only rows that still hold a digest.
+create index if not exists legal_acceptances_ip_idx
+  on legal_acceptances (accepted_at) where ip_hash is not null;
+
+create table if not exists orgs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  -- `personal` is the one organisation every account gets; it is a normal tenant
+  -- with a badge, not a second permission model (ADR-167).
+  kind text not null default 'shared' check (kind in ('personal', 'shared')),
+  created_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  -- An installation operator may suspend an organisation for abuse (ADR-259). The
+  -- public reference is the complaint the measure answers; both clear on `abuse:revert`.
+  suspended_at timestamptz,
+  suspension_ref text
+);
+
+alter table orgs add column if not exists suspended_at timestamptz;
+alter table orgs add column if not exists suspension_ref text;
+
+alter table orgs add column if not exists kind text not null default 'shared';
+do $$
+begin
+  alter table orgs
+    add constraint orgs_kind_check check (kind in ('personal', 'shared'));
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Existing deployments: the first organisation a person created was their personal one.
+with first_org as (
+  select distinct on (created_by) id, created_by
+    from orgs
+   where created_by is not null
+   order by created_by, created_at, id
+)
+update orgs o
+   set kind = 'personal'
+  from first_org f
+ where o.id = f.id and o.kind = 'shared';
+
+create table if not exists org_memberships (
+  org_id uuid not null references orgs (id) on delete cascade,
+  user_id uuid not null references users (id) on delete cascade,
+  relation text not null default 'member' check (relation in ('member', 'guest')),
+  state text not null default 'active'
+    check (state in ('invited', 'active', 'suspended', 'removed')),
+  created_at timestamptz not null default now(),
+  primary key (org_id, user_id)
+);
+
+create table if not exists admin_roles (
+  org_id uuid not null references orgs (id) on delete cascade,
+  user_id uuid not null references users (id) on delete cascade,
+  role text not null check (role in ('org_admin', 'user_admin', 'security_admin', 'content_admin')),
+  granted_by uuid references users (id),
+  granted_at timestamptz not null default now(),
+  primary key (org_id, user_id, role)
+);
+
+create table if not exists teams (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  unique (org_id, name)
+);
+
+create table if not exists team_memberships (
+  team_id uuid not null references teams (id) on delete cascade,
+  user_id uuid not null references users (id) on delete cascade,
+  role text not null default 'member' check (role in ('member', 'admin')),
+  source text not null default 'direct' check (source in ('direct', 'group')),
+  created_at timestamptz not null default now(),
+  primary key (team_id, user_id, source)
+);
+
+create table if not exists board_grants (
+  id uuid primary key default gen_random_uuid(),
+  board_id text not null references boards (id) on delete cascade,
+  subject_type text not null check (subject_type in ('user', 'team', 'org')),
+  subject_id uuid not null,
+  role text not null check (role in ('viewer', 'commenter', 'editor', 'coowner')),
+  granted_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz,
+  unique (board_id, subject_type, subject_id)
+);
+
+create index if not exists board_grants_board_idx on board_grants (board_id);
+create index if not exists board_grants_subject_idx on board_grants (subject_type, subject_id);
+
+create table if not exists board_links (
+  board_id text primary key references boards (id) on delete cascade,
+  -- Legacy column from the per-copy token model (ADR-069 superseded it). It stays
+  -- nullable so existing databases migrate without a destructive rewrite; access is
+  -- decided by `boards.visibility` plus the link settings below.
+  token_hash bytea unique,
+  role text not null default 'viewer' check (role in ('viewer')),
+  enabled boolean not null default true,
+  version int not null default 1,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now()
+);
+
+alter table board_links alter column token_hash drop not null;
+alter table board_links add column if not exists password_hash text;
+alter table board_links add column if not exists password_version int not null default 1;
+alter table board_links add column if not exists expires_at timestamptz;
+
+-- A password unlock is a short-lived server-side session, not a client flag: the
+-- cookie carries a random token whose hash is checked against the current
+-- `password_version`, so changing the password closes every earlier unlock (ADR-069).
+create table if not exists board_link_unlocks (
+  token_hash bytea primary key,
+  board_id text not null references boards (id) on delete cascade,
+  password_version int not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists board_link_unlocks_board_idx on board_link_unlocks (board_id);
+
+create table if not exists org_policies (
+  org_id uuid primary key references orgs (id) on delete cascade,
+  can_share boolean not null default true,
+  public_links boolean not null default false,
+  invite_members boolean not null default true
+);
+
+create table if not exists invitations (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  target_type text not null check (target_type in ('org', 'team', 'board')),
+  target_id text,
+  email text not null,
+  subject_kind text not null default 'member' check (subject_kind in ('member', 'guest')),
+  role text not null,
+  token_hash bytea not null unique,
+  state text not null default 'pending'
+    check (state in ('pending', 'accepted', 'revoked', 'expired')),
+  expires_at timestamptz not null,
+  created_by uuid references users (id),
+  accepted_by uuid references users (id),
+  accepted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists invitations_email_idx on invitations (email, state);
+
+create table if not exists audit_events (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  actor_id uuid,
+  org_id uuid,
+  board_id text,
+  action text not null,
+  subject text,
+  before jsonb,
+  after jsonb,
+  request_id text,
+  reason text,
+  -- Which login did it; the account stays in actor_id (ADR-154).
+  session_id uuid
+);
+
+create index if not exists audit_events_org_idx on audit_events (org_id, at desc);
+create index if not exists audit_events_board_idx on audit_events (board_id, at desc);
+-- Schema 36: which surface an operator action came from and what proved the person
+-- (ADR-262 §3.1 rule 5). One audit format for the shell and the console, so the journal
+-- shows the channel without a second table; a row written by the product itself carries
+-- neither and stays valid (`at`, `actor_type = 'system'`).
+alter table audit_events add column if not exists channel text;
+alter table audit_events add column if not exists mfa text;
+alter table audit_events drop constraint if exists audit_events_channel_check;
+alter table audit_events add constraint audit_events_channel_check
+  check (channel is null or channel in ('cli', 'console'));
+alter table audit_events drop constraint if exists audit_events_mfa_check;
+alter table audit_events add constraint audit_events_mfa_check
+  check (mfa is null or mfa in ('totp', 'recovery'));
+
+/* ---------------------------------------------------------------- agents -- */
+-- AI agents as principals owned by a person (spec/AI-agents-v1.md). An agent has no
+-- seat, no password and no grants of its own: a task is the unit of authority.
+
+alter table org_policies add column if not exists agents_enabled boolean not null default false;
+alter table boards add column if not exists agents_enabled boolean not null default false;
+
+create table if not exists agents (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  owner_id uuid not null references users (id) on delete cascade,
+  name text not null,
+  state text not null default 'active' check (state in ('active', 'disabled')),
+  created_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  disabled_at timestamptz
+);
+
+create index if not exists agents_org_idx on agents (org_id, state);
+create index if not exists agents_owner_idx on agents (owner_id, state);
+
+create table if not exists agent_tokens (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references agents (id) on delete cascade,
+  token_hash bytea not null unique,
+  label text not null default '',
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  last_used_at timestamptz,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists agent_tokens_agent_idx on agent_tokens (agent_id);
+
+create table if not exists agent_skills (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references orgs (id) on delete cascade,
+  slug text not null,
+  version integer not null default 1,
+  name text not null,
+  description text not null default '',
+  input_schema jsonb not null default '{}'::jsonb,
+  output_schema jsonb not null default '{}'::jsonb,
+  required_capabilities text[] not null default '{}',
+  tools text[] not null default '{}',
+  risk text not null default 'propose' check (risk in ('read', 'propose', 'write', 'destructive')),
+  handler text not null,
+  state text not null default 'draft' check (state in ('draft', 'published', 'disabled')),
+  created_by uuid references users (id),
+  published_by uuid references users (id),
+  published_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- A global built-in skill and an organisation's own skill live side by side; Postgres
+-- treats nulls as distinct, so each needs its own partial unique index.
+create unique index if not exists agent_skills_global_idx
+  on agent_skills (slug, version) where org_id is null;
+create unique index if not exists agent_skills_org_idx
+  on agent_skills (org_id, slug, version) where org_id is not null;
+
+create table if not exists agent_schedules (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  skill_slug text not null,
+  intent text not null,
+  input jsonb not null default '{}'::jsonb,
+  budget jsonb not null default '{}'::jsonb,
+  interval_seconds integer not null check (interval_seconds >= 60),
+  enabled boolean not null default true,
+  next_run_at timestamptz not null,
+  last_run_at timestamptz,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists agent_schedules_due_idx on agent_schedules (enabled, next_run_at);
+create index if not exists agent_schedules_board_idx on agent_schedules (board_id);
+
+create table if not exists agent_tasks (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  mode text not null default 'write' check (mode in ('read', 'propose', 'write')),
+  capabilities text[] not null default '{}',
+  intent text not null,
+  input jsonb not null default '{}'::jsonb,
+  skill_id uuid references agent_skills (id),
+  skill_slug text,
+  skill_version integer,
+  status text not null default 'queued'
+    check (status in ('queued', 'running', 'awaiting_approval', 'applied', 'failed', 'cancelled')),
+  budget jsonb not null default '{}'::jsonb,
+  usage jsonb not null default '{}'::jsonb,
+  result jsonb,
+  error text,
+  created_by uuid references users (id),
+  schedule_id uuid references agent_schedules (id) on delete set null,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz
+);
+
+create index if not exists agent_tasks_board_idx on agent_tasks (board_id, created_at desc);
+create index if not exists agent_tasks_agent_idx on agent_tasks (agent_id, created_at desc);
+create index if not exists agent_tasks_status_idx on agent_tasks (status, created_at);
+
+create table if not exists agent_actions (
+  id bigserial primary key,
+  task_id uuid not null references agent_tasks (id) on delete cascade,
+  board_id text not null,
+  object_id text,
+  action text not null,
+  detail jsonb,
+  at timestamptz not null default now()
+);
+
+create index if not exists agent_actions_task_idx on agent_actions (task_id);
+
+alter table audit_events add column if not exists actor_type text not null default 'user';
+alter table audit_events add column if not exists agent_id uuid;
+alter table audit_events add column if not exists task_id uuid;
+alter table audit_events add column if not exists skill text;
+alter table audit_events add column if not exists session_id uuid;
+
+/* ------------------------------------------------ AI credentials and log -- */
+
+alter table org_policies add column if not exists ai_key_mode text not null default 'either'
+  check (ai_key_mode in ('either', 'org', 'personal'));
+alter table org_policies add column if not exists ai_providers text[] not null default '{}';
+alter table org_policies add column if not exists ai_models text[] not null default '{}';
+
+create table if not exists ai_credentials (
+  id uuid primary key,
+  scope text not null check (scope in ('user', 'org')),
+  scope_id uuid not null,
+  provider text not null,
+  label text not null default '',
+  base_url text not null,
+  model text,
+  -- AES-256-GCM(secret); the DEK is wrapped by a KEK that is not in this database.
+  ciphertext bytea not null,
+  nonce bytea not null,
+  dek_wrapped bytea not null,
+  dek_nonce bytea not null,
+  kek_id text not null,
+  fingerprint text not null,
+  is_default boolean not null default true,
+  state text not null default 'active' check (state in ('active', 'revoked')),
+  created_by uuid references users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  rotated_at timestamptz,
+  last_used_at timestamptz
+);
+
+create index if not exists ai_credentials_scope_idx
+  on ai_credentials (scope, scope_id, state);
+create unique index if not exists ai_credentials_default_idx
+  on ai_credentials (scope, scope_id, provider)
+  where is_default and state = 'active';
+
+alter table agents add column if not exists credential_id uuid
+  references ai_credentials (id) on delete set null;
+alter table agents add column if not exists model text;
+alter table agent_tasks add column if not exists credential_id uuid
+  references ai_credentials (id) on delete set null;
+alter table agent_tasks add column if not exists model text;
+alter table agent_tasks add column if not exists progress jsonb not null default '{}'::jsonb;
+
+-- One row per model call: the evidential journal. Append-only, hash-chained per org.
+create table if not exists ai_runs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  seq bigint not null,
+  prev_hash text not null,
+  hash text not null,
+  agent_id uuid,
+  task_id uuid,
+  owner_id uuid,
+  board_id text,
+  skill text,
+  skill_version integer,
+  capabilities text[] not null default '{}',
+  acl_version bigint,
+  provider text,
+  model text,
+  credential_id uuid,
+  key_fingerprint text,
+  temperature numeric,
+  max_tokens integer,
+  toolset text[] not null default '{}',
+  prompt_hash text,
+  input_object_ids text[] not null default '{}',
+  prompt_tokens integer not null default 0,
+  completion_tokens integer not null default 0,
+  cost_usd numeric(12, 8) not null default 0,
+  latency_ms integer,
+  status text not null,
+  error_code text,
+  error_message text,
+  request_id text,
+  started_at timestamptz,
+  finished_at timestamptz,
+  unique (org_id, seq)
+);
+
+create index if not exists ai_runs_org_idx on ai_runs (org_id, seq desc);
+create index if not exists ai_runs_task_idx on ai_runs (task_id);
+
+-- Schema 27 (ADR-251): which gateway provider answered. Null means a direct call, and a
+-- row written before the column still hashes the same because the field is omitted then.
+alter table ai_runs add column if not exists gateway_provider text;
+
+create table if not exists ai_log_anchors (
+  id bigserial primary key,
+  org_id uuid not null references orgs (id) on delete cascade,
+  seq bigint not null,
+  hash text not null,
+  destination text not null,
+  ref text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ai_log_anchors_org_idx on ai_log_anchors (org_id, seq desc);
+
+alter table agent_tasks add column if not exists idempotency_key text;
+-- A key identifies one request by one person on one board. Scoping it to the org let a
+-- retry on another board return the first board's task (AG-11).
+drop index if exists agent_tasks_idempotency_idx;
+create unique index if not exists agent_tasks_board_idempotency_idx
+  on agent_tasks (board_id, created_by, idempotency_key)
+  where idempotency_key is not null;
+
+/* ---------------------------------------------------------- change sets -- */
+-- A change set is a first-class package of deterministic operations. Small work can
+-- run atomically; large work runs in chunks with progress and can be resumed after a
+-- failure. The task queue executes it, so permissions, budgets and audit stay in one
+-- place.
+
+create table if not exists agent_change_sets (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  created_by uuid references users (id) on delete set null,
+  operations jsonb not null,
+  estimate jsonb not null default '{}'::jsonb,
+  status text not null default 'draft'
+    check (status in ('draft','queued','running','applied','failed','cancelled','stale')),
+  progress jsonb not null default '{}'::jsonb,
+  result jsonb,
+  error text,
+  acl_version bigint,
+  idempotency_key text,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz
+);
+
+create index if not exists agent_change_sets_board_idx
+  on agent_change_sets (board_id, created_at desc);
+create index if not exists agent_change_sets_status_idx
+  on agent_change_sets (status, created_at);
+-- Same rule as a task: one board and one creator own the key.
+drop index if exists agent_change_sets_idempotency_idx;
+create unique index if not exists agent_change_sets_board_idempotency_idx
+  on agent_change_sets (board_id, created_by, idempotency_key)
+  where idempotency_key is not null;
+
+alter table agent_tasks add column if not exists change_set_id uuid
+  references agent_change_sets (id) on delete set null;
+create index if not exists agent_tasks_change_set_idx on agent_tasks (change_set_id);
+
+alter table agent_change_sets add column if not exists budget jsonb not null default '{}'::jsonb;
+alter table agent_change_sets add column if not exists intent text not null default '';
+alter table agent_change_sets add column if not exists origin jsonb not null default '{}'::jsonb;
+
+/* ------------------------------------------------------- authoring plans -- */
+-- An agent task that authors a structure ends with a plan, not with objects
+-- (ADR-142, M2a). The client applies the plan in one local transaction; the server
+-- only stores it, records approval and never writes the board.
+--
+-- One row per task is the idempotency rule: a task that is run twice refreshes a
+-- still-proposed plan, and never overwrites one a person has already approved.
+
+create table if not exists agent_task_plans (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null unique references agent_tasks (id) on delete cascade,
+  org_id uuid not null references orgs (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  status text not null default 'proposed'
+    check (status in ('proposed', 'approved', 'applied', 'rejected')),
+  plan jsonb not null,
+  estimate jsonb not null default '{}'::jsonb,
+  skill_slug text,
+  skill_version integer,
+  model text,
+  proposed_at timestamptz not null default now(),
+  approved_at timestamptz,
+  approved_by uuid references users (id) on delete set null,
+  applied_at timestamptz,
+  rejected_at timestamptz,
+  rejected_by uuid references users (id) on delete set null,
+  rejection_reason text
+);
+
+create index if not exists agent_task_plans_board_idx
+  on agent_task_plans (board_id, proposed_at desc);
+
+-- The text a task was given: the task's own wording and one attached file. It is
+-- data for the model, not board content, so it is readable through the plan route
+-- only (board.edit) and never returned by the task list. The original bytes are not
+-- stored: the extracted text is all a model can use, and keeping the upload would
+-- only widen the exposure.
+
+create table if not exists agent_task_inputs (
+  task_id uuid not null references agent_tasks (id) on delete cascade,
+  source text not null check (source in ('text', 'file', 'selection')),
+  name text not null default '',
+  kind text not null check (kind in ('text', 'md', 'txt', 'csv')),
+  content text not null,
+  bytes integer not null default 0,
+  chars integer not null,
+  truncated boolean not null default false,
+  truncation_code text,
+  created_at timestamptz not null default now(),
+  primary key (task_id, source)
+);
+
+-- ADR-143: the selection is a task input beside the brief and the file. The inline
+-- check covers a fresh database; this pair repairs one created before the value
+-- existed, because `create table if not exists` does not change a constraint.
+alter table agent_task_inputs drop constraint if exists agent_task_inputs_source_check;
+alter table agent_task_inputs add constraint agent_task_inputs_source_check
+  check (source in ('text', 'file', 'selection'));
+
+/* ------------------------------------------------------------ facilitation -- */
+-- Voting sessions (ADR-074). Votes are rows, not document state: the quota is a
+-- database constraint, the tally is an aggregate, and anonymity is a property of the
+-- record rather than a rendering decision.
+
+create table if not exists vote_sessions (
+  id uuid primary key default gen_random_uuid(),
+  board_id text not null references boards (id) on delete cascade,
+  org_id uuid,
+  created_by uuid,
+  -- Name at the time of creation: the facilitator is shown even after a rename.
+  created_by_name text not null default '',
+  -- Snapshot of the objects that joined the session; later objects do not.
+  object_ids jsonb not null,
+  votes_per_subject integer not null check (votes_per_subject between 1 and 100),
+  anonymous boolean not null default true,
+  state text not null default 'open' check (state in ('open', 'ended')),
+  ends_at timestamptz,
+  ended_at timestamptz,
+  ended_by uuid,
+  published_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists vote_sessions_board_idx on vote_sessions (board_id, created_at desc);
+create index if not exists vote_sessions_open_idx on vote_sessions (board_id) where state = 'open';
+
+create table if not exists votes (
+  session_id uuid not null references vote_sessions (id) on delete cascade,
+  -- `user:<uuid>` or `visitor:<random>`; the prefix keeps the two kinds apart.
+  subject_id text not null,
+  object_id text not null,
+  weight integer not null default 1 check (weight > 0),
+  created_at timestamptz not null default now(),
+  primary key (session_id, subject_id, object_id)
+);
+
+create index if not exists votes_session_idx on votes (session_id, object_id);
+
+/* ------------------------------------------------------------- commands -- */
+-- One row per executed command, keyed by the caller's idempotency key (ADR-092).
+-- A retry returns the recorded result instead of creating a second object.
+
+create table if not exists command_runs (
+  id uuid primary key default gen_random_uuid(),
+  board_id text not null references boards (id) on delete cascade,
+  actor_id text not null,
+  actor_type text not null default 'user',
+  command text not null,
+  idempotency_key text not null,
+  result jsonb not null,
+  version text not null,
+  created_at timestamptz not null default now(),
+  unique (board_id, actor_id, idempotency_key)
+);
+
+create index if not exists command_runs_board_idx on command_runs (board_id, created_at desc);
+
+/* ---------------------------------------------------------------- events -- */
+-- The transactional outbox for domain events (ADR-094). A row exists if and only if
+-- the command that produced it was recorded, because both are written in one
+-- transaction. Delivery is at-least-once, so a consumer must be idempotent on `id`.
+
+create table if not exists event_outbox (
+  id uuid primary key default gen_random_uuid(),
+  board_id text not null references boards (id) on delete cascade,
+  org_id uuid,
+  actor_id text,
+  actor_type text not null default 'user',
+  type text not null,
+  subject text,
+  payload jsonb not null default '{}'::jsonb,
+  command_run_id uuid,
+  occurred_at timestamptz not null default now(),
+  published_at timestamptz,
+  attempts integer not null default 0,
+  next_attempt_at timestamptz,
+  dead_at timestamptz,
+  last_error text,
+  -- Agent events have no command run: this is their idempotency key (ADR-097).
+  dedupe_key text,
+  unique (command_run_id, type)
+);
+
+-- Columns added with the webhook consumer (ADR-095); guarded so a database created by
+-- the previous release gains them too.
+alter table event_outbox add column if not exists next_attempt_at timestamptz;
+alter table event_outbox add column if not exists dead_at timestamptz;
+alter table event_outbox add column if not exists dedupe_key text;
+
+create index if not exists event_outbox_pending_idx
+  on event_outbox (occurred_at) where published_at is null;
+
+create index if not exists event_outbox_dead_idx
+  on event_outbox (occurred_at) where dead_at is not null;
+
+create unique index if not exists event_outbox_dedupe_idx
+  on event_outbox (board_id, dedupe_key) where dedupe_key is not null;
+
+/* -------------------------------------------------------------- webhooks -- */
+-- One signed webhook per organisation (ADR-095). The signing secret uses the same
+-- envelope as provider keys: its own DEK, wrapped by a KEK that is not in this database.
+-- It is returned once, on create or rotate, and never read back.
+
+create table if not exists org_webhooks (
+  org_id uuid primary key references orgs (id) on delete cascade,
+  url text not null,
+  ciphertext bytea not null,
+  nonce bytea not null,
+  dek_wrapped bytea not null,
+  dek_nonce bytea not null,
+  kek_id text not null,
+  fingerprint text not null,
+  enabled boolean not null default true,
+  created_by uuid references users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  rotated_at timestamptz,
+  last_delivery_at timestamptz,
+  last_error text
+);
+
+/* ------------------------------------------------------------------ mail -- */
+-- The mail outbox (ADR-246). It is not `event_outbox`: an event belongs to a room and
+-- carries no personal data, while a letter belongs to an account and holds an address
+-- and a sealed link — a global, identity-scoped row like `users` and `sessions`.
+
+create table if not exists mail_outbox (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users (id) on delete cascade,
+  to_email text not null,
+  template text not null
+    check (template in ('verify_email', 'password_reset', 'password_changed', 'invitation')),
+  locale text not null check (locale in ('ru', 'en')),
+  -- params that are safe in clear text (a name, an org title)
+  params jsonb not null default '{}'::jsonb,
+  -- params that hold a secret link, sealed with the KEK envelope; cleared once sent or dead
+  sealed_ciphertext bytea,
+  sealed_nonce bytea,
+  sealed_dek_wrapped bytea,
+  sealed_dek_nonce bytea,
+  sealed_kek_id text,
+  -- after this moment the link in the mail is useless: the row dies instead of sending
+  valid_until timestamptz,
+  created_at timestamptz not null default now(),
+  attempts integer not null default 0,
+  next_attempt_at timestamptz,
+  sent_at timestamptz,
+  dead_at timestamptz,
+  last_error text,
+  provider_id text
+);
+-- billing adds its templates in schema 23 (ADR-247 §7)
+alter table mail_outbox drop constraint if exists mail_outbox_template_check;
+alter table mail_outbox add constraint mail_outbox_template_check
+  check (template in (
+    'verify_email', 'password_reset', 'password_changed', 'invitation',
+    'payment_succeeded', 'payment_failed', 'trial_ending', 'renewal_upcoming',
+    'subscription_suspended', 'subscription_canceled', 'payment_method_expiring',
+    'price_change', 'payment_method_migrate', 'account_deletion', 'legal_update',
+    'payment_refunded', 'operator_action',
+    -- The second factor's letters (ADR-262 §6, `spec/totp.md` §7).
+    'mfa_enabled', 'mfa_disabled', 'mfa_reset', 'mfa_recovery_regenerated', 'mfa_recovery_used'
+  ));
+create index if not exists mail_outbox_pending_idx
+  on mail_outbox (created_at) where sent_at is null and dead_at is null;
+
+-- A stand may refuse a recipient before the driver sees the letter (`spec/stage.md` §5,
+-- schema 38). Suppression is not a failure and not a send: `status` is derived from the
+-- timestamps so the three terminal states cannot disagree with each other.
+alter table mail_outbox add column if not exists suppressed_at timestamptz;
+alter table mail_outbox add column if not exists suppress_reason text;
+alter table mail_outbox add column if not exists status text generated always as (
+  case
+    when suppressed_at is not null then 'suppressed'
+    when sent_at is not null then 'sent'
+    when dead_at is not null then 'dead'
+    else 'pending'
+  end
+) stored;
+drop index if exists mail_outbox_pending_idx;
+create index if not exists mail_outbox_pending_idx
+  on mail_outbox (created_at)
+  where sent_at is null and dead_at is null and suppressed_at is null;
+
+/* ---------------------------------------------------------- integrations -- */
+-- Tokens an integration uses instead of a browser session (ADR-096). The token carries
+-- its scopes; the permission that matters is the owner's current access on the board
+-- intersected with them. Only the hash is stored, and the secret is shown once.
+
+create table if not exists integration_tokens (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  owner_id uuid not null references users (id) on delete cascade,
+  label text not null default '',
+  token_hash bytea not null unique,
+  scopes text[] not null,
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  last_used_at timestamptz,
+  created_by uuid references users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists integration_tokens_org_idx
+  on integration_tokens (org_id, created_at desc);
+
+/* ---------------------------------------------------------------- apps -- */
+-- First-party apps installed in an organisation (ADR-098). The manifest is copied from
+-- the server-side registry at install time; the client only ever names an app id.
+
+create table if not exists org_apps (
+  org_id uuid not null references orgs (id) on delete cascade,
+  app_id text not null,
+  version integer not null default 1,
+  manifest jsonb not null,
+  state text not null default 'enabled' check (state in ('enabled', 'disabled')),
+  installed_by uuid references users (id) on delete set null,
+  installed_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (org_id, app_id)
+);
+
+/* -------------------------------------------------------------- comments -- */
+-- Comments are a server-side social layer (ADR-104/105), not document state: a
+-- commenter may write here without receiving write access to the Yjs board. A thread
+-- has one anchor (a widget id or a free point); a reply re-opens a resolved thread.
+
+create table if not exists comment_threads (
+  id uuid primary key default gen_random_uuid(),
+  board_id text not null references boards (id) on delete cascade,
+  anchor_kind text not null check (anchor_kind in ('widget','point')),
+  widget_id text,
+  x double precision,
+  y double precision,
+  resolved_at timestamptz,
+  resolved_by uuid references users (id) on delete set null,
+  created_by uuid references users (id) on delete set null,
+  created_by_name text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists comment_threads_board_idx
+  on comment_threads (board_id, updated_at desc);
+
+create table if not exists comments (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references comment_threads (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  author_id uuid references users (id) on delete set null,
+  author_name text not null default '',
+  author_handle text not null default '',
+  body text not null check (char_length(body) between 1 and 4000),
+  created_at timestamptz not null default now(),
+  edited_at timestamptz,
+  deleted_at timestamptz
+);
+
+alter table comments add column if not exists author_handle text not null default '';
+update comments c
+   set author_handle = coalesce(u.handle, '')
+  from users u
+ where c.author_id = u.id and c.author_handle = '';
+create index if not exists comments_thread_idx on comments (thread_id, created_at);
+create index if not exists comments_board_idx on comments (board_id, created_at);
+
+create table if not exists comment_reads (
+  thread_id uuid not null references comment_threads (id) on delete cascade,
+  subject_id text not null,
+  last_read_at timestamptz not null default now(),
+  primary key (thread_id, subject_id)
+);
+
+/* ---------------------------------------------------------- tenant key -- */
+-- Row-level security needs a tenant key on every row the application can read
+-- (ADR-178). Board-scoped tables carry `board_id`; `org_id` is denormalised from
+-- `boards` once, and a trigger keeps it correct for new rows. The column is nullable
+-- because an unowned legacy board has no organisation; such rows are closed anyway
+-- (ADR-174) and never match a tenant policy.
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'agent_actions', 'board_grants', 'board_link_unlocks', 'board_links',
+    'board_updates', 'command_runs', 'comment_threads', 'comments',
+    'kanban_cards', 'kanban_columns', 'kanban_swimlanes', 'widgets'
+  ] loop
+    if not exists (
+      select 1 from information_schema.columns
+       where table_schema = 'public' and table_name = t and column_name = 'org_id'
+    ) then
+      execute format('alter table %I add column org_id uuid', t);
+      execute format(
+        'update %I x set org_id = b.org_id from boards b
+          where x.board_id = b.id and x.org_id is null',
+        t
+      );
+      execute format('create index if not exists %I on %I (org_id)', t || '_org_idx', t);
+    end if;
+  end loop;
+end $$;
+
+create or replace function remo_fill_org_id()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.org_id is null then
+    select b.org_id into new.org_id from boards b where b.id = new.board_id;
+  end if;
+  return new;
+end
+$$;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'agent_actions', 'board_grants', 'board_link_unlocks', 'board_links',
+    'board_updates', 'command_runs', 'comment_threads', 'comments',
+    'kanban_cards', 'kanban_columns', 'kanban_swimlanes', 'widgets'
+  ] loop
+    execute format('drop trigger if exists %I on %I', t || '_org_id', t);
+    execute format(
+      'create trigger %I before insert or update of board_id on %I
+         for each row execute function remo_fill_org_id()',
+      t || '_org_id', t
+    );
+  end loop;
+end $$;
+
+/* ------------------------------------------------------- tenant helpers -- */
+-- Security-definer lookups used before a tenant context exists, plus the scheduler and
+-- outbox claims that span organisations (ADR-178). The owner role must be able to bypass
+-- RLS (`BYPASSRLS` or superuser) for these to see every row.
+
+-- The one read that happens before the tenant is known: a board id becomes its
+-- organisation and owner. Without it `boards` cannot be protected. It runs as the
+-- owner, so that role must be able to bypass RLS (`BYPASSRLS` or superuser).
+create or replace function remo_board_lookup(board text)
+returns table (org_id uuid, owner_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select b.org_id, b.owner_id from boards b where b.id = board
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_board_lookup(text) to remo_app;
+  end if;
+end $$;
+
+-- Identity bootstraps. Registration and the org switcher need rows before an
+-- organisation context exists; these functions return only that answer.
+create or replace function remo_user_orgs(uid uuid)
+returns table (id uuid, name text, slug text, kind text, relation text, state text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select o.id, o.name, o.slug, o.kind, m.relation, m.state
+    from org_memberships m
+    join orgs o on o.id = m.org_id
+   where m.user_id = uid and m.state in ('active', 'invited')
+   order by o.created_at
+$$;
+
+create or replace function remo_org_by_slug(wanted text)
+returns table (id uuid, name text, slug text, kind text, created_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select o.id, o.name, o.slug, o.kind, o.created_at from orgs o where o.slug = wanted
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_user_orgs(uuid) to remo_app;
+    grant execute on function remo_org_by_slug(text) to remo_app;
+  end if;
+end $$;
+
+create or replace function remo_invitation_lookup(hashed bytea)
+returns table (
+  id uuid, org_id uuid, target_type text, target_id text, email text,
+  subject_kind text, role text, expires_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select i.id, i.org_id, i.target_type, i.target_id, i.email,
+         i.subject_kind, i.role, i.expires_at
+    from invitations i
+   where i.token_hash = hashed and i.state = 'pending'
+   for update
+$$;
+
+create or replace function remo_integration_lookup(hashed bytea)
+returns table (
+  id uuid, org_id uuid, owner_id uuid, label text, scopes text[],
+  revoked_at timestamptz, expires_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select t.id, t.org_id, t.owner_id, t.label, t.scopes, t.revoked_at, t.expires_at
+    from integration_tokens t
+   where t.token_hash = hashed
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_invitation_lookup(bytea) to remo_app;
+    grant execute on function remo_integration_lookup(bytea) to remo_app;
+  end if;
+end $$;
+
+-- The scheduler claims work across organisations. It needs the next id and the
+-- organisation before a tenant connection exists; the row is then claimed and read
+-- inside `withTenant(org_id)` (ADR-178 stage 4).
+create or replace function remo_agent_task_org(task uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select org_id from agent_tasks where id = task
+$$;
+
+create or replace function remo_next_agent_task()
+returns table (id uuid, org_id uuid, skill_slug text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select t.id, t.org_id, t.skill_slug
+    from agent_tasks t
+   where t.status = 'queued'
+     -- ADR-189: one running task per room. A queued task behind a running one must
+     -- not be offered to the runner, or the queue would spin on the same row.
+     and not exists (
+       select 1 from agent_tasks running
+        where running.board_id = t.board_id and running.status = 'running'
+     )
+   order by t.created_at
+   limit 1
+$$;
+
+create or replace function remo_due_agent_schedules(batch integer)
+returns setof agent_schedules
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select * from agent_schedules
+   where enabled and next_run_at <= now()
+   order by next_run_at
+   limit least(greatest(batch, 1), 50)
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_agent_task_org(uuid) to remo_app;
+    grant execute on function remo_next_agent_task() to remo_app;
+    grant execute on function remo_due_agent_schedules(integer) to remo_app;
+  end if;
+end $$;
+
+create or replace function remo_ai_orgs()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select distinct org_id from ai_runs
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_ai_orgs() to remo_app;
+  end if;
+end $$;
+
+-- The outbox drain claims a batch across organisations. The claim marks the rows as
+-- taken for five minutes, so a crashed drain retries instead of double-delivering;
+-- processing and the final update then run under the row's organisation.
+create or replace function remo_claim_event_batch(batch integer)
+returns setof event_outbox
+language sql
+security definer
+set search_path = public
+as $$
+  with claimed as (
+    select id
+      from event_outbox
+     where published_at is null
+       and dead_at is null
+       and (next_attempt_at is null or next_attempt_at <= now())
+     order by occurred_at, id
+     limit least(greatest(batch, 1), 100)
+     for update skip locked
+  )
+  update event_outbox e
+     set next_attempt_at = now() + interval '5 minutes'
+    from claimed
+   where e.id = claimed.id
+  returning e.*
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_claim_event_batch(integer) to remo_app;
+  end if;
+end $$;
+
+-- The mail drain claims in the same way as the event drain (ADR-246): five minutes of
+-- lease, `skip locked`, so a second worker takes other rows and a crashed one retries.
+create or replace function remo_claim_mail_batch(batch integer)
+returns setof mail_outbox
+language sql
+security definer
+set search_path = public
+as $$
+  with claimed as (
+    select id
+      from mail_outbox
+     where sent_at is null
+       and dead_at is null
+       and suppressed_at is null
+       and (next_attempt_at is null or next_attempt_at <= now())
+     order by created_at, id
+     limit least(greatest(batch, 1), 100)
+     for update skip locked
+  )
+  update mail_outbox m
+     set next_attempt_at = now() + interval '5 minutes'
+    from claimed
+   where m.id = claimed.id
+  returning m.*
+$$;
+
+-- `security definer` is executable by PUBLIC by default, and this one returns addresses
+-- and sealed links. Only the application role may claim.
+revoke execute on function remo_claim_mail_batch(integer) from public;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_claim_mail_batch(integer) to remo_app;
+  end if;
+end $$;
+
+/* ------------------------------------------------- room agent (ADR-189) -- */
+
+-- One agent is assigned to a room by its owner. The row is the whole switch: no row
+-- means no agent, and a disabled row keeps the history readable while refusing new
+-- work.
+create table if not exists board_agents (
+  board_id text primary key references boards (id) on delete cascade,
+  org_id uuid not null references orgs (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  assigned_by uuid references users (id) on delete set null,
+  assigned_at timestamptz not null default now(),
+  enabled boolean not null default true
+);
+
+alter table board_agents add column if not exists delegate_ids uuid[] not null default '{}';
+
+create index if not exists board_agents_agent_idx on board_agents (agent_id);
+
+-- A thread is one conversation with the room agent: the original request, the attempts
+-- and the drafts they produced. It belongs to the room, not to the person who asked.
+create table if not exists agent_threads (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  agent_id uuid not null references agents (id) on delete cascade,
+  -- The name at the time of the thread: renaming an agent does not rewrite history.
+  agent_name text not null,
+  created_by uuid references users (id) on delete set null,
+  title text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists agent_threads_board_idx
+  on agent_threads (board_id, updated_at desc);
+
+create table if not exists agent_thread_messages (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references agent_threads (id) on delete cascade,
+  org_id uuid not null references orgs (id) on delete cascade,
+  board_id text not null references boards (id) on delete cascade,
+  -- `user` is a request or a clarification, `agent` is a draft, `system` is a status.
+  role text not null check (role in ('user', 'agent', 'system')),
+  author_id uuid references users (id) on delete set null,
+  author_name text not null default '',
+  agent_name text,
+  text text not null default '',
+  status text check (status in ('queued', 'running', 'ready', 'stopped', 'error')),
+  task_id uuid references agent_tasks (id) on delete set null,
+  frame_ids text[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists agent_thread_messages_thread_idx
+  on agent_thread_messages (thread_id, created_at);
+
+-- A task joins the thread it answers. Older tasks keep a null thread.
+alter table agent_tasks add column if not exists thread_id uuid
+  references agent_threads (id) on delete set null;
+
+-- One running task per room (ADR-189). Queued tasks may pile up and are visible; the
+-- index is what makes a second concurrent write impossible even with two processes.
+create unique index if not exists agent_tasks_running_board_idx
+  on agent_tasks (board_id) where status = 'running';
+
+/* ------------------------------------------------------- billing (ADR-247) -- */
+
+-- Two catalogues change for different reasons (`spec/billing.md` §2.1). What a plan
+-- gives is product behaviour in `billing-catalog.mjs`; what it costs is this price
+-- book, changed by the operator without a release. A published amount is never edited:
+-- a new version replaces it, and a live subscription keeps its snapshot.
+create table if not exists prices (
+  id text primary key,                   -- e.g. 'pro-rub-month-v2'
+  plan text not null,
+  interval text not null check (interval in ('month', 'year')),
+  currency text not null,                -- ISO 4217
+  amount bigint not null check (amount >= 0),   -- minor units, tax-inclusive
+  version integer not null,
+  status text not null default 'draft'
+    check (status in ('draft', 'for_sale', 'sale_ended', 'archived')),
+  promo_only boolean not null default false,    -- sold only through a price_override code
+  created_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  unique (plan, interval, currency, version)
+);
+
+-- At most one price for sale per plan, interval and currency (promo-only prices aside).
+create unique index if not exists prices_for_sale_idx on prices (plan, interval, currency)
+  where status = 'for_sale' and not promo_only;
+
+create table if not exists price_events (
+  id uuid primary key default gen_random_uuid(),
+  price_id text references prices (id),
+  type text not null,                    -- created | published | sale_ended | archived | migration_planned
+  data jsonb not null default '{}'::jsonb,
+  reason text,
+  actor_id uuid references users (id),
+  occurred_at timestamptz not null default now()
+);
+
+-- A connection belongs to the installation, not to an organisation: organisations do
+-- not bring their own shop (`spec/payment-providers.md` §1). The sealed columns are the
+-- `encryptSecret` envelope; only the fingerprint is ever shown.
+create table if not exists payment_connections (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null check (provider in ('manual','yookassa','robokassa','cloudpayments','prodamus','paddle','fake')),
+  name text not null,                    -- "ЮKassa боевая", shown to the operator only
+  mode text not null check (mode in ('test','live')),
+  status text not null default 'draft'
+    check (status in ('draft','ready','active','paused','retiring','disabled')),
+  currencies text[] not null,            -- what it can charge, e.g. {RUB}
+  method_groups text[] not null,         -- ru_card | foreign_card | invoice | global_card
+  priority integer not null default 100, -- lower wins inside a method group
+  settings jsonb not null default '{}',  -- non-secret: shop id, tax system, vat code, receipt on/off
+  ciphertext bytea, nonce bytea, dek_wrapped bytea,
+  dek_nonce bytea, kek_id text, fingerprint text,
+  webhook_token text not null,           -- random; required in the webhook URL, wrong or missing → 404
+  verified_at timestamptz,
+  last_health_at timestamptz, last_health_error text,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists payment_connection_events (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid not null references payment_connections (id),
+  type text not null,                    -- created | config_changed | verified | status_changed | secret_rotated
+  from_status text, to_status text,
+  reason text,
+  actor_id uuid references users (id),
+  occurred_at timestamptz not null default now()
+);
+
+-- Inbound provider events: the inbox. One row per verified delivery. Global like the
+-- connection, because the organisation is only known after processing (§5).
+create table if not exists billing_provider_events (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid not null references payment_connections (id),
+  provider_event_key text not null,      -- provider's event id, or a derived key (§5)
+  type text not null,                    -- normalized type, §4
+  org_id uuid,                           -- resolved during processing
+  payload jsonb not null,                -- normalized object only, no card data
+  received_at timestamptz not null default now(),
+  processed_at timestamptz,
+  attempts integer not null default 0,
+  next_attempt_at timestamptz,
+  dead_at timestamptz,
+  last_error text,
+  unique (connection_id, provider_event_key)
+);
+
+-- The installation operator is granted by a server command only, and the role is about
+-- money and connections, never about room content (`spec/payment-providers.md` §6.1).
+create table if not exists instance_operators (
+  user_id uuid primary key references users (id) on delete cascade,
+  granted_at timestamptz not null default now(),
+  granted_by uuid references users (id) on delete set null
+);
+
+-- Measures an installation operator takes against abuse (ADR-259, `spec/operator.md` §4).
+-- The row is the measure: a command inserts it, `abuse:revert` closes it, and access reads
+-- the open row instead of a flag copied onto a board. Outside tenant RLS like
+-- `instance_operators`, because a measure spans a room, its public link and an organisation.
+create table if not exists operator_actions (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('link_disable', 'board_hide', 'org_suspend')),
+  subject_type text not null check (subject_type in ('board_link', 'board', 'org')),
+  subject_id text not null,
+  reason_internal text not null,
+  reason_public text not null,
+  report_ref text,
+  created_by uuid references users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  reverted_by uuid references users (id) on delete set null,
+  reverted_at timestamptz,
+  check (
+    (kind = 'link_disable' and subject_type = 'board_link')
+    or (kind = 'board_hide' and subject_type = 'board')
+    or (kind = 'org_suspend' and subject_type = 'org')
+  )
+);
+
+-- One open measure per kind and subject: a second command answers with the existing id
+-- instead of stacking two reasons on one room.
+create unique index if not exists operator_actions_open_idx
+  on operator_actions (kind, subject_id) where reverted_at is null;
+create index if not exists operator_actions_subject_idx
+  on operator_actions (subject_type, subject_id, created_at desc);
+
+-- One row per console action form (`spec/operator-actions.md` §3.3). The form sends a
+-- `requestId`; a repeat with the same id returns the first answer instead of moving money
+-- again, and the same id from another operator or for another route is refused. Rows are
+-- kept for 30 days and removed by the hourly retention pass (`mail-drain.mjs`).
+create table if not exists operator_requests (
+  request_id uuid primary key,
+  operator_id uuid not null references users (id) on delete cascade,
+  route text not null,
+  result jsonb not null default '{"state":"running"}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists operator_requests_created_idx
+  on operator_requests (created_at);
+
+create table if not exists billing_accounts (
+  org_id uuid primary key references orgs (id) on delete restrict,
+  billing_email text not null,
+  billing_name text,
+  country text,                          -- ISO 3166-1 alpha-2, for routing and receipts
+  currency text,                         -- set at first checkout; fixed while a subscription lives (§2.1.1)
+  test_mode boolean not null default false,  -- routes only to test connections
+  created_at timestamptz not null default now()
+);
+
+create table if not exists payment_methods (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  connection_id uuid not null,           -- payment_connections.id (global connection)
+  -- The provider's reference to a method IT stores. Not card data: card numbers never
+  -- reach remo (ADR-247 §1 rule 9). Sealed anyway, because with our shop keys it charges.
+  ref_ciphertext bytea not null, ref_nonce bytea not null,
+  ref_dek_wrapped bytea not null, ref_dek_nonce bytea not null, ref_kek_id text not null,
+  display jsonb not null,                -- { kind, brand, last4, expMonth, expYear } — nothing more
+  state text not null default 'active' check (state in ('active', 'revoked', 'expired')),
+  autopay_consent_at timestamptz not null,
+  autopay_consent_version text not null,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+
+create table if not exists subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  plan text not null,
+  price_id text not null,
+  amount bigint not null,                -- snapshot, minor units
+  currency text not null,
+  interval text not null check (interval in ('month', 'year')),
+  status text not null check (status in ('trialing','active','past_due','suspended','canceled')),
+  current_period_start timestamptz not null,
+  current_period_end timestamptz not null,
+  cancel_at_period_end boolean not null default false,
+  pending_change jsonb,                  -- { plan, priceId, at } for a downgrade at period end
+  trial_end timestamptz,
+  past_due_since timestamptz,
+  suspended_at timestamptz,
+  canceled_at timestamptz,
+  payment_method_id uuid references payment_methods (id),
+  connection_id uuid,                    -- who renews it
+  provider_subscription_id text,         -- only for provider-managed subscriptions (Paddle)
+  promo_code_id uuid,
+  -- snapshot of the discount at checkout: { kind, value, currency, targetAmount, periodsLeft }
+  discount jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- At most one live subscription per organisation.
+create unique index if not exists subscriptions_live_idx on subscriptions (org_id)
+  where status in ('trialing','active','past_due','suspended');
+
+create table if not exists invoices (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  subscription_id uuid references subscriptions (id),
+  number text not null unique,
+  status text not null check (status in ('draft','open','paid','void','uncollectible')),
+  currency text not null,
+  subtotal bigint not null, discount bigint not null default 0,
+  credit_applied bigint not null default 0, total bigint not null,
+  lines jsonb not null,
+  period_start timestamptz, period_end timestamptz,
+  due_at timestamptz, paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (subscription_id, period_start)
+);
+
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  invoice_id uuid not null references invoices (id),
+  connection_id uuid not null,
+  provider_payment_id text,
+  idempotency_key text not null unique,
+  amount bigint not null, currency text not null,
+  status text not null check (status in ('pending','succeeded','failed','canceled','refunded','partially_refunded')),
+  failure_code text,                     -- normalized, see payment-providers §4
+  receipt_status text,                   -- 'none' | 'pending' | 'issued' | 'failed'
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, provider_payment_id)
+);
+
+create table if not exists refunds (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  payment_id uuid not null references payments (id),
+  amount bigint not null, currency text not null,
+  reason text not null,
+  status text not null check (status in ('pending','succeeded','failed')),
+  provider_refund_id text,
+  idempotency_key text not null unique,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists org_credit_ledger (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  amount bigint not null,                -- signed
+  currency text not null,
+  kind text not null check (kind in ('proration','goodwill','refund_to_credit','applied')),
+  invoice_id uuid references invoices (id),
+  note text,
+  created_by uuid references users (id),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists promo_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,             -- stored upper-case
+  kind text not null check (kind in ('percent','amount','price_override')),
+  value bigint,                          -- percent (1..100) or amount in minor units
+  currency text,                         -- required for 'amount'
+  target_price_id text references prices (id),  -- required for 'price_override'
+  plans text[], intervals text[], currencies text[],  -- null = any
+  new_subscriptions_only boolean not null default true,
+  check (kind <> 'amount' or currency is not null),
+  check (kind <> 'price_override' or target_price_id is not null),
+  check (kind <> 'percent' or value between 1 and 100),
+  duration text not null check (duration in ('once','repeating','forever')),
+  duration_periods integer,
+  max_redemptions integer, redeemed integer not null default 0,
+  expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists billing_events (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete restrict,
+  type text not null,                    -- e.g. subscription.activated, payment.failed
+  subject_id uuid,
+  data jsonb not null default '{}'::jsonb,
+  actor_id uuid,
+  occurred_at timestamptz not null default now()
+);
+
+-- Why the money tables above use `on delete restrict` instead of a cascade: an
+-- organisation with payment history cannot be deleted by a cascade. v1 has no deletion
+-- at all — only an archive — so this fixes the rule for the future and makes a test
+-- delete the money rows first (ADR-247).
+
+-- Over the limit a room becomes read-only, not deleted: `effective()` drops a frozen
+-- room to viewer plus export and backup (§2.5). This is separate from the archive, which
+-- keeps only `board.read`.
+alter table boards add column if not exists frozen_at timestamptz;
+
+-- Fourteen days over the seat limit make the whole organisation read-only (§2.5).
+alter table orgs add column if not exists read_only_at timestamptz;
+
+/* --------------------------------------------------------------- files -- */
+-- Uploaded images (schema 24, ADR-249, `spec/images.md` §3.1). Bytes live in the file
+-- store, never in `boards.snapshot`; this row is the metadata a room object refers to and
+-- the unit the storage quota counts. It is a tenant table: the policy in `rls.sql` keys on
+-- `org_id`, and the cascade lets an organisation be removed without orphaning rows.
+--
+-- `files_org_sha_idx` is unique inside one organisation because the same screenshot can
+-- be uploaded twice, but two organisations must not learn that they share a file. Only
+-- `ready` rows take part: a deleted row keeps its audit trail without blocking a fresh
+-- upload of the same bytes.
+create table if not exists files (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs (id) on delete cascade,
+  board_id text references boards (id) on delete set null,  -- the room it was uploaded to
+  uploaded_by uuid references users (id) on delete set null,
+  sha256 text not null,                  -- of the original bytes
+  mime text not null check (mime in ('image/png','image/jpeg','image/webp','image/gif','image/avif')),
+  bytes bigint not null,                 -- original
+  stored_bytes bigint not null,          -- original + all variants: what the quota counts
+  width integer not null, height integer not null,   -- after EXIF orientation
+  dominant_color text,                   -- '#rrggbb', for the instant placeholder
+  variants jsonb not null,               -- { "w256": { w, h, bytes }, ... }
+  original_name text,                    -- shown on download only; never part of a key
+  status text not null default 'ready' check (status in ('ready', 'deleted')),
+  created_at timestamptz not null default now(),
+  unreferenced_since timestamptz,        -- set by GC; cleared when referenced again
+  deleted_at timestamptz
+);
+create index if not exists files_org_idx on files (org_id) where status = 'ready';
+create unique index if not exists files_org_sha_idx on files (org_id, sha256) where status = 'ready';
+
+/* ------------------------------------------------ file organisation (25) -- */
+-- `/files/:id/...` is answered before a room — and therefore a tenant — is known, and a
+-- copy into another organisation reads the source row from outside its tenant (§4.3,
+-- §5.2). `FORCE ROW LEVEL SECURITY` hides a `files` row from both, so the organisation
+-- comes from this lookup instead of a plain read: the same shape as `remo_board_lookup`
+-- for rooms (ADR-178). It answers only a `ready` row, because a deleted one has no
+-- object left to serve. It stands here, after the table it reads, because `language sql`
+-- bodies are checked when the function is created — the helpers block above runs before
+-- `files` exists.
+create or replace function remo_file_org(file_id uuid)
+returns uuid language sql security definer set search_path = public
+as $$ select org_id from files where id = file_id and status = 'ready' $$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'remo_app') then
+    grant execute on function remo_file_org(uuid) to remo_app;
+  end if;
+end $$;
+
+/* ---------------------------------------------------------- schema meta -- */-- The service reads this before applying the file, so a running suite or a second
+-- instance does not run DDL on every start (and cannot deadlock with live queries).
+
+create table if not exists schema_meta (
+  id integer primary key,
+  version integer not null,
+  updated_at timestamptz not null default now()
+);
+
+-- The board directory is sorted and searched per organisation (ADR-168).
+create index if not exists boards_org_updated_idx on boards (org_id, updated_at desc);
+create index if not exists boards_org_created_idx on boards (org_id, created_at desc);
+create index if not exists boards_title_trgm_idx on boards using gin (title gin_trgm_ops);
+
+insert into schema_meta (id, version) values (1, 39)
+on conflict (id) do update set version = excluded.version, updated_at = now();

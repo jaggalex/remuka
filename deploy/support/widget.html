@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Remuka support</title>
+
+    <!--
+      The operator's only configuration. Replace all three values before deploying and
+      keep them here, not in widget.js: the origin below is also the one nginx allows in
+      `frame-ancestors`, and both must stay identical (deploy/support/README.md).
+    -->
+    <meta name="remo-app-origin" content="__REMO_APP_ORIGIN__" />
+    <meta name="chatwoot-base-url" content="__CHATWOOT_BASE_URL__" />
+    <meta name="chatwoot-website-token" content="__CHATWOOT_WEBSITE_TOKEN__" />
+
+    <!--
+      The Chatwoot SDK positions its holder for a bubble in the corner. The page is not a
+      bubble: the app frames it as the whole chat area, so the holder is pinned to the
+      viewport. The id selector beats the SDK's class selector regardless of which style
+      element the SDK appends later.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #fff;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #17181c;
+        }
+      }
+
+      /* No bubble, no launcher: the page is the chat. */
+      #cw-bubble-holder {
+        display: none !important;
+      }
+
+      #cw-widget-holder.woot-widget-holder {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+      }
+
+      #cw-widget-holder.woot-widget-holder iframe {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
+        border: 0 !important;
+      }
+
+      /* The SDK hides the holder with `bottom: -100vh`; keep it in place while it loads. */
+      #cw-widget-holder.woot-widget-holder.woot--hide {
+        bottom: 0 !important;
+        visibility: hidden !important;
+      }
+
+      .support-status {
+        position: fixed;
+        inset: 1rem 1rem auto 1rem;
+        z-index: 2147483647;
+        margin: 0;
+        padding: 0.75rem 1rem;
+        border: 1px solid #d0d5dd;
+        border-radius: 0.5rem;
+        background: #fff;
+        color: #1f2933;
+        font-size: 0.875rem;
+        line-height: 1.4;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .support-status {
+          border-color: #3a3d46;
+          background: #23252b;
+          color: #e5e7eb;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <p id="support-status" class="support-status" role="status" aria-live="polite" hidden></p>
+    <script src="./widget.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "id": "operator/customers",
+  "type": "how-to",
+  "status": "available",
+  "order": 50,
+  "title": {
+    "ru": "Карточка клиента",
+    "en": "The customer card"
+  },
+  "summary": {
+    "ru": "Поиск по адресу, организации и счёту: тариф, подписка, платежи и меры — без названий и содержимого комнат.",
+    "en": "Search by address, organisation and invoice: plan, subscription, payments and measures — without room names or content."
+  },
+  "related": [
+    "operator/journal",
+    "operator/pulse",
+    "operator/money"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:cc80765deda569a723952b96aa317d8d375f494c8cf18e7f811c02af482d1ed5",
+      "targetHash": "sha256:0a82ed5c61db4fd5caacb29b19d71a5ddbf93ab6932bc5361652a7cf9b72571b"
+    }
+  }
+}

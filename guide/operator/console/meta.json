@@ -1,0 +1,29 @@
+{
+  "id": "operator/console",
+  "type": "how-to",
+  "status": "available",
+  "order": 30,
+  "title": {
+    "ru": "Операторская консоль",
+    "en": "The operator console"
+  },
+  "summary": {
+    "ru": "Вход в /operator, подтверждение кодом, вкладки Пульс, Клиенты, Деньги, Жалобы и Журнал, действия с последствиями и канал в журнале.",
+    "en": "Signing in to /operator, confirming with a code, the Pulse, Customers, Money, Complaints and Journal tabs, actions with consequences and the journal channel."
+  },
+  "related": [
+    "operator/pulse",
+    "operator/customers",
+    "operator/money",
+    "operator/measures",
+    "operator/journal",
+    "operator/totp"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:52b323d47dcacb6d84e874c3fa10f1d828a3fea0f0b529dda4242dae314a49d6",
+      "targetHash": "sha256:63c1a19687fd84908b80e6aa3cf42c1c462e1a4d392ade6ab091edd3b421a7f0"
+    }
+  }
+}

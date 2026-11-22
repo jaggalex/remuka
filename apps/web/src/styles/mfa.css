@@ -1,0 +1,101 @@
+/* ---------------------------------------------------------------- two-factor --
+ *
+ * The second factor's screens (ADR-260, `spec/totp.md` §8). One column of fields and
+ * codes, the same tokens as every other dialog: nothing here is a colour or a step of
+ * its own.
+ */
+
+.mfa-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mfa-note {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+
+.mfa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mfa-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mfa-codes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mfa-code-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  font: var(--type-kbd);
+}
+
+.mfa-code-list code,
+.mfa-secret {
+  font: var(--type-kbd);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+
+.mfa-qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+}
+
+/* The picture is ink on paper, not a themed surface: a scanner reads contrast, and a QR
+ * inverted for the dark theme is refused by several authenticator apps. The library's
+ * SVG already paints black on white; the box only gives it a stable square to sit in. */
+.mfa-qr {
+  inline-size: calc(var(--space-11) * 4);
+  block-size: calc(var(--space-11) * 4);
+  background: var(--bg-qr);
+}
+
+.mfa-qr svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.mfa-link {
+  color: var(--text-accent);
+  font: var(--type-label);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.mfa-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .mfa-code-list {
+    grid-template-columns: 1fr;
+  }
+}

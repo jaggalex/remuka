@@ -1,0 +1,183 @@
+import { describe, expect, it } from "vitest";
+import { DEFAULT_MIN_SIZE, kindOf, minimumSizeOf, WIDGET_KINDS } from "./kinds";
+import { scalesInBlock } from "./transform";
+import type { Widget } from "./types";
+import { layerKey, paintOrder } from "./layers";
+import { canConnect, type Widget, type WidgetType } from "./types";
+
+/**
+ * The capability table is the single answer to "can this kind do X".
+ *
+ * These tests exist to make the migration safe: they pin the behaviour every module
+ * used to compute for itself, so moving a check onto the table cannot change what the
+ * board does by accident (ADR-049).
+ */
+
+const kinds = Object.keys(WIDGET_KINDS) as WidgetType[];
+
+const widget = (type: WidgetType): Widget => ({
+  id: `${type}-1`,
+  type,
+  parentId: null,
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+});
+
+describe("the capability table", () => {
+  it("answers for every kind of widget", () => {
+    expect([...kinds].sort()).toEqual(
+      ["card", "connector", "frame", "group", "image", "kanban", "shape", "stamp", "sticky_note", "text", "timer", "unsupported"],
+    );
+  });
+
+  it("keeps the paint order the templates rely on", () => {
+    expect(kinds.map((type) => [type, kindOf(type).rank])).toEqual([
+      ["frame", 0],
+      ["kanban", 1],
+      ["shape", 2],
+      ["image", 2],
+      ["unsupported", 2],
+      ["connector", 3],
+      ["group", 5],
+      ["timer", 7],
+      ["stamp", 4],
+      ["sticky_note", 5],
+      ["card", 6],
+      ["text", 9],
+    ]);
+  });
+
+  it("tags text-holding kinds exactly as the document used to", () => {
+    const holdsText = kinds.filter((type) => kindOf(type).text);
+    expect([...holdsText].sort()).toEqual(["card", "connector", "shape", "sticky_note", "text"]);
+  });
+
+  it("lets text, notes and shapes take line formats, not cards or labels (ADR-252)", () => {
+    expect([...kinds.filter((type) => kindOf(type).richBlocks)].sort()).toEqual([
+      "shape",
+      "sticky_note",
+      "text",
+    ]);
+    // A connector label is one line (ADR-041); a card's text is a title.
+    expect(kindOf("connector").richBlocks).toBe(false);
+    expect(kindOf("card").richBlocks).toBe(false);
+    expect(kindOf("hologram").richBlocks).toBe(false);
+  });
+
+  it("agrees with canConnect, which now only reads the table", () => {
+    for (const type of kinds) {
+      expect(canConnect(widget(type))).toBe(kindOf(type).connectable);
+    }
+    expect([...kinds.filter((type) => canConnect(widget(type)))].sort()).toEqual([
+      "card",
+      "image",
+      "shape",
+      "stamp",
+      "sticky_note",
+      "text",
+    ]);
+  });
+
+  it("keeps cards out of layers and connectors out of arrange", () => {
+    expect(kindOf("card").layered).toBe(false);
+    expect(kindOf("connector").movable).toBe(false);
+    // Everything else may be restacked and moved.
+    expect(kinds.filter((type) => !kindOf(type).layered)).toEqual(["card"]);
+    // A card's place is its cell, a line's is derived: neither has a free position.
+    expect([...kinds.filter((type) => !kindOf(type).movable)].sort()).toEqual(["card", "connector"]);
+  });
+
+  it("lets notes, text, timers, frames, shapes and images take a resize handle", () => {
+    expect([...kinds.filter((type) => kindOf(type).resizable)].sort()).toEqual([
+      "frame",
+      "image",
+      "shape",
+      "sticky_note",
+      "text",
+      "timer",
+    ]);
+  });
+
+  it("locks the aspect of a picture and nothing else (ADR-249)", () => {
+    expect([...kinds.filter((type) => kindOf(type).aspectLocked)].sort()).toEqual(["image"]);
+  });
+
+  it("gives a frame a floor that keeps it a container (ADR-141)", () => {
+    expect(minimumSizeOf("frame")).toEqual({ width: 160, height: 120 });
+    // Every other kind keeps the generic floor: a handle and a word still fit.
+    expect(minimumSizeOf("sticky_note")).toEqual(DEFAULT_MIN_SIZE);
+    // A shape resizes like a note, floor included (ADR-145).
+    expect(minimumSizeOf("shape")).toEqual({ width: 80, height: 60 });
+    expect(minimumSizeOf("hologram")).toEqual(DEFAULT_MIN_SIZE);
+  });
+
+  it("does not group cards or lines", () => {
+    expect([...kinds.filter((type) => !kindOf(type).groupable)].sort()).toEqual([
+      "card",
+      "connector",
+    ]);
+  });
+
+  it("is conservative about a type this build does not know", () => {
+    const unknown = kindOf("hologram");
+    expect(unknown.text).toBe(false);
+    expect(unknown.connectable).toBe(false);
+    expect(unknown.editable).toBe(false);
+    // It is still visible, movable and selectable: refusing to draw it would hide data.
+    expect(unknown.rank).toBe(5);
+    expect(unknown.movable).toBe(true);
+  });
+
+  it("gives every widget a layer key derived from its kind", () => {
+    const ordered = paintOrder([widget("text"), widget("connector"), widget("frame")]);
+    expect(ordered.map((w) => w.type)).toEqual(["frame", "connector", "text"]);
+    expect(layerKey({ ...widget("connector"), z: 9999 })).toBe(9999);
+  });
+});
+
+describe("scalesInBlock (ADR-211)", () => {
+  const note = (extra: Partial<Widget> = {}): Widget => ({
+    id: "n",
+    type: "sticky_note",
+    parentId: null,
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    ...extra,
+  });
+
+  it("allows a free, unlocked, resizable object", () => {
+    expect(scalesInBlock(note())).toBe(true);
+  });
+
+  it("refuses a locked object", () => {
+    expect(scalesInBlock(note({ locked: true }))).toBe(false);
+  });
+
+  it("refuses an imported placeholder", () => {
+    expect(scalesInBlock(note({ type: "unsupported" }))).toBe(false);
+  });
+
+  it("scales a picture, whose aspect the handle locks (ADR-249)", () => {
+    expect(scalesInBlock(note({ type: "image" }))).toBe(true);
+    expect(scalesInBlock(note({ type: "image", locked: true }))).toBe(false);
+  });
+
+  it("refuses a table section whose size comes from its axes", () => {
+    const frame: Widget = {
+      id: "t",
+      type: "frame",
+      parentId: null,
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 300,
+      layout: { kind: "table", columns: [], rows: [] },
+    };
+    expect(scalesInBlock(frame)).toBe(false);
+    expect(scalesInBlock({ ...frame, layout: undefined })).toBe(true);
+  });
+});

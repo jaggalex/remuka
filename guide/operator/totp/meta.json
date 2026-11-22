@@ -1,0 +1,26 @@
+{
+  "id": "operator/totp",
+  "type": "how-to",
+  "status": "available",
+  "order": 90,
+  "title": {
+    "ru": "Двухфакторный вход",
+    "en": "Two-factor sign-in"
+  },
+  "summary": {
+    "ru": "Подключение, резервные коды, вход, потеря устройства и сброс с сервера: что происходит с сессиями.",
+    "en": "Enrolment, recovery codes, signing in, a lost device and a server reset: what happens to sessions."
+  },
+  "related": [
+    "operator/console",
+    "operator/first-operator",
+    "operator/account-deletion"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:1c41ee8575a3b05ea6beff10200630e772128a7bd8bbfcd7fe865821ff07990d",
+      "targetHash": "sha256:e384b867b31d3118aece7ce8f5640add882b1cfa8ab4dd4e68d59e407c642fe9"
+    }
+  }
+}

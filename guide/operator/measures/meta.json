@@ -1,0 +1,26 @@
+{
+  "id": "operator/measures",
+  "type": "how-to",
+  "status": "available",
+  "order": 70,
+  "title": {
+    "ru": "Меры по жалобам",
+    "en": "Measures against abuse"
+  },
+  "summary": {
+    "ru": "Отключить ссылку, скрыть комнату, приостановить организацию и снять меру: консоль и CLI, обязательное письмо, что видит человек, след в журнале.",
+    "en": "Disable a link, hide a room, suspend an organisation and revert, from the console or the CLI: the required letter, what people see, and the journal trace."
+  },
+  "related": [
+    "operator/journal",
+    "operator/limits",
+    "operator/customers"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:ef1c9bb8b7e7ba01440acf7734940aa098cfcf3217fea6514f87c8d79123d6ab",
+      "targetHash": "sha256:3d71503e2b8af72f0ab41bead84242f720703af90f72084353b662e5037d556a"
+    }
+  }
+}

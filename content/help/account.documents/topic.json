@@ -1,0 +1,26 @@
+{
+  "id": "account.documents",
+  "type": "how-to",
+  "title": {
+    "ru": "Документы и согласия",
+    "en": "Documents and consents"
+  },
+  "summary": {
+    "ru": "Где прочитать оферту и Политику, что вы приняли и как отозвать согласие на обработку данных.",
+    "en": "Where to read the offer and the Privacy Policy, what you accepted and how to withdraw the personal-data consent."
+  },
+  "related": [
+    "account.profile",
+    "about.remo",
+    "account.email"
+  ],
+  "verifiedAgainst": "2026-11-22",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:6660bfeab7edb7abc12692388a84ccc7eba0d7728b7f6a078320f5f471a17ff5",
+      "targetHash": "sha256:e2bbe440e06d3261c4e63271cf30aba1878a6b0fa8178e47926103fe2f206d44"
+    }
+  }
+}

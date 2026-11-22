@@ -1,0 +1,27 @@
+{
+  "id": "reference/env",
+  "type": "reference",
+  "status": "available",
+  "order": 30,
+  "title": {
+    "ru": "Настройки и переменные окружения",
+    "en": "Settings and environment variables"
+  },
+  "summary": {
+    "ru": "Переменные сервера: база, ключи, почта, метрики, агенты, шлюз ИИ, вебхук и что будет, если их не задать.",
+    "en": "Server variables: database, keys, mail, metrics, agents, the AI gateway, webhook, and what happens when they are unset."
+  },
+  "related": [
+    "reference/limits",
+    "capabilities/agents",
+    "capabilities/events",
+    "concepts/sync"
+  ],
+  "updated": "2026-11-22",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:72c754385ba3aac2e67546d25630ed805b859edc29cead68b2633506cb3f69c1",
+      "targetHash": "sha256:125edf9ebe9410c0d1cde3023f444047546508b797be4086eeb17c30dfa634cc"
+    }
+  }
+}

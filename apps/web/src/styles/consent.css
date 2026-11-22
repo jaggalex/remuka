@@ -1,0 +1,259 @@
+/* ----------------------------------------------------------------- cookie layer */
+
+/*
+ * The notice and the banner are one bottom plate, not a modal (ADR-255 §6.1, §6.2).
+ *
+ * `left: var(--hud-reserve)` is the same reserve the canvas hint uses: the tool rail sits
+ * at the top-left and the zoom panel at the bottom-left, so a plate that starts after that
+ * strip can never cover either, at any width. `--z-bar` puts it on the rail's own layer,
+ * below menus and dialogs; DOM order decides inside the layer.
+ */
+.consent-notice,
+.consent-banner {
+  position: fixed;
+  z-index: var(--z-bar);
+  left: var(--hud-reserve);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: fit-content;
+  max-width: min(720px, 100%);
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-pop);
+  box-sizing: border-box;
+}
+
+.consent-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font: var(--type-body);
+}
+
+.consent-notice-text {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.consent-notice-link,
+.consent-legal a {
+  color: var(--text-accent);
+}
+
+.consent-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font: var(--type-body);
+}
+
+.consent-banner-text {
+  margin: 0;
+}
+
+/* §1 rule 3: both decisions are the same size and weight; «Настроить» stays quiet. */
+.consent-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.consent-note,
+.consent-category-lock {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+
+.consent-error {
+  margin: 0;
+  color: var(--text-danger);
+  font: var(--type-caption);
+}
+
+/* ---------- settings ---------- */
+
+.consent-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.consent-category {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A category the person cannot change (§6): a statement, not a disabled switch. */
+.consent-category-fixed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The register is folded: the summary carries the name, purpose and counts (§6.3). */
+.consent-category-details > summary.consent-category-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.consent-category-summary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.consent-category-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.consent-category-count {
+  color: var(--text-muted);
+  font: var(--type-caption);
+  white-space: nowrap;
+}
+
+.consent-category-details[open] > summary.consent-category-summary {
+  margin-bottom: var(--space-1);
+}
+
+.consent-category-title {
+  font: var(--type-card-title);
+  color: var(--text-primary);
+}
+
+.consent-category-hint {
+  font: var(--type-caption);
+  color: var(--text-muted);
+}
+
+.consent-records {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+
+.consent-records li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.consent-records code {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.consent-record-lifetime {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ---------- policy page ---------- */
+
+.consent-legal {
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.consent-legal-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-bar);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-6);
+  min-height: var(--topbar-height);
+  background: var(--bg-canvas);
+}
+
+.consent-legal-home {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font: var(--type-label);
+}
+
+.consent-legal-main {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-5) var(--space-8);
+}
+
+.consent-legal-main h1 {
+  margin: 0 0 var(--space-3);
+  font: var(--type-title);
+}
+
+.consent-legal-main p {
+  margin: 0 0 var(--space-3);
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+.consent-legal-edition {
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+
+.consent-legal-note {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.consent-legal-table {
+  width: 100%;
+  margin: var(--space-4) 0;
+  border-collapse: collapse;
+  font: var(--type-body);
+}
+
+.consent-legal-table th,
+.consent-legal-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.consent-legal-table th {
+  color: var(--text-secondary);
+  font: var(--type-label);
+}
+
+.consent-legal-table code {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.consent-legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

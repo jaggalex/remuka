@@ -1,0 +1,18 @@
+{
+  "name": "@remo/text",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The rich-text value model and its Markdown boundary, shared by the client and the sync service.",
+  "main": "src/index.mjs",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs",
+      "default": "./src/index.mjs"
+    }
+  },
+  "license": "AGPL-3.0-only",
+  "author": "Alexander Kostylev"
+}

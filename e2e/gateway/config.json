@@ -1,0 +1,52 @@
+{
+  "region": "eu",
+  "listen": "0.0.0.0:8080",
+  "admin": "127.0.0.1:8081",
+  "limits": {
+    "concurrency": 8,
+    "perOrg": { "rpm": 300, "tokensPerDay": 2000000 },
+    "perUser": { "rpm": 300, "tokensPerDay": 1000000 },
+    "global": { "rpm": 3000 }
+  },
+  "providers": [
+    {
+      "id": "fake",
+      "baseUrl": "https://fake-provider:8443",
+      "match": ["https://fake-provider:8443"],
+      "models": ["*"],
+      "regions": ["eu"],
+      "timeoutMs": 5000,
+      "rpm": 300,
+      "byok": false,
+      "keyEnv": "FAKE_PROVIDER_KEY",
+      "price": { "inPerMTok": 0, "outPerMTok": 0 },
+      "enabled": true
+    },
+    {
+      "id": "fake-down",
+      "baseUrl": "https://fake-provider:8443/fail",
+      "match": ["https://fake-provider:8443/fail"],
+      "models": ["*"],
+      "regions": ["eu"],
+      "timeoutMs": 5000,
+      "rpm": 300,
+      "byok": false,
+      "keyEnv": "FAKE_PROVIDER_KEY",
+      "price": { "inPerMTok": 0, "outPerMTok": 0 },
+      "enabled": true
+    },
+    {
+      "id": "fake-slow",
+      "baseUrl": "https://fake-provider:8443/slow",
+      "match": ["https://fake-provider:8443/slow"],
+      "models": ["*"],
+      "regions": ["eu"],
+      "timeoutMs": 1000,
+      "rpm": 300,
+      "byok": false,
+      "keyEnv": "FAKE_PROVIDER_KEY",
+      "price": { "inPerMTok": 0, "outPerMTok": 0 },
+      "enabled": true
+    }
+  ]
+}

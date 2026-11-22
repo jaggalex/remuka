@@ -1,0 +1,26 @@
+{
+  "id": "operator/journal",
+  "type": "explanation",
+  "status": "available",
+  "order": 60,
+  "title": {
+    "ru": "Журнал действий операторов",
+    "en": "The operator journal"
+  },
+  "summary": {
+    "ru": "Фильтры, поля строки и что считается доказательством действия: время, автор, причина и объект.",
+    "en": "Filters, row fields and what counts as evidence of an action: time, author, reason and subject."
+  },
+  "related": [
+    "operator/customers",
+    "operator/measures",
+    "operator/money"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:c5ca8a91c0f0ca83bac07215cf03313bd127c4b8e591d61e977349307e3d0306",
+      "targetHash": "sha256:70f25981f88285ea2b374b0e3839ef08f82c6c06cbce91626b2c4ec79e373b8a"
+    }
+  }
+}

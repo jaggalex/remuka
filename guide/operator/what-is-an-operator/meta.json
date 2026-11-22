@@ -1,0 +1,27 @@
+{
+  "id": "operator/what-is-an-operator",
+  "type": "explanation",
+  "status": "available",
+  "order": 10,
+  "title": {
+    "ru": "Что такое оператор установки",
+    "en": "What an installation operator is"
+  },
+  "summary": {
+    "ru": "Роль того, кто держит сервер: метаданные клиентов, деньги, жалобы и журнал — без доступа к содержимому комнат.",
+    "en": "The role of the person who runs the server: customer metadata, money, abuse and the journal — without access to room content."
+  },
+  "related": [
+    "operator/first-operator",
+    "operator/limits",
+    "concepts/access",
+    "reference/roles"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:a3ad35d0156149da480b7d8dfbe898946ff4837ff1bd75954680f2333375e7e8",
+      "targetHash": "sha256:6851c779137b9a62d181dbfe3311b3bffb3f3af69c57ccab3342a5cc47842fa0"
+    }
+  }
+}

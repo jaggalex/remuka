@@ -1,0 +1,27 @@
+{
+  "id": "operator/limits",
+  "type": "explanation",
+  "status": "available",
+  "order": 110,
+  "title": {
+    "ru": "Границы роли оператора",
+    "en": "Limits of the operator role"
+  },
+  "summary": {
+    "ru": "Что оператор не может и почему: комнаты, документы, роли, тариф без следа; куда эскалировать обращение.",
+    "en": "What an operator cannot do and why: rooms, documents, roles, a plan without a trace; where to escalate a request."
+  },
+  "related": [
+    "operator/what-is-an-operator",
+    "operator/measures",
+    "operator/money",
+    "operator/first-operator"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:ea5477e41be9d170b1731b8fae3f72909b18ab0a10d7cf0d5eddd9772426068e",
+      "targetHash": "sha256:aeae5b279a5a536ae88c403f83ea0ef0c77cc9507b45954c5a191d4acc63959c"
+    }
+  }
+}

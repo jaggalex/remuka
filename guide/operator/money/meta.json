@@ -1,0 +1,26 @@
+{
+  "id": "operator/money",
+  "type": "how-to",
+  "status": "available",
+  "order": 80,
+  "title": {
+    "ru": "Деньги: оплата, возврат, кредит",
+    "en": "Money: payments, refunds, credit"
+  },
+  "summary": {
+    "ru": "Отметить оплату по счёту, вернуть деньги, начислить кредит и выдать тариф: причина, автор, лимиты, форма в консоли, письмо и след в журнале.",
+    "en": "Mark an invoice paid, refund money, grant credit and a plan: reason, author, limits, the console form, the letter and the journal trace."
+  },
+  "related": [
+    "operator/customers",
+    "operator/journal",
+    "operator/limits"
+  ],
+  "updated": "2026-11-23",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:65aef0c9b60616b4d2c0730615e807759b9a264e1809406ac46119b1cfcc81d4",
+      "targetHash": "sha256:b95713ed634226b803743769083f05c9a137121b576f7c0ea6ef62b5a00a0463"
+    }
+  }
+}

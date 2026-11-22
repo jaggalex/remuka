@@ -1,0 +1,27 @@
+{
+  "id": "how-to/contact-support",
+  "type": "how-to",
+  "status": "available",
+  "order": 45,
+  "title": {
+    "ru": "Связаться с поддержкой",
+    "en": "Contact support"
+  },
+  "summary": {
+    "ru": "Открыть «Помощь и поддержку», проверить, что уходит с обращением, и понять, куда идти, если поддержка или почта на установке выключены.",
+    "en": "Open Help and support, check what travels with a request, and know where to go when support or email is off on the installation."
+  },
+  "related": [
+    "how-to/account",
+    "support/known-issues",
+    "support/troubleshooting",
+    "admin/security"
+  ],
+  "updated": "2026-11-22",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:6724b6169afd571588fa4292e6cac4cf79115cbe588773c60cb0ba2689a0c585",
+      "targetHash": "sha256:35a3066d2b1a2ef9b0c53882552f94f1c1cba9d7bd44436406e261c4155e75e6"
+    }
+  }
+}

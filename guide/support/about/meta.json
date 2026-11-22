@@ -1,0 +1,25 @@
+{
+  "id": "support/about",
+  "type": "reference",
+  "status": "available",
+  "order": 95,
+  "title": {
+    "ru": "О Ремуке: версия и лицензия",
+    "en": "About Remuka: version and licence"
+  },
+  "summary": {
+    "ru": "Версия, автор, лицензия AGPL-3.0-only и исходный код.",
+    "en": "Version, author, AGPL-3.0-only licence and source code."
+  },
+  "related": [
+    "support/changelog",
+    "overview/index"
+  ],
+  "updated": "2026-10-29",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:319551877a1549f47a998f7dcc8a9367e66b8c96c1457687a454f037f898f498",
+      "targetHash": "sha256:0049f0b8b45fcad79f5bd094ba14e020a43a2920588131ec99fe6ffa72d6a4bd"
+    }
+  }
+}
