@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — письма</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#e6dcc4}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-btn:focus-visible{outline:2.5px solid #174a96;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #e6dcc4; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.5; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 980px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Письма — одна карточка на бумаге</h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Один шаблон на все 18 писем (`mail-template-kit.mjs`): бумажный фон, белая карточка с чернильной рамкой, одна коралловая кнопка, подпись. Без картинок — знак собран из цветных блоков, письма открываются везде.</p>
+</header>
+
+<div role="group" aria-label="Письмо" style="display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; padding: 6px; background: #ffffff; border: 1.5px dashed #c9bd9f; border-radius: 14px">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+<button type="button" class="rk-btn" aria-pressed="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}</button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<div style="flex: 0 1 640px; min-width: 0; border: 1.5px solid #1e2136; border-radius: 16px; overflow: hidden; background: #ffffff; box-shadow: 6px 6px 0 #1e2136">
+<div style="padding: 12px 16px; border-bottom: 1.5px solid #e6dcc4; font-size: 13px; color: #3f4256; display: flex; flex-direction: column; gap: 2px">
+<span><strong style="color: #1e2136">Ремука</strong> &lt;hello@mail.remuka.com&gt;</span>
+<strong style="font-size: 16px; color: #1e2136">{{ subject }}</strong>
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fbf3df">
+<tr><td align="center" style="padding: 28px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px">
+<tr><td style="padding: 0 4px 14px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="width: 14px; height: 14px; background: #ff8a57; border-radius: 7px"></td><td style="width: 4px"></td>
+<td style="width: 14px; height: 14px; background: #78b4ff; border-radius: 3px"></td><td style="width: 8px"></td>
+<td style="font-family: 'Golos Text', Arial, sans-serif; font-size: 18px; font-weight: 800; color: #1e2136; letter-spacing: -0.02em">Ремука</td>
+</tr></table>
+</td></tr>
+<tr><td style="background: #ffffff; border: 2px solid #1e2136; border-radius: 14px; padding: 28px; font-family: 'Golos Text', Arial, sans-serif; font-size: 16px; line-height: 1.55; color: #1e2136">
+<h2 style="margin: 0 0 12px; font-size: 24px; line-height: 1.2; font-weight: 800; letter-spacing: -0.02em">{{ title }}</h2>
+<p style="margin: 0 0 16px">{{ lead }}</p>
+<sc-if value="{{ hasBox }}" hint-placeholder-val="{{ false }}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 18px"><tr><td style="background: #fff6dc; border: 1.5px solid #f2b94a; border-radius: 10px; padding: 12px 14px; font-size: 15px">{{ box }}</td></tr></table>
+</sc-if>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 18px"><tr><td style="background: #ff8a57; border: 2px solid #1e2136; border-radius: 12px"><a href="#cta" style="display: inline-block; padding: 13px 22px; font-family: 'Golos Text', Arial, sans-serif; font-size: 16px; font-weight: 700; color: #1e2136; text-decoration: none">{{ cta }}</a></td></tr></table>
+<p style="margin: 0 0 14px; font-size: 14px; color: #3f4256">{{ small }}</p>
+<p style="margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #e6dcc4; font-size: 14px; color: #3f4256">Команда Ремуки · <a href="#site" style="color: #3f4256">remuka.ru</a> · <a href="#mail" style="color: #3f4256">help@remuka.ru</a></p>
+</td></tr>
+<tr><td style="padding: 14px 4px 0; font-family: 'Golos Text', Arial, sans-serif; font-size: 12px; color: #62657a">Вы получили это письмо, потому что у вас есть аккаунт в Ремуке. Это служебное письмо — от него нельзя отписаться.</td></tr>
+</table>
+</td></tr>
+</table>
+</div>
+
+<aside style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 16px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px">
+<strong>Правила шаблона</strong>
+<ul style="margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px">
+<li>Таблицы и инлайн-стили; ширина карточки 520 px.</li>
+<li>Без картинок: знак — два цветных блока и слово.</li>
+<li>Одна кнопка — главное действие; ссылка дублирует его текстом.</li>
+<li>Заголовок говорит, что случилось; текст — что делать.</li>
+<li>Тёмная тема почтового клиента: белая карточка остаётся белой, рамка и текст чернильные.</li>
+<li>Текстовая версия — те же слова по порядку.</li>
+</ul>
+</div>
+<div style="padding: 16px; background: #fffdf8; border: 1.5px dashed #1e2136; border-radius: 16px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; white-space: pre-wrap">{{ plain }}</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { m: 'verify' };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var M = {
+      verify: ['Подтвердите почту', 'Подтвердите почту — и комнаты ваши', 'Нажмите кнопку, чтобы мы знали, что письма доходят.', '', 'Подтвердить почту', 'Если вы не регистрировались в Ремуке — просто удалите это письмо.'],
+      reset: ['Новый пароль', 'Придумаем новый пароль', 'Кто-то, надеемся вы, попросил сбросить пароль. Ссылка сработает один раз.', '', 'Задать новый пароль', 'Не просили? Ничего не делайте — старый пароль останется.'],
+      invite: ['Приглашение в «Ромашку»', 'Alex зовёт вас в «Ромашку»', 'В Ремуке команда думает вместе на одном холсте. Примите приглашение — и сразу окажетесь в общих комнатах.', 'Ссылка одноразовая и действует 30 дней.', 'Принять приглашение', 'Не ждали? Можно не отвечать.'],
+      payfail: ['Оплата не прошла', 'Оплата Team не прошла', 'Банк не подтвердил списание 8 280 ₽. До 30 ноября всё работает как обычно.', 'Что будет дальше: если оплата не пройдёт, организация перейдёт на Free; ничего не удалится.', 'Обновить способ оплаты', 'Данные карты вводятся только на странице платёжного сервиса.'],
+      legal: ['Мы обновили оферту', 'Оферта меняется 1 декабря', 'Мы обновили оферту. Прочитайте новую редакцию и примите её при следующем входе.', 'Коротко, что изменилось: добавили тариф Business и оплату по счёту для юрлиц.', 'Прочитать новую редакцию', 'Старая редакция действует до 1 декабря.']
+    };
+    var m = M[s.m];
+    var tabs = [['verify', 'Подтвердить почту'], ['reset', 'Сброс пароля'], ['invite', 'Приглашение'], ['payfail', 'Оплата не прошла'], ['legal', 'Новые документы']].map(function (t) {
+      var on = s.m === t[0];
+      return { label: t[1], on: on ? 'true' : 'false', pick: function () { self.setState({ m: t[0] }); },
+        style: 'height: 32px; padding: 0 12px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') };
+    });
+    return {
+      tabs: tabs, subject: m[0], title: m[1], lead: m[2], box: m[3], hasBox: !!m[3], cta: m[4], small: m[5],
+      plain: m[1] + '\n\n' + m[2] + (m[3] ? '\n\n' + m[3] : '') + '\n\n' + m[4] + ': https://app.remuka.com/…\n\n' + m[5] + '\n\n— Команда Ремуки'
+    };
+  }
+}
+</script>
+</body>
+</html>

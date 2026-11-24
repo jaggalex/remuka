@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
 import {
   angleAt,
+  frameCornerAt,
   frameCorners,
   framePoint,
   resizedTurnedBox,
@@ -30,6 +31,16 @@ describe("the selection frame of a turned object (T18)", () => {
     const top = framePoint(frame, { x: 0, y: -50 });
     expect(top.x).toBeCloseTo(35.355, 3);
     expect(top.y).toBeCloseTo(-35.355, 3);
+  });
+
+  it("grabs a turned object's corner wherever the object sits", () => {
+    const frame = rotationFrame([shape({ x: 300, y: 200, rotation: 30 })])!;
+    const gap = 7;
+    const seLocal = { x: 80 + gap, y: 50 + gap };
+    const seWorld = framePoint(frame, seLocal);
+    expect(frameCornerAt(frame, seWorld, 10, gap)).toBe("se");
+    // The axis-aligned corner of the un-turned box is not the handle any more.
+    expect(frameCornerAt(frame, { x: 300 + 80 + gap, y: 200 + 50 + gap }, 10, gap)).toBeNull();
   });
 
   it("uses the described box for a block", () => {

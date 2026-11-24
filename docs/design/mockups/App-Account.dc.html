@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — настройки аккаунта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-press:active{transform:translate(3px,3px);box-shadow:0 0 0 #1e2136 !important}
+.rk-nav:hover{background:#fbf3df}
+.rk-field:focus{outline:3px solid #1f5fbf;outline-offset:1px}
+@keyframes rkDrop{0%{opacity:0;transform:translateY(-18px) rotate(-1deg)}70%{opacity:1;transform:translateY(3px)}100%{transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; position: relative; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; padding: 32px 24px; box-sizing: border-box">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Аккаунт</h1>
+<button type="button" onClick="{{ toggleReaccept }}" style="min-height: 34px; padding: 2px 12px; border: 1.5px dashed #bca996; border-radius: 10px; background: transparent; font-family: inherit; font-size: 13px; color: #3f4256; cursor: pointer">Показать: вышла новая редакция документов</button>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<nav aria-label="Разделы аккаунта" style="flex: 0 1 240px; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 18px; box-shadow: 4px 4px 0 #1e2136">
+<sc-for list="{{ sections }}" as="s" hint-placeholder-count="5"><button type="button" onClick="{{ s.go }}" aria-current="{{ s.current }}" class="rk-nav" style="{{ s.style }}">{{ s.label }}</button></sc-for>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 5px 5px 0 #1e2136; padding: 28px; display: flex; flex-direction: column; gap: 22px">
+
+<sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+<h2 style="margin: 0; font-size: 26px; font-weight: 800">Профиль</h2>
+<div style="display: flex; align-items: center; gap: 16px">
+<span aria-hidden="true" style="width: 64px; height: 64px; border-radius: 999px; background: #1a6ad8; border: 1.5px solid #1e2136; color: #ffffff; display: grid; place-items: center; font-size: 26px; font-weight: 800">А</span>
+<div><strong style="font-size: 18px">Аня Смирнова</strong><div style="color: #3f4256; font-size: 14px">так вас видят коллеги — рядом с курсором и в комментариях</div></div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; max-width: 420px"><span style="font-size: 14px; font-weight: 700">Имя</span><input class="rk-field" type="text" value="Аня Смирнова" style="min-height: 46px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; max-width: 420px"><span style="font-size: 14px; font-weight: 700">Имя для упоминаний</span><input class="rk-field" type="text" value="@anya" style="min-height: 46px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px"><span style="font-size: 13px; color: #3f4256">Коллеги позовут вас в комментарии так: @anya</span></label>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 700">Почта</span><span>anya@romashka.team</span><span style="padding: 2px 10px; border-radius: 999px; background: #c8e8d4; border: 1.5px solid #1e2136; font-size: 12px; font-weight: 700">подтверждена</span></div>
+<button type="button" class="rk-press" style="align-self: flex-start; min-height: 46px; padding: 0 20px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer">Сохранить</button>
+</sc-if>
+
+<sc-if value="{{ isLook }}" hint-placeholder-val="{{ false }}">
+<h2 style="margin: 0; font-size: 26px; font-weight: 800">Вид</h2>
+<fieldset style="border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px"><legend style="font-size: 14px; font-weight: 700; margin-bottom: 8px">Тема</legend>
+<div style="display: flex; gap: 12px; flex-wrap: wrap">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="3"><button type="button" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}" style="{{ t.style }}"><span style="{{ t.preview }}"></span><span style="font-size: 14px; font-weight: 700">{{ t.label }}</span></button></sc-for>
+</div></fieldset>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; max-width: 520px; font-size: 15px"><span><strong>Язык</strong><br><span style="color: #3f4256; font-size: 14px">интерфейс и письма</span></span><select style="height: 42px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 15px; padding: 0 10px"><option>Русский</option><option>English</option></select></label>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; max-width: 520px">
+<span><strong>Спокойные анимации</strong><br><span style="color: #3f4256; font-size: 14px">без пружин, парения и плавающих курсоров — всё сразу на месте</span></span>
+<button type="button" role="switch" aria-checked="{{ calmAria }}" aria-label="Спокойные анимации" onClick="{{ toggleCalm }}" style="{{ switchStyle }}"><span style="width: 24px; height: 24px; border-radius: 999px; background: #1e2136"></span></button>
+</div>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Настройка хранится в аккаунте — действует на всех ваших устройствах.</p>
+</sc-if>
+
+<sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
+<h2 style="margin: 0; font-size: 26px; font-weight: 800">Безопасность</h2>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid #e6dcc4; border-radius: 14px"><span><strong>Пароль</strong><br><span style="color: #3f4256; font-size: 14px">меняли 3 месяца назад</span></span><button type="button" style="height: 40px; padding: 0 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-weight: 700; cursor: pointer">Сменить</button></div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1.5px solid #e6dcc4; border-radius: 14px">
+<strong>Где вы сейчас вошли</strong>
+<sc-for list="{{ sessions }}" as="se" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px"><span>{{ se.what }} <span style="color: #3f4256">· {{ se.when }}</span></span><span style="{{ se.badge }}">{{ se.state }}</span></div></sc-for>
+<button type="button" style="align-self: flex-start; height: 38px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; font-weight: 700; cursor: pointer">Выйти на остальных</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDocs }}" hint-placeholder-val="{{ false }}">
+<h2 style="margin: 0; font-size: 26px; font-weight: 800">Документы</h2>
+<p style="margin: 0; color: #3f4256">Коротко: храним только имя и почту, данные лежат в России и никому не продаются. Полные тексты — по ссылкам.</p>
+<sc-for list="{{ docs }}" as="d" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border: 1.5px solid #e6dcc4; border-radius: 14px"><span><a href="#doc">{{ d.title }}</a><br><span style="color: #3f4256; font-size: 13px">{{ d.meta }}</span></span><span style="padding: 2px 10px; border-radius: 999px; background: #c8e8d4; border: 1.5px solid #1e2136; font-size: 12px; font-weight: 700">принято</span></div></sc-for>
+<section aria-label="Отзыв согласия" style="padding: 14px 16px; border: 1.5px solid #e6dcc4; border-radius: 14px; display: flex; flex-direction: column; gap: 8px">
+<strong>Отозвать согласие на обработку данных</strong>
+<span style="color: #3f4256; font-size: 14px">Без согласия мы не можем вести ваш аккаунт: он уйдёт в удаление — 14 дней можно передумать по ссылке из письма.</span>
+<button type="button" onClick="{{ goDelete }}" style="align-self: flex-start; height: 40px; padding: 0 14px; border: 1.5px solid #a3300a; border-radius: 12px; background: #ffffff; color: #a3300a; font-family: inherit; font-weight: 700; cursor: pointer">Отозвать…</button>
+</section>
+</sc-if>
+
+<sc-if value="{{ isDelete }}" hint-placeholder-val="{{ false }}">
+<h2 style="margin: 0; font-size: 26px; font-weight: 800">Удалить аккаунт</h2>
+<p style="margin: 0; color: #3f4256">Жаль расставаться. Вот что произойдёт — ровно так, без сюрпризов:</p>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px">
+<li>Вы сразу выйдете на всех устройствах, а войти будет нельзя.</li>
+<li><strong>14 дней</strong> можно передумать — ссылка в письме вернёт всё как было.</li>
+<li>Потом имя и почта удалятся навсегда. В общих комнатах ваши стикеры останутся с подписью «Удалённый участник».</li>
+<li>Комнаты, где вы единственный администратор, сначала нужно передать — мы подскажем кому.</li>
+</ul>
+<section aria-label="Опасная зона" style="padding: 16px; border: 1.5px solid #a3300a; border-radius: 16px; display: flex; flex-direction: column; gap: 12px; background: #fdeeec">
+<label style="display: flex; flex-direction: column; gap: 6px; max-width: 420px"><span style="font-size: 14px; font-weight: 700">Пароль</span><input class="rk-field" type="password" style="min-height: 46px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; max-width: 420px"><span style="font-size: 14px; font-weight: 700">Напишите «удалить»</span><input class="rk-field" type="text" value="{{ confirm }}" onInput="{{ typeConfirm }}" style="min-height: 46px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px"></label>
+<button type="button" style="{{ deleteBtn }}">Удалить аккаунт</button>
+</section>
+</sc-if>
+</main>
+</div>
+</div>
+
+<sc-if value="{{ reaccept }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: rgba(30,33,54,0.38); display: grid; place-items: center; padding: 24px">
+<section role="dialog" aria-modal="true" aria-labelledby="ra-h" style="width: 100%; max-width: 540px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; padding: 28px; display: flex; flex-direction: column; gap: 14px; animation: rkDrop .45s cubic-bezier(.34,1.56,.64,1) both">
+<h2 id="ra-h" style="margin: 0; font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em">Мы обновили документы</h2>
+<p style="margin: 0; color: #3f4256">Коротко, что изменилось: добавили раздел про агента и уточнили сроки хранения. Подробности — в текстах.</p>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1.5px dashed #bca996; border-radius: 14px; background: #ffffff; font-size: 14px">
+<a href="#offer">Пользовательское соглашение · редакция 2</a>
+<a href="#privacy">Политика обработки данных · редакция 2</a>
+</div>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px"><input type="checkbox" style="flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: #1e2136"><span>Принимаю новую редакцию соглашения</span></label>
+<button type="button" onClick="{{ toggleReaccept }}" class="rk-press" style="min-height: 50px; border: 1.5px solid #1e2136; border-radius: 14px; background: #ff8a57; box-shadow: 5px 5px 0 #1e2136; font-family: inherit; font-size: 17px; font-weight: 800; cursor: pointer; color: #1e2136">Принять и продолжить</button>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Не готовы принять — комнаты не откроются, но экспорт данных доступен в «Документах». Вопросы — privacy@remuka.ru.</p>
+</section>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sec: 'look', theme: 'light', calm: false, confirm: '', reaccept: false };
+  }
+  renderVals() {
+    var self = this;
+    var sec = this.state.sec;
+    var defs = [['profile', 'Профиль'], ['look', 'Вид'], ['security', 'Безопасность'], ['docs', 'Документы'], ['delete', 'Удалить аккаунт']];
+    var themes = [['light', 'Светлая', '#fbf3df', '#1e2136'], ['dark', 'Тёмная', '#14162a', '#f3f2f0'], ['system', 'Как в системе', 'linear-gradient(90deg, #fbf3df 50%, #14162a 50%)', '#1e2136']];
+    var calm = this.state.calm;
+    var ok = this.state.confirm.trim().toLowerCase() === 'удалить';
+    return {
+      sections: defs.map(function (d) { var on = d[0] === sec; var danger = d[0] === 'delete'; return { label: d[1], go: function () { self.setState({ sec: d[0] }); }, current: on ? 'page' : 'false', style: 'display: block; width: 100%; text-align: left; min-height: 44px; padding: 0 14px; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') + '; color: ' + (danger ? '#a3300a' : '#1e2136') + (danger ? '; margin-top: 8px' : '') }; }),
+      isProfile: sec === 'profile', isLook: sec === 'look', isSecurity: sec === 'security', isDocs: sec === 'docs', isDelete: sec === 'delete',
+      themes: themes.map(function (t) { var on = t[0] === self.state.theme; return { label: t[1], on: on ? 'true' : 'false', pick: function () { self.setState({ theme: t[0] }); }, preview: 'display: block; width: 120px; height: 72px; border-radius: 10px; border: 1.5px solid #1e2136; background: ' + t[2], style: 'display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 10px; border-radius: 14px; font-family: inherit; cursor: pointer; color: #1e2136; background: #ffffff; border: 1.5px solid ' + (on ? '#1e2136' : '#e6dcc4') + (on ? '; box-shadow: 3px 3px 0 #1e2136' : '') }; }),
+      calmAria: calm ? 'true' : 'false', toggleCalm: function () { self.setState({ calm: !self.state.calm }); },
+      switchStyle: 'flex: none; width: 56px; height: 32px; border: 1.5px solid #1e2136; border-radius: 999px; padding: 2px; cursor: pointer; display: flex; background: ' + (calm ? '#85d965' : '#ffffff') + '; justify-content: ' + (calm ? 'flex-end' : 'flex-start'),
+      sessions: [
+        { what: 'Этот браузер · macOS', when: 'сейчас', state: 'вы здесь', badge: 'padding: 2px 10px; border-radius: 999px; background: #c8e8d4; border: 1.5px solid #1e2136; font-size: 12px; font-weight: 700' },
+        { what: 'Телефон · Android', when: 'вчера, 21:40', state: 'активна', badge: 'padding: 2px 10px; border-radius: 999px; background: #ffffff; border: 1.5px solid #1e2136; font-size: 12px; font-weight: 700' }
+      ],
+      docs: [
+        { title: 'Пользовательское соглашение (оферта)', meta: 'редакция 1 · принято 12.11.2026' },
+        { title: 'Согласие на обработку персональных данных', meta: 'редакция 1 · дано 12.11.2026' },
+        { title: 'Политика обработки данных', meta: 'редакция 1 · ознакомлены 12.11.2026' }
+      ],
+      goDelete: function () { self.setState({ sec: 'delete' }); },
+      confirm: this.state.confirm, typeConfirm: function (e) { self.setState({ confirm: e.target.value }); },
+      deleteBtn: 'align-self: flex-start; min-height: 46px; padding: 0 18px; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 800; border: 1.5px solid #a3300a; cursor: ' + (ok ? 'pointer' : 'not-allowed') + '; background: ' + (ok ? '#a3300a' : '#ffffff') + '; color: ' + (ok ? '#ffffff' : '#a3300a') + '; opacity: ' + (ok ? '1' : '0.6'),
+      reaccept: this.state.reaccept, toggleReaccept: function () { self.setState({ reaccept: !self.state.reaccept }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

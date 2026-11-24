@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — разделы и таблицы: оси, ячейки, удаление</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-item:hover,.rk-item:focus-visible{background:#fbf3df;outline:none}
+.rk-btn:focus-visible,.rk-item:focus-visible,.rk-cell:focus-visible{outline:2.5px solid #174a96;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkMenu{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes rkDrop{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 960px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Таблица — <span style="position: relative; display: inline-block; z-index: 0">ничего не теряет<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#78b4ff"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Раздел можно показать свободно или таблицей. Удаляя колонку, вы решаете, куда деть её стикеры. Всё — одним ⌘Z назад.</p>
+</header>
+
+<div role="group" aria-label="Что открыто (для макета)" style="display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; padding: 6px; background: #ffffff; border: 1.5px dashed #c9bd9f; border-radius: 14px">
+<span style="align-self: center; padding: 0 6px; font-size: 12px; color: #62657a">макет:</span>
+<sc-for list="{{ modes }}" as="m" hint-placeholder-count="4">
+<button type="button" class="rk-btn" aria-pressed="{{ m.on }}" onClick="{{ m.pick }}" style="{{ m.style }}">{{ m.label }}</button>
+</sc-for>
+</div>
+
+<main aria-label="Комната" style="position: relative; height: 800px; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+
+<div role="toolbar" aria-label="Раздел «Риски релиза»" style="position: absolute; left: 60px; top: 28px; display: flex; align-items: center; gap: 6px; padding: 5px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136">
+<span style="padding: 0 8px; font-size: 13px; font-weight: 700; color: #3f4256">Раздел</span>
+<div role="radiogroup" aria-label="Вид раздела" style="display: flex; padding: 2px; gap: 2px; background: #fbf3df; border: 1.5px solid #1e2136; border-radius: 10px">
+<sc-for list="{{ views }}" as="v" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{ v.on }}" onClick="{{ v.pick }}" style="{{ v.style }}">{{ v.label }}</button>
+</sc-for>
+</div>
+<button type="button" class="rk-btn" style="height: 32px; padding: 0 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">+ Колонка</button>
+<button type="button" class="rk-btn" style="height: 32px; padding: 0 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">+ Строка</button>
+</div>
+
+<section aria-label="Таблица «Риски релиза»" style="position: absolute; left: 60px; top: 100px; width: 760px">
+<span style="position: absolute; left: 0; top: -30px; padding: 4px 12px; background: #1e2136; color: #ffffff; border-radius: 8px 8px 8px 0; font-size: 13px; font-weight: 700">Риски релиза</span>
+<div style="{{ tableBox }}">
+<div style="display: grid; grid-template-columns: 120px repeat(3, minmax(0, 1fr))">
+<span style="border-bottom: 1.5px solid #1e2136; border-right: 1px solid #e6dcc4; background: #fbf3df"></span>
+<sc-for list="{{ cols }}" as="c" hint-placeholder-count="3">
+<button type="button" class="rk-btn" onClick="{{ c.open }}" aria-haspopup="menu" style="{{ c.style }}"><span style="flex: 1; text-align: left">{{ c.label }}</span><span aria-hidden="true" style="color: #62657a">▾</span></button>
+</sc-for>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+<span style="padding: 12px 10px; font-size: 14px; font-weight: 700; background: #fbf3df; border-right: 1px solid #e6dcc4; border-bottom: 1px solid #e6dcc4">{{ r.label }}</span>
+<sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="3">
+<button type="button" class="rk-cell" aria-label="Ячейка" onClick="{{ x.pick }}" style="{{ x.style }}">
+<sc-for list="{{ x.notes }}" as="n" hint-placeholder-count="1">
+<span style="{{ n.style }}">{{ n.text }}</span>
+</sc-for>
+</button>
+</sc-for>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- axis menu -->
+<sc-if value="{{ axisMenu }}" hint-placeholder-val="{{ true }}">
+<div role="menu" aria-label="Колонка «Сроки»" style="position: absolute; left: 420px; top: 140px; z-index: 6; width: 280px; padding: 6px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 4px 4px 0 #1e2136; animation: rkMenu .14s ease-out both">
+<div style="padding: 6px 10px 8px; font-size: 13px; font-weight: 700; color: #3f4256">Колонка «Сроки»</div>
+<sc-for list="{{ axisItems }}" as="a" hint-placeholder-count="8">
+<button type="button" role="menuitem" class="rk-item" onClick="{{ a.run }}" style="{{ a.style }}"><span style="flex: 1">{{ a.label }}</span><span style="font-size: 12px; color: #62657a">{{ a.key }}</span></button>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- cell range bar -->
+<sc-if value="{{ cellBar }}" hint-placeholder-val="{{ false }}">
+<div role="toolbar" aria-label="Действия с ячейками" style="position: absolute; left: 280px; top: 470px; z-index: 6; display: flex; align-items: center; gap: 6px; padding: 5px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136">
+<span style="padding: 0 8px; font-size: 13px; font-weight: 700; color: #3f4256">Ячейки «Люди × Высокий» — «Сроки × Высокий»</span>
+<button type="button" class="rk-btn" style="height: 32px; padding: 0 10px; border-radius: 9px; border: 1.5px solid #1e2136; background: #f2b94a; font-family: inherit; font-size: 13px; font-weight: 700; color: #1e2136; cursor: pointer">Объединить</button>
+<button type="button" class="rk-btn" style="height: 32px; padding: 0 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">Переместить в ячейку…</button>
+</div>
+</sc-if>
+
+<!-- delete axis dialog -->
+<sc-if value="{{ delDialog }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; z-index: 8; background: rgba(30,33,54,.28); display: grid; place-items: center">
+<div role="alertdialog" aria-labelledby="del-h" style="width: 460px; max-width: 92%; padding: 24px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; display: flex; flex-direction: column; gap: 14px; animation: rkDrop .22s cubic-bezier(.34,1.56,.64,1) both">
+<h2 id="del-h" style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em">Удалить колонку «Сроки»?</h2>
+<p style="margin: 0; color: #3f4256">В колонке 3 стикера. Что с ними сделать?</p>
+<div role="radiogroup" aria-label="Что сделать со стикерами" style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ delOptions }}" as="o" hint-placeholder-count="3">
+<label style="{{ o.style }}"><input type="radio" name="del" checked="{{ o.on }}" onChange="{{ o.pick }}" style="width: 18px; height: 18px; accent-color: #1e2136"><span>{{ o.label }}</span></label>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #3f4256">Ширины остальных колонок не изменятся.</span>
+<div style="display: flex; justify-content: flex-end; gap: 10px">
+<button type="button" class="rk-btn" onClick="{{ closeDel }}" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer">Отмена</button>
+<button type="button" class="rk-btn" onClick="{{ closeDel }}" style="{{ delBtn }}">{{ delLabel }}</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- layout dialog -->
+<sc-if value="{{ layoutDialog }}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-labelledby="lay-h" style="position: absolute; right: 24px; top: 100px; z-index: 7; width: 380px; padding: 22px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 6px 6px 0 #1e2136; display: flex; flex-direction: column; gap: 12px; animation: rkDrop .22s cubic-bezier(.34,1.56,.64,1) both">
+<h2 id="lay-h" style="margin: 0; font-size: 22px; font-weight: 800">Как разложить материал?</h2>
+<sc-for list="{{ layOptions }}" as="o" hint-placeholder-count="2">
+<label style="{{ o.style }}"><input type="radio" name="lay" checked="{{ o.on }}" onChange="{{ o.pick }}" style="width: 18px; height: 18px; accent-color: #1e2136"><span>{{ o.label }}</span></label>
+</sc-for>
+<span style="font-size: 13px; color: #3f4256">Предпросмотр — пунктиром на холсте. Объекты не копируются; один ⌘Z вернёт как было.</span>
+<div style="display: flex; justify-content: flex-end; gap: 10px">
+<button type="button" class="rk-btn" onClick="{{ toFree }}" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer">Отмена</button>
+<button type="button" class="rk-btn" onClick="{{ applyLayout }}" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer">Применить</button>
+</div>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 60px; bottom: 24px; max-width: 560px; padding: 10px 14px; background: #cddff8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.8deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Нажмите «Сроки ▾» — меню колонки; «Удалить колонку» — выбор, куда деть стикеры. Переключите вид на «Свободно» и обратно на «Таблица» — появится «Как разложить материал?».</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'axis', view: 'table', del: 'left', lay: 'pos', layout: false };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var seg = function (on) { return 'height: 32px; padding: 0 12px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent'); };
+    var modes = [['axis', 'Меню колонки'], ['cells', 'Выделены ячейки'], ['delete', 'Удаление колонки'], ['none', 'Ничего']].map(function (m) { var on = s.mode === m[0] && !s.layout; return { label: m[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ mode: m[0], layout: false, view: 'table' }); } }; });
+    var views = [['free', 'Свободно'], ['table', 'Таблица']].map(function (v) {
+      var on = s.view === v[0];
+      return { label: v[1], on: on ? 'true' : 'false', style: 'height: 28px; padding: 0 10px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent'),
+        pick: function () { if (v[0] === 'table' && s.view === 'free') self.setState({ view: 'table', layout: true, mode: 'none' }); else self.setState({ view: v[0], layout: false }); } };
+    });
+    var table = s.view === 'table';
+    var colNames = ['Люди', 'Сроки', 'Деньги'];
+    var cols = colNames.map(function (c, i) {
+      var on = s.mode === 'axis' && i === 1;
+      return { label: c, open: function () { self.setState({ mode: i === 1 ? 'axis' : 'none' }); },
+        style: 'display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px; border: none; border-bottom: 1.5px solid #1e2136; border-right: 1px solid #e6dcc4; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer; background: ' + (on ? '#fff6dc' : (s.mode === 'delete' && i === 1 ? '#fde2da' : '#fbf3df')) };
+    });
+    var notes = {
+      '0-0': [['Нет дизайнера на неделю', '#f9d3cd', -1.2]], '0-1': [['Стенд за день до демо', '#f4e0a8', 1.1]], '0-2': [],
+      '1-0': [], '1-1': [['Ревью задерживается', '#ffdcc6', -0.6], ['Праздники', '#f4e0a8', 1.4]], '1-2': [['Счёт за сервера', '#c8e8d4', -1]],
+      '2-0': [['Онбординг новичка', '#cddff8', 0.8]], '2-1': [], '2-2': []
+    };
+    var rowNames = ['Высокий', 'Средний', 'Низкий'];
+    var rows = rowNames.map(function (r, ri) {
+      return { label: r, cells: colNames.map(function (c, ci) {
+        var sel = (s.mode === 'cells' && ri === 0 && ci < 2);
+        var doomed = s.mode === 'delete' && ci === 1;
+        return { pick: function () { self.setState({ mode: 'cells' }); },
+          style: 'min-height: 110px; padding: 10px; border-top: none; border-left: none; font-family: inherit; color: #1e2136; text-align: left; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; border-right: 1px solid #e6dcc4; border-bottom: 1px solid #e6dcc4; cursor: cell; background: ' + (sel ? 'rgba(120,180,255,.22)' : (doomed ? 'rgba(253,226,218,.7)' : 'transparent')) + (sel ? '; box-shadow: inset 0 0 0 2px #174a96' : ''),
+          notes: (notes[ri + '-' + ci] || []).map(function (n) { return { text: n[0], style: 'width: 92px; min-height: 64px; padding: 8px; box-sizing: border-box; font-size: 12px; line-height: 1.25; background: ' + n[1] + '; border-radius: 2px; transform: rotate(' + n[2] + 'deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 8px 8px -7px rgba(38,30,22,.5)' + (doomed && s.del === 'drop' ? '; opacity: .35' : '') }; }) };
+      }) };
+    });
+    var item = function (label, key, run, danger) { return { label: label, key: key || '', run: run || function () {}, style: 'display: flex; width: 100%; min-height: 36px; align-items: center; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; cursor: pointer; text-align: left; color: ' + (danger ? '#a3300a' : '#1e2136') }; };
+    var opt = function (on) { return 'display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; font-size: 14px; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : '#e6dcc4') + '; background: ' + (on ? '#ffffff' : 'transparent'); };
+    var delOptions = [['left', 'Перенести влево — «Люди»'], ['right', 'Перенести вправо — «Деньги»'], ['drop', 'Удалить со стикерами (3)']].map(function (o) { var on = s.del === o[0]; return { label: o[1], on: on, pick: function () { self.setState({ del: o[0] }); }, style: opt(on) }; });
+    var layOptions = [['pos', 'По текущему расположению'], ['first', 'Оставить всё в первой ячейке']].map(function (o) { var on = s.lay === o[0]; return { label: o[1], on: on, pick: function () { self.setState({ lay: o[0] }); }, style: opt(on) }; });
+    var drop = s.del === 'drop';
+    return {
+      modes: modes, views: views, cols: cols, rows: rows,
+      tableBox: 'background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; overflow: hidden; transition: opacity .2s ease;' + (table ? '' : ' opacity: .4; border-style: dashed'),
+      axisMenu: s.mode === 'axis' && table,
+      axisItems: [item('Переименовать', 'Enter'), item('Вставить колонку слева'), item('Вставить колонку справа'), item('Переместить влево · вправо'), item('Дублировать колонку'), item('Вертикальный заголовок'), item('Удалить колонку…', 'Del', function () { self.setState({ mode: 'delete' }); }, true)],
+      cellBar: s.mode === 'cells' && table,
+      delDialog: s.mode === 'delete',
+      delOptions: delOptions,
+      delLabel: drop ? 'Удалить со стикерами' : 'Удалить колонку',
+      delBtn: 'height: 44px; padding: 0 16px; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: 1.5px solid ' + (drop ? '#a3300a' : '#1e2136') + '; background: ' + (drop ? '#a3300a' : '#ff8a57') + '; color: ' + (drop ? '#ffffff' : '#1e2136') + '; box-shadow: ' + (drop ? 'none' : '3px 3px 0 #1e2136'),
+      closeDel: function () { self.setState({ mode: 'none' }); },
+      layoutDialog: s.layout, layOptions: layOptions,
+      toFree: function () { self.setState({ layout: false, view: 'free' }); }, applyLayout: function () { self.setState({ layout: false, view: 'table' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

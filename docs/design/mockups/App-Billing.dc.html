@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — тариф и оплата</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-btn:focus-visible,.rk-seg:focus-visible,.rk-card:focus-visible{outline:2.5px solid #174a96;outline-offset:3px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px">
+<div style="flex: 1 1 420px">
+<p style="margin: 0 0 4px; font-size: 14px; color: #3f4256">Ромашка › Тариф и оплата</p>
+<h1 style="margin: 0; font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em">Тариф и оплата</h1>
+</div>
+<div role="group" aria-label="Показать состояние (для макета)" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; background: #ffffff; border: 1.5px dashed #c9bd9f; border-radius: 14px">
+<span style="align-self: center; padding: 0 6px; font-size: 12px; color: #62657a">макет:</span>
+<sc-for list="{{ states }}" as="st" hint-placeholder-count="5">
+<button type="button" class="rk-seg" aria-pressed="{{ st.on }}" onClick="{{ st.pick }}" style="{{ st.style }}">{{ st.label }}</button>
+</sc-for>
+</div>
+</header>
+
+<sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="{{ bannerStyle }}">
+<strong style="font-size: 16px">{{ bannerTitle }}</strong>
+<span style="flex: 1 1 360px">{{ bannerText }}</span>
+<button type="button" class="rk-btn" style="height: 40px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer">{{ bannerAction }}</button>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; align-items: start">
+
+<section aria-labelledby="now-h" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 5px 5px 0 #1e2136">
+<div style="display: flex; align-items: center; gap: 10px">
+<h2 id="now-h" style="margin: 0; flex: 1; font-size: 26px; font-weight: 800">{{ planName }}</h2>
+<span style="{{ statusChip }}">{{ statusText }}</span>
+</div>
+<p style="margin: 0; color: #3f4256">{{ planLine }}</p>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{ usage }}" as="u" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span>{{ u.label }}</span><strong style="{{ u.numStyle }}">{{ u.value }}</strong></div>
+<div style="height: 10px; border-radius: 999px; background: #f3f1ec; border: 1.5px solid #1e2136; overflow: hidden"><div style="{{ u.bar }}"></div></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding-top: 6px">
+<button type="button" class="rk-btn" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 15px; font-weight: 700; color: #1e2136; cursor: pointer">{{ mainAction }}</button>
+<sc-if value="{{ paid }}" hint-placeholder-val="{{ false }}">
+<button type="button" class="rk-btn" onClick="{{ askCancel }}" style="height: 46px; padding: 0 16px; border-radius: 12px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer">Отменить подписку…</button>
+</sc-if>
+</div>
+<sc-if value="{{ cancelOpen }}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="cx-h" style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1.5px solid #a3300a; border-radius: 14px; background: #fff7f3">
+<strong id="cx-h">Отменить Team?</strong>
+<span style="font-size: 14px">Тариф работает до 23 декабря и не продлевается. Потом организация перейдёт на Free: лишние комнаты станут только для чтения, ничего не удалится.</span>
+<div style="display: flex; gap: 10px; flex-wrap: wrap"><button type="button" class="rk-btn" onClick="{{ closeCancel }}" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer">Оставить</button><button type="button" class="rk-btn" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #a3300a; background: #a3300a; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Отменить подписку</button></div>
+</div>
+</sc-if>
+
+<div style="height: 1.5px; background: #e6dcc4"></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="flex: 1 1 200px; font-size: 14px"><strong>Способ оплаты</strong><br><span style="color: #3f4256">{{ cardLine }}</span></span>
+<button type="button" class="rk-btn" style="height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">{{ cardAction }}</button>
+</div>
+</section>
+
+<section aria-labelledby="ch-h" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px">
+<h2 id="ch-h" style="margin: 0; font-size: 22px; font-weight: 800">Выбрать тариф</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<div role="radiogroup" aria-label="Период оплаты" style="display: flex; padding: 3px; gap: 3px; background: #fbf3df; border: 1.5px solid #1e2136; border-radius: 12px">
+<sc-for list="{{ periods }}" as="p" hint-placeholder-count="2">
+<button type="button" class="rk-seg" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}" style="{{ p.style }}">{{ p.label }}</button>
+</sc-for>
+</div>
+<div role="radiogroup" aria-label="Валюта" style="display: flex; padding: 3px; gap: 3px; background: #fbf3df; border: 1.5px solid #1e2136; border-radius: 12px">
+<sc-for list="{{ currencies }}" as="c" hint-placeholder-count="2">
+<button type="button" class="rk-seg" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}</button>
+</sc-for>
+</div>
+</div>
+<div role="radiogroup" aria-label="Тариф" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+<sc-for list="{{ plans }}" as="pl" hint-placeholder-count="3">
+<button type="button" class="rk-card" role="radio" aria-checked="{{ pl.on }}" onClick="{{ pl.pick }}" style="{{ pl.style }}">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%"><strong style="font-size: 17px">{{ pl.name }}</strong><span style="{{ pl.trialStyle }}">{{ pl.trial }}</span></span>
+<span style="font-size: 22px; font-weight: 800">{{ pl.price }}</span>
+<span style="font-size: 12px; color: #3f4256">{{ pl.note }}</span>
+<span style="font-size: 13px">{{ pl.seats }}</span>
+</button>
+</sc-for>
+</div>
+<details>
+<summary style="cursor: pointer; font-size: 14px; color: #174a96; list-style: none">Есть промокод?</summary>
+<div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap"><input type="text" value="LAUNCH30" aria-label="Промокод" style="flex: 1 1 160px; height: 42px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 15px; background: #ffffff"><button type="button" class="rk-btn" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer">Проверить</button></div>
+<p style="margin: 8px 0 0; font-size: 13px; color: #17733f; font-weight: 600">Скидка 30 %, к оплате {{ promoTotal }}</p>
+</details>
+<fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 14px; font-weight: 600; margin-bottom: 8px">Как платите</legend>
+<sc-for list="{{ methods }}" as="m" hint-placeholder-count="3">
+<label style="{{ m.style }}"><input type="radio" name="method" checked="{{ m.on }}" onChange="{{ m.pick }}" style="width: 18px; height: 18px; accent-color: #1e2136"><span>{{ m.label }}</span></label>
+</sc-for>
+</fieldset>
+<label style="display: flex; align-items: flex-start; gap: 10px; font-size: 14px"><input type="checkbox" checked="{{ terms }}" onChange="{{ toggleTerms }}" style="width: 20px; height: 20px; margin-top: 1px; accent-color: #1e2136"><span>Принимаю условия <a href="#offer">оферты</a></span></label>
+<button type="button" class="rk-btn" style="{{ payStyle }}">{{ payLabel }}</button>
+<p style="margin: 0; font-size: 12px; color: #62657a">Данные карты вводятся на странице платёжного сервиса — Ремука их не видит и не хранит.</p>
+</section>
+</div>
+
+<section aria-labelledby="inv-h" style="display: flex; flex-direction: column; gap: 10px">
+<h2 id="inv-h" style="margin: 0; font-size: 20px; font-weight: 800">Счета</h2>
+<div style="border: 1.5px solid #1e2136; border-radius: 16px; background: #ffffff; overflow: auto">
+<table style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="background: #fbf3df"><th scope="col" style="text-align: left; padding: 10px 14px; border-bottom: 1.5px solid #1e2136">Номер</th><th scope="col" style="text-align: left; padding: 10px 14px; border-bottom: 1.5px solid #1e2136">Дата</th><th scope="col" style="text-align: right; padding: 10px 14px; border-bottom: 1.5px solid #1e2136">Сумма</th><th scope="col" style="text-align: left; padding: 10px 14px; border-bottom: 1.5px solid #1e2136">Статус</th><th scope="col" style="text-align: left; padding: 10px 14px; border-bottom: 1.5px solid #1e2136">Чек</th></tr></thead>
+<tbody>
+<sc-for list="{{ invoices }}" as="iv" hint-placeholder-count="3">
+<tr><td style="padding: 10px 14px; border-bottom: 1px solid #e6dcc4; font-family: ui-monospace, Menlo, monospace">{{ iv.n }}</td><td style="padding: 10px 14px; border-bottom: 1px solid #e6dcc4">{{ iv.d }}</td><td style="padding: 10px 14px; border-bottom: 1px solid #e6dcc4; text-align: right; font-variant-numeric: tabular-nums">{{ iv.sum }}</td><td style="padding: 10px 14px; border-bottom: 1px solid #e6dcc4"><span style="{{ iv.chip }}">{{ iv.status }}</span></td><td style="padding: 10px 14px; border-bottom: 1px solid #e6dcc4"><a href="#receipt">{{ iv.receipt }}</a></td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<p style="margin: 0; align-self: flex-start; max-width: 700px; padding: 10px 14px; background: #f4e0a8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.5deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Цены — как на лендинге (предварительные; настоящие приходят с сервера и меняются оператором без релиза). Переключите состояния сверху: пробный период, оплата не прошла, превышены лимиты, подписка приостановлена.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { st: 'free', per: 'year', cur: 'rub', plan: 'team', method: 'ru_card', terms: true, cancel: false };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var seg = function (on) { return 'height: 32px; padding: 0 12px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent'); };
+    var table = { rub: { pro: [290, 199], team: [890, 690], business: [1890, 1490] }, usd: { pro: [3, 2], team: [9, 7], business: [19, 15] } };
+    var fmt = function (n) { return s.cur === 'usd' ? '$' + n : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽'; };
+    var monthly = function (k) { var p = table[s.cur][k]; return s.per === 'year' ? p[1] : p[0]; };
+    var total = function (k) { return s.per === 'year' ? monthly(k) * 12 : monthly(k); };
+    var stDefs = [['free', 'Free'], ['trial', 'Пробный Team'], ['pastDue', 'Не прошла оплата'], ['readOnly', 'Сверх лимита'], ['suspended', 'Приостановлена']];
+    var states = stDefs.map(function (x) { var on = s.st === x[0]; return { label: x[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ st: x[0], cancel: false }); } }; });
+    var banners = {
+      pastDue: ['Оплата не прошла', 'Обновите способ оплаты до 30 ноября — до этого всё работает как обычно.', 'Обновить карту', '#ffdcc6'],
+      readOnly: ['Комнат больше, чем позволяет тариф', 'Лишние комнаты сейчас только для чтения. Данные на месте; выберите активные или смените тариф.', 'Выбрать активные', '#f9d3cd'],
+      suspended: ['Подписка приостановлена', 'До оплаты организация работает на Free.', 'Оплатить', '#f3f1ec']
+    };
+    var b = banners[s.st];
+    var paid = s.st === 'trial' || s.st === 'pastDue' || s.st === 'suspended';
+    var planName = s.st === 'free' || s.st === 'readOnly' ? 'Free' : 'Team';
+    var statusMap = { free: ['Бесплатно', '#c8e8d4'], trial: ['Пробный период', '#cddff8'], pastDue: ['Ждём оплату', '#ffdcc6'], readOnly: ['Сверх лимита', '#f9d3cd'], suspended: ['Приостановлена', '#f3f1ec'] };
+    var stc = statusMap[s.st];
+    var meter = function (label, used, max) {
+      var over = max && used > max;
+      var full = max && used >= max;
+      var pct = max ? Math.min(100, Math.round(used / max * 100)) : 30;
+      return { label: label, value: max ? used + ' из ' + max : used + ', без ограничения', numStyle: over ? 'color: #a3300a' : '',
+        bar: 'height: 100%; width: ' + pct + '%; border-right: 1.5px solid #1e2136; background: ' + (over ? '#ff8fbd' : (full ? '#f2b94a' : '#85d965')) };
+    };
+    var usage = planName === 'Free'
+      ? [meter('Места', 4, 5), meter('Активные комнаты', s.st === 'readOnly' ? 8 : 5, 5), meter('Задачи агентов в этом месяце', 7, 10)]
+      : [meter('Места', 4, 20), meter('Активные комнаты', 8, 0), meter('Задачи агентов', 31, 0)];
+    var plans = [['pro', 'Pro', 'до 5 человек', ''], ['team', 'Team', 'до 20 человек', '14 дней бесплатно'], ['business', 'Business', 'до 50 человек', '14 дней бесплатно']].map(function (p) {
+      var on = s.plan === p[0];
+      return { name: p[1], seats: p[2], trial: p[3], on: on ? 'true' : 'false', pick: function () { self.setState({ plan: p[0] }); },
+        price: fmt(monthly(p[0])), note: 'в месяц за команду' + (s.per === 'year' ? ', ' + fmt(total(p[0])) + ' за год' : ''),
+        trialStyle: p[3] ? 'font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #85d965; border: 1.5px solid #1e2136' : 'display: none',
+        style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border-radius: 14px; cursor: pointer; font-family: inherit; color: #1e2136; text-align: left; border: 1.5px solid #1e2136; background: ' + (on ? '#fff6dc' : '#ffffff') + '; box-shadow: ' + (on ? '4px 4px 0 #1e2136' : 'none') + (on ? '; outline: 3px solid #f2b94a; outline-offset: -6px' : '') };
+    });
+    var methods = [['ru_card', 'Карта российского банка или СБП'], ['foreign_card', 'Иностранная карта'], ['invoice', 'Счёт для юрлица']].map(function (m) {
+      var on = s.method === m[0];
+      return { label: m[1], on: on, pick: function () { self.setState({ method: m[0] }); },
+        style: 'display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; font-size: 14px; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : '#e6dcc4') + '; background: ' + (on ? '#ffffff' : 'transparent') };
+    });
+    var t = total(s.plan);
+    var ok = s.terms;
+    return {
+      states: states, hasBanner: !!b,
+      bannerTitle: b ? b[0] : '', bannerText: b ? b[1] : '', bannerAction: b ? b[2] : '',
+      bannerStyle: 'display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 18px; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 3px 3px 0 #1e2136; background: ' + (b ? b[3] : '#fff'),
+      planName: planName, statusText: stc[0],
+      statusChip: 'padding: 3px 10px; border-radius: 999px; border: 1.5px solid #1e2136; font-size: 13px; font-weight: 700; background: ' + stc[1],
+      planLine: planName === 'Free' ? 'До 5 человек, 5 активных комнат, 10 задач агентов в месяц. Без карты.' : (s.st === 'trial' ? 'Пробный период до 7 декабря. Потом — 690 ₽ в месяц, если не отмените.' : 'Продление 23 декабря · 8 280 ₽ за год.'),
+      usage: usage,
+      mainAction: planName === 'Free' ? 'Посмотреть тарифы' : 'Сменить тариф',
+      paid: paid, cancelOpen: s.cancel && paid,
+      askCancel: function () { self.setState({ cancel: true }); }, closeCancel: function () { self.setState({ cancel: false }); },
+      cardLine: paid ? '•••• 4417 · до 08/28' : 'Карта сохранится при первой оплате тарифа.',
+      cardAction: paid ? 'Заменить' : 'Сначала выберите тариф',
+      periods: [['month', 'Месяц'], ['year', 'Год · выгоднее']].map(function (x) { var on = s.per === x[0]; return { label: x[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ per: x[0] }); } }; }),
+      currencies: [['rub', '₽'], ['usd', '$']].map(function (x) { var on = s.cur === x[0]; return { label: x[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ cur: x[0] }); } }; }),
+      plans: plans, methods: methods,
+      promoTotal: fmt(Math.round(t * 0.7)),
+      terms: s.terms, toggleTerms: function () { self.setState({ terms: !s.terms }); },
+      payLabel: s.method === 'invoice' ? 'Выставить счёт на ' + fmt(t) : 'Оплатить ' + fmt(t),
+      payStyle: 'height: 52px; border-radius: 12px; border: 1.5px solid #1e2136; font-family: inherit; font-size: 17px; font-weight: 800; color: #1e2136; cursor: ' + (ok ? 'pointer' : 'not-allowed') + '; background: ' + (ok ? '#ff8a57' : '#e6dcc4') + '; box-shadow: ' + (ok ? '3px 3px 0 #1e2136' : 'none'),
+      invoices: paid ? [
+        { n: 'R-2026-0142', d: '23 нояб. 2026', sum: '8 280 ₽', status: 'Оплачен', receipt: 'Чек', chip: 'padding: 2px 8px; border-radius: 999px; border: 1.5px solid #1e2136; background: #c8e8d4; font-size: 12px; font-weight: 700' }
+      ] : [
+        { n: '—', d: 'Счетов пока нет.', sum: '', status: '', receipt: '', chip: 'display: none' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

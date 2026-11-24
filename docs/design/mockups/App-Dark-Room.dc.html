@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — комната ночью</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#14162a}
+a{color:#8db6f0}
+.rk-btn:focus-visible{outline:2.5px solid #8db6f0;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkDash{to{stroke-dashoffset:-26}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="{{ page }}">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px">
+<div style="flex: 1 1 560px; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Ночная доска</h1>
+<p style="{{ lead }}">Холст — чернила, интерфейс — тёмный картон с бумажной обводкой. Коралл, жёлтый маркер, фиолетовый агент и цвета людей — те же, что днём. Стикеры — бумага на ночном столе.</p>
+</div>
+<div role="radiogroup" aria-label="Тема" style="{{ seg }}">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<button type="button" class="rk-btn" role="radio" aria-checked="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}</button>
+</sc-for>
+</div>
+</header>
+
+<main aria-label="Комната" style="{{ room }}">
+<!-- header -->
+<div style="{{ bar }}">
+<svg width="26" height="26" viewBox="0 0 200 200" aria-hidden="true"><circle cx="53" cy="48" r="37" fill="#ff8a57"></circle><rect x="111" y="12" width="72" height="72" rx="12" fill="#78b4ff"></rect><path d="M30.02,106 H169.98 A12,12 0 0 1 181.81,120.03 A83,83 0 0 1 18.19,120.03 A12,12 0 0 1 30.02,106 Z" fill="{{ smile }}"></path></svg>
+<strong style="font-size: 15px">Ретро · спринт 14 ▾</strong>
+<span style="flex: 1"></span>
+<button type="button" class="rk-btn" style="{{ ghostBtn }}">Провести ▾</button>
+<span style="{{ timerChip }}">04:12</span>
+<button type="button" class="rk-btn" style="{{ agentBtn }}">✦ Агент</button>
+<span style="display: flex"><span style="{{ av1 }}">А</span><span style="{{ av2 }}">И</span><span style="{{ av3 }}">М</span></span>
+<button type="button" class="rk-btn" style="{{ cta }}">Позвать</button>
+<span style="{{ me }}">A</span>
+</div>
+
+<!-- rail -->
+<div role="toolbar" aria-label="Инструменты" style="{{ rail }}">
+<sc-for list="{{ tools }}" as="t" hint-placeholder-count="7">
+<button type="button" class="rk-btn" aria-label="{{ t.label }}" aria-pressed="{{ t.on }}" style="{{ t.style }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ t.ink }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ t.icon }}"></path></svg></button>
+</sc-for>
+</div>
+
+<!-- stickers -->
+<sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+<div style="{{ n.style }}">{{ n.text }}</div>
+</sc-for>
+
+<!-- selection bar on chosen sticker -->
+<div role="toolbar" aria-label="Стикер" style="{{ selBar }}">
+<span style="{{ selLabel }}">Стикер</span>
+<span style="{{ swatch }}"></span>
+<button type="button" class="rk-btn" style="{{ chosenBtn }}">Ж</button>
+<button type="button" class="rk-btn" style="{{ ghostBtnSm }}">К</button>
+<button type="button" class="rk-btn" style="{{ ghostBtnSm }}">⋯</button>
+</div>
+<div aria-hidden="true" style="{{ selBox }}"></div>
+
+<!-- kanban -->
+<section aria-label="Канбан" style="position: absolute; left: 560px; top: 110px; width: 460px">
+<span style="{{ frameTab }}">Действия</span>
+<div style="background: #c8e8d4; border: 1.5px solid #1e2136; border-radius: 16px; padding: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<strong style="font-size: 13px; font-weight: 800; color: #1e2136">Надо · 1</strong><strong style="font-size: 13px; font-weight: 800; color: #1e2136">В работе · 1/2</strong><strong style="font-size: 13px; font-weight: 800; color: #1e2136">Готово · 1</strong>
+<div style="padding: 8px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 8px; font-size: 13px; font-weight: 600; color: #1e2136">Чек-лист релиза</div>
+<div style="padding: 8px; background: #f2b94a; border: 1.5px solid #1e2136; border-radius: 8px; font-size: 13px; font-weight: 600; color: #1e2136">Ревью в день 1</div>
+<div style="padding: 8px; background: #85d965; border: 1.5px solid #1e2136; border-radius: 8px; font-size: 13px; font-weight: 600; color: #1e2136">Один канал</div>
+</div>
+</section>
+
+<!-- agent draft -->
+<div aria-label="Черновик агента" style="{{ draft }}">
+<span style="{{ draftTab }}">Черновик агента</span>
+<svg width="100%" height="100%" viewBox="0 0 300 110" aria-hidden="true"><path d="M95 55 L150 55" stroke="{{ agentColor }}" stroke-width="2" stroke-dasharray="7 6" fill="none" style="animation: rkDash 1s linear infinite"></path></svg>
+<span style="{{ draftA }}">Заявка</span><span style="{{ draftB }}">Проверка</span>
+</div>
+
+<!-- remote cursor -->
+<div aria-hidden="true" style="position: absolute; left: 470px; top: 430px; display: flex; align-items: flex-start; gap: 2px">
+<svg width="20" height="22" viewBox="0 0 18 22"><path d="M2 2 L2 17 L6.5 13 L9.5 20 L12 19 L9 12 L15 12 Z" fill="{{ cursorFill }}" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+<span style="{{ cursorTag }}">Илья</span>
+</div>
+
+<!-- context menu -->
+<div role="menu" aria-label="Стикер" style="{{ menu }}">
+<sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="5">
+<div role="menuitem" style="{{ m.style }}"><span style="flex: 1">{{ m.label }}</span><span style="{{ keyStyle }}">{{ m.key }}</span></div>
+</sc-for>
+</div>
+
+<!-- toast -->
+<div role="status" style="{{ toast }}"><span style="color: #85d965; font-weight: 800">✓</span> Сохранено</div>
+</main>
+
+<p style="{{ note }}">Переключите тему: меняются фон, текст и обводки; кнопка «Позвать», выбранная «Ж», агент, курсор Ильи, канбан и стикеры остаются собой. Текст на коралле и жёлтом — всегда чернильный.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dark: true };
+  }
+  renderVals() {
+    var self = this;
+    var d = this.state.dark;
+    var C = d ? { app: '#14162a', canvas: '#1e2136', dots: '#3a3d55', panel: '#23263b', raised: '#2c2f45', dialog: '#262a40', text: '#f3f2f0', sec: '#cfc8b8', muted: '#a9a393', ink: '#d9d2c0', subtle: '#3a3d55', shadow: '#06070d', agent: '#c69bff', agentText: '#dcc2ff', agentSoft: 'rgba(198,155,255,.16)', hover: '#2c2f45', smile: '#fbf3df' }
+              : { app: '#fbf3df', canvas: '#fbf3df', dots: '#d8c79e', panel: '#ffffff', raised: '#ffffff', dialog: '#fffdf8', text: '#1e2136', sec: '#3f4256', muted: '#62657a', ink: '#1e2136', subtle: '#e6dcc4', shadow: '#1e2136', agent: '#8a35d6', agentText: '#6b23ad', agentSoft: 'rgba(243,232,255,.6)', hover: '#fbf3df', smile: '#3f4256' };
+    var hard = function (n) { return n + 'px ' + n + 'px 0 ' + C.shadow; };
+    var themes = [[false, 'Светлая'], [true, 'Тёмная']].map(function (t) {
+      var on = d === t[0];
+      return { label: t[1], on: on ? 'true' : 'false', pick: function () { self.setState({ dark: t[0] }); },
+        style: 'height: 36px; padding: 0 16px; border-radius: 9px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; color: ' + (on ? '#1e2136' : C.text) + '; border: 1.5px solid ' + (on ? C.ink : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') };
+    });
+    var I = { select: 'M5 3l12 7-5.5 1.5L9 17z', note: 'M5 4h14v11l-5 5H5zM14 20v-5h5', text: 'M5 6V4h14v2M12 4v16M9 20h6', shape: 'M4 5h9v9H4zM16.5 17.5a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7z', line: 'M5 19L19 5M14 5h5v5', frame: 'M7 3v18M17 3v18M3 7h18M3 17h18', comment: 'M5 5h14v10H10l-5 4z' };
+    var tools = [['select', 'Выбор'], ['note', 'Стикер'], ['text', 'Текст'], ['shape', 'Фигура'], ['line', 'Связь'], ['frame', 'Фрейм'], ['comment', 'Комментарий']].map(function (t, i) {
+      var on = i === 1;
+      return { label: t[1], on: on ? 'true' : 'false', icon: I[t[0]], ink: on ? '#1e2136' : C.text,
+        style: 'width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; border: 1.5px solid ' + (on ? C.ink : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') };
+    });
+    var av = function (c) { return 'width: 30px; height: 30px; margin-left: -8px; border-radius: 999px; background: ' + c + '; border: 1.5px solid ' + (d ? '#1e2136' : '#1e2136') + '; color: #1e2136; display: grid; place-items: center; font-size: 12px; font-weight: 700'; };
+    var note = function (txt, bg, l, t, r) { return { text: txt, style: 'position: absolute; left: ' + l + 'px; top: ' + t + 'px; width: 150px; height: 130px; padding: 12px; box-sizing: border-box; font-size: 14px; line-height: 1.3; color: #1e2136; background: ' + bg + '; border-radius: 3px; transform: rotate(' + r + 'deg); box-shadow: 0 1px 1px rgba(0,0,0,.2), 0 14px 12px -10px rgba(0,0,0,' + (d ? '.7' : '.5') + ')' }; };
+    var mi = function (label, key, danger) { return { label: label, key: key, style: 'display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 4px 10px; border-radius: 9px; font-size: 14px; color: ' + (danger ? (d ? '#f39a8b' : '#a3300a') : C.text) }; };
+    return {
+      themes: themes, tools: tools, smile: C.smile, agentColor: C.agent, swatch: 'width: 22px; height: 22px; border-radius: 6px; background: #f4e0a8; border: 1.5px solid ' + C.ink,
+      page: 'min-height: 100vh; background: ' + C.app + '; color: ' + C.text + '; font-family: \'Golos Text\', system-ui, sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box; transition: background-color .3s ease, color .3s ease',
+      lead: 'margin: 0; font-size: 18px; color: ' + C.sec,
+      seg: 'display: flex; gap: 4px; padding: 4px; border-radius: 12px; border: 1.5px solid ' + C.ink + '; background: ' + C.panel,
+      room: 'position: relative; height: 760px; border: 1.5px solid ' + C.ink + '; border-radius: 22px; box-shadow: ' + hard(8) + '; overflow: hidden; background-color: ' + C.canvas + '; background-image: radial-gradient(' + C.dots + ' 1.3px, transparent 1.3px); background-size: 24px 24px; transition: background-color .3s ease',
+      bar: 'position: absolute; left: 0; right: 0; top: 0; height: 60px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: ' + C.panel + '; border-bottom: 1.5px solid ' + C.ink,
+      ghostBtn: 'height: 36px; padding: 0 12px; border-radius: 12px; border: 1.5px solid ' + C.ink + '; background: ' + C.panel + '; font-family: inherit; font-size: 14px; font-weight: 600; color: ' + C.text + '; cursor: pointer',
+      ghostBtnSm: 'width: 32px; height: 32px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: ' + C.text + '; cursor: pointer',
+      chosenBtn: 'width: 32px; height: 32px; border-radius: 9px; border: 1.5px solid ' + C.ink + '; background: #f2b94a; font-family: inherit; font-size: 14px; font-weight: 800; color: #1e2136; cursor: pointer',
+      timerChip: 'height: 30px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: 1.5px solid ' + C.ink + '; background: ' + (d ? '#f3f2f0' : '#1e2136') + '; color: ' + (d ? '#1e2136' : '#ffffff') + '; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums',
+      agentBtn: 'height: 36px; padding: 0 12px; border-radius: 12px; border: 1.5px dashed ' + C.agent + '; background: ' + C.agentSoft + '; font-family: inherit; font-size: 14px; font-weight: 700; color: ' + C.agentText + '; cursor: pointer',
+      av1: av('#78b4ff').replace('margin-left: -8px; ', ''), av2: av('#ff8a57'), av3: av('#6cc3b2'),
+      cta: 'height: 36px; padding: 0 16px; border-radius: 12px; border: 1.5px solid ' + C.ink + '; background: #ff8a57; box-shadow: ' + hard(3) + '; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer',
+      me: 'width: 36px; height: 36px; border-radius: 999px; background: #78b4ff; border: 1.5px solid ' + C.ink + '; color: #1e2136; display: grid; place-items: center; font-weight: 700',
+      rail: 'position: absolute; left: 14px; top: 80px; display: flex; flex-direction: column; gap: 4px; padding: 5px; border-radius: 14px; background: ' + C.panel + '; border: 1.5px solid ' + C.ink + '; box-shadow: ' + hard(3),
+      notes: [note('Демо раньше пятницы', '#f4e0a8', 110, 120, -1.6), note('Меньше встреч', '#f9d3cd', 300, 110, 0), note('Стенд за день до демо', '#c8e8d4', 120, 320, 1.2), note('Чек-лист релиза', '#cddff8', 310, 330, -0.6)],
+      selBar: 'position: absolute; left: 262px; top: 56px; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 12px; background: ' + C.raised + '; border: 1.5px solid ' + C.ink + '; box-shadow: ' + hard(3),
+      selLabel: 'padding: 0 6px; font-size: 12px; font-weight: 700; color: ' + C.muted,
+      selBox: 'position: absolute; left: 294px; top: 104px; width: 162px; height: 142px; border: 1.5px solid ' + (d ? '#f3f2f0' : '#1e2136') + '; pointer-events: none',
+      frameTab: 'position: absolute; left: 0; top: -28px; padding: 3px 10px; border-radius: 8px 8px 8px 0; font-size: 12px; font-weight: 700; background: ' + (d ? '#f3f2f0' : '#1e2136') + '; color: ' + (d ? '#1e2136' : '#ffffff'),
+      draft: 'position: absolute; left: 600px; top: 340px; width: 300px; height: 110px; border: 2px dashed ' + C.agent + '; border-radius: 16px; background: ' + C.agentSoft,
+      draftTab: 'position: absolute; left: 0; top: -28px; padding: 3px 10px; border-radius: 8px 8px 8px 0; font-size: 12px; font-weight: 700; background: ' + C.agent + '; color: #1e2136',
+      draftA: 'position: absolute; left: 14px; top: 30px; width: 80px; height: 48px; display: grid; place-items: center; font-size: 13px; font-weight: 600; border: 2px dashed ' + C.agent + '; border-radius: 24px; color: ' + C.agentText,
+      draftB: 'position: absolute; left: 160px; top: 30px; width: 90px; height: 48px; display: grid; place-items: center; font-size: 13px; font-weight: 600; border: 2px dashed ' + C.agent + '; border-radius: 999px; color: ' + C.agentText,
+      cursorFill: '#ff8a57',
+      cursorTag: 'padding: 2px 8px; border-radius: 6px; background: #ff8a57; color: #1e2136; font-size: 12px; font-weight: 700; border: 1.5px solid ' + (d ? '#1e2136' : '#ffffff'),
+      menu: 'position: absolute; left: 1060px; top: 90px; width: 240px; padding: 6px; border-radius: 14px; background: ' + C.raised + '; border: 1.5px solid ' + C.ink + '; box-shadow: ' + hard(4),
+      menuItems: [mi('Править текст', 'Enter'), mi('Копировать', '⌘C'), mi('Наверх', '⌘]'), mi('Найти действие', '⌘K'), mi('Удалить', 'Del', true)],
+      keyStyle: 'font-size: 12px; font-family: ui-monospace, Menlo, monospace; color: ' + C.muted,
+      toast: 'position: absolute; right: 20px; bottom: 20px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; background: ' + C.raised + '; border: 1.5px solid ' + C.ink + '; box-shadow: ' + hard(3) + '; font-size: 14px; color: ' + C.text,
+      note: 'margin: 0; align-self: flex-start; max-width: 760px; padding: 10px 14px; background: #f4e0a8; color: #1e2136; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.5deg); box-shadow: 0 1px 1px rgba(0,0,0,.2), 0 14px 12px -10px rgba(0,0,0,.5)'
+    };
+  }
+}
+</script>
+</body>
+</html>

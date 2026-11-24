@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — комната в работе</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-sticker{transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease}
+.rk-sticker:hover{transform:translateY(-3px) rotate(0deg) scale(1.03) !important;box-shadow:0 2px 2px rgba(30,33,54,.08),0 22px 18px -12px rgba(38,30,22,.45) !important}
+.rk-tool:hover{background:#fbf3df}
+.rk-press:active{transform:translate(3px,3px);box-shadow:0 0 0 #1e2136 !important}
+@keyframes rkGhost{0%,100%{opacity:1}50%{opacity:.72}}
+@keyframes rkPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="height: 100vh; min-height: 820px; display: flex; flex-direction: column; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 10px 18px; background: #ffffff; border-bottom: 1.5px solid #1e2136; position: relative; z-index: 5">
+<div style="display: flex; align-items: center; gap: 14px; min-width: 0">
+<a href="App-Home.dc.html" aria-label="Ремука, на главную" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: #1e2136">
+<svg width="26" height="26" viewBox="0 0 200 200" aria-hidden="true"><circle cx="53" cy="48" r="37" fill="#ff8a57"></circle><rect x="111" y="12" width="72" height="72" rx="12" fill="#78b4ff"></rect><path d="M30.02,106 H169.98 A12,12 0 0 1 181.81,120.03 A83,83 0 0 1 18.19,120.03 A12,12 0 0 1 30.02,106 Z" fill="#3f4256"></path></svg>
+</a>
+<nav aria-label="Где вы" style="display: flex; align-items: center; gap: 8px; font-size: 14px; min-width: 0">
+<a href="App-Home.dc.html" style="color: #3f4256; text-decoration: none; font-weight: 500">Команда «Ромашка»</a>
+<span aria-hidden="true" style="color: #8f8a80">/</span>
+<span style="font-weight: 700; font-size: 16px">Ретро · спринт 14</span>
+</nav>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #17733f; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 999px; background: #1f8a4c"></span>сохранено</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div aria-label="В комнате 3 человека и агент" role="img" style="display: flex">
+<span style="width: 32px; height: 32px; border-radius: 999px; background: #1a6ad8; color: #ffffff; border: 2px solid #ffffff; box-shadow: 0 0 0 1.5px #1e2136; display: grid; place-items: center; font-size: 13px; font-weight: 700">А</span>
+<span style="width: 32px; height: 32px; border-radius: 999px; background: #c93e0a; color: #ffffff; border: 2px solid #ffffff; box-shadow: 0 0 0 1.5px #1e2136; display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-left: -6px">И</span>
+<span style="width: 32px; height: 32px; border-radius: 999px; background: #17733f; color: #ffffff; border: 2px solid #ffffff; box-shadow: 0 0 0 1.5px #1e2136; display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-left: -6px">М</span>
+<span style="width: 32px; height: 32px; border-radius: 8px; background: #8a35d6; border: 2px solid #ffffff; box-shadow: 0 0 0 1.5px #1e2136; display: grid; place-items: center; margin-left: -6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg></span>
+</div>
+<span role="timer" aria-label="Таймер обсуждения" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px solid #1e2136; border-radius: 999px; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; background: #f4e0a8">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5M9 2h6"></path></svg>04:12</span>
+<span style="display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: #1e2136; color: #ffffff; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">Голосов: {{ totalVotes }}</span>
+<a href="App-Invite.dc.html" class="rk-press" style="display: inline-flex; align-items: center; gap: 8px; min-height: 40px; box-sizing: border-box; padding: 8px 16px; border-radius: 12px; background: #ff8a57; color: #1e2136; border: 1.5px solid #1e2136; box-shadow: 3px 3px 0 #1e2136; text-decoration: none; font-weight: 700; font-size: 15px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"></circle><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6"></path></svg>Позвать</a>
+</div>
+</header>
+
+<main style="flex: 1 1 auto; position: relative; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+
+<nav aria-label="Инструменты" style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); z-index: 4; display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 4px 4px 0 #1e2136">
+<button type="button" aria-label="Выбор" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 7-6 2-2 6z"></path></svg></button>
+<button type="button" aria-label="Стикер" aria-pressed="true" style="width: 44px; height: 44px; border: 1.5px solid #1e2136; border-radius: 10px; background: #f2b94a; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11l-5 5H4z"></path><path d="M15 20v-5h5"></path></svg></button>
+<button type="button" aria-label="Фигура" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" aria-hidden="true"><circle cx="8" cy="9" r="5"></circle><rect x="11" y="11" width="9" height="9" rx="2"></rect></svg></button>
+<button type="button" aria-label="Текст" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 6h14M12 6v13M9 19h6"></path></svg></button>
+<button type="button" aria-label="Связь" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19C9 19 9 5 15 5h4M16 2l3 3-3 3"></path></svg></button>
+<button type="button" aria-label="Фрейм" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 3v18M17 3v18M3 7h18M3 17h18"></path></svg></button>
+<span aria-hidden="true" style="height: 1.5px; background: #e6dcc4; margin: 4px 6px"></span>
+<button type="button" aria-label="Поручить агенту" class="rk-tool" style="width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a35d6" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg></button>
+</nav>
+
+<section aria-label="Фрейм «Ретро спринта 14»" style="position: absolute; left: 110px; right: 60px; top: 48px; bottom: 110px; min-width: 820px">
+<span style="position: absolute; top: -30px; left: 0; display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; background: #1e2136; color: #ffffff; border-radius: 8px 8px 8px 0; font-size: 13px; font-weight: 700">Ретро спринта 14</span>
+<div style="position: absolute; inset: 0; background: rgba(255,253,248,0.75); border: 1.5px solid #1e2136; border-radius: 18px; padding: 22px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px">
+<sc-for list="{{ columns }}" as="col" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em">{{ col.title }}</h2>
+<span style="font-size: 13px; color: #3f4256; font-weight: 600">{{ col.count }}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px">
+<sc-for list="{{ col.items }}" as="it" hint-placeholder-count="3">
+<button type="button" class="rk-sticker" onClick="{{ it.vote }}" aria-label="{{ it.label }}" style="{{ it.style }}">
+<span style="display: block; font-size: 15px; font-weight: 500; line-height: 1.3">{{ it.text }}</span>
+<span style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 6px">
+<span style="font-size: 11px; font-weight: 600; color: #3f4256">{{ it.author }}</span>
+<span style="{{ it.badgeStyle }}">+{{ it.votes }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{ col.ghost }}" hint-placeholder-val="{{ false }}">
+<div style="border: 2px dashed #8a35d6; border-radius: 8px; padding: 14px; background: rgba(243,232,255,0.9); display: flex; flex-direction: column; gap: 10px; animation: rkGhost 2.4s ease-in-out infinite">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #6b23ad"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b23ad" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg>Агент предлагает · по просьбе Ани</span>
+<span style="font-size: 15px; font-weight: 600; line-height: 1.35">Сгруппировать 4 стикера про ревью в одну задачу «Ревью в первый день спринта»</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" onClick="{{ applyAgent }}" class="rk-press" style="min-height: 36px; border: 1.5px solid #1e2136; background: #1e2136; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 700; padding: 6px 14px; border-radius: 10px; cursor: pointer; box-shadow: 2px 2px 0 #8a35d6">Применить</button>
+<button type="button" onClick="{{ dismissAgent }}" style="min-height: 36px; border: 1.5px solid #1e2136; background: #ffffff; color: #1e2136; font-family: inherit; font-size: 14px; font-weight: 600; padding: 6px 14px; border-radius: 10px; cursor: pointer">Не надо</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ col.applied }}" hint-placeholder-val="{{ false }}">
+<div style="border: 1.5px solid #1e2136; border-radius: 10px; padding: 12px 14px; background: #ffffff; box-shadow: 3px 3px 0 #1e2136; display: flex; align-items: center; gap: 10px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: #85d965; border: 1.5px solid #1e2136; display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg></span>
+<span style="font-size: 14px; font-weight: 600">Задача «Ревью в первый день спринта» · Илья · до пятницы</span>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</section>
+
+<sc-if value="{{ showCursors }}" hint-placeholder-val="{{ true }}">
+<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; z-index: 6">
+<sc-for list="{{ cursors }}" as="c" hint-placeholder-count="3">
+<div style="{{ c.style }}">
+<svg width="22" height="22" viewBox="0 0 24 24" style="display: block"><path d="M4 3l16 7-7 2-2 7z" fill="{{ c.color }}" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+<span style="{{ c.labelStyle }}">{{ c.name }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 4px 4px 0 #1e2136">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 3px; background: #8a35d6"></span>{{ agentLine }}</span>
+<span aria-hidden="true" style="width: 1.5px; height: 22px; background: #e6dcc4"></span>
+<div style="display: flex; align-items: center; gap: 2px">
+<button type="button" aria-label="Уменьшить" class="rk-tool" style="width: 36px; height: 36px; border: none; background: transparent; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; color: #1e2136">−</button>
+<span style="min-width: 48px; text-align: center; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">100%</span>
+<button type="button" aria-label="Увеличить" class="rk-tool" style="width: 36px; height: 36px; border: none; background: transparent; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; color: #1e2136">+</button>
+</div>
+</div>
+
+<div style="position: absolute; right: 22px; bottom: 26px; z-index: 4; max-width: 260px; padding: 10px 14px; background: #ff8fbd; border-radius: 3px; font-size: 13px; font-weight: 600; line-height: 1.35; transform: rotate(2deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Нажмите на стикер — это голос. Курсоры коллег движутся с инерцией, как настоящие руки.</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;stiffness&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:135,&quot;min&quot;:30,&quot;max&quot;:400,&quot;step&quot;:5,&quot;section&quot;:&quot;Физика курсоров&quot;},&quot;damping&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:23,&quot;min&quot;:5,&quot;max&quot;:40,&quot;step&quot;:1,&quot;section&quot;:&quot;Физика курсоров&quot;},&quot;showCursors&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;section&quot;:&quot;Физика курсоров&quot;},&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var people = [
+      { name: 'Аня', color: '#1a6ad8', path: [[30,40],[42,62],[36,30],[24,52]] },
+      { name: 'Илья', color: '#c93e0a', path: [[62,35],[55,70],[70,52],[58,28]] },
+      { name: 'Агент', color: '#8a35d6', path: [[84,55],[80,72],[88,40],[78,60]] }
+    ];
+    this.sim = people.map(function (p, i) {
+      return { name: p.name, color: p.color, path: p.path, step: 0, x: p.path[0][0], y: p.path[0][1], vx: 0, vy: 0, wait: 0.4 + i * 0.5 };
+    });
+    this.state = {
+      votes: { a1: 4, a2: 2, a3: 1, a4: 3, b1: 5, b2: 2, b3: 1, b4: 0, c1: 3, c2: 1 },
+      popped: null,
+      agent: 'pending',
+      tick: 0
+    };
+  }
+  componentDidMount() {
+    var self = this;
+    var reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+    var last = null;
+    var loop = function (t) {
+      if (last === null) last = t;
+      var dt = Math.min(0.033, (t - last) / 1000);
+      last = t;
+      var k = Number(self.props.stiffness ?? 120);
+      var c = Number(self.props.damping ?? 17);
+      self.sim.forEach(function (s) {
+        var target = s.path[s.step % s.path.length];
+        var dx = target[0] - s.x, dy = target[1] - s.y;
+        if (Math.abs(dx) < 0.4 && Math.abs(dy) < 0.4 && Math.abs(s.vx) < 0.6 && Math.abs(s.vy) < 0.6) {
+          s.wait -= dt;
+          if (s.wait <= 0) { s.step += 1; s.wait = 0.5 + Math.random() * 1.4; }
+        }
+        s.vx += (k * dx - c * s.vx) * dt;
+        s.vy += (k * dy - c * s.vy) * dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+      });
+      self.setState({ tick: t });
+      self.raf = window.requestAnimationFrame(loop);
+    };
+    this.raf = window.requestAnimationFrame(loop);
+  }
+  componentWillUnmount() {
+    if (this.raf) window.cancelAnimationFrame(this.raf);
+  }
+  renderVals() {
+    var self = this;
+    var votes = this.state.votes;
+    var popped = this.state.popped;
+    var tilt = [-1.6, 1.2, -0.6, 1.8, -1.1, 0.7];
+    var sticker = function (id, text, author, color, i) {
+      var n = votes[id];
+      return {
+        text: text, author: author, votes: n,
+        label: text + '. Голосов: ' + n + '. Нажмите, чтобы проголосовать',
+        style: 'display: block; text-align: left; font-family: inherit; color: #1e2136; cursor: pointer; border: none; min-height: 112px; padding: 14px 14px 12px; border-radius: 3px; background: ' + color + '; transform: rotate(' + tilt[i % tilt.length] + 'deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)',
+        badgeStyle: 'display: inline-flex; padding: 2px 9px; border-radius: 999px; background: #1e2136; color: #ffffff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;' + (popped === id ? ' animation: rkPop .35s ease-out' : ''),
+        vote: function () {
+          var next = Object.assign({}, self.state.votes);
+          next[id] = next[id] + 1;
+          self.setState({ votes: next, popped: id });
+        }
+      };
+    };
+    var agent = this.state.agent;
+    var columns = [
+      { title: 'Что было хорошо', items: [
+        sticker('a1', 'Демо прошло без единого бага', 'Аня', '#c8e8d4', 0),
+        sticker('a2', 'Новый онбординг понравился клиенту', 'Миша', '#c8e8d4', 1),
+        sticker('a3', 'Парное ревью ускорило релиз', 'Илья', '#c8e8d4', 2),
+        sticker('a4', 'Ретро в Ремуке, а не в таблице', 'Аня', '#c8e8d4', 3)
+      ] },
+      { title: 'Что мешало', items: [
+        sticker('b1', 'Ревью дизайна в последний день', 'Илья', '#f9d3cd', 4),
+        sticker('b2', 'Долго ждали доступы к стенду', 'Миша', '#f9d3cd', 5),
+        sticker('b3', 'Созвоны без повестки', 'Аня', '#f9d3cd', 0),
+        sticker('b4', 'Задачи без исполнителя', 'Илья', '#f9d3cd', 1)
+      ] },
+      { title: 'Что попробуем', items: [
+        sticker('c1', 'Повестка в описании встречи', 'Миша', '#f4e0a8', 2),
+        sticker('c2', 'Стенд поднимать за день до демо', 'Илья', '#cddff8', 3)
+      ], ghost: agent === 'pending', applied: agent === 'applied' }
+    ];
+    var total = 0;
+    Object.keys(votes).forEach(function (key) { total += votes[key]; });
+    columns.forEach(function (col) { col.count = col.items.length + ' стикера'; if (col.ghost === undefined) col.ghost = false; if (col.applied === undefined) col.applied = false; });
+    var cursors = this.sim.map(function (s) {
+      return {
+        name: s.name, color: s.color,
+        style: 'position: absolute; left: ' + s.x.toFixed(2) + '%; top: ' + s.y.toFixed(2) + '%; display: flex; align-items: flex-start; will-change: left, top',
+        labelStyle: 'margin: 14px 0 0 -4px; padding: 3px 9px; border-radius: 8px; background: ' + s.color + '; color: #ffffff; font-size: 12px; font-weight: 700; white-space: nowrap; border: 1.5px solid #1e2136'
+      };
+    });
+    return {
+      columns: columns,
+      totalVotes: total,
+      cursors: cursors,
+      showCursors: this.props.showCursors ?? true,
+      agentLine: agent === 'pending' ? 'Агент: 1 предложение ждёт решения' : (agent === 'applied' ? 'Агент: готово, можно отменить' : 'Агент свободен'),
+      applyAgent: function () { self.setState({ agent: 'applied' }); },
+      dismissAgent: function () { self.setState({ agent: 'dismissed' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

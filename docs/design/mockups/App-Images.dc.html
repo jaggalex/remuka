@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — изображения, хранилище, приложения</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-btn:focus-visible{outline:2.5px solid #174a96;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes rkFill{from{width:5%}to{width:64%}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 920px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Картинки — <span style="position: relative; display: inline-block; z-index: 0">без сюрпризов<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#f2b94a"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Перетащили — появилось. Ошибки говорят, что делать. Описание для тех, кто не видит. Хранилище — сколько занято и чем.</p>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 32px; align-items: start">
+
+<!-- drop + upload -->
+<section aria-labelledby="i1" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="i1" style="margin: 0; font-size: 20px; font-weight: 800">1 · Перетащили файлы</h2>
+<div style="position: relative; height: 360px; border: 1.5px solid #1e2136; border-radius: 20px; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+<div style="position: absolute; inset: 14px; border: 3px dashed #1e2136; border-radius: 16px; background: rgba(205,223,248,.55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
+<span aria-hidden="true" style="width: 74px; height: 58px; border: 2px solid #1e2136; border-radius: 8px; background: #ffffff; box-shadow: 4px 4px 0 #1e2136; display: grid; place-items: center; animation: rkBob 1.6s ease-in-out infinite"><svg width="40" height="30" viewBox="0 0 40 30"><circle cx="11" cy="10" r="4" fill="#ff8a57" stroke="#1e2136" stroke-width="1.5"></circle><path d="M2 28 L15 16 L23 23 L29 17 L38 26 L38 28 Z" fill="#85d965" stroke="#1e2136" stroke-width="1.5" stroke-linejoin="round"></path></svg></span>
+<strong style="font-size: 20px">Отпустите, чтобы добавить</strong>
+<span style="font-size: 14px; color: #3f4256">2 из 3 файлов можно добавить: PDF не подходит</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div role="status" style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 12px; font-size: 14px">
+<div style="display: flex; justify-content: space-between"><span>Загрузка схема-склада.png — 64%</span><button type="button" class="rk-btn" style="border: none; background: transparent; padding: 0; font-family: inherit; font-size: 13px; color: #174a96; cursor: pointer; text-decoration: underline">Отменить</button></div>
+<div style="height: 8px; border-radius: 999px; border: 1.5px solid #1e2136; overflow: hidden"><div style="height: 100%; width: 64%; background: #85d965; animation: rkFill 1.4s ease-out both"></div></div>
+</div>
+<div role="alert" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; background: #fff7f3; border: 1.5px solid #a3300a; border-radius: 12px; font-size: 14px">
+<span style="flex: 1 1 240px"><strong>макет-v3.png</strong> — файл больше 20 МБ. Сожмите его или сохраните в JPEG.</span>
+<button type="button" class="rk-btn" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">Убрать</button>
+</div>
+</div>
+</section>
+
+<!-- selected image + alt -->
+<section aria-labelledby="i2" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="i2" style="margin: 0; font-size: 20px; font-weight: 800">2 · Выбранная картинка и описание</h2>
+<div style="position: relative; height: 360px; border: 1.5px solid #1e2136; border-radius: 20px; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+<div role="toolbar" aria-label="Изображение" style="position: absolute; left: 50%; top: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136; white-space: nowrap">
+<span style="padding: 0 8px; font-size: 13px; font-weight: 700; color: #3f4256">Изображение</span>
+<button type="button" class="rk-btn" onClick="{{ openAlt }}" style="{{ altBtn }}">Описание</button>
+<button type="button" class="rk-btn" style="height: 34px; padding: 0 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">Заменить</button>
+<button type="button" class="rk-btn" onClick="{{ openBox }}" style="height: 34px; padding: 0 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer">Открыть</button>
+<button type="button" class="rk-btn" aria-label="Ещё" style="height: 34px; width: 34px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; font-size: 16px; cursor: pointer; color: #1e2136">⋯</button>
+</div>
+<div style="position: absolute; left: 70px; top: 90px; width: 250px; height: 150px; border: 1.5px solid #1e2136; box-sizing: border-box">
+<svg width="100%" height="100%" viewBox="0 0 234 136" preserveAspectRatio="none" aria-hidden="true"><rect width="234" height="136" fill="#cddff8"></rect><circle cx="52" cy="40" r="16" fill="#ff8a57" stroke="#1e2136" stroke-width="1.5"></circle><path d="M0 136 L70 70 L120 110 L160 80 L234 130 L234 136 Z" fill="#85d965" stroke="#1e2136" stroke-width="1.5"></path></svg>
+<span style="position: absolute; left: -6px; top: -6px; width: 9px; height: 9px; background: #fff; border: 1.5px solid #1e2136"></span><span style="position: absolute; right: -6px; top: -6px; width: 9px; height: 9px; background: #fff; border: 1.5px solid #1e2136"></span><span style="position: absolute; left: -6px; bottom: -6px; width: 9px; height: 9px; background: #fff; border: 1.5px solid #1e2136"></span><span style="position: absolute; right: -6px; bottom: -6px; width: 9px; height: 9px; background: #fff; border: 1.5px solid #1e2136"></span>
+</div>
+<sc-if value="{{ alt }}" hint-placeholder-val="{{ true }}">
+<div role="dialog" aria-labelledby="alt-h" style="position: absolute; right: 16px; top: 70px; width: 270px; padding: 14px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 4px 4px 0 #1e2136; display: flex; flex-direction: column; gap: 8px">
+<strong id="alt-h">Описание</strong>
+<span style="font-size: 13px; color: #3f4256">Что на картинке? Это прочитает программа экранного доступа и найдёт поиск по комнате.</span>
+<textarea rows="3" onInput="{{ typeAlt }}" style="padding: 8px 10px; border: 1.5px solid #1e2136; border-radius: 10px; font-family: inherit; font-size: 14px; resize: none">{{ altText }}</textarea>
+<div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 12px; color: #62657a">{{ altCount }} / 250</span><button type="button" class="rk-btn" onClick="{{ closeAlt }}" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ff8a57; font-family: inherit; font-size: 13px; font-weight: 700; color: #1e2136; cursor: pointer">Сохранить</button></div>
+</div>
+</sc-if>
+</div>
+</section>
+
+<!-- lightbox -->
+<section aria-labelledby="i3" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="i3" style="margin: 0; font-size: 20px; font-weight: 800">3 · Просмотр</h2>
+<div role="dialog" aria-label="Просмотр изображения" style="{{ boxStyle }}">
+<div style="display: flex; align-items: center; gap: 10px; color: #ffffff"><strong style="flex: 1; font-size: 15px">схема-склада.png</strong><button type="button" class="rk-btn" style="height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #ffffff; background: transparent; color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Скачать</button><button type="button" class="rk-btn" aria-label="Закрыть" onClick="{{ closeBox }}" style="width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid #ffffff; background: transparent; color: #fff; cursor: pointer; font-size: 18px">×</button></div>
+<div style="flex: 1; display: grid; place-items: center"><svg width="320" height="186" viewBox="0 0 234 136" aria-hidden="true" style="border: 2px solid #fbf3df"><rect width="234" height="136" fill="#cddff8"></rect><circle cx="52" cy="40" r="16" fill="#ff8a57"></circle><path d="M0 136 L70 70 L120 110 L160 80 L234 130 L234 136 Z" fill="#85d965"></path></svg></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; color: #e6dcc4; font-size: 13px"><span>Описание: {{ altText }}</span><span>Колесо — масштаб, перетаскивание — сдвиг</span></div>
+</div>
+</section>
+
+<!-- storage -->
+<section aria-labelledby="i4" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="i4" style="margin: 0; font-size: 20px; font-weight: 800">4 · Хранилище организации</h2>
+<div style="padding: 20px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 20px; box-shadow: 4px 4px 0 #1e2136; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><strong style="font-size: 18px">Занято 1,8 ГБ из 2 ГБ</strong><a href="#plans" style="font-size: 14px; font-weight: 600">Тарифы</a></div>
+<div style="height: 14px; border-radius: 999px; border: 1.5px solid #1e2136; overflow: hidden; background: #f3f1ec"><div style="height: 100%; width: 90%; background: #f2b94a; border-right: 1.5px solid #1e2136"></div></div>
+<strong style="font-size: 14px">Больше всего места занимают</strong>
+<sc-for list="{{ rooms }}" as="r" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 14px"><span style="flex: 1">{{ r.name }}</span><span style="width: 120px; height: 8px; border-radius: 999px; background: #f3f1ec; border: 1.5px solid #1e2136; overflow: hidden"><span style="{{ r.bar }}"></span></span><span style="width: 64px; text-align: right; font-variant-numeric: tabular-nums">{{ r.size }}</span></div>
+</sc-for>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Удалённые картинки освобождают место через 30 дней.</p>
+</div>
+<div role="status" style="padding: 12px 14px; background: #fff6dc; border: 1.5px solid #1e2136; border-radius: 14px; font-size: 14px">Место почти закончилось. Когда оно кончится, новые картинки не добавятся, пока не освободится место или не сменится тариф. Всё, что уже есть, останется.</div>
+</section>
+
+<!-- apps -->
+<section aria-labelledby="i5" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="i5" style="margin: 0; font-size: 20px; font-weight: 800">5 · Приложения в комнате</h2>
+<div style="padding: 18px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 20px; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 14px; color: #3f4256">Приложения ставит администратор организации; сервер присылает их форму, а не код.</p>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1.5px solid #1e2136; border-radius: 14px; background: #fbf3df">
+<div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9px; background: #c8e8d4; border: 1.5px solid #1e2136; display: grid; place-items: center; font-weight: 800">П</span><strong style="flex: 1">Приветствие</strong></div>
+<span style="font-size: 14px">Здоровается с тем, кто открыл панель.</span>
+<button type="button" class="rk-btn" onClick="{{ hello }}" style="align-self: flex-start; height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ffffff; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer">Поздороваться</button>
+<sc-if value="{{ greeted }}" hint-placeholder-val="{{ false }}"><strong style="font-size: 15px">Привет, Alex!</strong></sc-if>
+</div>
+<p style="margin: 0; padding: 12px; border: 1.5px dashed #1e2136; border-radius: 12px; font-size: 13px; color: #3f4256; text-align: center">Пусто? «В организации нет приложений. Их ставит администратор».</p>
+</div>
+</section>
+</div>
+
+<p style="margin: 0; align-self: flex-start; max-width: 720px; padding: 10px 14px; background: #f4e0a8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.5deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Картинка на холсте не меняется (ADR-267): при выделении — чернильный контур и белые ручки. Попробуйте «Описание», «Открыть» и «Поздороваться». Объём хранилища в макете — пример; лимит приходит с сервера.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { alt: true, altText: 'Схема склада: зона приёмки слева, отгрузка справа', box: true, greeted: false };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    return {
+      alt: s.alt, altText: s.altText, altCount: s.altText.length,
+      altBtn: 'height: 34px; padding: 0 10px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (s.alt ? '#1e2136' : 'transparent') + '; background: ' + (s.alt ? '#f2b94a' : 'transparent'),
+      openAlt: function () { self.setState({ alt: !s.alt }); }, closeAlt: function () { self.setState({ alt: false }); },
+      typeAlt: function (e) { self.setState({ altText: e.target.value.slice(0, 250) }); },
+      openBox: function () { self.setState({ box: true }); }, closeBox: function () { self.setState({ box: false }); },
+      boxStyle: 'display: flex; flex-direction: column; gap: 12px; height: 340px; box-sizing: border-box; padding: 16px; background: #1e2136; border: 1.5px solid #1e2136; border-radius: 20px; box-shadow: 6px 6px 0 #3f4256; transition: opacity .2s ease; opacity: ' + (s.box ? '1' : '.25'),
+      rooms: [['Запуск продукта', '820 МБ', 82], ['Ретро · спринт 14', '410 МБ', 41], ['Дорожная карта', '160 МБ', 16]].map(function (r) { return { name: r[0], size: r[1], bar: 'display: block; height: 100%; width: ' + r[2] + '%; background: #78b4ff' }; }),
+      hello: function () { self.setState({ greeted: true }); }, greeted: s.greeted
+    };
+  }
+}
+</script>
+</body>
+</html>

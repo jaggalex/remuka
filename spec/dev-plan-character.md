@@ -10,9 +10,12 @@
 - ADR-268 и `spec/living-words.md` — серия стикеров, сменные подсказки, новости команды.
 - ADR-269 и `spec/hint-catalog.md` — каталог подсказок и раздел консоли «Слова».
 - ADR-270 — тема «Как в системе», «Выйти на остальных», «что изменилось» в документах.
-- Макеты: холст «Ремука — лендинг и продукт», https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR,
-  страница «Продукт» (ссылки на артборды — в каждом задании). Где ТЗ и макет расходятся, прав
-  макет; расхождение — вопрос владельцу, не самостоятельное решение.
+- Макеты: **`docs/design/mockups/`** (ADR-287) — исходник каждого артборда с точными стилями,
+  текстами и состояниями; `index.json` — какие артборды у какого задания; эталоны PNG —
+  `docs/design/reference/<Артборд>/`. Запись `#artboard-App-X` в задании = файл
+  `docs/design/mockups/App-X.dc.html`. Холст на claude.ai (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR)
+  — для людей; агенту он не нужен. Где ТЗ и макет расходятся, прав макет; расхождение — вопрос
+  владельцу, не самостоятельное решение.
 
 ## 0. Правила для каждого задания (Definition of Done)
 
@@ -78,6 +81,10 @@ T10 и T11 — после T5. Тёмная тема и проход по все�
 ## 2. Задания
 
 ### T1. Закрыть этапы 1–2 характера
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Icons/` — default, old
+- `docs/design/reference/App-Room/` — default
+
 
 **Цель.** Довести до зелёного `verify` то, что уже сделано: токены характера, кнопки/поля/диалоги
 «картоном», курсоры с пружиной, наклон стикеров, щелчок голоса, вес иконок, `accent-chosen`.
@@ -101,6 +108,9 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] Контраст `pnpm ds:check`: все пары проходят.
 
 ### T2. Палитра и канбан как на лендинге
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+
 
 **Источник.** ADR-267; `spec/canvas-character.md` §1, §2.1; макет «Объекты холста»
 (`#artboard-App-Objects`, фрейм «Спринт 15»).
@@ -125,6 +135,10 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] Экспорт PNG комнаты с канбаном совпадает с экраном (эталон).
 
 ### T3. Объекты холста
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+- `docs/design/reference/App-Room/` — default
+
 
 **Источник.** ADR-267; `spec/canvas-character.md` §2 (таблица, кроме канбана); макет «Объекты
 холста».
@@ -144,6 +158,9 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] Эталоны холста перезаписаны; список в отчёте.
 
 ### T4. Уровень подъёма «Картон»
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+
 
 **Источник.** ADR-267; ADR-245; `spec/canvas-character.md` §2, §4.
 **Входит.** Значение `cardboard` в `ELEVATIONS` (`packages/model/src/elevation.ts`), чтение
@@ -156,6 +173,9 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] e2e: уровень сохраняется, виден второму участнику, есть в PNG-экспорте.
 
 ### T5. Реестр команд хрома, шапка из 8, состояние сохранения, аватары
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-RoomTidy/` — default, menu-room, menu-run, menu-account, menu-agent, cmdk, offline, focus
+
 
 **Источник.** ADR-266; `spec/tidy-desk.md` §1.1, §2, §3, §4; макет «Убранный стол: шапка
 комнаты» (`#artboard-App-RoomTidy`).
@@ -176,6 +196,10 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] Все прежние действия шапки доступны из меню (список «было → где теперь» в отчёте).
 
 ### T6. Контекстное меню
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+- `docs/design/reference/App-RoomTidy/` — default, menu-room, menu-run, menu-account, menu-agent, cmdk, offline, focus
+
 
 **Источник.** ADR-267; `spec/canvas-character.md` §3; макет «Объекты холста» (меню стикера).
 **Входит.** Поля `group`, `icon`, `menuTitle` у команд; `boardMenu.ts` собирает группы
@@ -190,6 +214,9 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] a11y-e2e (`pnpm e2e:a11y`) без нарушений на открытом меню.
 
 ### T7. Поиск команд ⌘K
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-RoomTidy/` — default, menu-room, menu-run, menu-account, menu-agent, cmdk, offline, focus
+
 
 **Источник.** ADR-266; `spec/tidy-desk.md` §1.2; макет шапки (кнопка «Найти действие»).
 **Входит.** Окно поиска (combobox + listbox), горячая клавиша ⌘K/Ctrl K (не из полей ввода и
@@ -204,6 +231,11 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
       возвращает фокус; недоступная команда показана и не выполняется.
 
 ### T8. Тулбар, планки выделения, одна панель, свойства, комментарии
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Icons/` — default, old
+- `docs/design/reference/App-Panels/` — props, props-more, comments
+- `docs/design/reference/App-ToolsBars/` — sticky, shape, connector, text, many
+
 
 **Источник.** ADR-266; `spec/tidy-desk.md` §5, §10a; макеты `#artboard-App-ToolsBars`,
 `#artboard-App-Panels`.
@@ -223,6 +255,9 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
 - [ ] e2e: на рабочем экране комнаты ≤ 12 интерактивных элементов хрома (без холста).
 
 ### T9. Подсказки, притихание, «Спокойные анимации»
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-RoomTidy/` — default, menu-room, menu-run, menu-account, menu-agent, cmdk, offline, focus
+
 
 **Источник.** ADR-266; `spec/tidy-desk.md` §6–8.
 **Входит.** `useOnceHint`/`markHintDone` и реестр подсказок; перевод `CanvasHint`; «Помощь →
@@ -237,6 +272,12 @@ cursorMotion.test.ts,remoteCursor.ts,painters.ts,useCanvasPainting.ts}`,
       после входа; курсоры коллег без пружины.
 
 ### T10. Экраны по макетам: регистрация, главная, пустая комната, «Позвать»
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-EmptyRoom/` — variant-1, variant-2, variant-3
+- `docs/design/reference/App-Home/` — default, no-news
+- `docs/design/reference/App-Invite/` — default, sent, link-off
+- `docs/design/reference/App-SignUp/` — default, errors, done
+
 
 **Источник.** ADR-265 этап 3; макеты `#artboard-App-SignUp`, `#artboard-App-Home`,
 `#artboard-App-EmptyRoom`, `#artboard-App-Invite`; юридические требования ADR-256 (две пустые
@@ -265,6 +306,9 @@ API; ЕС-версия регистрации — тот же экран с од
 - [ ] В событии нет id людей и комнат (тест каталога).
 
 ### T12. Серия стикеров
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-ToolsBars/` — sticky, shape, connector, text, many
+
 
 **Источник.** ADR-268; `spec/living-words.md` §1; макет `#artboard-App-ToolsBars` (подсказка у
 варианта стикера).
@@ -275,6 +319,9 @@ API; ЕС-версия регистрации — тот же экран с од
 **Приёмка.** Пункты 1–2 §5 `spec/living-words.md` (e2e), ⌘Z по одному стикеру (e2e).
 
 ### T13. Сменные подсказки
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-EmptyRoom/` — variant-1, variant-2, variant-3
+
 
 **Источник.** ADR-268; `spec/living-words.md` §2; макет `#artboard-App-EmptyRoom`.
 **Входит.** Варианты в реестре подсказок, выбор по визиту, условие `when`; пустая комната с
@@ -283,6 +330,9 @@ API; ЕС-версия регистрации — тот же экран с од
 **Приёмка.** Пункт 3 §5 (vitest на выбор варианта + e2e на трёх визитах).
 
 ### T14. Новости команды
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Home/` — default, no-news
+
 
 **Источник.** ADR-268; `spec/living-words.md` §3; макет `#artboard-App-Home` (блок «Сейчас в
 команде»).
@@ -293,6 +343,12 @@ API; ЕС-версия регистрации — тот же экран с од
 **Приёмка.** Пункты 4–7 §5 (db-тесты доступа и отбора, e2e главной с новостями и без).
 
 ### T15. Волна 2: вход, восстановление, гость, аккаунт
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Account/` — look, profile, security, docs, delete, reaccept
+- `docs/design/reference/App-Auth/` — login, login-error, code, forgot, sent, reset, verified, signup-eu
+- `docs/design/reference/App-Guest/` — gate, gate-error, name, room
+- `docs/design/reference/App-SignUp/` — default, errors, done
+
 
 **Источник.** ADR-265; макеты `#artboard-App-Auth` (вход, код, «забыли пароль», письмо, новый
 пароль, готово, регистрация ЕС), `#artboard-App-Guest` (пароль комнаты, имя гостя, гость в
@@ -333,6 +389,9 @@ API; ЕС-версия регистрации — тот же экран с од
 **Приёмка.** Все пункты §8 `spec/hint-catalog.md`.
 
 ### T17. Фигуры: пять видов, смена вида, скругление, рисование протягиванием
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+
 
 **Источник.** ADR-271; `spec/canvas-character.md` §2.2; макет «Объекты холста» (страница
 «Продукт», play-прототип): «Заявка», выбранная «Проверка» с планкой «Вид», пунктирный контур
@@ -383,6 +442,9 @@ API; ЕС-версия регистрации — тот же экран с од
 8. Вёрстка планки и выпадашки 1:1 с play-прототипом.
 
 ### T18. Поворот объектов
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Objects/` — default, colors, shape-rectangle, shape-round, shape-diamond, shape-triangle
+
 
 **Источник.** ADR-271 (заменяет часть ADR-209 о повороте); `spec/canvas-character.md` §2.2,
 выделение — таблица §2; макет «Объекты холста»: ручка над «Проверкой», «Идея» −12°.
@@ -439,6 +501,9 @@ API; ЕС-версия регистрации — тот же экран с од
     бюджета кадра `ScalePerf`.
 
 ### T19. Один логотип везде
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/Landing-v2/` — default
+
 
 **Источник.** ADR-272; `spec/character.md` §3.8; знак — `docs/design/brand/remuka-mark.svg` и
 `remuka-mark-dark.svg`; шапка лендинга на холсте (страница «Лендинг»).
@@ -494,6 +559,12 @@ API; ЕС-версия регистрации — тот же экран с од
 7. `pnpm ui:check` падает на `var(--text-primary)` в слое холста и проходит на чистом дереве.
 
 ### T21. Волна 3: каждый день
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-AccountMenu/` — menu, menu-closed, stepup-error, stepup-recovery
+- `docs/design/reference/App-Export/` — png, pdf, backup, running
+- `docs/design/reference/App-Facilitate/` — timer-running, timer-idle, vote-running, vote-idle, vote-results, follow, show, presenting, run-menu
+- `docs/design/reference/App-NewRoom/` — default, empty-name, template-kanban, creating
+
 
 **Источник.** ADR-274; артборды волны 3 на странице «Продукт»: `#artboard-App-AccountMenu`,
 `#artboard-App-NewRoom`, `#artboard-App-Facilitate`, `#artboard-App-Export` (play-прототипы —
@@ -521,6 +592,12 @@ API; ЕС-версия регистрации — тот же экран с од
 7. Вёрстка 1:1 с play-прототипами; `pnpm e2e:a11y` без нарушений; эталоны перезаписаны.
 
 ### T22. Волна 4: команда и деньги
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-AllRooms/` — rooms, no-results, trash, trash-limit
+- `docs/design/reference/App-Billing/` — free, trial, past-due, read-only, suspended, cancel, invoice
+- `docs/design/reference/App-Limits/` — admin, member
+- `docs/design/reference/App-Org/` — people, teams, audit
+
 
 **Источник.** ADR-275; `spec/billing.md`; артборды волны 4: `#artboard-App-Org`,
 `#artboard-App-Billing`, `#artboard-App-Limits`, `#artboard-App-AllRooms` (play-прототипы — эталон).
@@ -543,6 +620,11 @@ API; ЕС-версия регистрации — тот же экран с од
 8. Вёрстка 1:1 с play-прототипами; `pnpm e2e:a11y` без нарушений; эталоны перезаписаны.
 
 ### T23. Волна 5: агент и данные
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Agent/` — idle, running, plan, applied, error
+- `docs/design/reference/App-AgentsAdmin/` — agents, agents-key, agents-off, keys, keys-custom
+- `docs/design/reference/App-Images/` — default
+
 
 **Источник.** ADR-276; ADR-066, ADR-142; артборды волны 5: `#artboard-App-Agent`,
 `#artboard-App-AgentsAdmin`, `#artboard-App-Images` (play-прототипы — эталон).
@@ -569,6 +651,11 @@ API; ЕС-версия регистрации — тот же экран с од
 9. Вёрстка 1:1 с play-прототипами; `pnpm e2e:a11y` без нарушений; эталоны перезаписаны.
 
 ### T24. Волна 6: канбан и таблицы
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Kanban/` — column-menu, card-fields, filter, wip-over, plain
+- `docs/design/reference/App-Table/` — axis-menu, cells, delete-axis, delete-with-objects, layout, free
+- `docs/design/reference/App-Tidy/` — preview, applied, tag-delete
+
 
 **Источник.** ADR-277; ADR-106, ADR-112, ADR-196, ADR-198, ADR-219, ADR-267; артборды волны 6:
 `#artboard-App-Kanban`, `#artboard-App-Table`, `#artboard-App-Tidy` (play-прототипы — эталон).
@@ -591,6 +678,13 @@ API; ЕС-версия регистрации — тот же экран с од
 8. Вёрстка 1:1 с play-прототипами; `pnpm e2e:a11y` без нарушений; эталоны перезаписаны.
 
 ### T25. Волна 7: служебное
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Consent/` — default
+- `docs/design/reference/App-HelpDocs/` — default, no-results, accepted
+- `docs/design/reference/App-Mail/` — verify, reset, invite, payment-failed, legal-update
+- `docs/design/reference/App-Operator/` — pulse, customers, money, journal, measures, action
+- `docs/design/reference/App-States/` — no-access, sign-in, link-off, expired, password, hidden, unclaimed, saved, offline, blocked, session, access, full, moved
+
 
 **Источник.** ADR-278; `spec/cookies.md`, `spec/mail.md`, `spec/operator.md`,
 `spec/operator-actions.md`; артборды волны 7: `#artboard-App-Consent`, `#artboard-App-States`,
@@ -614,6 +708,10 @@ API; ЕС-версия регистрации — тот же экран с од
 7. Вёрстка 1:1 с play-прототипами; `pnpm e2e:a11y` без нарушений; эталоны перезаписаны.
 
 ### T26. Волна 8: тёмная тема
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Dark-Room/` — dark, light
+- `docs/design/reference/App-Dark-Screens/` — dark, light
+
 
 **Источник.** ADR-282; `spec/dark-theme.md`; артборды `#artboard-App-Dark-Room`,
 `#artboard-App-Dark-Screens` (переключатель темы сверху — эталон обеих тем).
@@ -637,6 +735,10 @@ API; ЕС-версия регистрации — тот же экран с од
    перечислены владельцу.
 
 ### T28. Жёсткая приёмка: экран = макет
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-Auth/` — login, login-error, code, forgot, sent, reset, verified, signup-eu
+- `docs/design/reference/App-ToolsBars/` — sticky, shape, connector, text, many
+
 
 **Источник.** ADR-286; `spec/acceptance-character.md`. Эталоны макетов (PNG) кладёт Claude в
 `docs/design/reference/` до начала работ по каждому артборду.
@@ -659,6 +761,13 @@ API; ЕС-версия регистрации — тот же экран с од
 4. Итоговая страница сравнения подписана владельцем.
 
 ### T27. Правки владельца 24.11
+**Эталоны PNG** (1440 и 390 px, имя файла `<состояние>-<ширина>.png`; исходник — `docs/design/mockups/<Артборд>.dc.html`):
+- `docs/design/reference/App-AccountMenu/` — menu, menu-closed, stepup-error, stepup-recovery
+- `docs/design/reference/App-AgentsAdmin/` — agents, agents-key, agents-off, keys, keys-custom
+- `docs/design/reference/App-AllRooms/` — rooms, no-results, trash, trash-limit
+- `docs/design/reference/App-Facilitate/` — timer-running, timer-idle, vote-running, vote-idle, vote-results, follow, show, presenting, run-menu
+- `docs/design/reference/App-RoomTidy/` — default, menu-room, menu-run, menu-account, menu-agent, cmdk, offline, focus
+
 
 **Источник.** ADR-285; `spec/fixes-2026-11-24.md` (причины с местами в коде). Порядок внутри
 задания: сначала дефекты (п. 4, 6), затем 5, 1, 2, 7, 3 — каждый пункт отдельным
@@ -751,7 +860,7 @@ spec/dev-plan-character.md.
 1. AGENTS.md — правила репозитория (особенно 1, 2, 5, 6, 8) и команды проверок.
 2. spec/dev-plan-character.md — §0 (Definition of Done), §1 (карта), своё задание целиком.
 3. Источники, перечисленные в задании: ADR (в ADR.md), разделы ТЗ, макеты по ссылкам
-   (артборды холста https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»).
+   (docs/design/mockups/ — исходники артбордов; карта «задание → артборды» в index.json; эталоны PNG — docs/design/reference/).
 
 Как работать:
 - Делай только то, что в «Входит». Всё за границами — в отчёт как предложение.
@@ -776,8 +885,7 @@ spec/dev-plan-character.md.
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0, §1, T17 и «Поправки от 24.11»;
 ADR-119, ADR-120, ADR-266 §6 и §9, ADR-271 в ADR.md; spec/canvas-character.md §2 и §2.2.
-Эталон — play-прототип артборда «Объекты холста» (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR,
-страница «Продукт»): выбери «Проверку» и пощёлкай виды в планке.
+Эталон — play-прототип артборда «Объекты холста» (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/): выбери «Проверку» и пощёлкай виды в планке.
 
 Отправные точки (проверь, что владельцы именно они): ToolRail.tsx и useBoardTools.ts — рейка;
 useBoardKeyboard.ts — клавиши R/O; gesturePointerDown.ts / gesturePointerMove.ts и
@@ -816,7 +924,7 @@ spec/canvas-character.md §2 (выделение) и §2.2. Эталон — pla
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T19; ADR-254 §6 и ADR-272 в ADR.md;
 spec/character.md §3.8. Источник знака — docs/design/brand/remuka-mark.svg и
 remuka-mark-dark.svg; не перерисовывай и не меняй геометрию. Эталон — шапка лендинга в
-play-прототипе (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Лендинг»).
+play-прототипе (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/).
 
 Сначала найди все места, где показывается знак или фавикон (grep по remo-logo, remuka-mark,
 topbar-mark, help-brand, rel="icon"), и пришли список первым пунктом отчёта. Один компонент
@@ -848,7 +956,7 @@ ADR-267, ADR-273 в ADR.md; spec/ink-on-ground.md целиком.
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T21; ADR-260, ADR-266, ADR-270, ADR-274
 в ADR.md; spec/character.md §2 (голос) и §3.6 («убранный стол»). Эталон — play-прототипы
-артбордов волны 3 (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»):
+артбордов волны 3 (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/):
 App-AccountMenu, App-NewRoom, App-Facilitate, App-Export — пощёлкай каждый.
 
 Ничего нового не добавляй: каждый элемент макета — существующая команда или поле; если
@@ -865,7 +973,7 @@ App-AccountMenu, App-NewRoom, App-Facilitate, App-Export — пощёлкай к
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T22; spec/billing.md; ADR-246, ADR-256,
 ADR-275 в ADR.md; spec/character.md §2 и §3.6. Эталон — play-прототипы артбордов волны 4
-(https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»): App-Org, App-Billing,
+(docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/): App-Org, App-Billing,
 App-Limits, App-AllRooms.
 
 Цены, лимиты и статусы приходят с сервера — в интерфейсе их не хардкодь (цены в макете —
@@ -882,7 +990,7 @@ App-Limits, App-AllRooms.
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T23; ADR-066, ADR-142, ADR-265, ADR-267,
 ADR-273, ADR-276 в ADR.md; spec/ai-gateway.md, spec/images.md. Эталон — play-прототипы
-артбордов волны 5 (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»):
+артбордов волны 5 (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/):
 App-Agent (переключай шаги сверху), App-AgentsAdmin, App-Images.
 
 Механику черновика агента и плана не меняй — меняется только вид. Провайдеры, модели, права
@@ -899,7 +1007,7 @@ App-Agent (переключай шаги сверху), App-AgentsAdmin, App-Ima
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T24; ADR-106, ADR-112, ADR-196, ADR-198,
 ADR-219, ADR-267, ADR-277 в ADR.md; spec/canvas-character.md §2.1. Эталон — play-прототипы
-артбордов волны 6 (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»):
+артбордов волны 6 (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/):
 App-Kanban, App-Table, App-Tidy (переключай состояния сверху).
 
 Меню строятся из реестра команд (ADR-050/266), а не из списков в компонентах. Механику
@@ -917,7 +1025,7 @@ App-Kanban, App-Table, App-Tidy (переключай состояния све�
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T25; ADR-246, ADR-256, ADR-259, ADR-262,
 ADR-270, ADR-278 в ADR.md; spec/cookies.md, spec/mail.md, spec/operator.md,
 spec/operator-actions.md. Эталон — play-прототипы артбордов волны 7
-(https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»): App-Consent, App-States
+(docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/): App-Consent, App-States
 (перебери все состояния слева), App-HelpDocs, App-Mail (переключи письма), App-Operator.
 
 Юридические требования (равный вес кнопок cookie, тексты согласий, проверки оператора) не
@@ -934,7 +1042,7 @@ spec/operator-actions.md. Эталон — play-прототипы артбор�
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T26; ADR-265, ADR-270, ADR-272, ADR-273,
 ADR-282 в ADR.md; spec/dark-theme.md целиком. Эталон — play-прототипы App-Dark-Room и
-App-Dark-Screens (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»):
+App-Dark-Screens (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/):
 переключай тему сверху и сравнивай.
 
 Главное правило: тема меняет фон, текст и обводки; коралл, жёлтый, фиолетовый и цвета людей
@@ -952,7 +1060,7 @@ App-Dark-Screens (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, стран�
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 и T27; spec/fixes-2026-11-24.md (там причины
 каждого пункта с файлами и строками); ADR-039, ADR-104, ADR-105, ADR-266, ADR-274, ADR-276,
 ADR-285 в ADR.md. Эталоны: артборды «Убранный стол», «Меню профиля», «ИИ в организации»
-(https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт») — уже поправлены под ADR-285.
+(docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/) — уже поправлены под ADR-285.
 
 Порядок: сначала дефекты п. 4 (реакции) и п. 6 (Tab на карточке), затем п. 5, 1, 2, 7, 3. Каждый
 пункт — свой тест, который падает до правки и проходит после. Для п. 6 сначала воспроизведи,
@@ -970,7 +1078,7 @@ ADR-285 в ADR.md. Эталоны: артборды «Убранный стол�
 
 Прочитай: AGENTS.md; spec/dev-plan-character.md §0 (особенно п. 11) и T28; ADR-286;
 spec/acceptance-character.md целиком. Эталоны макетов — PNG в docs/design/reference/ и
-play-прототипы (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR, страница «Продукт»).
+play-прототипы (docs/design/mockups/ — исходники артбордов, см. README и index.json; эталоны PNG — docs/design/reference/).
 
 Сначала инструмент (фикстуры + accept:shots + отчёт), затем пересдача входа и рейки, затем проход
 по волнам 0–8. Макет главнее кода: если экран отличается структурой, текстом или формой — меняй

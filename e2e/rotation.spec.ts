@@ -580,3 +580,57 @@ test("a connector rebuilds while the handle is still held (T18 acceptance 4)", a
     Math.hypot(startOf(settled).x - startOf(second).x, startOf(settled).y - startOf(second).y),
   ).toBeLessThan(2);
 });
+
+test("a turned shape is resized by its painted handle wherever it sits", async ({ page }) => {
+  const account = await freshBoard(page, "rotation-handle-away", { template: "empty" });
+  const id = await seedObject(page, account.boardId, {
+    type: "shape",
+    x: 320,
+    y: 240,
+    width: 160,
+    height: 100,
+  });
+  await waitForBoardEditor(page);
+  await setRotation(page, account.boardId, id, 30);
+  await selectAt(page, { x: 320, y: 240 });
+
+  const before = await widget(page, id);
+  const current = await view(page);
+  const zoom = current.camera.zoom;
+  const gap = 7 / zoom;
+  const centre = { x: before.x, y: before.y };
+  const seLocal = { x: before.width / 2 + gap, y: before.height / 2 + gap };
+  const se = rotate(seLocal, { x: 0, y: 0 }, before.rotation);
+  const start = toClient(current, { x: centre.x + se.x, y: centre.y + se.y });
+  const delta = rotate({ x: 24, y: 16 }, { x: 0, y: 0 }, before.rotation);
+  const end = toClient(current, {
+    x: centre.x + se.x + delta.x,
+    y: centre.y + se.y + delta.y,
+  });
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await page.mouse.up();
+
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  const after = await widget(page, id);
+  // The grab worked away from the board origin, and the drag stayed in the object's own
+  // axes: the opposite (north-west) corner is where it was, so the shape grew from it.
+  expect(after.width).toBeGreaterThan(before.width + 10);
+  expect(after.height).toBeGreaterThan(before.height + 5);
+  const nwBeforeLocal = rotate(
+    { x: -before.width / 2, y: -before.height / 2 },
+    { x: 0, y: 0 },
+    before.rotation,
+  );
+  const nwAfterLocal = rotate(
+    { x: -after.width / 2, y: -after.height / 2 },
+    { x: 0, y: 0 },
+    after.rotation,
+  );
+  const nwBefore = { x: centre.x + nwBeforeLocal.x, y: centre.y + nwBeforeLocal.y };
+  const nwAfter = { x: after.x + nwAfterLocal.x, y: after.y + nwAfterLocal.y };
+  expect(Math.hypot(nwAfter.x - nwBefore.x, nwAfter.y - nwBefore.y)).toBeLessThan(1);
+});

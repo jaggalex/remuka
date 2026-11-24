@@ -1,0 +1,982 @@
+{
+ "generatedAt": "2026-11-24T21:17:40.994673Z",
+ "generator": "node scripts/mockups/shoot.mjs",
+ "exportedFromVersion": "1795553837-9128",
+ "widths": [
+  1440,
+  390
+ ],
+ "artboards": {
+  "App-Account": {
+   "title": "Волна 2 · Настройки аккаунта и новая редакция документов",
+   "tasks": [
+    "T15"
+   ],
+   "adr": [
+    "ADR-270"
+   ],
+   "source": "docs/design/mockups/App-Account.dc.html",
+   "states": [
+    "look",
+    "profile",
+    "security",
+    "docs",
+    "delete",
+    "reaccept"
+   ],
+   "shots": [
+    "docs/design/reference/App-Account/delete-1440.png",
+    "docs/design/reference/App-Account/delete-390.png",
+    "docs/design/reference/App-Account/docs-1440.png",
+    "docs/design/reference/App-Account/docs-390.png",
+    "docs/design/reference/App-Account/look-1440.png",
+    "docs/design/reference/App-Account/look-390.png",
+    "docs/design/reference/App-Account/profile-1440.png",
+    "docs/design/reference/App-Account/profile-390.png",
+    "docs/design/reference/App-Account/reaccept-1440.png",
+    "docs/design/reference/App-Account/reaccept-390.png",
+    "docs/design/reference/App-Account/security-1440.png",
+    "docs/design/reference/App-Account/security-390.png"
+   ]
+  },
+  "App-AccountMenu": {
+   "title": "Волна 3 · Меню профиля и подтверждение кодом",
+   "tasks": [
+    "T21",
+    "T27"
+   ],
+   "adr": [
+    "ADR-274",
+    "ADR-280"
+   ],
+   "source": "docs/design/mockups/App-AccountMenu.dc.html",
+   "states": [
+    "menu",
+    "menu-closed",
+    "stepup-error",
+    "stepup-recovery"
+   ],
+   "shots": [
+    "docs/design/reference/App-AccountMenu/menu-1440.png",
+    "docs/design/reference/App-AccountMenu/menu-390.png",
+    "docs/design/reference/App-AccountMenu/menu-closed-1440.png",
+    "docs/design/reference/App-AccountMenu/menu-closed-390.png",
+    "docs/design/reference/App-AccountMenu/stepup-error-1440.png",
+    "docs/design/reference/App-AccountMenu/stepup-error-390.png",
+    "docs/design/reference/App-AccountMenu/stepup-recovery-1440.png",
+    "docs/design/reference/App-AccountMenu/stepup-recovery-390.png"
+   ]
+  },
+  "App-Agent": {
+   "title": "Волна 5 · Агент в комнате: поручение, черновик, план",
+   "tasks": [
+    "T23"
+   ],
+   "adr": [
+    "ADR-276"
+   ],
+   "source": "docs/design/mockups/App-Agent.dc.html",
+   "states": [
+    "idle",
+    "running",
+    "plan",
+    "applied",
+    "error"
+   ],
+   "shots": [
+    "docs/design/reference/App-Agent/applied-1440.png",
+    "docs/design/reference/App-Agent/applied-390.png",
+    "docs/design/reference/App-Agent/error-1440.png",
+    "docs/design/reference/App-Agent/error-390.png",
+    "docs/design/reference/App-Agent/idle-1440.png",
+    "docs/design/reference/App-Agent/idle-390.png",
+    "docs/design/reference/App-Agent/plan-1440.png",
+    "docs/design/reference/App-Agent/plan-390.png",
+    "docs/design/reference/App-Agent/running-1440.png",
+    "docs/design/reference/App-Agent/running-390.png"
+   ]
+  },
+  "App-AgentsAdmin": {
+   "title": "Волна 5 · ИИ в организации: агенты, ключи, журнал вызовов",
+   "tasks": [
+    "T23",
+    "T27"
+   ],
+   "adr": [
+    "ADR-276",
+    "ADR-280"
+   ],
+   "source": "docs/design/mockups/App-AgentsAdmin.dc.html",
+   "states": [
+    "agents",
+    "agents-key",
+    "agents-off",
+    "keys",
+    "keys-custom"
+   ],
+   "shots": [
+    "docs/design/reference/App-AgentsAdmin/agents-1440.png",
+    "docs/design/reference/App-AgentsAdmin/agents-390.png",
+    "docs/design/reference/App-AgentsAdmin/agents-key-1440.png",
+    "docs/design/reference/App-AgentsAdmin/agents-key-390.png",
+    "docs/design/reference/App-AgentsAdmin/agents-off-1440.png",
+    "docs/design/reference/App-AgentsAdmin/agents-off-390.png",
+    "docs/design/reference/App-AgentsAdmin/keys-1440.png",
+    "docs/design/reference/App-AgentsAdmin/keys-390.png",
+    "docs/design/reference/App-AgentsAdmin/keys-custom-1440.png",
+    "docs/design/reference/App-AgentsAdmin/keys-custom-390.png"
+   ]
+  },
+  "App-AllRooms": {
+   "title": "Волна 4 · Все комнаты и корзина",
+   "tasks": [
+    "T22",
+    "T27"
+   ],
+   "adr": [
+    "ADR-275",
+    "ADR-280"
+   ],
+   "source": "docs/design/mockups/App-AllRooms.dc.html",
+   "states": [
+    "rooms",
+    "no-results",
+    "trash",
+    "trash-limit"
+   ],
+   "shots": [
+    "docs/design/reference/App-AllRooms/no-results-1440.png",
+    "docs/design/reference/App-AllRooms/no-results-390.png",
+    "docs/design/reference/App-AllRooms/rooms-1440.png",
+    "docs/design/reference/App-AllRooms/rooms-390.png",
+    "docs/design/reference/App-AllRooms/trash-1440.png",
+    "docs/design/reference/App-AllRooms/trash-390.png",
+    "docs/design/reference/App-AllRooms/trash-limit-1440.png",
+    "docs/design/reference/App-AllRooms/trash-limit-390.png"
+   ]
+  },
+  "App-Auth": {
+   "title": "Волна 2 · Вход и восстановление",
+   "tasks": [
+    "T15",
+    "T28"
+   ],
+   "adr": [
+    "ADR-270",
+    "ADR-281"
+   ],
+   "source": "docs/design/mockups/App-Auth.dc.html",
+   "states": [
+    "login",
+    "login-error",
+    "code",
+    "forgot",
+    "sent",
+    "reset",
+    "verified",
+    "signup-eu"
+   ],
+   "shots": [
+    "docs/design/reference/App-Auth/code-1440.png",
+    "docs/design/reference/App-Auth/code-390.png",
+    "docs/design/reference/App-Auth/forgot-1440.png",
+    "docs/design/reference/App-Auth/forgot-390.png",
+    "docs/design/reference/App-Auth/login-1440.png",
+    "docs/design/reference/App-Auth/login-390.png",
+    "docs/design/reference/App-Auth/login-error-1440.png",
+    "docs/design/reference/App-Auth/login-error-390.png",
+    "docs/design/reference/App-Auth/reset-1440.png",
+    "docs/design/reference/App-Auth/reset-390.png",
+    "docs/design/reference/App-Auth/sent-1440.png",
+    "docs/design/reference/App-Auth/sent-390.png",
+    "docs/design/reference/App-Auth/signup-eu-1440.png",
+    "docs/design/reference/App-Auth/signup-eu-390.png",
+    "docs/design/reference/App-Auth/verified-1440.png",
+    "docs/design/reference/App-Auth/verified-390.png"
+   ]
+  },
+  "App-Billing": {
+   "title": "Волна 4 · Тариф и оплата",
+   "tasks": [
+    "T22"
+   ],
+   "adr": [
+    "ADR-275"
+   ],
+   "source": "docs/design/mockups/App-Billing.dc.html",
+   "states": [
+    "free",
+    "trial",
+    "past-due",
+    "read-only",
+    "suspended",
+    "cancel",
+    "invoice"
+   ],
+   "shots": [
+    "docs/design/reference/App-Billing/cancel-1440.png",
+    "docs/design/reference/App-Billing/cancel-390.png",
+    "docs/design/reference/App-Billing/free-1440.png",
+    "docs/design/reference/App-Billing/free-390.png",
+    "docs/design/reference/App-Billing/invoice-1440.png",
+    "docs/design/reference/App-Billing/invoice-390.png",
+    "docs/design/reference/App-Billing/past-due-1440.png",
+    "docs/design/reference/App-Billing/past-due-390.png",
+    "docs/design/reference/App-Billing/read-only-1440.png",
+    "docs/design/reference/App-Billing/read-only-390.png",
+    "docs/design/reference/App-Billing/suspended-1440.png",
+    "docs/design/reference/App-Billing/suspended-390.png",
+    "docs/design/reference/App-Billing/trial-1440.png",
+    "docs/design/reference/App-Billing/trial-390.png"
+   ]
+  },
+  "App-Consent": {
+   "title": "Волна 7 · Cookie: РФ и ЕС, настройки, политика",
+   "tasks": [
+    "T25"
+   ],
+   "adr": [
+    "ADR-278"
+   ],
+   "source": "docs/design/mockups/App-Consent.dc.html",
+   "states": [
+    "default"
+   ],
+   "shots": [
+    "docs/design/reference/App-Consent/default-1440.png",
+    "docs/design/reference/App-Consent/default-390.png"
+   ]
+  },
+  "App-Dark-Room": {
+   "title": "Волна 8 · Комната ночью (переключатель темы)",
+   "tasks": [
+    "T26"
+   ],
+   "adr": [
+    "ADR-279"
+   ],
+   "source": "docs/design/mockups/App-Dark-Room.dc.html",
+   "states": [
+    "dark",
+    "light"
+   ],
+   "shots": [
+    "docs/design/reference/App-Dark-Room/dark-1440.png",
+    "docs/design/reference/App-Dark-Room/dark-390.png",
+    "docs/design/reference/App-Dark-Room/light-1440.png",
+    "docs/design/reference/App-Dark-Room/light-390.png"
+   ]
+  },
+  "App-Dark-Screens": {
+   "title": "Волна 8 · Экраны ночью",
+   "tasks": [
+    "T26"
+   ],
+   "adr": [
+    "ADR-279"
+   ],
+   "source": "docs/design/mockups/App-Dark-Screens.dc.html",
+   "states": [
+    "dark",
+    "light"
+   ],
+   "shots": [
+    "docs/design/reference/App-Dark-Screens/dark-1440.png",
+    "docs/design/reference/App-Dark-Screens/dark-390.png",
+    "docs/design/reference/App-Dark-Screens/light-1440.png",
+    "docs/design/reference/App-Dark-Screens/light-390.png"
+   ]
+  },
+  "App-EmptyRoom": {
+   "title": "Пустая комната",
+   "tasks": [
+    "T10",
+    "T13"
+   ],
+   "adr": [
+    "ADR-268"
+   ],
+   "source": "docs/design/mockups/App-EmptyRoom.dc.html",
+   "states": [
+    "variant-1",
+    "variant-2",
+    "variant-3"
+   ],
+   "shots": [
+    "docs/design/reference/App-EmptyRoom/variant-1-1440.png",
+    "docs/design/reference/App-EmptyRoom/variant-1-390.png",
+    "docs/design/reference/App-EmptyRoom/variant-2-1440.png",
+    "docs/design/reference/App-EmptyRoom/variant-2-390.png",
+    "docs/design/reference/App-EmptyRoom/variant-3-1440.png",
+    "docs/design/reference/App-EmptyRoom/variant-3-390.png"
+   ]
+  },
+  "App-Export": {
+   "title": "Волна 3 · Экспорт и бэкап",
+   "tasks": [
+    "T21"
+   ],
+   "adr": [
+    "ADR-274"
+   ],
+   "source": "docs/design/mockups/App-Export.dc.html",
+   "states": [
+    "png",
+    "pdf",
+    "backup",
+    "running"
+   ],
+   "shots": [
+    "docs/design/reference/App-Export/backup-1440.png",
+    "docs/design/reference/App-Export/backup-390.png",
+    "docs/design/reference/App-Export/pdf-1440.png",
+    "docs/design/reference/App-Export/pdf-390.png",
+    "docs/design/reference/App-Export/png-1440.png",
+    "docs/design/reference/App-Export/png-390.png",
+    "docs/design/reference/App-Export/running-1440.png",
+    "docs/design/reference/App-Export/running-390.png"
+   ]
+  },
+  "App-Facilitate": {
+   "title": "Волна 3 · Провести: таймер, голосование, следовать, показ",
+   "tasks": [
+    "T21",
+    "T27"
+   ],
+   "adr": [
+    "ADR-274",
+    "ADR-280"
+   ],
+   "source": "docs/design/mockups/App-Facilitate.dc.html",
+   "states": [
+    "timer-running",
+    "timer-idle",
+    "vote-running",
+    "vote-idle",
+    "vote-results",
+    "follow",
+    "show",
+    "presenting",
+    "run-menu"
+   ],
+   "shots": [
+    "docs/design/reference/App-Facilitate/follow-1440.png",
+    "docs/design/reference/App-Facilitate/follow-390.png",
+    "docs/design/reference/App-Facilitate/presenting-1440.png",
+    "docs/design/reference/App-Facilitate/presenting-390.png",
+    "docs/design/reference/App-Facilitate/run-menu-1440.png",
+    "docs/design/reference/App-Facilitate/run-menu-390.png",
+    "docs/design/reference/App-Facilitate/show-1440.png",
+    "docs/design/reference/App-Facilitate/show-390.png",
+    "docs/design/reference/App-Facilitate/timer-idle-1440.png",
+    "docs/design/reference/App-Facilitate/timer-idle-390.png",
+    "docs/design/reference/App-Facilitate/timer-running-1440.png",
+    "docs/design/reference/App-Facilitate/timer-running-390.png",
+    "docs/design/reference/App-Facilitate/vote-idle-1440.png",
+    "docs/design/reference/App-Facilitate/vote-idle-390.png",
+    "docs/design/reference/App-Facilitate/vote-results-1440.png",
+    "docs/design/reference/App-Facilitate/vote-results-390.png",
+    "docs/design/reference/App-Facilitate/vote-running-1440.png",
+    "docs/design/reference/App-Facilitate/vote-running-390.png"
+   ]
+  },
+  "App-Guest": {
+   "title": "Волна 2 · Гость по ссылке",
+   "tasks": [
+    "T15"
+   ],
+   "adr": [
+    "ADR-270"
+   ],
+   "source": "docs/design/mockups/App-Guest.dc.html",
+   "states": [
+    "gate",
+    "gate-error",
+    "name",
+    "room"
+   ],
+   "shots": [
+    "docs/design/reference/App-Guest/gate-1440.png",
+    "docs/design/reference/App-Guest/gate-390.png",
+    "docs/design/reference/App-Guest/gate-error-1440.png",
+    "docs/design/reference/App-Guest/gate-error-390.png",
+    "docs/design/reference/App-Guest/name-1440.png",
+    "docs/design/reference/App-Guest/name-390.png",
+    "docs/design/reference/App-Guest/room-1440.png",
+    "docs/design/reference/App-Guest/room-390.png"
+   ]
+  },
+  "App-HelpDocs": {
+   "title": "Волна 7 · Справка и документы",
+   "tasks": [
+    "T25"
+   ],
+   "adr": [
+    "ADR-278"
+   ],
+   "source": "docs/design/mockups/App-HelpDocs.dc.html",
+   "states": [
+    "default",
+    "no-results",
+    "accepted"
+   ],
+   "shots": [
+    "docs/design/reference/App-HelpDocs/accepted-1440.png",
+    "docs/design/reference/App-HelpDocs/accepted-390.png",
+    "docs/design/reference/App-HelpDocs/default-1440.png",
+    "docs/design/reference/App-HelpDocs/default-390.png",
+    "docs/design/reference/App-HelpDocs/no-results-1440.png",
+    "docs/design/reference/App-HelpDocs/no-results-390.png"
+   ]
+  },
+  "App-Home": {
+   "title": "Главная команды",
+   "tasks": [
+    "T10",
+    "T14"
+   ],
+   "adr": [
+    "ADR-268"
+   ],
+   "source": "docs/design/mockups/App-Home.dc.html",
+   "states": [
+    "default",
+    "no-news"
+   ],
+   "shots": [
+    "docs/design/reference/App-Home/default-1440.png",
+    "docs/design/reference/App-Home/default-390.png",
+    "docs/design/reference/App-Home/no-news-1440.png",
+    "docs/design/reference/App-Home/no-news-390.png"
+   ]
+  },
+  "App-Icons": {
+   "title": "Иконки · чернильный штрих",
+   "tasks": [
+    "T1",
+    "T8"
+   ],
+   "adr": [
+    "ADR-265"
+   ],
+   "source": "docs/design/mockups/App-Icons.dc.html",
+   "states": [
+    "default",
+    "old"
+   ],
+   "shots": [
+    "docs/design/reference/App-Icons/default-1440.png",
+    "docs/design/reference/App-Icons/default-390.png",
+    "docs/design/reference/App-Icons/old-1440.png",
+    "docs/design/reference/App-Icons/old-390.png"
+   ]
+  },
+  "App-Images": {
+   "title": "Волна 5 · Изображения, хранилище, приложения",
+   "tasks": [
+    "T23"
+   ],
+   "adr": [
+    "ADR-276"
+   ],
+   "source": "docs/design/mockups/App-Images.dc.html",
+   "states": [
+    "default"
+   ],
+   "shots": [
+    "docs/design/reference/App-Images/default-1440.png",
+    "docs/design/reference/App-Images/default-390.png"
+   ]
+  },
+  "App-Invite": {
+   "title": "Позвать в комнату",
+   "tasks": [
+    "T10"
+   ],
+   "adr": [
+    "ADR-266"
+   ],
+   "source": "docs/design/mockups/App-Invite.dc.html",
+   "states": [
+    "default",
+    "sent",
+    "link-off"
+   ],
+   "shots": [
+    "docs/design/reference/App-Invite/default-1440.png",
+    "docs/design/reference/App-Invite/default-390.png",
+    "docs/design/reference/App-Invite/link-off-1440.png",
+    "docs/design/reference/App-Invite/link-off-390.png",
+    "docs/design/reference/App-Invite/sent-1440.png",
+    "docs/design/reference/App-Invite/sent-390.png"
+   ]
+  },
+  "App-Kanban": {
+   "title": "Волна 6 · Канбан: меню колонки, поля карточки, фильтр",
+   "tasks": [
+    "T24"
+   ],
+   "adr": [
+    "ADR-277"
+   ],
+   "source": "docs/design/mockups/App-Kanban.dc.html",
+   "states": [
+    "column-menu",
+    "card-fields",
+    "filter",
+    "wip-over",
+    "plain"
+   ],
+   "shots": [
+    "docs/design/reference/App-Kanban/card-fields-1440.png",
+    "docs/design/reference/App-Kanban/card-fields-390.png",
+    "docs/design/reference/App-Kanban/column-menu-1440.png",
+    "docs/design/reference/App-Kanban/column-menu-390.png",
+    "docs/design/reference/App-Kanban/filter-1440.png",
+    "docs/design/reference/App-Kanban/filter-390.png",
+    "docs/design/reference/App-Kanban/plain-1440.png",
+    "docs/design/reference/App-Kanban/plain-390.png",
+    "docs/design/reference/App-Kanban/wip-over-1440.png",
+    "docs/design/reference/App-Kanban/wip-over-390.png"
+   ]
+  },
+  "App-Limits": {
+   "title": "Волна 4 · Лимиты тарифа и активные комнаты",
+   "tasks": [
+    "T22"
+   ],
+   "adr": [
+    "ADR-275"
+   ],
+   "source": "docs/design/mockups/App-Limits.dc.html",
+   "states": [
+    "admin",
+    "member"
+   ],
+   "shots": [
+    "docs/design/reference/App-Limits/admin-1440.png",
+    "docs/design/reference/App-Limits/admin-390.png",
+    "docs/design/reference/App-Limits/member-1440.png",
+    "docs/design/reference/App-Limits/member-390.png"
+   ]
+  },
+  "App-Mail": {
+   "title": "Волна 7 · Письма: один шаблон",
+   "tasks": [
+    "T25"
+   ],
+   "adr": [
+    "ADR-278"
+   ],
+   "source": "docs/design/mockups/App-Mail.dc.html",
+   "states": [
+    "verify",
+    "reset",
+    "invite",
+    "payment-failed",
+    "legal-update"
+   ],
+   "shots": [
+    "docs/design/reference/App-Mail/invite-1440.png",
+    "docs/design/reference/App-Mail/invite-390.png",
+    "docs/design/reference/App-Mail/legal-update-1440.png",
+    "docs/design/reference/App-Mail/legal-update-390.png",
+    "docs/design/reference/App-Mail/payment-failed-1440.png",
+    "docs/design/reference/App-Mail/payment-failed-390.png",
+    "docs/design/reference/App-Mail/reset-1440.png",
+    "docs/design/reference/App-Mail/reset-390.png",
+    "docs/design/reference/App-Mail/verify-1440.png",
+    "docs/design/reference/App-Mail/verify-390.png"
+   ]
+  },
+  "App-NewRoom": {
+   "title": "Волна 3 · Новая комната и шаблоны",
+   "tasks": [
+    "T21"
+   ],
+   "adr": [
+    "ADR-274"
+   ],
+   "source": "docs/design/mockups/App-NewRoom.dc.html",
+   "states": [
+    "default",
+    "empty-name",
+    "template-kanban",
+    "creating"
+   ],
+   "shots": [
+    "docs/design/reference/App-NewRoom/creating-1440.png",
+    "docs/design/reference/App-NewRoom/creating-390.png",
+    "docs/design/reference/App-NewRoom/default-1440.png",
+    "docs/design/reference/App-NewRoom/default-390.png",
+    "docs/design/reference/App-NewRoom/empty-name-1440.png",
+    "docs/design/reference/App-NewRoom/empty-name-390.png",
+    "docs/design/reference/App-NewRoom/template-kanban-1440.png",
+    "docs/design/reference/App-NewRoom/template-kanban-390.png"
+   ]
+  },
+  "App-Objects": {
+   "title": "Объекты холста и контекстное меню",
+   "tasks": [
+    "T2",
+    "T3",
+    "T4",
+    "T6",
+    "T17",
+    "T18"
+   ],
+   "adr": [
+    "ADR-267",
+    "ADR-271"
+   ],
+   "source": "docs/design/mockups/App-Objects.dc.html",
+   "states": [
+    "default",
+    "colors",
+    "shape-rectangle",
+    "shape-round",
+    "shape-diamond",
+    "shape-triangle"
+   ],
+   "shots": [
+    "docs/design/reference/App-Objects/colors-1440.png",
+    "docs/design/reference/App-Objects/colors-390.png",
+    "docs/design/reference/App-Objects/default-1440.png",
+    "docs/design/reference/App-Objects/default-390.png",
+    "docs/design/reference/App-Objects/shape-diamond-1440.png",
+    "docs/design/reference/App-Objects/shape-diamond-390.png",
+    "docs/design/reference/App-Objects/shape-rectangle-1440.png",
+    "docs/design/reference/App-Objects/shape-rectangle-390.png",
+    "docs/design/reference/App-Objects/shape-round-1440.png",
+    "docs/design/reference/App-Objects/shape-round-390.png",
+    "docs/design/reference/App-Objects/shape-triangle-1440.png",
+    "docs/design/reference/App-Objects/shape-triangle-390.png"
+   ]
+  },
+  "App-Operator": {
+   "title": "Волна 7 · Консоль оператора",
+   "tasks": [
+    "T25"
+   ],
+   "adr": [
+    "ADR-278"
+   ],
+   "source": "docs/design/mockups/App-Operator.dc.html",
+   "states": [
+    "pulse",
+    "customers",
+    "money",
+    "journal",
+    "measures",
+    "action"
+   ],
+   "shots": [
+    "docs/design/reference/App-Operator/action-1440.png",
+    "docs/design/reference/App-Operator/action-390.png",
+    "docs/design/reference/App-Operator/customers-1440.png",
+    "docs/design/reference/App-Operator/customers-390.png",
+    "docs/design/reference/App-Operator/journal-1440.png",
+    "docs/design/reference/App-Operator/journal-390.png",
+    "docs/design/reference/App-Operator/measures-1440.png",
+    "docs/design/reference/App-Operator/measures-390.png",
+    "docs/design/reference/App-Operator/money-1440.png",
+    "docs/design/reference/App-Operator/money-390.png",
+    "docs/design/reference/App-Operator/pulse-1440.png",
+    "docs/design/reference/App-Operator/pulse-390.png"
+   ]
+  },
+  "App-Org": {
+   "title": "Волна 4 · Организация: люди, команды, журнал",
+   "tasks": [
+    "T22"
+   ],
+   "adr": [
+    "ADR-275"
+   ],
+   "source": "docs/design/mockups/App-Org.dc.html",
+   "states": [
+    "people",
+    "teams",
+    "audit"
+   ],
+   "shots": [
+    "docs/design/reference/App-Org/audit-1440.png",
+    "docs/design/reference/App-Org/audit-390.png",
+    "docs/design/reference/App-Org/people-1440.png",
+    "docs/design/reference/App-Org/people-390.png",
+    "docs/design/reference/App-Org/teams-1440.png",
+    "docs/design/reference/App-Org/teams-390.png"
+   ]
+  },
+  "App-Panels": {
+   "title": "Волна 1 · Свойства и комментарии",
+   "tasks": [
+    "T8"
+   ],
+   "adr": [
+    "ADR-266"
+   ],
+   "source": "docs/design/mockups/App-Panels.dc.html",
+   "states": [
+    "props",
+    "props-more",
+    "comments"
+   ],
+   "shots": [
+    "docs/design/reference/App-Panels/comments-1440.png",
+    "docs/design/reference/App-Panels/comments-390.png",
+    "docs/design/reference/App-Panels/props-1440.png",
+    "docs/design/reference/App-Panels/props-390.png",
+    "docs/design/reference/App-Panels/props-more-1440.png",
+    "docs/design/reference/App-Panels/props-more-390.png"
+   ]
+  },
+  "App-Room": {
+   "title": "Комната в работе · курсоры с физикой",
+   "tasks": [
+    "T1",
+    "T3"
+   ],
+   "adr": [
+    "ADR-265"
+   ],
+   "source": "docs/design/mockups/App-Room.dc.html",
+   "states": [
+    "default"
+   ],
+   "shots": [
+    "docs/design/reference/App-Room/default-1440.png",
+    "docs/design/reference/App-Room/default-390.png"
+   ]
+  },
+  "App-RoomTidy": {
+   "title": "Волна 1 · Убранный стол: шапка комнаты",
+   "tasks": [
+    "T5",
+    "T6",
+    "T7",
+    "T9",
+    "T27"
+   ],
+   "adr": [
+    "ADR-266",
+    "ADR-280"
+   ],
+   "source": "docs/design/mockups/App-RoomTidy.dc.html",
+   "states": [
+    "default",
+    "menu-room",
+    "menu-run",
+    "menu-account",
+    "menu-agent",
+    "cmdk",
+    "offline",
+    "focus"
+   ],
+   "shots": [
+    "docs/design/reference/App-RoomTidy/cmdk-1440.png",
+    "docs/design/reference/App-RoomTidy/cmdk-390.png",
+    "docs/design/reference/App-RoomTidy/default-1440.png",
+    "docs/design/reference/App-RoomTidy/default-390.png",
+    "docs/design/reference/App-RoomTidy/focus-1440.png",
+    "docs/design/reference/App-RoomTidy/focus-390.png",
+    "docs/design/reference/App-RoomTidy/menu-account-1440.png",
+    "docs/design/reference/App-RoomTidy/menu-account-390.png",
+    "docs/design/reference/App-RoomTidy/menu-agent-1440.png",
+    "docs/design/reference/App-RoomTidy/menu-agent-390.png",
+    "docs/design/reference/App-RoomTidy/menu-room-1440.png",
+    "docs/design/reference/App-RoomTidy/menu-room-390.png",
+    "docs/design/reference/App-RoomTidy/menu-run-1440.png",
+    "docs/design/reference/App-RoomTidy/menu-run-390.png",
+    "docs/design/reference/App-RoomTidy/offline-1440.png",
+    "docs/design/reference/App-RoomTidy/offline-390.png"
+   ]
+  },
+  "App-SignUp": {
+   "title": "Регистрация (РФ)",
+   "tasks": [
+    "T10",
+    "T15"
+   ],
+   "adr": [
+    "ADR-270"
+   ],
+   "source": "docs/design/mockups/App-SignUp.dc.html",
+   "states": [
+    "default",
+    "errors",
+    "done"
+   ],
+   "shots": [
+    "docs/design/reference/App-SignUp/default-1440.png",
+    "docs/design/reference/App-SignUp/default-390.png",
+    "docs/design/reference/App-SignUp/done-1440.png",
+    "docs/design/reference/App-SignUp/done-390.png",
+    "docs/design/reference/App-SignUp/errors-1440.png",
+    "docs/design/reference/App-SignUp/errors-390.png"
+   ]
+  },
+  "App-States": {
+   "title": "Волна 7 · Доступ, связь, сессия, переезд",
+   "tasks": [
+    "T25"
+   ],
+   "adr": [
+    "ADR-278"
+   ],
+   "source": "docs/design/mockups/App-States.dc.html",
+   "states": [
+    "no-access",
+    "sign-in",
+    "link-off",
+    "expired",
+    "password",
+    "hidden",
+    "unclaimed",
+    "saved",
+    "offline",
+    "blocked",
+    "session",
+    "access",
+    "full",
+    "moved"
+   ],
+   "shots": [
+    "docs/design/reference/App-States/access-1440.png",
+    "docs/design/reference/App-States/access-390.png",
+    "docs/design/reference/App-States/blocked-1440.png",
+    "docs/design/reference/App-States/blocked-390.png",
+    "docs/design/reference/App-States/expired-1440.png",
+    "docs/design/reference/App-States/expired-390.png",
+    "docs/design/reference/App-States/full-1440.png",
+    "docs/design/reference/App-States/full-390.png",
+    "docs/design/reference/App-States/hidden-1440.png",
+    "docs/design/reference/App-States/hidden-390.png",
+    "docs/design/reference/App-States/link-off-1440.png",
+    "docs/design/reference/App-States/link-off-390.png",
+    "docs/design/reference/App-States/moved-1440.png",
+    "docs/design/reference/App-States/moved-390.png",
+    "docs/design/reference/App-States/no-access-1440.png",
+    "docs/design/reference/App-States/no-access-390.png",
+    "docs/design/reference/App-States/offline-1440.png",
+    "docs/design/reference/App-States/offline-390.png",
+    "docs/design/reference/App-States/password-1440.png",
+    "docs/design/reference/App-States/password-390.png",
+    "docs/design/reference/App-States/saved-1440.png",
+    "docs/design/reference/App-States/saved-390.png",
+    "docs/design/reference/App-States/session-1440.png",
+    "docs/design/reference/App-States/session-390.png",
+    "docs/design/reference/App-States/sign-in-1440.png",
+    "docs/design/reference/App-States/sign-in-390.png",
+    "docs/design/reference/App-States/unclaimed-1440.png",
+    "docs/design/reference/App-States/unclaimed-390.png"
+   ]
+  },
+  "App-Table": {
+   "title": "Волна 6 · Разделы и таблицы: оси, ячейки, удаление, раскладка",
+   "tasks": [
+    "T24"
+   ],
+   "adr": [
+    "ADR-277"
+   ],
+   "source": "docs/design/mockups/App-Table.dc.html",
+   "states": [
+    "axis-menu",
+    "cells",
+    "delete-axis",
+    "delete-with-objects",
+    "layout",
+    "free"
+   ],
+   "shots": [
+    "docs/design/reference/App-Table/axis-menu-1440.png",
+    "docs/design/reference/App-Table/axis-menu-390.png",
+    "docs/design/reference/App-Table/cells-1440.png",
+    "docs/design/reference/App-Table/cells-390.png",
+    "docs/design/reference/App-Table/delete-axis-1440.png",
+    "docs/design/reference/App-Table/delete-axis-390.png",
+    "docs/design/reference/App-Table/delete-with-objects-1440.png",
+    "docs/design/reference/App-Table/delete-with-objects-390.png",
+    "docs/design/reference/App-Table/free-1440.png",
+    "docs/design/reference/App-Table/free-390.png",
+    "docs/design/reference/App-Table/layout-1440.png",
+    "docs/design/reference/App-Table/layout-390.png"
+   ]
+  },
+  "App-Tidy": {
+   "title": "Волна 6 · «Упорядочить» и теги",
+   "tasks": [
+    "T24"
+   ],
+   "adr": [
+    "ADR-277"
+   ],
+   "source": "docs/design/mockups/App-Tidy.dc.html",
+   "states": [
+    "preview",
+    "applied",
+    "tag-delete"
+   ],
+   "shots": [
+    "docs/design/reference/App-Tidy/applied-1440.png",
+    "docs/design/reference/App-Tidy/applied-390.png",
+    "docs/design/reference/App-Tidy/preview-1440.png",
+    "docs/design/reference/App-Tidy/preview-390.png",
+    "docs/design/reference/App-Tidy/tag-delete-1440.png",
+    "docs/design/reference/App-Tidy/tag-delete-390.png"
+   ]
+  },
+  "App-ToolsBars": {
+   "title": "Волна 1 · Тулбар и панели выделения",
+   "tasks": [
+    "T8",
+    "T12",
+    "T28"
+   ],
+   "adr": [
+    "ADR-266",
+    "ADR-268",
+    "ADR-281"
+   ],
+   "source": "docs/design/mockups/App-ToolsBars.dc.html",
+   "states": [
+    "sticky",
+    "shape",
+    "connector",
+    "text",
+    "many"
+   ],
+   "shots": [
+    "docs/design/reference/App-ToolsBars/connector-1440.png",
+    "docs/design/reference/App-ToolsBars/connector-390.png",
+    "docs/design/reference/App-ToolsBars/many-1440.png",
+    "docs/design/reference/App-ToolsBars/many-390.png",
+    "docs/design/reference/App-ToolsBars/shape-1440.png",
+    "docs/design/reference/App-ToolsBars/shape-390.png",
+    "docs/design/reference/App-ToolsBars/sticky-1440.png",
+    "docs/design/reference/App-ToolsBars/sticky-390.png",
+    "docs/design/reference/App-ToolsBars/text-1440.png",
+    "docs/design/reference/App-ToolsBars/text-390.png"
+   ]
+  },
+  "Landing-v2": {
+   "title": "Лендинг v2 — живой первый экран",
+   "tasks": [
+    "T19"
+   ],
+   "adr": [
+    "ADR-265",
+    "ADR-272"
+   ],
+   "source": "docs/design/mockups/Landing-v2.dc.html",
+   "states": [
+    "default"
+   ],
+   "shots": [
+    "docs/design/reference/Landing-v2/default-1440.png",
+    "docs/design/reference/Landing-v2/default-390.png"
+   ]
+  }
+ }
+}

@@ -11570,3 +11570,26 @@ were accepted on checklists without side-by-side images.
 **Consequences.** Definition of Done gains item 11. Claude captures the reference PNGs before a
 task starts and reviews every report against them.
 
+## ADR-287: Mockups live in the repository for agents
+
+**Status:** accepted (2026-11-24). Builds on ADR-281.
+
+**Context.** Developer agents cannot open claude.ai links, so the design canvas, its play
+prototypes and every `#artboard-…` reference in the tasks were out of their reach.
+
+**Decision.**
+- `docs/design/mockups/` holds a read-only copy of every artboard's source (`*.dc.html`: markup,
+  inline styles, texts, state logic), a `README.md` on how to read it, and `index.json` mapping
+  each artboard to its wave, tasks, ADRs, reference folder and canvas link, with the canvas
+  version it was exported from.
+- Reference PNGs (every state in `scripts/mockups/states.json`, 1440 and 390 px) live in
+  `docs/design/reference/<Artboard>/`. They are rendered offline from the sources by
+  `pnpm mockups:shots` (a small renderer, `scripts/mockups/dc-lite.js`, and the product's own
+  Golos font), so any agent can regenerate and inspect them without claude.ai.
+- `#artboard-App-X` in tasks means `docs/design/mockups/App-X.dc.html`. Prompts point to the
+  repository, not to claude.ai. Agents never edit these files; Claude re-exports them after any
+  canvas change and bumps `exportedFromVersion`.
+
+**Consequences.** The mockup is reviewable in code review and diffable over time. A change on the
+canvas is not visible to agents until it is exported.
+

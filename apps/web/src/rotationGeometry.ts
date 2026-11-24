@@ -80,14 +80,20 @@ export function framePoint(frame: RotationFrame, local: Vec2): Vec2 {
   return { x: frame.centre.x + turned.x, y: frame.centre.y + turned.y };
 }
 
-/** A world point in the frame's axes. */
+/**
+ * A world point in the frame's axes.
+ *
+ * A turned frame's box is centred on the object (`localRectOf`), so the point comes back
+ * centred too: the corner handles live at (-w/2…w/2), not around the object's world
+ * position. Adding the centre back here made a turned object grabbable only while it sat
+ * at the board origin — the bug the owner found on a shape elsewhere.
+ */
 export function frameLocal(frame: RotationFrame, world: Vec2): Vec2 {
   if (!frame.angle) return { x: world.x, y: world.y };
-  const turned = rotateVector(
+  return rotateVector(
     { x: world.x - frame.centre.x, y: world.y - frame.centre.y },
     -frame.angle,
   );
-  return { x: frame.centre.x + turned.x, y: frame.centre.y + turned.y };
 }
 
 /** The four corner handles, on the frame's own axes. */

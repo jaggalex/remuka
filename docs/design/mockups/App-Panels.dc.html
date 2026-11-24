@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — свойства и комментарии</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-b:hover{background:#fbf3df}
+.rk-press:active{transform:translate(3px,3px);box-shadow:0 0 0 #1e2136 !important}
+@keyframes rkSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 36px 24px 48px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Одна панель — <span style="position: relative; display: inline-block; z-index: 0">за раз<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -6%; bottom: -0.04em; width: 112%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#f2b94a"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Справа живёт одна панель: свойства выделенного или комментарии. Открыли другую — первая уходит. Esc закрывает.</p>
+</div>
+<div role="tablist" aria-label="Панель" style="display: flex; gap: 6px; padding: 6px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136">
+<button type="button" role="tab" aria-selected="{{ propsSel }}" onClick="{{ showProps }}" style="{{ propsTab }}">Свойства стикера</button>
+<button type="button" role="tab" aria-selected="{{ commentsSel }}" onClick="{{ showComments }}" style="{{ commentsTab }}">Комментарии · 2</button>
+<button type="button" role="tab" aria-selected="{{ noneSel }}" onClick="{{ showNone }}" style="{{ noneTab }}">Без панели</button>
+</div>
+</header>
+
+<main aria-label="Комната" style="position: relative; height: 820px; display: flex; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; overflow: hidden">
+<div style="flex: 1; position: relative; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+<div aria-hidden="true" style="position: absolute; left: 90px; top: 150px; width: 170px; height: 160px; padding: 14px; box-sizing: border-box; background: #c8e8d4; border-radius: 3px; transform: rotate(-1.6deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-weight: 500">Демо прошло без единого бага</div>
+<div aria-hidden="true" style="{{ selNote }}">{{ noteText }}</div>
+<div aria-hidden="true" style="position: absolute; left: 520px; top: 340px; width: 170px; height: 160px; padding: 14px; box-sizing: border-box; background: #f9d3cd; border-radius: 3px; transform: rotate(1.2deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-weight: 500">Задачи без исполнителя</div>
+<button type="button" onClick="{{ showComments }}" aria-label="Комментарий Ильи к стикеру" style="position: absolute; left: 446px; top: 130px; width: 30px; height: 30px; border-radius: 50% 50% 50% 3px; background: #c93e0a; border: 1.5px solid #1e2136; color: #ffffff; font-family: inherit; font-weight: 700; cursor: pointer">И</button>
+<button type="button" onClick="{{ showComments }}" aria-label="Комментарий Миши" style="position: absolute; left: 670px; top: 322px; width: 30px; height: 30px; border-radius: 50% 50% 50% 3px; background: #0f7b6c; border: 1.5px solid #1e2136; color: #ffffff; font-family: inherit; font-weight: 700; cursor: pointer">М</button>
+</div>
+
+<sc-if value="{{ propsOpen }}" hint-placeholder-val="{{ true }}">
+<aside aria-label="Свойства стикера" style="width: 340px; flex: none; background: #ffffff; border-left: 1.5px solid #1e2136; display: flex; flex-direction: column; animation: rkSlide .2s ease-out both">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800">Стикер</h2>
+<button type="button" onClick="{{ showNone }}" aria-label="Закрыть" class="rk-b" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="{{ i.close }}"></path></svg></button>
+</div>
+<div style="flex: 1; overflow: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 18px">
+<section style="display: flex; flex-direction: column; gap: 8px"><h3 style="margin: 0; font-size: 14px; font-weight: 700">Цвет</h3>
+<div style="display: grid; grid-template-columns: repeat(7, 32px); gap: 8px">
+<sc-for list="{{ swatches }}" as="s" hint-placeholder-count="14"><button type="button" aria-label="{{ s.label }}" aria-pressed="{{ s.on }}" onClick="{{ s.pick }}" style="{{ s.style }}"></button></sc-for>
+</div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><h3 style="margin: 0; font-size: 14px; font-weight: 700">Текст</h3>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #f2b94a; font-family: inherit; font-weight: 700; cursor: pointer">Авто</button>
+<button type="button" class="rk-b" style="height: 36px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; cursor: pointer">A−</button>
+<button type="button" class="rk-b" style="height: 36px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; cursor: pointer">A+</button>
+<span aria-hidden="true" style="width: 8px"></span>
+<sc-for list="{{ aligns }}" as="a" hint-placeholder-count="3"><button type="button" aria-label="{{ a.label }}" aria-pressed="{{ a.on }}" style="{{ a.style }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="{{ a.d }}"></path></svg></button></sc-for>
+</div>
+<span style="font-size: 13px; color: #3f4256">Авто подбирает размер под стикер — сейчас 16 px.</span>
+</section>
+<section style="border-top: 1.5px solid #e6dcc4; padding-top: 12px">
+<button type="button" onClick="{{ toggleMore }}" aria-expanded="{{ moreAria }}" class="rk-b" style="display: flex; width: 100%; justify-content: space-between; align-items: center; min-height: 40px; padding: 0 6px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer">Ещё настройки<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{ chevron }}"><path d="{{ i.chevron }}"></path></svg></button>
+<sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 8px 6px 0">
+<label style="display: flex; justify-content: space-between; align-items: center; font-size: 14px">Цвет текста<select style="height: 34px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; padding: 0 8px"><option>Авто — по фону</option><option>Чернила</option><option>Белый</option></select></label>
+<label style="display: flex; justify-content: space-between; align-items: center; font-size: 14px">Размер стикера<select style="height: 34px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; padding: 0 8px"><option>M</option><option>S</option><option>L</option></select></label>
+<label style="display: flex; justify-content: space-between; align-items: center; font-size: 14px">Закрепить на месте<input type="checkbox" style="width: 18px; height: 18px; accent-color: #1e2136"></label>
+</div>
+</sc-if>
+</section>
+</div>
+<section aria-label="Опасная зона" style="margin: 0 16px 16px; padding: 12px 14px; border: 1.5px solid #e6dcc4; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px">
+<span style="font-size: 13px; color: #3f4256">Удалить можно отменить ⌘Z</span>
+<button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1.5px solid #a3300a; border-radius: 10px; background: #ffffff; color: #a3300a; font-family: inherit; font-weight: 700; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3300a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ i.trash }}"></path></svg>Удалить</button>
+</section>
+</aside>
+</sc-if>
+
+<sc-if value="{{ commentsOpen }}" hint-placeholder-val="{{ false }}">
+<aside aria-label="Комментарии" style="width: 360px; flex: none; background: #ffffff; border-left: 1.5px solid #1e2136; display: flex; flex-direction: column; animation: rkSlide .2s ease-out both">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 8px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800">Комментарии</h2>
+<button type="button" onClick="{{ showNone }}" aria-label="Закрыть" class="rk-b" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; display: grid; place-items: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="{{ i.close }}"></path></svg></button>
+</div>
+<div role="tablist" aria-label="Какие" style="display: flex; gap: 6px; padding: 0 16px 10px">
+<button type="button" role="tab" aria-selected="{{ openSel }}" onClick="{{ fOpen }}" style="{{ openTab }}">Открытые · {{ openCount }}</button>
+<button type="button" role="tab" aria-selected="{{ doneSel }}" onClick="{{ fDone }}" style="{{ doneTab }}">Решённые · {{ doneCount }}</button>
+</div>
+<div style="flex: 1; overflow: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{ threads }}" as="th" hint-placeholder-count="2">
+<article style="border: 1.5px solid #1e2136; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fffdf8">
+<span style="font-size: 12px; color: #3f4256">к стикеру «{{ th.about }}»</span>
+<sc-for list="{{ th.msgs }}" as="m" hint-placeholder-count="2">
+<div style="display: flex; gap: 10px">
+<span style="{{ m.av }}">{{ m.initial }}</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 13px"><strong>{{ m.name }}</strong> <span style="color: #62657a">{{ m.when }}</span></span><span style="font-size: 14px">{{ m.text }}</span></div>
+</div>
+</sc-for>
+<sc-if value="{{ th.open }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px; align-items: center">
+<label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Ответить</span><input type="text" placeholder="Ответить… @ — позвать" style="flex: 1; min-width: 0; height: 38px; box-sizing: border-box; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #ffffff; font-family: inherit; font-size: 14px"></label>
+<button type="button" onClick="{{ th.resolve }}" class="rk-press" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border: 1.5px solid #1e2136; border-radius: 10px; background: #85d965; box-shadow: 2px 2px 0 #1e2136; font-family: inherit; font-weight: 700; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1e2136" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ th.check }}"></path></svg>Решено</button>
+</div>
+</sc-if>
+</article>
+</sc-for>
+<sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 20px 4px; color: #3f4256">Все вопросы закрыты. Новые появятся здесь — и булавкой на холсте.</p>
+</sc-if>
+</div>
+</aside>
+</sc-if>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1060}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { panel: 'props', more: false, color: '#f4e0a8', filter: 'open', resolved: {} };
+  }
+  renderVals() {
+    var self = this;
+    var I = {"close": "M6 6l12 12M18 6L6 18", "check": "M5 12.5l4.5 4.5L19 7", "chevron-down": "M6 9l6 6 6-6", "comment": "M6 4.5h12A2.5 2.5 0 0 1 20.5 7v7.5A2.5 2.5 0 0 1 18 17h-6.5L7 20.5V17H6a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 6 4.5z", "settings": "M4 7h9M17 7h3M4 17h3M11 17h9M13 7a2 2 0 1 0 4 0a2 2 0 1 0 -4 0zM7 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z", "trash": "M4 7h16M9.5 7V5A1.5 1.5 0 0 1 11 3.5h2A1.5 1.5 0 0 1 14.5 5v2M6 7l1 11.5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2L18 7M10 11v5.5M14 11v5.5", "text-bold": "M7 4.5h5.75a3.75 3.75 0 0 1 0 7.5H7zM7 12h6.5a3.75 3.75 0 0 1 0 7.5H7z", "align-left": "M4 6h16M4 10h10M4 14h16M4 18h10", "align-center": "M4 6h16M7 10h10M4 14h16M7 18h10", "align-right": "M4 6h16M10 10h10M4 14h16M10 18h10", "lock": "M8 10.5h8a3 3 0 0 1 3 3v4a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-4a3 3 0 0 1 3 -3zM8 10.5v-3a4 4 0 0 1 8 0v3", "copy": "M11 8.5h7a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1 -2.5 2.5h-7a2.5 2.5 0 0 1 -2.5 -2.5v-7a2.5 2.5 0 0 1 2.5 -2.5zM15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"};
+    var p = this.state.panel;
+    var tab = function (on) { return 'min-height: 36px; padding: 4px 12px; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; color: #1e2136; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent'); };
+    var tones = ['#f3f1ec', '#f4e0a8', '#ffdcc6', '#f9d3cd', '#f3e8ff', '#cddff8', '#c8e8d4', '#cdc8c0', '#f2b94a', '#ff8a57', '#ff8fbd', '#c69bff', '#78b4ff', '#85d965'];
+    var threadsAll = [
+      { id: 't1', about: 'Ревью дизайна в первый день', msgs: [
+        { initial: 'И', name: 'Илья', when: '10:42', text: '@Аня, ревью в понедельник успеваем? Дизайн будет к пятнице.', c: '#c93e0a' },
+        { initial: 'А', name: 'Аня', when: '10:50', text: 'Да, ставлю на 11:00. Позову Мишу.', c: '#1a6ad8' } ] },
+      { id: 't2', about: 'Задачи без исполнителя', msgs: [
+        { initial: 'М', name: 'Миша', when: 'вчера', text: 'Предлагаю: без исполнителя — не берём в спринт.', c: '#0f7b6c' } ] },
+      { id: 't3', about: 'Повестка заранее', msgs: [ { initial: 'А', name: 'Аня', when: 'пн', text: 'Сделали шаблон повестки.', c: '#1a6ad8' } ], done: true }
+    ];
+    var resolved = this.state.resolved;
+    var isDone = function (t) { return !!t.done || !!resolved[t.id]; };
+    var shown = threadsAll.filter(function (t) { return self.state.filter === 'open' ? !isDone(t) : isDone(t); });
+    return {
+      i: { close: I['close'], chevron: I['chevron-down'], trash: I['trash'] },
+      propsOpen: p === 'props', commentsOpen: p === 'comments',
+      propsSel: p === 'props' ? 'true' : 'false', commentsSel: p === 'comments' ? 'true' : 'false', noneSel: p === '' ? 'true' : 'false',
+      propsTab: tab(p === 'props'), commentsTab: tab(p === 'comments'), noneTab: tab(p === ''),
+      showProps: function () { self.setState({ panel: 'props' }); },
+      showComments: function () { self.setState({ panel: 'comments' }); },
+      showNone: function () { self.setState({ panel: '' }); },
+      selNote: 'position: absolute; left: 300px; top: 160px; width: 170px; height: 160px; padding: 14px; box-sizing: border-box; background: ' + this.state.color + '; border-radius: 3px; box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-weight: 500;' + (p === 'props' ? ' outline: 1.5px solid #1e2136; outline-offset: 3px' : ' transform: rotate(1.8deg)'),
+      noteText: 'Ревью дизайна в первый день',
+      swatches: tones.map(function (c, i) { var on = c === self.state.color; return { label: 'Цвет ' + (i + 1), on: on ? 'true' : 'false', pick: function () { self.setState({ color: c }); }, style: 'width: 32px; height: 32px; border-radius: 6px; cursor: pointer; background: ' + c + '; border: 1.5px solid #1e2136;' + (on ? ' box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 4px #1e2136' : '') }; }),
+      aligns: [['Слева', 'align-left', false], ['По центру', 'align-center', true], ['Справа', 'align-right', false]].map(function (a) { return { label: a[0], d: I[a[1]], on: a[2] ? 'true' : 'false', style: 'width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; cursor: pointer; border: 1.5px solid ' + (a[2] ? '#1e2136' : 'transparent') + '; background: ' + (a[2] ? '#f2b94a' : 'transparent') }; }),
+      moreOpen: this.state.more,
+      moreAria: this.state.more ? 'true' : 'false',
+      toggleMore: function () { self.setState({ more: !self.state.more }); },
+      chevron: 'transition: transform .2s ease;' + (this.state.more ? ' transform: rotate(180deg)' : ''),
+      openSel: this.state.filter === 'open' ? 'true' : 'false', doneSel: this.state.filter === 'done' ? 'true' : 'false',
+      openTab: tab(this.state.filter === 'open'), doneTab: tab(this.state.filter === 'done'),
+      fOpen: function () { self.setState({ filter: 'open' }); }, fDone: function () { self.setState({ filter: 'done' }); },
+      openCount: threadsAll.filter(function (t) { return !isDone(t); }).length,
+      doneCount: threadsAll.filter(isDone).length,
+      threads: shown.map(function (t) {
+        return { about: t.about, open: !isDone(t), check: I['check'],
+          resolve: function () { var r = Object.assign({}, self.state.resolved); r[t.id] = true; self.setState({ resolved: r }); },
+          msgs: t.msgs.map(function (m) { return Object.assign({}, m, { av: 'flex: none; width: 28px; height: 28px; border-radius: 999px; background: ' + m.c + '; color: #ffffff; border: 1.5px solid #1e2136; display: grid; place-items: center; font-size: 12px; font-weight: 700' }); }) };
+      }),
+      empty: shown.length === 0
+    };
+  }
+}
+</script>
+</body>
+</html>

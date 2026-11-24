@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — лимиты тарифа и активные комнаты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-row:hover{background:#fffaf0}
+.rk-btn:focus-visible,.rk-row:focus-within{outline:2.5px solid #174a96;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkDrop{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 920px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Лимиты — <span style="position: relative; display: inline-block; z-index: 0">без паники<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#f2b94a"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Упёрлись в тариф — говорим, во что именно, что будет с данными (ничего не удалится) и куда нажать. Не администратору — кого попросить.</p>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 32px; align-items: start">
+
+<!-- 1. limit dialog -->
+<section aria-labelledby="l1" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="l1" style="margin: 0; font-size: 20px; font-weight: 800">1 · Упёрлись в лимит</h2>
+<div role="group" aria-label="Кто видит" style="display: flex; gap: 6px">
+<sc-for list="{{ who }}" as="w" hint-placeholder-count="2">
+<button type="button" class="rk-btn" aria-pressed="{{ w.on }}" onClick="{{ w.pick }}" style="{{ w.style }}">{{ w.label }}</button>
+</sc-for>
+</div>
+<div role="alertdialog" aria-labelledby="ld-h" style="padding: 24px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; display: flex; flex-direction: column; gap: 14px; animation: rkDrop .22s cubic-bezier(.34,1.56,.64,1) both">
+<div style="display: flex; gap: 6px" aria-hidden="true">
+<span style="width: 44px; height: 44px; border-radius: 10px; background: #c8e8d4; border: 1.5px solid #1e2136"></span><span style="width: 44px; height: 44px; border-radius: 10px; background: #c8e8d4; border: 1.5px solid #1e2136"></span><span style="width: 44px; height: 44px; border-radius: 10px; background: #c8e8d4; border: 1.5px solid #1e2136"></span><span style="width: 44px; height: 44px; border-radius: 10px; background: #c8e8d4; border: 1.5px solid #1e2136"></span><span style="width: 44px; height: 44px; border-radius: 10px; background: #c8e8d4; border: 1.5px solid #1e2136"></span><span style="width: 44px; height: 44px; border-radius: 10px; border: 1.5px dashed #a3300a; display: grid; place-items: center; color: #a3300a; font-weight: 800">+</span>
+</div>
+<h3 id="ld-h" style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em">Пять комнат из пяти</h3>
+<p style="margin: 0; color: #3f4256">На тарифе Free у организации 5 активных комнат. Шестую можно создать на Pro — или отправить ненужную в корзину.</p>
+<sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" class="rk-btn" style="height: 46px; padding: 0 20px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 15px; font-weight: 700; color: #1e2136; cursor: pointer">Посмотреть тарифы</button>
+<button type="button" class="rk-btn" style="height: 46px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600; color: #1e2136; cursor: pointer">К комнатам</button>
+</div>
+</sc-if>
+<sc-if value="{{ isMember }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 12px 14px; background: #fbf3df; border-radius: 12px; font-size: 14px">Тариф меняет администратор организации — <strong>Alex Bone</strong>. Напишите ему или удалите комнату, которая больше не нужна.</p>
+<button type="button" class="rk-btn" style="align-self: flex-start; height: 46px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600; color: #1e2136; cursor: pointer">Понятно</button>
+</sc-if>
+</div>
+</section>
+
+<!-- 2. feature lock -->
+<section aria-labelledby="l2" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="l2" style="margin: 0; font-size: 20px; font-weight: 800">2 · Функция на другом тарифе</h2>
+<p style="margin: 0; color: #3f4256">Не прячем и не серим молча: вариант виден, рядом — на каком тарифе он есть.</p>
+<div style="padding: 20px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 20px; display: flex; flex-direction: column; gap: 10px">
+<strong style="font-size: 14px">Формат</strong>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px">
+<div style="padding: 12px; border: 1.5px solid #1e2136; border-radius: 14px; background: #fff6dc; outline: 3px solid #f2b94a; outline-offset: -6px"><strong>Картинка</strong><br><span style="font-size: 12px; color: #3f4256">с водяным знаком</span></div>
+<div style="position: relative; padding: 12px; border: 1.5px dashed #1e2136; border-radius: 14px; background: #ffffff; color: #3f4256"><strong style="color: #1e2136">Страница PDF</strong><br><span style="font-size: 12px">в Pro и выше</span><span style="position: absolute; right: -8px; top: -10px; padding: 2px 8px; border-radius: 999px; background: #c69bff; border: 1.5px solid #1e2136; color: #1e2136; font-size: 11px; font-weight: 800">Pro</span></div>
+<div style="padding: 12px; border: 1.5px solid #1e2136; border-radius: 14px; background: #ffffff"><strong>Бэкап</strong><br><span style="font-size: 12px; color: #3f4256">на любом тарифе</span></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Нажали на PDF — подсказка «Экспорт PDF есть в Pro» и ссылка «Посмотреть тарифы». Так же для ссылок с паролем, расширенных ролей, интеграций и агентов без лимита.</p>
+</div>
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136; font-size: 14px">
+<span style="flex: 1 1 220px">Задачи агента в этом месяце закончились: 10 из 10. Новые — с 1 декабря или на Pro.</span>
+<a href="#plans" style="font-weight: 600">Тарифы</a>
+</div>
+</section>
+
+<!-- 3. choose active rooms -->
+<section aria-labelledby="l3" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="l3" style="margin: 0; font-size: 20px; font-weight: 800">3 · Какие комнаты оставить активными</h2>
+<p style="margin: 0; color: #3f4256">После перехода на Free. Остальные станут только для чтения: содержимое сохранится, экспорт продолжит работать.</p>
+<div style="padding: 18px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px"><strong>{{ counter }}</strong><span style="{{ counterChip }}">{{ counterNote }}</span></div>
+<sc-for list="{{ rooms }}" as="r" hint-placeholder-count="7">
+<label class="rk-row" style="{{ r.row }}"><input type="checkbox" checked="{{ r.on }}" onChange="{{ r.toggle }}" style="width: 20px; height: 20px; accent-color: #1e2136"><span style="flex: 1">{{ r.name }}</span><span style="font-size: 12px; color: #3f4256">{{ r.when }}</span></label>
+</sc-for>
+<button type="button" class="rk-btn" style="{{ saveStyle }}">Сохранить</button>
+</div>
+</section>
+
+<!-- 4. frozen room -->
+<section aria-labelledby="l4" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="l4" style="margin: 0; font-size: 20px; font-weight: 800">4 · Комната только для чтения</h2>
+<div style="position: relative; height: 330px; border: 1.5px solid #1e2136; border-radius: 20px; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fffdf8; border-bottom: 1.5px solid #1e2136"><strong style="font-size: 14px; flex: 1">Архив · Q2</strong><span style="padding: 3px 10px; border-radius: 999px; border: 1.5px solid #1e2136; background: #f3f1ec; font-size: 12px; font-weight: 700">только чтение</span></div>
+<div role="status" style="position: absolute; left: 16px; right: 16px; top: 62px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 14px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136; font-size: 14px">
+<span style="flex: 1 1 260px">Комната только для чтения по тарифу. Содержимое сохранено, экспорт работает.</span>
+<a href="#active" style="font-weight: 600">Сделать активной</a>
+</div>
+<div style="position: absolute; left: 40px; top: 160px; width: 140px; height: 130px; padding: 12px; box-sizing: border-box; background: #f4e0a8; border-radius: 3px; transform: rotate(-1.6deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-size: 14px">Итоги квартала</div>
+<div style="position: absolute; left: 210px; top: 170px; width: 140px; height: 130px; padding: 12px; box-sizing: border-box; background: #cddff8; border-radius: 3px; transform: rotate(1.2deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-size: 14px">Что переносим в Q3</div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Редактировать нельзя, смотреть и экспортировать — можно; «Сделать активной» ведёт в выбор активных комнат (у не-администратора — подсказка, кого попросить).</p>
+</section>
+</div>
+
+<p style="margin: 0; align-self: flex-start; max-width: 720px; padding: 10px 14px; background: #f4e0a8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.5deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Переключите «Администратор / Участник» в первом окне и снимите-поставьте галочки в третьем: счётчик и кнопка «Сохранить» реагируют.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { admin: true, picked: { r1: true, r2: true, r3: true, r4: true, r5: true, r6: false, r7: false } };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var seg = function (on) { return 'height: 34px; padding: 0 14px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid #1e2136; background: ' + (on ? '#f2b94a' : '#ffffff'); };
+    var who = [[true, 'Администратор'], [false, 'Участник']].map(function (w) { var on = s.admin === w[0]; return { label: w[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ admin: w[0] }); } }; });
+    var defs = [['r1', 'Ретро · спринт 14', 'сегодня'], ['r2', 'Дорожная карта', 'вчера'], ['r3', 'Онбординг v2', '3 дня назад'], ['r4', 'Запуск продукта', 'неделю назад'], ['r5', 'Канбан команды', 'неделю назад'], ['r6', 'Архив · Q2', 'в августе'], ['r7', 'Идеи на потом', 'в июле']];
+    var n = 0;
+    defs.forEach(function (d) { if (s.picked[d[0]]) n += 1; });
+    var rooms = defs.map(function (d) {
+      var on = !!s.picked[d[0]];
+      return { name: d[1], when: d[2], on: on,
+        toggle: function () { var p = Object.assign({}, s.picked); p[d[0]] = !on; self.setState({ picked: p }); },
+        row: 'display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 14px; border: 1.5px solid ' + (on ? '#1e2136' : '#e6dcc4') + '; background: ' + (on ? '#ffffff' : '#fbf3df') + (on ? '' : '; color: #3f4256') };
+    });
+    var over = n > 5;
+    var under = n < 5;
+    return {
+      who: who, isAdmin: s.admin, isMember: !s.admin,
+      rooms: rooms,
+      counter: 'Выбрано ' + n + ' из 5',
+      counterNote: over ? 'больше, чем позволяет тариф' : (under ? 'можно ещё ' + (5 - n) : 'ровно по тарифу'),
+      counterChip: 'padding: 2px 10px; border-radius: 999px; border: 1.5px solid #1e2136; font-size: 12px; font-weight: 700; background: ' + (over ? '#f9d3cd' : (under ? '#cddff8' : '#c8e8d4')),
+      saveStyle: 'align-self: flex-start; height: 44px; padding: 0 20px; border-radius: 12px; border: 1.5px solid #1e2136; font-family: inherit; font-size: 15px; font-weight: 700; color: #1e2136; cursor: ' + (over ? 'not-allowed' : 'pointer') + '; background: ' + (over ? '#e6dcc4' : '#ff8a57') + '; box-shadow: ' + (over ? 'none' : '3px 3px 0 #1e2136')
+    };
+  }
+}
+</script>
+</body>
+</html>

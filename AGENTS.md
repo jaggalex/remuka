@@ -95,6 +95,9 @@ The test database is separate from development: `pnpm test:db:up`, then
 - `guide/<section>/<page>/` — the connected product guide. RU source, EN translation.
 - `docs/` — self-hosting and architecture notes.
 - `ADR.md` — the decision history.
+- `docs/design/mockups/` — the mockups (ADR-287): each artboard's source with exact styles,
+  texts and states; `index.json` maps tasks to artboards; reference PNGs are in
+  `docs/design/reference/`. A screen must match its mockup (ADR-281). Read-only for agents.
 
 `pnpm docs:check` and `pnpm guide:check` fail on a stale translation or a broken link.
 A page is finished only after a fresh reader has reviewed it against `guide/style.md`.
@@ -113,9 +116,9 @@ _Факты дерева, проверяются `pnpm state:check`; числа 
 
 | Факт | Значение |
 |---|---|
-| ADR | 286, последний — ADR-286 |
+| ADR | 287, последний — ADR-287 |
 | Версия схемы | 39 |
-| Браузерные сценарии | 295 в 53 файлах |
+| Браузерные сценарии | 296 в 53 файлах |
 | Темы помощи | 42 (RU + EN) |
 | Страницы портала | 86 |
 | Эталоны | 65 продуктовых + 12 DS |

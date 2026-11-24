@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — доступ, связь и переезд</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-btn:focus-visible,.rk-pick:focus-visible{outline:2.5px solid #174a96;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkWob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes rkPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 960px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Когда что-то не так — <span style="position: relative; display: inline-block; z-index: 0">говорим, что делать<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#f2b94a"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Один шаблон на все закрытые двери: что случилось, почему, одна кнопка. И одна шкала для связи: от «Сохранено» до «Нет связи · 3» — без паники и без потерь.</p>
+</header>
+
+<div style="display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start">
+<nav aria-label="Состояния" style="display: flex; flex-direction: column; gap: 6px">
+<strong style="font-size: 13px; color: #62657a; padding: 0 4px">Доступ</strong>
+<sc-for list="{{ doors }}" as="d" hint-placeholder-count="6">
+<button type="button" class="rk-pick" aria-pressed="{{ d.on }}" onClick="{{ d.pick }}" style="{{ d.style }}">{{ d.label }}</button>
+</sc-for>
+<strong style="font-size: 13px; color: #62657a; padding: 10px 4px 0">Связь и сессия</strong>
+<sc-for list="{{ nets }}" as="d" hint-placeholder-count="6">
+<button type="button" class="rk-pick" aria-pressed="{{ d.on }}" onClick="{{ d.pick }}" style="{{ d.style }}">{{ d.label }}</button>
+</sc-for>
+</nav>
+
+<main aria-label="Экран" style="position: relative; min-height: 640px; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+<div style="display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 16px; background: #fffdf8; border-bottom: 1.5px solid #1e2136">
+<svg width="24" height="24" viewBox="0 0 200 200" aria-hidden="true"><circle cx="53" cy="48" r="37" fill="#ff8a57"></circle><rect x="111" y="12" width="72" height="72" rx="12" fill="#78b4ff"></rect><path d="M30.02,106 H169.98 A12,12 0 0 1 181.81,120.03 A83,83 0 0 1 18.19,120.03 A12,12 0 0 1 30.02,106 Z" fill="#3f4256"></path></svg>
+<strong style="flex: 1; font-size: 15px">{{ roomTitle }}</strong>
+<span role="status" style="{{ chip }}"><span aria-hidden="true" style="{{ chipDot }}"></span>{{ chipText }}</span>
+</div>
+
+<sc-if value="{{ isDoor }}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; place-items: center; padding: 60px 20px">
+<div role="alert" style="width: 460px; max-width: 100%; padding: 30px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; display: flex; flex-direction: column; gap: 14px; text-align: center; align-items: center">
+<svg width="120" height="84" viewBox="0 0 120 84" aria-hidden="true" style="animation: rkWob 2.6s ease-in-out infinite"><circle cx="30" cy="26" r="18" fill="#ff8a57" stroke="#1e2136" stroke-width="2"></circle><rect x="62" y="8" width="38" height="38" rx="7" fill="#78b4ff" stroke="#1e2136" stroke-width="2"></rect><path d="{{ mouth }}" fill="#3f4256" stroke="#1e2136" stroke-width="2" stroke-linejoin="round"></path></svg>
+<h2 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em">{{ title }}</h2>
+<p style="margin: 0; color: #3f4256">{{ body }}</p>
+<sc-if value="{{ hasField }}" hint-placeholder-val="{{ false }}">
+<input type="password" aria-label="Пароль к ссылке" placeholder="Введите пароль, который дал владелец" style="width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px; border: 1.5px solid #1e2136; border-radius: 12px; font-family: inherit; font-size: 15px; background: #ffffff">
+</sc-if>
+<button type="button" class="rk-btn" style="height: 48px; padding: 0 24px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 16px; font-weight: 700; color: #1e2136; cursor: pointer">{{ action }}</button>
+<sc-if value="{{ hasSecond }}" hint-placeholder-val="{{ true }}"><a href="#home" style="font-size: 14px">{{ second }}</a></sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isNet }}" hint-placeholder-val="{{ false }}">
+<div style="position: relative; height: 560px">
+<div style="position: absolute; left: 60px; top: 60px; width: 150px; height: 130px; padding: 12px; box-sizing: border-box; background: #f4e0a8; border-radius: 3px; transform: rotate(-1.6deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-size: 14px">Повестка в описании встречи</div>
+<div style="position: absolute; left: 250px; top: 80px; width: 150px; height: 130px; padding: 12px; box-sizing: border-box; background: #cddff8; border-radius: 3px; transform: rotate(1.2deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5); font-size: 14px">{{ noteText }}</div>
+<sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ true }}">
+<div role="alert" style="{{ bannerStyle }}">
+<span style="flex: 1 1 300px"><strong>{{ bannerTitle }}</strong> {{ bannerText }}</span>
+<sc-if value="{{ hasBannerAction }}" hint-placeholder-val="{{ true }}"><button type="button" class="rk-btn" style="height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #1e2136; background: #ffffff; font-family: inherit; font-size: 14px; font-weight: 700; color: #1e2136; cursor: pointer">{{ bannerAction }}</button></sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</main>
+</div>
+
+<p style="margin: 0; align-self: flex-start; max-width: 760px; padding: 10px 14px; background: #f4e0a8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.5deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Слева — все состояния, тексты из продукта. Лицо из фигур логотипа меняет улыбку на «хм». Общей страницы 404 и «ошибки сервера» в приложении сейчас нет — они в бэклоге, здесь не рисуем.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { st: 'noAccess' };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var D = {
+      noAccess: ['Нет доступа к комнате', 'Нет доступа к комнате', 'Попросите владельца выдать доступ или проверьте, под кем вы вошли.', 'На главную', '', false],
+      signIn: ['Войти, чтобы открыть', 'Войдите, чтобы открыть комнату', 'Войдите под аккаунтом, которому открыт доступ.', 'Войти', '', false],
+      linkOff: ['Ссылка выключена', 'Ссылка неактивна', 'Попросите владельца включить её или откройте комнату под своим аккаунтом.', 'Войти', 'На главную', false],
+      expired: ['Срок ссылки истёк', 'Срок действия ссылки истёк', 'Попросите у владельца новую ссылку.', 'На главную', '', false],
+      password: ['Пароль у ссылки', 'Комната защищена паролем', 'Пароль даёт владелец комнаты.', 'Открыть комнату', '', true],
+      hidden: ['Скрыта оператором', 'Комната скрыта оператором', 'Причина: жалоба на содержимое, проверяем до 25 нояб. Если это ошибка — напишите в поддержку.', 'Написать в поддержку', 'На главную', false],
+      unclaimed: ['Без владельца', 'У комнаты нет владельца', 'Поэтому она закрыта. Закрепите её за собой — и откройте доступ команде.', 'Войти и закрепить', '', false]
+    };
+    var N = {
+      saved: ['Сохранено', null], pending: ['Сохраняется', null],
+      offline: ['Нет связи · 3', ['Нет связи.', 'Правки остаются в этой вкладке и уйдут на сервер, когда связь вернётся. Не закрывайте вкладку.', '', '#fff6dc']],
+      blocked: ['Нет связи · ввод остановлен', ['Офлайн-очередь заполнена.', 'Ввод остановлен, чтобы ничего не потерялось. Как только связь вернётся — продолжите.', '', '#ffdcc6']],
+      session: ['Нет связи', ['Сессия завершена.', 'Войдите снова, чтобы продолжить; ваши правки в этой вкладке дождутся.', 'Войти', '#f9d3cd']],
+      access: ['Только просмотр', ['Доступ изменён:', 'комната теперь только для чтения.', '', '#f3f1ec']],
+      full: ['Сохранено', ['Комната достигла предела размера.', 'Удалите что-нибудь, чтобы добавлять дальше.', '', '#ffdcc6']],
+      moved: ['Переезд', ['Переезд:', 'открываем app.remuka.com — у сервиса новый адрес.', 'Открыть сейчас', '#cddff8']]
+    };
+    var pick = function (key, label, on) { return { label: label, on: on ? 'true' : 'false', pick: function () { self.setState({ st: key }); },
+      style: 'display: block; width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#ffffff' : 'transparent') + (on ? '; box-shadow: 3px 3px 0 #1e2136' : '') }; };
+    var doors = Object.keys(D).map(function (k) { return pick(k, D[k][0], s.st === k); });
+    var nets = [['saved', 'Сохранено'], ['pending', 'Сохраняется'], ['offline', 'Нет связи'], ['blocked', 'Очередь заполнена'], ['session', 'Сессия завершена'], ['access', 'Доступ изменён'], ['full', 'Комната полна'], ['moved', 'Переезд адреса']].map(function (x) { return pick(x[0], x[1], s.st === x[0]); });
+    var door = D[s.st];
+    var net = N[s.st];
+    var chipColors = { saved: ['#c8e8d4', '#1f8a4c', false], pending: ['#ffffff', '#f2b94a', true], offline: ['#fff6dc', '#c93e0a', true], blocked: ['#ffdcc6', '#a3300a', false], session: ['#f9d3cd', '#a3300a', false], access: ['#f3f1ec', '#62657a', false], full: ['#c8e8d4', '#1f8a4c', false], moved: ['#cddff8', '#174a96', true] };
+    var cc = net ? chipColors[s.st] : ['#f3f1ec', '#62657a', false];
+    var b = net && net[1];
+    return {
+      doors: doors, nets: nets,
+      isDoor: !!door, isNet: !!net,
+      roomTitle: door ? 'Ретро · спринт 14' : 'Ретро · спринт 14',
+      chipText: net ? net[0] : 'Подключение',
+      chip: 'display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1.5px solid #1e2136; font-size: 13px; font-weight: 700; background: ' + cc[0],
+      chipDot: 'width: 9px; height: 9px; border-radius: 999px; background: ' + cc[1] + (cc[2] ? '; animation: rkPulse 1.2s ease-in-out infinite' : ''),
+      title: door ? door[1] : '', body: door ? door[2] : '', action: door ? door[3] : '', second: door ? door[4] : '', hasSecond: !!(door && door[4]), hasField: !!(door && door[5]),
+      mouth: s.st === 'unclaimed' ? 'M20 60 H100 A8 8 0 0 1 108 68 A50 50 0 0 1 12 68 A8 8 0 0 1 20 60 Z' : 'M22 66 Q60 56 98 66 L98 72 Q60 64 22 72 Z',
+      noteText: s.st === 'offline' || s.st === 'blocked' ? 'Ревью дизайна в первый день (ждёт отправки)' : 'Ревью дизайна в первый день',
+      hasBanner: !!b, hasBannerAction: !!(b && b[2]),
+      bannerTitle: b ? b[0] : '', bannerText: b ? b[1] : '', bannerAction: b ? b[2] : '',
+      bannerStyle: 'position: absolute; left: 24px; right: 24px; bottom: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 16px; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 4px 4px 0 #1e2136; font-size: 14px; background: ' + (b ? b[3] : '#fff')
+    };
+  }
+}
+</script>
+</body>
+</html>

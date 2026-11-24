@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — регистрация</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-press:active{transform:translate(3px,3px);box-shadow:0 0 0 #1e2136 !important}
+.rk-field:focus{outline:3px solid #78b4ff;outline-offset:1px}
+@keyframes rkWiggle{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes rkFloat{0%,100%{transform:translateY(0) rotate(var(--r))}50%{transform:translateY(-8px) rotate(var(--r))}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5">
+
+<aside aria-hidden="true" style="flex: 1 1 520px; min-height: 360px; position: relative; overflow: hidden; border-right: 1.5px solid #1e2136; background-color: #fffdf8; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px; display: flex; flex-direction: column; justify-content: space-between; padding: 40px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="34" height="34" viewBox="0 0 200 200"><circle cx="53" cy="48" r="37" fill="#ff8a57"></circle><rect x="111" y="12" width="72" height="72" rx="12" fill="#78b4ff"></rect><path d="M30.02,106 H169.98 A12,12 0 0 1 181.81,120.03 A83,83 0 0 1 18.19,120.03 A12,12 0 0 1 30.02,106 Z" fill="#3f4256"></path></svg>
+<span style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em">Ремука</span>
+</div>
+<div style="position: relative; height: 340px">
+<span style="--r: -3deg; position: absolute; left: 6%; top: 10%; width: 170px; padding: 16px; background: #c8e8d4; border-radius: 3px; font-size: 17px; font-weight: 600; box-shadow: 0 16px 12px -10px rgba(38,30,22,.45); animation: rkFloat 6s ease-in-out infinite">Наконец-то всё в одном месте</span>
+<span style="--r: 2.5deg; position: absolute; left: 44%; top: 2%; width: 170px; padding: 16px; background: #f4e0a8; border-radius: 3px; font-size: 17px; font-weight: 600; box-shadow: 0 16px 12px -10px rgba(38,30,22,.45); animation: rkFloat 7s .6s ease-in-out infinite">Ретро за 30 минут, а не за час</span>
+<span style="--r: -1.5deg; position: absolute; left: 24%; top: 50%; width: 190px; padding: 16px; background: #ff8fbd; border-radius: 3px; font-size: 17px; font-weight: 600; box-shadow: 0 16px 12px -10px rgba(38,30,22,.45); animation: rkFloat 6.5s 1.2s ease-in-out infinite">Агент разложил бриф, я только поправила</span>
+<span style="position: absolute; left: 66%; top: 62%; display: flex; align-items: flex-start"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 3l16 7-7 2-2 7z" fill="#1a6ad8" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path></svg><span style="margin: 14px 0 0 -3px; padding: 3px 9px; border-radius: 8px; background: #1a6ad8; color: #ffffff; font-size: 13px; font-weight: 700; border: 1.5px solid #1e2136">вы, через минуту</span></span>
+</div>
+<p style="margin: 0; font-size: 15px; color: #3f4256; max-width: 420px">Бесплатно для команды до 5 человек. Данные хранятся в России.</p>
+</aside>
+
+<main style="flex: 1 1 460px; display: flex; align-items: center; justify-content: center; padding: 40px 24px; box-sizing: border-box">
+<form aria-labelledby="su-h" style="width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 id="su-h" style="margin: 0; font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Своя комната — за минуту</h1>
+<p style="margin: 0; color: #3f4256">Уже есть аккаунт? <a href="App-Home.dc.html" style="font-weight: 700">Войти</a></p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="su-name" style="font-size: 14px; font-weight: 700">Как к вам обращаться</label>
+<input id="su-name" class="rk-field" type="text" autocomplete="name" value="Аня" style="min-height: 48px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px; color: #1e2136">
+<span style="font-size: 13px; color: #3f4256">Это имя увидят коллеги рядом с вашим курсором.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="su-email" style="font-size: 14px; font-weight: 700">Почта</label>
+<input id="su-email" class="rk-field" type="email" autocomplete="email" value="anya@romashka.team" style="min-height: 48px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px; color: #1e2136">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="su-pass" style="font-size: 14px; font-weight: 700">Пароль</label>
+<input id="su-pass" class="rk-field" type="password" autocomplete="new-password" value="correcthorse" style="min-height: 48px; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 16px; color: #1e2136">
+<span style="font-size: 13px; color: #3f4256">Не короче 10 символов.</span>
+</div>
+
+<fieldset style="{{ boxStyle }}">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Согласия</legend>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; min-height: 32px">
+<input type="checkbox" checked="{{ offer }}" onChange="{{ toggleOffer }}" aria-describedby="err-offer" style="flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: #1e2136">
+<span>Принимаю <a href="#offer">Пользовательское соглашение (оферту)</a></span>
+</label>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; min-height: 32px">
+<input type="checkbox" checked="{{ consent }}" onChange="{{ toggleConsent }}" aria-describedby="err-consent" style="flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: #1e2136">
+<span>Даю <a href="#consent">согласие на обработку персональных данных</a> — имени и почты — на условиях <a href="#privacy">Политики</a></span>
+</label>
+<sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+<p id="err-offer" role="alert" style="margin: 0; font-size: 14px; font-weight: 600; color: #a3300a">Без двух галочек мы не можем создать аккаунт — так требует закон.</p>
+</sc-if>
+</fieldset>
+
+<button type="button" onClick="{{ submit }}" class="rk-press" style="min-height: 54px; border: 1.5px solid #1e2136; border-radius: 14px; background: #ff8a57; color: #1e2136; box-shadow: 5px 5px 0 #1e2136; font-family: inherit; font-size: 18px; font-weight: 800; cursor: pointer">{{ submitLabel }}</button>
+
+<sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+<p role="status" style="margin: 0; padding: 12px 14px; border: 1.5px solid #1e2136; border-radius: 12px; background: #c8e8d4; font-weight: 600">Готово! Письмо для подтверждения почты уже летит. А комната ждёт — <a href="App-EmptyRoom.dc.html">заходите</a>.</p>
+</sc-if>
+</form>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { offer: false, consent: false, tried: false, done: false, shake: 0 };
+  }
+  renderVals() {
+    var self = this;
+    var ok = this.state.offer && this.state.consent;
+    var showError = this.state.tried && !ok;
+    return {
+      offer: this.state.offer,
+      consent: this.state.consent,
+      toggleOffer: function () { self.setState({ offer: !self.state.offer }); },
+      toggleConsent: function () { self.setState({ consent: !self.state.consent }); },
+      showError: showError,
+      done: this.state.done,
+      submitLabel: this.state.done ? 'Аккаунт создан' : 'Создать аккаунт',
+      boxStyle: 'margin: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border-radius: 14px; background: #ffffff; border: 1.5px ' + (showError ? 'solid #a3300a' : 'dashed #bca996') + (showError ? '; animation: rkWiggle .3s ease-in-out' : ''),
+      submit: function () {
+        if (self.state.offer && self.state.consent) self.setState({ done: true, tried: true });
+        else self.setState({ tried: true, done: false, shake: self.state.shake + 1 });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

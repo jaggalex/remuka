@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — канбан: меню колонок, карточки, фильтр</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-item:hover,.rk-item:focus-visible{background:#fbf3df;outline:none}
+.rk-btn:focus-visible,.rk-item:focus-visible,.rk-card:focus-visible{outline:2.5px solid #174a96;outline-offset:2px}
+.rk-btn:active{transform:translate(3px,3px);box-shadow:none !important}
+@keyframes rkMenu{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 32px 24px 56px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 960px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Канбан — <span style="position: relative; display: inline-block; z-index: 0">статус видно цветом<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#85d965"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Колонка задаёт цвет карточек (ADR-267). Всё про колонку — в её меню; всё про карточку — в планке и «Полях карточки». Фильтр выделяет найденное, а не прячет доску.</p>
+</header>
+
+<div role="group" aria-label="Что открыто (для макета)" style="display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; padding: 6px; background: #ffffff; border: 1.5px dashed #c9bd9f; border-radius: 14px">
+<span style="align-self: center; padding: 0 6px; font-size: 12px; color: #62657a">макет:</span>
+<sc-for list="{{ modes }}" as="m" hint-placeholder-count="4">
+<button type="button" class="rk-btn" aria-pressed="{{ m.on }}" onClick="{{ m.pick }}" style="{{ m.style }}">{{ m.label }}</button>
+</sc-for>
+</div>
+
+<main aria-label="Комната" style="position: relative; height: 820px; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+
+<section aria-label="Канбан «Спринт 15»" style="position: absolute; left: 40px; top: 70px; width: 820px">
+<span style="position: absolute; left: 0; top: -30px; padding: 4px 12px; background: #1e2136; color: #ffffff; border-radius: 8px 8px 8px 0; font-size: 13px; font-weight: 700">Спринт 15</span>
+<div style="background: #c8e8d4; border: 1.5px solid #1e2136; border-radius: 18px; padding: 16px; box-sizing: border-box">
+<div style="display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start">
+<span></span>
+<sc-for list="{{ heads }}" as="h" hint-placeholder-count="3">
+<button type="button" class="rk-btn" onClick="{{ h.open }}" aria-haspopup="menu" style="{{ h.style }}"><span style="flex: 1; text-align: left">{{ h.label }}</span><span aria-hidden="true" style="{{ h.swatch }}"></span><span aria-hidden="true">▾</span></button>
+</sc-for>
+<sc-for list="{{ lanes }}" as="ln" hint-placeholder-count="2">
+<button type="button" class="rk-btn" onClick="{{ ln.open }}" style="align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 4px; border: none; background: transparent; font-family: inherit; color: #1e2136; cursor: pointer; text-align: left; border-top: 1px solid rgba(30,33,54,.18)"><strong style="font-size: 14px">{{ ln.title }}</strong><span style="font-size: 12px; color: #3f4256">{{ ln.count }}</span></button>
+<sc-for list="{{ ln.cells }}" as="c" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 8px; min-height: 96px; padding-top: 8px; border-top: 1px solid rgba(30,33,54,.18)">
+<sc-for list="{{ c.cards }}" as="k" hint-placeholder-count="1">
+<button type="button" class="rk-card" onClick="{{ k.pick }}" aria-pressed="{{ k.sel }}" aria-label="{{ k.aria }}" style="{{ k.style }}">
+<span style="font-size: 14px; font-weight: 600; line-height: 1.3; text-align: left">{{ k.title }}</span>
+<span style="display: flex; align-items: center; gap: 6px; width: 100%"><span style="{{ k.tag }}">{{ k.tagText }}</span><span style="flex: 1"></span><span style="{{ k.due }}">{{ k.dueText }}</span><span style="{{ k.who }}">{{ k.whoI }}</span></span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- column menu -->
+<sc-if value="{{ colMenu }}" hint-placeholder-val="{{ true }}">
+<div role="menu" aria-label="Колонка «В работе»" style="position: absolute; left: 520px; top: 120px; z-index: 6; width: 290px; padding: 6px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 4px 4px 0 #1e2136; animation: rkMenu .14s ease-out both">
+<div style="padding: 6px 10px 8px; font-size: 13px; font-weight: 700; color: #3f4256">Колонка «В работе»</div>
+<button type="button" role="menuitem" class="rk-item" style="display: flex; width: 100%; min-height: 36px; align-items: center; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; color: #1e2136; cursor: pointer">Переименовать колонку</button>
+<div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; color: #3f4256">Цвет колонки — и её карточек</span>
+<div role="radiogroup" aria-label="Цвет колонки" style="display: grid; grid-template-columns: repeat(7, 28px); gap: 7px">
+<sc-for list="{{ swatches }}" as="s" hint-placeholder-count="7">
+<button type="button" role="radio" aria-checked="{{ s.on }}" aria-label="{{ s.label }}" onClick="{{ s.pick }}" style="{{ s.style }}"></button>
+</sc-for>
+</div>
+</div>
+<label style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; font-size: 14px">Лимит WIP
+<span style="display: flex; align-items: center; gap: 6px"><button type="button" class="rk-btn" aria-label="Меньше" onClick="{{ wipDown }}" style="width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid #1e2136; background: #fff; cursor: pointer">−</button><strong style="width: 22px; text-align: center">{{ wip }}</strong><button type="button" class="rk-btn" aria-label="Больше" onClick="{{ wipUp }}" style="width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid #1e2136; background: #fff; cursor: pointer">+</button></span></label>
+<span style="display: block; padding: 0 10px 6px; font-size: 12px; color: #62657a">Предупреждение, не запрет переноса</span>
+<div style="height: 1.5px; background: #e6dcc4; margin: 4px"></div>
+<button type="button" role="menuitem" class="rk-item" style="display: flex; width: 100%; min-height: 36px; align-items: center; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; color: #1e2136; cursor: pointer">Добавить колонку справа</button>
+<button type="button" role="menuitem" class="rk-item" style="display: flex; width: 100%; min-height: 36px; align-items: center; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; color: #1e2136; cursor: pointer">Переместить влево · вправо</button>
+<div style="height: 1.5px; background: #e6dcc4; margin: 4px"></div>
+<button type="button" role="menuitem" class="rk-item" style="display: flex; width: 100%; min-height: 36px; align-items: center; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; color: #a3300a; cursor: pointer">Удалить колонку</button>
+</div>
+</sc-if>
+
+<!-- card fields -->
+<aside aria-label="Поля карточки" style="{{ panelStyle }}">
+<sc-if value="{{ isFields }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 8px"><h2 style="margin: 0; flex: 1; font-size: 18px; font-weight: 800">Карточка</h2><span style="padding: 2px 10px; border-radius: 999px; border: 1.5px solid #1e2136; background: #f2b94a; font-size: 12px; font-weight: 700">В работе</span></div>
+<p style="margin: 0; font-size: 15px; font-weight: 600">Ревью дизайна</p>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Исполнитель<select style="height: 42px; padding: 0 10px; border: 1.5px solid #1e2136; border-radius: 10px; background: #fff; font-family: inherit; font-size: 14px"><option>Миша</option><option>Без исполнителя</option></select></label>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Начало<input type="text" value="20 нояб." style="height: 42px; padding: 0 10px; border: 1.5px solid #1e2136; border-radius: 10px; font-family: inherit; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Срок<input type="text" value="22 нояб." style="height: 42px; padding: 0 10px; border: 1.5px solid #a3300a; border-radius: 10px; font-family: inherit; font-size: 14px; color: #a3300a"></label>
+</div>
+<span style="font-size: 13px; color: #a3300a; font-weight: 600">Срок прошёл вчера.</span>
+<div style="display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 13px">Теги</strong><div style="display: flex; flex-wrap: wrap; gap: 6px"><span style="padding: 2px 10px; border-radius: 999px; border: 1.5px solid #1e2136; background: #cddff8; font-size: 13px">дизайн</span><span style="padding: 2px 10px; border-radius: 999px; border: 1.5px dashed #1e2136; font-size: 13px">+ тег</span></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 13px">Цвет карточки</strong>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px"><input type="radio" name="cc" checked="{{ likeCol }}" onChange="{{ setLike }}" style="accent-color: #1e2136"> Как у колонки</label>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px"><input type="radio" name="cc" checked="{{ ownCol }}" onChange="{{ setOwn }}" style="accent-color: #1e2136"> Свой: <span style="width: 18px; height: 18px; border-radius: 5px; background: #ff8fbd; border: 1.5px solid #1e2136"></span></label>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isFilter }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 800">Фильтр карточек</h2>
+<p style="margin: 0; font-size: 13px; color: #3f4256">Выделит подходящие карточки; доска остаётся целиком.</p>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Исполнитель<select style="height: 42px; padding: 0 10px; border: 1.5px solid #1e2136; border-radius: 10px; background: #fff; font-family: inherit; font-size: 14px"><option>Любой</option><option>Миша</option></select></label>
+<div role="radiogroup" aria-label="Срок" style="display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 13px">Срок</strong>
+<sc-for list="{{ dues }}" as="d" hint-placeholder-count="3">
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px"><input type="radio" name="due" checked="{{ d.on }}" onChange="{{ d.pick }}" style="accent-color: #1e2136"> {{ d.label }}</label>
+</sc-for>
+</div>
+<button type="button" class="rk-btn" style="height: 44px; border-radius: 12px; border: 1.5px solid #1e2136; background: #ff8a57; box-shadow: 3px 3px 0 #1e2136; font-family: inherit; font-size: 15px; font-weight: 700; color: #1e2136; cursor: pointer">Выбрать карточки</button>
+<p role="status" style="margin: 0; font-size: 14px; font-weight: 600">{{ foundText }}</p>
+</div>
+</sc-if>
+</aside>
+
+<div style="position: absolute; left: 40px; bottom: 24px; max-width: 520px; padding: 10px 14px; background: #f4e0a8; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-.8deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Поменяйте цвет колонки «В работе» в её меню — карточки перекрасятся. «Плюс» на WIP до 1 — колонка покажет превышение. В фильтре «Просроченные» выделит одну карточку.</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'column', accent: '#f2b94a', wip: 2, own: false, due: 'overdue', sel: 'c4' };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var seg = function (on) { return 'height: 32px; padding: 0 12px; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent'); };
+    var modes = [['column', 'Меню колонки'], ['fields', 'Поля карточки'], ['filter', 'Фильтр'], ['none', 'Ничего']].map(function (m) { var on = s.mode === m[0]; return { label: m[1], on: on ? 'true' : 'false', style: seg(on), pick: function () { self.setState({ mode: m[0] }); } }; });
+    var cols = [{ id: 'todo', t: 'Надо', fill: '#ffffff', wip: 0, sw: '#595959' }, { id: 'doing', t: 'В работе', fill: s.accent, wip: s.wip, sw: s.accent }, { id: 'done', t: 'Готово', fill: '#85d965', wip: 0, sw: '#85d965' }];
+    var cards = [
+      { id: 'c1', t: 'Повестка для демо', col: 0, lane: 0, who: 'А', c: '#1a6ad8', tag: 'демо', due: '' },
+      { id: 'c2', t: 'Доступы к стенду', col: 0, lane: 1, who: 'И', c: '#c93e0a', tag: 'стенд', due: '28 нояб.' },
+      { id: 'c3', t: 'Онбординг v2', col: 1, lane: 0, who: 'А', c: '#1a6ad8', tag: 'продукт', due: '' },
+      { id: 'c4', t: 'Ревью дизайна', col: 1, lane: 1, who: 'М', c: '#0f7b6c', tag: 'дизайн', due: '22 нояб.', over: true },
+      { id: 'c5', t: 'Новый тариф Team', col: 2, lane: 0, who: 'И', c: '#c93e0a', tag: 'деньги', due: '' }
+    ];
+    var counts = cols.map(function (c, i) { return cards.filter(function (k) { return k.col === i; }).length; });
+    var heads = cols.map(function (c, i) {
+      var over = c.wip && counts[i] > c.wip;
+      return { label: c.t + ' · ' + counts[i] + (c.wip ? '/' + c.wip : ''), open: function () { self.setState({ mode: i === 1 ? 'column' : s.mode }); },
+        style: 'display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border-radius: 10px; border: 1.5px solid ' + ((s.mode === 'column' && i === 1) ? '#1e2136' : 'transparent') + '; background: ' + ((s.mode === 'column' && i === 1) ? '#ffffff' : 'transparent') + '; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; color: ' + (over ? '#a3300a' : '#1e2136'),
+        swatch: 'width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid #1e2136; background: ' + c.sw };
+    });
+    var filterHit = function (k) { return s.mode === 'filter' && ((s.due === 'overdue' && k.over) || (s.due === 'none' && !k.due)); };
+    var lanes = [['Продукт', 0], ['Дизайн', 1]].map(function (ln) {
+      var n = cards.filter(function (k) { return k.lane === ln[1]; }).length;
+      return { title: ln[0], count: String(n), open: function () {},
+        cells: cols.map(function (c, ci) {
+          var over = c.wip && counts[ci] > c.wip;
+          return { cards: cards.filter(function (k) { return k.lane === ln[1] && k.col === ci; }).map(function (k) {
+            var own = s.own && k.id === 'c4';
+            var fill = own ? '#ff8fbd' : c.fill;
+            var sel = (s.mode === 'fields' && k.id === 'c4') || filterHit(k);
+            return { title: k.t, aria: k.t + ', ' + c.t, sel: sel ? 'true' : 'false', pick: function () { self.setState({ mode: 'fields' }); },
+              style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; padding: 10px; box-sizing: border-box; border-radius: 8px; cursor: pointer; font-family: inherit; color: #1e2136; transition: background-color .25s ease; border: 1.5px solid #1e2136; background: ' + fill + (sel ? '; outline: 2.5px solid #174a96; outline-offset: 3px' : (over ? '; outline: 2px dashed #a3300a; outline-offset: 2px' : '')),
+              tag: 'padding: 1px 8px; border-radius: 999px; border: 1.5px solid #1e2136; background: #ffffff; font-size: 11px; font-weight: 600',
+              tagText: k.tag, dueText: k.due,
+              due: k.due ? 'font-size: 11px; font-weight: 700; color: ' + (k.over ? '#a3300a' : '#3f4256') : 'display: none',
+              whoI: k.who, who: 'flex: none; width: 22px; height: 22px; border-radius: 999px; background: ' + k.c + '; color: #fff; border: 1.5px solid #1e2136; display: grid; place-items: center; font-size: 11px; font-weight: 700' };
+          }) };
+        }) };
+    });
+    var tones = [['серый', '#cdc8c0'], ['жёлтый', '#f2b94a'], ['оранжевый', '#ff8a57'], ['розовый', '#ff8fbd'], ['фиолетовый', '#c69bff'], ['синий', '#78b4ff'], ['зелёный', '#85d965']];
+    var swatches = tones.map(function (t) {
+      var on = s.accent === t[1];
+      return { label: t[0], on: on ? 'true' : 'false', pick: function () { self.setState({ accent: t[1] }); },
+        style: 'width: 28px; height: 28px; border-radius: 7px; cursor: pointer; background: ' + t[1] + '; border: 1.5px solid #1e2136;' + (on ? ' box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 4px #1e2136' : '') };
+    });
+    var found = cards.filter(function (k) { return (s.due === 'overdue' && k.over) || (s.due === 'none' && !k.due) || s.due === 'any'; }).length;
+    var side = s.mode === 'fields' || s.mode === 'filter';
+    return {
+      modes: modes, heads: heads, lanes: lanes, swatches: swatches,
+      colMenu: s.mode === 'column', wip: s.wip,
+      wipUp: function () { self.setState({ wip: s.wip + 1 }); }, wipDown: function () { self.setState({ wip: Math.max(1, s.wip - 1) }); },
+      isFields: s.mode === 'fields', isFilter: s.mode === 'filter',
+      panelStyle: 'position: absolute; right: 0; top: 0; bottom: 0; width: 320px; box-sizing: border-box; padding: 18px; background: #ffffff; border-left: 1.5px solid #1e2136; transition: transform .25s cubic-bezier(.34,1.56,.64,1); transform: translateX(' + (side ? '0' : '330px') + ')',
+      likeCol: !s.own, ownCol: s.own, setLike: function () { self.setState({ own: false }); }, setOwn: function () { self.setState({ own: true }); },
+      dues: [['any', 'Любой'], ['overdue', 'Просроченные'], ['none', 'Без срока']].map(function (d) { return { label: d[1], on: s.due === d[0], pick: function () { self.setState({ due: d[0] }); } }; }),
+      foundText: found ? 'Найдено карточек: ' + found : 'Под это условие карточек нет.'
+    };
+  }
+}
+</script>
+</body>
+</html>

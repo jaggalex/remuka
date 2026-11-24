@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Ремука — объекты холста и контекстное меню</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#fbf3df}
+a{color:#174a96}a:hover{color:#1e2136}
+.rk-item:hover,.rk-item:focus-visible{background:#fbf3df;outline:none}
+.rk-sw:hover{transform:scale(1.08)}
+@keyframes rkMenu{from{opacity:0;transform:translate(-4px,-6px)}to{opacity:1;transform:none}}
+@keyframes rkPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fbf3df; color: #1e2136; font-family: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45; padding: 36px 24px 48px; box-sizing: border-box">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 900px">
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em">Объекты холста — <span style="position: relative; display: inline-block; z-index: 0">тоже картон<svg aria-hidden="true" viewBox="0 0 300 30" preserveAspectRatio="none" style="position: absolute; left: -4%; bottom: -0.04em; width: 108%; height: 0.36em; z-index: -1"><path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" fill="#f2b94a"></path></svg></span></h1>
+<p style="margin: 0; font-size: 18px; color: #3f4256">Живая бумага, чернильные контуры и жёсткая тень у того, что «лежит сверху». Нажмите на любой стикер — откроется контекстное меню; «Цвет ▸» — сетка новой палитры. У выбранной фигуры «Проверка» смените вид в планке под ней.</p>
+</header>
+
+<main aria-label="Холст" style="position: relative; height: 1180px; border: 1.5px solid #1e2136; border-radius: 22px; box-shadow: 8px 8px 0 #1e2136; overflow: hidden; background-color: #fbf3df; background-image: radial-gradient(#d8c79e 1.3px, transparent 1.3px); background-size: 24px 24px">
+
+<!-- Frame with kanban -->
+<section aria-label="Фрейм «Спринт 15»" style="position: absolute; left: 40px; top: 66px; width: 640px; height: 430px">
+<span style="position: absolute; left: 0; top: -30px; padding: 4px 12px; background: #1e2136; color: #ffffff; border-radius: 8px 8px 8px 0; font-size: 13px; font-weight: 700">Спринт 15 · канбан</span>
+<div style="position: absolute; inset: 0; background: #c8e8d4; border: 1.5px solid #1e2136; border-radius: 18px; padding: 20px 20px 18px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<sc-for list="{{ kanban }}" as="col" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 9px">
+<div style="{{ col.headStyle }}">{{ col.head }}</div>
+<sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+<button type="button" onClick="{{ c.move }}" aria-label="{{ c.aria }}" style="{{ c.style }}">
+<span style="font-size: 14px; font-weight: 600; line-height: 1.3; text-align: left">{{ c.title }}</span>
+<span style="{{ c.who }}">{{ c.initial }}</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<span style="position: absolute; right: 0; top: -28px; font-size: 12px; color: #3f4256">в продукте карточку перетаскивают; здесь клик лишь показывает, как меняется цвет</span>
+</section>
+
+<!-- Palette stickers -->
+<section aria-label="Палитра стикеров" style="position: absolute; left: 740px; top: 40px; width: 580px">
+<strong style="display: block; margin-bottom: 10px; font-size: 14px">Палитра: ряд 100 — стикеры, ряд 300 — яркое</strong>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{ palette }}" as="p" hint-placeholder-count="14">
+<button type="button" onClick="{{ p.open }}" aria-label="{{ p.label }}" style="{{ p.style }}"><span style="font-size: 11px; font-weight: 600">{{ p.name }}</span></button>
+</sc-for>
+</div>
+</section>
+
+<!-- Stickers with selection, pin and votes -->
+<section aria-label="Стикеры" style="position: absolute; left: 740px; top: 260px; width: 600px; height: 250px">
+<sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
+<button type="button" onClick="{{ n.open }}" aria-label="{{ n.label }}" style="{{ n.style }}">
+<span style="font-size: 15px; font-weight: 500; line-height: 1.3">{{ n.text }}</span>
+</button>
+</sc-for>
+<span aria-hidden="true" style="position: absolute; left: 182px; top: 6px; width: 26px; height: 26px; border-radius: 50% 50% 50% 3px; background: #1a6ad8; border: 1.5px solid #1e2136; color: #ffffff; display: grid; place-items: center; font-size: 12px; font-weight: 700">А</span>
+<span aria-hidden="true" style="position: absolute; left: 352px; top: 150px; padding: 2px 10px; border-radius: 999px; background: #1e2136; color: #ffffff; font-size: 13px; font-weight: 800; animation: rkPop .35s ease-out">+4</span>
+<div aria-hidden="true" style="position: absolute; left: 222px; top: 22px; width: 160px; height: 150px; border: 1.5px solid #1e2136; pointer-events: none">
+<span style="position: absolute; left: -6px; top: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; right: -6px; top: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; left: -6px; bottom: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; right: -6px; bottom: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; left: 50%; top: -26px; margin-left: -6px; width: 12px; height: 12px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 999px"></span>
+</div>
+</section>
+
+<!-- Shapes and connectors -->
+<section aria-label="Фигуры и связи" style="position: absolute; left: 40px; top: 560px; width: 860px; height: 300px">
+<svg aria-hidden="true" width="860" height="300" style="position: absolute; inset: 0; overflow: visible">
+<defs>
+<marker id="rkHead" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M2 2.2 L10.2 6 L2 9.8 Q1.2 6 2 2.2 Z" fill="#1e2136" stroke="#1e2136" stroke-width="1.2" stroke-linejoin="round"></path></marker>
+<marker id="rkHeadA" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M2 2.2 L10.2 6 L2 9.8 Q1.2 6 2 2.2 Z" fill="#8a35d6" stroke="#8a35d6" stroke-width="1.2" stroke-linejoin="round"></path></marker>
+</defs>
+<path d="{{ linkIn }}" fill="none" stroke="#1e2136" stroke-width="2" stroke-linecap="round" marker-end="url(#rkHead)"></path>
+<path d="{{ linkOut }}" fill="none" stroke="#1e2136" stroke-width="2" stroke-linecap="round" marker-end="url(#rkHead)"></path>
+<path d="M415 205 C 415 250, 560 260, 650 236" fill="none" stroke="#8a35d6" stroke-width="2" stroke-dasharray="7 6" stroke-linecap="round" marker-end="url(#rkHeadA)"></path>
+</svg>
+<div style="position: absolute; left: 20px; top: 40px; width: 170px; height: 100px; box-sizing: border-box; background: #fffdf8; border: 2px solid #1e2136; border-radius: 30px; display: grid; place-items: center; font-weight: 600">Заявка</div>
+<div style="position: absolute; left: 330px; top: 95px; width: 176px; height: 116px">
+<svg aria-hidden="true" width="176" height="116" style="position: absolute; inset: 0; overflow: visible">
+<path d="{{ shapeD }}" transform="translate(6 6)" fill="#1e2136"></path>
+<path d="{{ shapeD }}" fill="#cddff8" stroke="#1e2136" stroke-width="2" stroke-linejoin="round"></path>
+</svg>
+<span style="{{ shapeText }}">Проверка</span>
+</div>
+<div aria-hidden="true" style="position: absolute; left: 322px; top: 87px; width: 186px; height: 126px; box-sizing: border-box; border: 1.5px solid #1e2136; pointer-events: none">
+<span style="position: absolute; left: -6px; top: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; right: -6px; top: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; left: -6px; bottom: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; right: -6px; bottom: -6px; width: 9px; height: 9px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 2px"></span>
+<span style="position: absolute; left: 50%; top: -16px; width: 1.5px; height: 14px; margin-left: -0.75px; background: #1e2136"></span>
+<span title="Повернуть · Shift — шаг 15°" style="position: absolute; left: 50%; top: -27px; margin-left: -6px; width: 10px; height: 10px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 999px"></span>
+</div>
+<div style="position: absolute; left: 34px; top: 200px; width: 130px; height: 64px; transform: rotate(-12deg)">
+<div style="position: absolute; inset: 0; box-sizing: border-box; background: #ffdcc6; border: 2px solid #1e2136; border-radius: 10px; display: grid; place-items: center; font-weight: 600; font-size: 14px">Идея</div>
+<div aria-hidden="true" style="position: absolute; inset: -8px; border: 1.5px solid #1e2136; pointer-events: none">
+<span style="position: absolute; left: 50%; top: -16px; width: 1.5px; height: 14px; margin-left: -0.75px; background: #1e2136"></span>
+<span style="position: absolute; left: 50%; top: -27px; margin-left: -6px; width: 10px; height: 10px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 999px"></span>
+</div>
+</div>
+<span style="position: absolute; left: 176px; top: 196px; padding: 2px 8px; background: #1e2136; color: #ffffff; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums">−12°</span>
+<span style="position: absolute; left: 20px; top: 284px; font-size: 12px; color: #3f4256">поворот за круглую ручку · Shift — шаг 15°</span>
+<div style="position: absolute; left: 650px; top: 30px; width: 120px; height: 120px; box-sizing: border-box; background: #f4e0a8; border: 2px solid #1e2136; transform: rotate(45deg); display: grid; place-items: center"><span style="transform: rotate(-45deg); font-weight: 600">Ок?</span></div>
+<div style="position: absolute; left: 650px; top: 200px; width: 150px; height: 74px; box-sizing: border-box; background: #c8e8d4; border: 2px dashed #8a35d6; border-radius: 10px; display: grid; place-items: center; font-weight: 600; font-size: 14px">Ответ клиенту</div>
+<span style="position: absolute; left: 205px; top: 100px; padding: 3px 10px; background: #fffdf8; border: 1.5px solid #1e2136; border-radius: 8px; font-size: 13px; font-weight: 600">в работу</span>
+<span style="position: absolute; left: 470px; top: 236px; padding: 3px 10px; background: #f3e8ff; border: 1.5px solid #8a35d6; border-radius: 8px; font-size: 12px; font-weight: 700; color: #6b23ad">агент предлагает</span>
+<span style="position: absolute; left: 350px; top: 222px; font-size: 12px; color: #3f4256">уровень «Картон»</span>
+</section>
+
+<!-- Shape selection bar (ADR-271) -->
+<div role="toolbar" aria-label="Планка фигуры" style="position: absolute; left: 300px; top: 875px; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136; font-size: 13px">
+<span style="padding: 0 4px; font-weight: 700; color: #3f4256">Вид</span>
+<sc-for list="{{ kinds }}" as="k" hint-placeholder-count="5">
+<button type="button" aria-label="{{ k.label }}" aria-pressed="{{ k.on }}" title="{{ k.label }}" onClick="{{ k.pick }}" style="{{ k.style }}"><svg width="22" height="16" viewBox="-1 -1 22 16" aria-hidden="true"><path d="{{ k.d }}" fill="none" stroke="#1e2136" stroke-width="1.75" stroke-linejoin="round"></path></svg></button>
+</sc-for>
+<span aria-hidden="true" style="width: 1.5px; height: 24px; background: #e6dcc4; margin: 0 2px"></span>
+<sc-for list="{{ corners }}" as="cn" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{ cn.on }}" aria-disabled="{{ cn.off }}" onClick="{{ cn.pick }}" style="{{ cn.style }}">{{ cn.label }}</button>
+</sc-for>
+<span aria-hidden="true" style="width: 1.5px; height: 24px; background: #e6dcc4; margin: 0 2px"></span>
+<span style="padding: 0 6px; font-weight: 600">Тень: Картон</span>
+</div>
+<span style="position: absolute; left: 304px; top: 931px; font-size: 12px; color: #3f4256">планка выбранной «Проверки» · смена вида сохраняет текст, цвет, размер и связи · ⌘Z — один шаг</span>
+
+<!-- Draw by dragging (ADR-271) -->
+<div aria-hidden="true" style="position: absolute; left: 700px; top: 968px; width: 150px; height: 90px; box-sizing: border-box; border: 2px dashed #1e2136; border-radius: 10px; background: rgba(255,253,248,.7)">
+<span style="position: absolute; right: -8px; bottom: -30px; padding: 2px 8px; background: #1e2136; color: #ffffff; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums">150 × 90</span>
+<svg width="18" height="22" viewBox="0 0 18 22" style="position: absolute; right: -14px; bottom: -16px"><path d="M2 2 L2 17 L6.5 13 L9.5 20 L12 19 L9 12 L15 12 Z" fill="#1e2136" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+</div>
+<p style="position: absolute; left: 300px; top: 972px; width: 370px; margin: 0; font-size: 13px; color: #3f4256"><strong style="color: #1e2136">R и протянуть</strong> — фигура нужного размера. Shift — квадрат или круг, Alt — от центра, Esc — отменить. Клик без протяжки — фигура по умолчанию; двойной клик по инструменту — серия.</p>
+
+<!-- Table -->
+<section aria-label="Таблица" style="position: absolute; left: 940px; top: 560px; width: 380px">
+<table style="width: 100%; border-collapse: separate; border-spacing: 0; border: 1.5px solid #1e2136; border-radius: 12px; overflow: hidden; background: #ffffff; font-size: 14px">
+<thead><tr style="background: #fbf3df"><th style="text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 1px solid #e6dcc4">Риск</th><th style="text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 1px solid #e6dcc4; border-left: 1px solid #e6dcc4">Кто</th><th style="text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 1px solid #e6dcc4; border-left: 1px solid #e6dcc4">Срок</th></tr></thead>
+<tbody>
+<tr><td style="padding: 8px 10px; border-bottom: 1px solid #e6dcc4">Стенд не готов</td><td style="padding: 8px 10px; border-bottom: 1px solid #e6dcc4; border-left: 1px solid #e6dcc4">Илья</td><td style="padding: 8px 10px; border-bottom: 1px solid #e6dcc4; border-left: 1px solid #e6dcc4">пт</td></tr>
+<tr><td style="padding: 8px 10px">Нет доступа к API</td><td style="padding: 8px 10px; border-left: 1px solid #e6dcc4">Миша</td><td style="padding: 8px 10px; border-left: 1px solid #e6dcc4">ср</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- Timer -->
+<div role="timer" aria-label="Таймер 04:12" style="position: absolute; left: 940px; top: 720px; width: 200px; padding: 14px 16px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136">
+<div style="font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums">04:12</div>
+<div style="font-size: 13px; color: #3f4256; margin-top: 6px">таймер · Аня</div>
+</div>
+
+<!-- Context menu -->
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ true }}">
+<div role="menu" aria-label="{{ menuTitle }}" style="{{ menuPos }}">
+<div style="padding: 6px 10px 8px; font-size: 13px; font-weight: 700; color: #3f4256">{{ menuTitle }}</div>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+<div style="{{ g.style }}">
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+<button type="button" role="menuitem" class="rk-item" onClick="{{ it.run }}" style="{{ it.style }}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ it.color }}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ it.icon }}"></path></svg>
+<span style="flex: 1">{{ it.label }}</span>
+<span style="font-size: 12px; color: #62657a; font-family: ui-monospace, Menlo, monospace">{{ it.key }}</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ colorsOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Цвет стикера" style="{{ colorsPos }}">
+<div style="font-size: 13px; font-weight: 700; color: #3f4256; margin-bottom: 8px">Цвет</div>
+<div style="display: grid; grid-template-columns: repeat(7, 28px); gap: 8px">
+<sc-for list="{{ swatches }}" as="s" hint-placeholder-count="14">
+<button type="button" role="menuitemradio" aria-checked="{{ s.checked }}" aria-label="{{ s.label }}" class="rk-sw" onClick="{{ s.pick }}" style="{{ s.style }}"></button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 40px; bottom: 24px; max-width: 560px; padding: 10px 14px; background: #ff8fbd; border-radius: 3px; font-size: 13px; font-weight: 600; transform: rotate(-1deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5)">Выбранный стикер выпрямляется под квадратными ручками. Ярлык фрейма — его ручка: за него тащат и по нему переименовывают.</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1420}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { menu: true, colors: false, noteColor: '#f4e0a8', at: 1, kind: 'ellipse', cards: [
+      { id: 1, title: 'Повестка для демо', who: 'А', col: 0 },
+      { id: 2, title: 'Доступы к стенду', who: 'И', col: 0 },
+      { id: 3, title: 'Письмо клиенту', who: 'М', col: 0 },
+      { id: 4, title: 'Ревью дизайна', who: 'М', col: 1 },
+      { id: 5, title: 'Онбординг v2', who: 'А', col: 1 },
+      { id: 6, title: 'Новый тариф Team', who: 'И', col: 2 }
+    ] };
+  }
+  renderVals() {
+    var self = this;
+    var I = {"pencil": "M4.5 19.5l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3l-10 10zM13.5 7l3 3", "palette": "M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.8-1.8 0-1.4-1.3-1.7-1.3-3 0-1 .8-1.7 1.8-1.7H17a3.5 3.5 0 0 0 3.5-3.5c0-3.9-3.8-7-8.5-7zM7.5 11.5h.01M9.5 7.5h.01M14.5 7.5h.01", "copy": "M11 8.5h7a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1 -2.5 2.5h-7a2.5 2.5 0 0 1 -2.5 -2.5v-7a2.5 2.5 0 0 1 2.5 -2.5zM15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5", "duplicate": "M11 8.5h7a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1 -2.5 2.5h-7a2.5 2.5 0 0 1 -2.5 -2.5v-7a2.5 2.5 0 0 1 2.5 -2.5zM15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5M14.5 12v5M12 14.5h5", "link": "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1", "layer-top": "M5 4h14M12 20V8M7.5 12.5L12 8l4.5 4.5", "layer-bottom": "M5 20h14M12 4v12M7.5 11.5L12 16l4.5-4.5", "group-make": "M8 6.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1 -1.5 1.5h-4a1.5 1.5 0 0 1 -1.5 -1.5v-4a1.5 1.5 0 0 1 1.5 -1.5zM12 10.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1 -1.5 1.5h-4a1.5 1.5 0 0 1 -1.5 -1.5v-4a1.5 1.5 0 0 1 1.5 -1.5zM3.5 6.5v-3h3M17.5 3.5h3v3M20.5 17.5v3h-3M6.5 20.5h-3v-3", "lock": "M8 10.5h8a3 3 0 0 1 3 3v4a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-4a3 3 0 0 1 3 -3zM8 10.5v-3a4 4 0 0 1 8 0v3", "trash": "M4 7h16M9.5 7V5A1.5 1.5 0 0 1 11 3.5h2A1.5 1.5 0 0 1 14.5 5v2M6 7l1 11.5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2L18 7M10 11v5.5M14 11v5.5", "search": "M4.5 11a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0 -13 0zM20 20l-4.4-4.4", "chevron-right": "M9 6l6 6-6 6", "check": "M5 12.5l4.5 4.5L19 7"};
+    var tones = [
+      ['серый', '#f3f1ec', '#cdc8c0'], ['жёлтый', '#f4e0a8', '#f2b94a'], ['оранжевый', '#ffdcc6', '#ff8a57'], ['розовый', '#f9d3cd', '#ff8fbd'],
+      ['фиолетовый', '#f3e8ff', '#c69bff'], ['синий', '#cddff8', '#78b4ff'], ['зелёный', '#c8e8d4', '#85d965']
+    ];
+    var paper = function (color, tilt, extra) { return 'background: ' + color + '; border-radius: 3px; transform: rotate(' + tilt + 'deg); box-shadow: 0 1px 1px rgba(30,33,54,.08), 0 14px 12px -10px rgba(38,30,22,.5);' + (extra || ''); };
+    var tilts = [-1.6, 1.2, -0.6, 1.8, -1.1, 0.7, -1.6];
+    var openMenu = function (i) { return function () { self.setState({ menu: true, colors: false, at: i }); }; };
+    var palette = [];
+    [1, 2].forEach(function (row) {
+      tones.forEach(function (t, i) {
+        palette.push({ name: (row === 1 ? '100' : '300'), label: t[0] + ' ' + (row === 1 ? '100' : '300'), open: openMenu(1),
+          style: 'height: 64px; border: none; cursor: pointer; font-family: inherit; color: #1e2136; display: flex; align-items: flex-end; padding: 6px; ' + paper(t[row], tilts[i]) });
+      });
+    });
+    var noteDefs = [
+      { text: 'Повестка в описании встречи', color: '#f9d3cd', left: 30, top: 30, tilt: -1.6 },
+      { text: 'Ревью дизайна в первый день', color: this.state.noteColor, left: 222, top: 22, tilt: 0 },
+      { text: 'Стенд — за день до демо', color: '#c8e8d4', left: 414, top: 40, tilt: 1.2 }
+    ];
+    var notes = noteDefs.map(function (n, i) {
+      return { text: n.text, label: n.text + '. Открыть меню', open: openMenu(i),
+        style: 'position: absolute; left: ' + n.left + 'px; top: ' + n.top + 'px; width: 160px; height: 150px; box-sizing: border-box; padding: 14px; text-align: left; border: none; cursor: context-menu; font-family: inherit; color: #1e2136; ' + paper(n.color, n.tilt) };
+    });
+    var item = function (icon, label, key, run, danger) {
+      return { icon: I[icon], label: label, key: key || '', color: danger ? '#a3300a' : '#1e2136', run: run || function () {},
+        style: 'display: flex; width: 100%; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; font-family: inherit; font-size: 14px; cursor: pointer; text-align: left; color: ' + (danger ? '#a3300a' : '#1e2136') };
+    };
+    var groups = [
+      [item('pencil', 'Править текст', 'Enter'), item('palette', 'Цвет  ▸', '', function () { self.setState({ colors: !self.state.colors }); })],
+      [item('copy', 'Копировать', '⌘C'), item('duplicate', 'Дублировать', '⌘D'), item('link', 'Ссылка на стикер', '⌘L')],
+      [item('layer-top', 'Наверх', '⌘]'), item('layer-bottom', 'Вниз', '⌘['), item('group-make', 'Сгруппировать', '⌘G'), item('lock', 'Закрепить', '⇧⌘L')],
+      [item('search', 'Найти действие', '⌘K')],
+      [item('trash', 'Удалить', 'Del', function () { self.setState({ menu: false, colors: false }); }, true)]
+    ].map(function (items, i) {
+      return { items: items, style: 'padding: 4px 0;' + (i > 0 ? ' border-top: 1.5px solid #e6dcc4;' : '') };
+    });
+    var swatches = [];
+    [1, 2].forEach(function (row) {
+      tones.forEach(function (t) {
+        var c = t[row];
+        var on = c === self.state.noteColor;
+        swatches.push({ label: t[0] + ' ' + (row === 1 ? '100' : '300'), checked: on ? 'true' : 'false', pick: function () { self.setState({ noteColor: c }); },
+          style: 'width: 28px; height: 28px; border-radius: 6px; cursor: pointer; background: ' + c + '; border: 1.5px solid #1e2136; transition: transform .15s ease;' + (on ? ' box-shadow: 0 0 0 2.5px #fbf3df, 0 0 0 4px #1e2136' : '') });
+      });
+    });
+    var cols = [
+      { title: 'Надо', fill: '#ffffff', wip: 0 },
+      { title: 'В работе', fill: '#f2b94a', wip: 2 },
+      { title: 'Готово', fill: '#85d965', wip: 0 }
+    ];
+    var people = { 'А': '#1a6ad8', 'И': '#c93e0a', 'М': '#0f7b6c' };
+    var cards = this.state.cards;
+    var kanban = cols.map(function (col, ci) {
+      var mine = cards.filter(function (c) { return c.col === ci; });
+      var over = col.wip && mine.length > col.wip;
+      return {
+        head: col.title + ' · ' + mine.length + (col.wip ? '/' + col.wip : ''),
+        headStyle: 'font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: ' + (over ? '#a3300a' : '#1e2136'),
+        cards: mine.map(function (c) {
+          return {
+            title: c.title, initial: c.who, aria: c.title + ', ' + col.title + '. Перенести дальше',
+            move: function () {
+              var next = self.state.cards.map(function (x) { return x.id === c.id ? Object.assign({}, x, { col: (x.col + 1) % 3 }) : x; });
+              self.setState({ cards: next });
+            },
+            style: 'display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; width: 100%; padding: 10px 10px 10px 12px; border: 1.5px solid #1e2136; border-radius: 8px; cursor: pointer; font-family: inherit; color: #1e2136; transition: background-color .25s ease; background: ' + col.fill + (over ? '; outline: 2px dashed #a3300a; outline-offset: 2px' : ''),
+            who: 'flex: none; width: 22px; height: 22px; border-radius: 999px; background: ' + people[c.who] + '; color: #ffffff; border: 1.5px solid #1e2136; display: grid; place-items: center; font-size: 11px; font-weight: 700'
+          };
+        })
+      };
+    });
+    var shapePath = function (kind, w, h, rRect) {
+      var a = 1, b = w - 1, c = 1, d = h - 1, mx = w / 2, my = h / 2;
+      if (kind === 'diamond') return 'M' + mx + ' ' + c + ' L' + b + ' ' + my + ' L' + mx + ' ' + d + ' L' + a + ' ' + my + ' Z';
+      if (kind === 'triangle') return 'M' + mx + ' ' + c + ' L' + b + ' ' + d + ' L' + a + ' ' + d + ' Z';
+      if (kind === 'ellipse') { var rx = (w - 2) / 2, ry = (h - 2) / 2; return 'M' + a + ' ' + my + ' A' + rx + ' ' + ry + ' 0 1 0 ' + b + ' ' + my + ' A' + rx + ' ' + ry + ' 0 1 0 ' + a + ' ' + my + ' Z'; }
+      var r = kind === 'round_rectangle' ? h * 0.3 : rRect;
+      return 'M' + (a + r) + ' ' + c + ' H' + (b - r) + ' A' + r + ' ' + r + ' 0 0 1 ' + b + ' ' + (c + r) + ' V' + (d - r) + ' A' + r + ' ' + r + ' 0 0 1 ' + (b - r) + ' ' + d + ' H' + (a + r) + ' A' + r + ' ' + r + ' 0 0 1 ' + a + ' ' + (d - r) + ' V' + (c + r) + ' A' + r + ' ' + r + ' 0 0 1 ' + (a + r) + ' ' + c + ' Z';
+    };
+    var kind = this.state.kind;
+    var kindDefs = [['rectangle', 'Прямоугольник · R'], ['round_rectangle', 'Скруглённый'], ['ellipse', 'Овал · O'], ['diamond', 'Ромб'], ['triangle', 'Треугольник']];
+    var kinds = kindDefs.map(function (k) {
+      var on = k[0] === kind;
+      return { label: k[1], on: on ? 'true' : 'false', d: shapePath(k[0], 20, 14, 2), pick: function () { self.setState({ kind: k[0] }); },
+        style: 'display: grid; place-items: center; width: 34px; height: 30px; border-radius: 8px; cursor: pointer; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') };
+    });
+    var boxy = kind === 'rectangle' || kind === 'round_rectangle';
+    var corners = [['rectangle', 'Острые'], ['round_rectangle', 'Скруглённые']].map(function (cn) {
+      var on = boxy && cn[0] === kind;
+      return { label: cn[1], on: on ? 'true' : 'false', off: boxy ? 'false' : 'true', pick: function () { if (boxy) self.setState({ kind: cn[0] }); },
+        style: 'height: 30px; padding: 0 10px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; color: #1e2136; cursor: ' + (boxy ? 'pointer' : 'not-allowed') + '; opacity: ' + (boxy ? '1' : '.45') + '; border: 1.5px solid ' + (on ? '#1e2136' : 'transparent') + '; background: ' + (on ? '#f2b94a' : 'transparent') };
+    });
+    var tri = kind === 'triangle';
+    var inX = tri ? 372 : (kind === 'diamond' ? 331 : 330);
+    var outX = tri ? 458 : (kind === 'diamond' ? 499 : 500);
+    var leftBase = 740 + [30, 222, 414][this.state.at] + 170;
+    return {
+      kanban: kanban,
+      kinds: kinds,
+      corners: corners,
+      shapeD: shapePath(kind, 170, 110, 10),
+      shapeText: 'position: absolute; left: 0; top: ' + (tri ? 30 : 0) + 'px; width: 170px; height: ' + (tri ? 80 : 110) + 'px; display: grid; place-items: center; font-weight: 600',
+      linkIn: 'M190 90 C 260 90, 270 150, ' + inX + ' 150',
+      linkOut: 'M' + outX + ' 150 C 560 150, 570 90, 640 90',
+      palette: palette,
+      notes: notes,
+      menuOpen: this.state.menu,
+      menuTitle: 'Стикер',
+      menuPos: 'position: absolute; left: ' + Math.min(leftBase, 1060) + 'px; top: 300px; z-index: 5; width: 270px; padding: 6px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 16px; box-shadow: 3px 3px 0 #1e2136; animation: rkMenu .12s ease-out both',
+      groups: groups,
+      colorsOpen: this.state.menu && this.state.colors,
+      colorsPos: 'position: absolute; left: ' + (Math.min(leftBase, 1060) - 300) + 'px; top: 340px; z-index: 6; padding: 12px; background: #ffffff; border: 1.5px solid #1e2136; border-radius: 14px; box-shadow: 3px 3px 0 #1e2136; animation: rkMenu .12s ease-out both',
+      swatches: swatches
+    };
+  }
+}
+</script>
+</body>
+</html>

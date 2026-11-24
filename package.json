@@ -85,6 +85,7 @@
     "e2e": "node scripts/e2e-run.mjs",
     "e2e:headed": "node scripts/e2e-run.mjs --headed",
     "baselines": "REMO_UPDATE_BASELINES=1 node scripts/e2e-run.mjs --linux-browser e2e/visual.spec.ts",
+    "mockups:shots": "node scripts/mockups/shoot.mjs",
     "e2e:visual": "node scripts/e2e-run.mjs --linux-browser e2e/visual.spec.ts",
     "e2e:a11y": "node scripts/e2e-run.mjs e2e/a11y.spec.ts",
     "e2e:perf": "node scripts/e2e-run.mjs e2e/perf.spec.ts",
