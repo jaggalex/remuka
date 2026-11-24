@@ -275,34 +275,47 @@ export const billingMethods = {
     }
     const client = await this.pool.connect();
     try {
-      await client.query("begin");
-      let next = version;
-      if (next === undefined || next === null) {
-        const { rows: [row] } = await client.query(
-          `select coalesce(max(version), 0) + 1 as version
-             from prices
-            where plan = $1 and interval = $2 and currency = $3`,
-          [plan, interval, currency],
-        );
-        next = row.version;
+      // Two price books (test files, or an operator and a seed) may read the same next
+      // version at once; the unique key keeps one and this retry reads the version again.
+      // An explicit version keeps its own collision: the caller asked for that number.
+      const implicit = version === undefined || version === null;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await client.query("begin");
+          let next = version;
+          if (next === undefined || next === null) {
+            const { rows: [row] } = await client.query(
+              `select coalesce(max(version), 0) + 1 as version
+                 from prices
+                where plan = $1 and interval = $2 and currency = $3`,
+              [plan, interval, currency],
+            );
+            next = row.version;
+          }
+          const { rows: [row] } = await client.query(
+            `insert into prices
+               (id, plan, interval, currency, amount, version, status, promo_only, created_by)
+             values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8)
+             returning *`,
+            [id, plan, interval, currency, amount, next, promoOnly, createdBy],
+          );
+          await client.query(
+            `insert into price_events (price_id, type, data)
+             values ($1, 'created', $2)`,
+            [id, JSON.stringify({ plan, interval, currency, amount, version: next, promoOnly })],
+          );
+          await client.query("commit");
+          return mapPrice(row);
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          const raced =
+            implicit &&
+            attempt < 4 &&
+            error?.code === "23505" &&
+            error?.constraint === "prices_plan_interval_currency_version_key";
+          if (!raced) throw error;
+        }
       }
-      const { rows: [row] } = await client.query(
-        `insert into prices
-           (id, plan, interval, currency, amount, version, status, promo_only, created_by)
-         values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8)
-         returning *`,
-        [id, plan, interval, currency, amount, next, promoOnly, createdBy],
-      );
-      await client.query(
-        `insert into price_events (price_id, type, data)
-         values ($1, 'created', $2)`,
-        [id, JSON.stringify({ plan, interval, currency, amount, version: next, promoOnly })],
-      );
-      await client.query("commit");
-      return mapPrice(row);
-    } catch (error) {
-      await client.query("rollback");
-      throw error;
     } finally {
       client.release();
     }

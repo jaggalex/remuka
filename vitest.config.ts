@@ -36,6 +36,12 @@ export default defineConfig({
       "scripts/**/*.test.mjs",
     ],
     environment: "node",
+    // Database suites share one throwaway database for the run (below), and some tables
+    // are global by design — the price catalogue has one public row per plan, interval
+    // and currency. Two files publishing the same tuple at once supersede each other,
+    // which surfaced as a duplicate key or a 404 in a different file. Files run one at a
+    // time so the catalogue is deterministic; the unit suite costs about a minute more.
+    fileParallelism: false,
     // One throwaway database per run: created and migrated once before the workers start,
     // dropped afterwards, and never the developer's own database (ADR-131). The setup also
     // refuses to let a run go green with its database suites silently skipped.
