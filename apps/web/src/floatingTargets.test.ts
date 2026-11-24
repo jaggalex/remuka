@@ -85,7 +85,7 @@ describe("the note bar", () => {
     const shapeBar = noteBarTarget({ widget: shape, frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     const noteBar = noteBarTarget({ widget: note("n", 0, 0), frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     // The shape bar has no S/M/L row, so it is narrower than the note's.
-    expect(shapeBar.placement.left).toBe(720 - 450);
+    expect(shapeBar.placement.left).toBe(720 - 505);
     expect(noteBar.placement.left).toBe(720 - 332);
   });
 

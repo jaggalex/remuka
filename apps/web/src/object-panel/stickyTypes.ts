@@ -1,4 +1,4 @@
-import type { LineFormat, ShapeKind, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
+import type { Elevation, LineFormat, ShapeKind, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
 
 /** One line format of the object, ready for the bar (ADR-252 §2.2). */
 export type TextLineBlock = NonNullable<LineFormat["block"]>;
@@ -32,6 +32,9 @@ export interface StickyBarTarget {
   strokeStyle?: "normal" | "dashed" | "dotted";
   /** A shape's kind; absent for notes and text. */
   shapeKind?: ShapeKind;
+  /** The shape's lift level, and whether it can stand off the board (ADR-245). */
+  elevation: Elevation | null;
+  canElevate: boolean;
   size: StickySize;
   /** Explicit text size, or null for Auto. */
   fontSize: number | null;
@@ -62,6 +65,8 @@ export interface StickyBarActions {
   setStrokeStyle: (style: "normal" | "dashed") => void;
   /** Switch a shape's kind, keeping its text, size, style and connectors (ADR-271). */
   setShapeKind: (kind: ShapeKind) => void;
+  /** The shape's lift level (ADR-245, ADR-267); the bar carries it as the mockup does. */
+  setElevation: (level: Elevation | null) => void;
   setSize: (size: StickySize) => void;
   setFont: (size: number | null) => void;
   toggleMark: (mark: keyof TextMarks) => void;

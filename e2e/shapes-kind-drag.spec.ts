@@ -437,3 +437,34 @@ test("a reader's rail does not arm the shape tool", async ({ page, browser }) =>
   await expect.poll(async () => (await shapes(reader)).length).toBe(0);
   await visitor.close();
 });
+
+test("the shape bar carries the lift level, as the mockup does", async ({ page }) => {
+  await freshBoard(page, "shape-lift", { template: "empty" });
+  await setZoom(page, 1);
+  const rail = page.getByRole("toolbar", { name: "Tools" });
+  await page.keyboard.press("r");
+  await expect(rail.getByRole("button", { name: "Shape", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const current = await view(page);
+  const start = toClient(current, { x: -320, y: -200 });
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 200, start.y + 120, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => (await shapes(page)).length).toBe(1);
+
+  const control = page.getByRole("button", { name: /^Shadow: / }).first();
+  await expect(control).toHaveAttribute("aria-label", "Shadow: None");
+  await control.click();
+  await page.getByRole("menuitemcheckbox", { name: "Cardboard", exact: true }).click();
+  await expect(control).toHaveAttribute("aria-label", "Shadow: Cardboard");
+  const lifted = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __remo: { widgets: Array<{ type: string; style?: { elevation?: string } | null }> } })
+          .__remo.widgets.find((widget) => widget.type === "shape")?.style?.elevation ?? null,
+    );
+  await expect.poll(lifted).toBe("cardboard");
+});

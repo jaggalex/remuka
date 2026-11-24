@@ -3,8 +3,8 @@ import { canElevate, ELEVATIONS, type Elevation, elevationOf, type Widget } from
 import type { MenuItem } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 
-const LEVELS = [null, ...ELEVATIONS] as const;
-const KEY: Record<string, TranslationKey> = {
+export const ELEVATION_LEVELS = [null, ...ELEVATIONS] as const;
+export const ELEVATION_LABEL_KEY: Record<string, TranslationKey> = {
   none: "inspector.elevation.none",
   raised: "inspector.elevation.raised",
   cardboard: "inspector.elevation.cardboard",
@@ -33,8 +33,8 @@ export function elevationMenuItems(
   return [
     { separator: true },
     { heading: t("inspector.elevation") },
-    ...LEVELS.map((level: Elevation | null) => ({
-      label: t(KEY[level ?? "none"]!),
+    ...ELEVATION_LEVELS.map((level: Elevation | null) => ({
+      label: t(ELEVATION_LABEL_KEY[level ?? "none"]!),
       checked: current === level,
       disabled: readOnly,
       onSelect: () => setElevation(board, selectedIds, level),

@@ -21,6 +21,7 @@ import { colorName, isTransparent } from "./colorWindowData";
 import { PanelWindow } from "./PanelWindow";
 import type { StickyBarActions, StickyBarTarget } from "./stickyTypes";
 import { DEFAULT_INK } from "../objectDefaults";
+import { ELEVATION_LABEL_KEY, ELEVATION_LEVELS } from "../elevationMenu";
 import { HelpLink } from "../help/HelpLink";
 import { TextFormatBar } from "./TextFormatBar";
 import { LinkWindow } from "./LinkWindow";
@@ -52,7 +53,7 @@ import {
 
 export type { StickyBarActions, StickyBarTarget };
 
-type PopoverName = "kind" | "colour" | "align" | "more" | "link" | null;
+type PopoverName = "kind" | "colour" | "align" | "elevation" | "more" | "link" | null;
 
 const NO_FORMAT: EditorFormat = { block: null, href: null, code: false };
 
@@ -343,6 +344,40 @@ export function StickyPanel({
               actions.setShapeKind(rounded ? "round_rectangle" : "rectangle")
             }
           />
+          {target.canElevate && (
+            <span className="sb-anchor">
+              <Button
+                variant="ghost"
+                size="compact"
+                className="sb-elevation"
+                iconEnd="chevron-down"
+                aria-label={`${t("inspector.elevation")}: ${t(ELEVATION_LABEL_KEY[target.elevation ?? "none"]!)}`}
+                aria-haspopup="menu"
+                aria-expanded={open === "elevation"}
+                selected={open === "elevation"}
+                onClick={() => setOpen(open === "elevation" ? null : "elevation")}
+              >
+                {t(ELEVATION_LABEL_KEY[target.elevation ?? "none"]!)}
+              </Button>
+              {open === "elevation" && (
+                <PanelWindow>
+                  <Menu
+                    label={t("inspector.elevation")}
+                    width={200}
+                    onClose={() => setOpen(null)}
+                    items={ELEVATION_LEVELS.map((level) => ({
+                      label: t(ELEVATION_LABEL_KEY[level ?? "none"]!),
+                      checked: (target.elevation ?? null) === level,
+                      onSelect: () => {
+                        actions.setElevation(level);
+                        setOpen(null);
+                      },
+                    }))}
+                  />
+                </PanelWindow>
+              )}
+            </span>
+          )}
           <span className="sb-divider" aria-hidden="true" />
         </>
       )}

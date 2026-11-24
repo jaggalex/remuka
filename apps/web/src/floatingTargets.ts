@@ -15,6 +15,8 @@ import {
   type Camera,
 } from "@remo/canvas";
 import {
+  canElevate,
+  elevationOf,
   inkFor,
   isRotatable,
   kindOf,
@@ -64,7 +66,7 @@ const NOTE_BAR_HALF = 332;
  * The shape bar has no S/M/L row: sample, text size, marks, block formats, alignment,
  * link and More, measured at 1440: 426 + 147 px wide.
  */
-const SHAPE_BAR_HALF = 450;
+const SHAPE_BAR_HALF = 505;
 /** A free text bar is the same controls without the note sizes: 420 + 147 px wide. */
 const TEXT_BAR_HALF = 284;
 /** The arrange bar names the selection, shows the shared role, Align, grouping and More. */
@@ -227,6 +229,8 @@ export function noteBarTarget(args: {
     strokeWidth: widget.style?.strokeWidth,
     strokeStyle: widget.style?.strokeStyle,
     shapeKind: widget.type === "shape" ? (widget.shapeKind ?? "rectangle") : undefined,
+    elevation: elevationOf(widget),
+    canElevate: canElevate(widget),
     size: (widget.style?.stickySize ?? "M") as StickySize,
     fontSize: widget.style?.fontSize ?? null,
     autoSize,

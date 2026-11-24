@@ -36,6 +36,7 @@ import {
   setNoteTextVAlign,
   setShapeStyle,
   setShapeKind,
+  setElevation,
   setStickySize,
   setTextColor,
   clearTextFormatting,
@@ -62,6 +63,7 @@ import {
   linePresetStyle,
   shapePresetStyle,
   stickyFill,
+  type Elevation,
   type KanbanState,
   type LinePreset,
   type ShapePreset,
@@ -528,6 +530,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       setStrokeStyle: (strokeStyle: "normal" | "dashed") =>
         setShapeStyle(board, selectedIds, { strokeStyle }),
       setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
+      setElevation: (level: Elevation | null) => setElevation(board, selectedIds, level),
       setSize: (size: StickySize) => setStickySize(board, selectedIds, size),
       setFont: (size: number | null) => setNoteFontSize(board, selectedIds, size),
       toggleMark: (mark: keyof TextMarks) => toggleNoteMark(board, selectedIds, mark),
