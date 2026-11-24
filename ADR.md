@@ -11508,7 +11508,7 @@ the address the browser uses. The legal texts in `content/legal/**` still name
 `docs.remuka.com` and `docs.remuka.ru` in prose: they are published revisions and bind the
 cloud, so they are deliberately out of scope until a new revision is published.
 
-## ADR-280: Owner's fixes of 24.11 — home from the logo, no raw AI journal, room covers, rising reactions, new objects on top, Tab on cards, movable comment pins
+## ADR-285: Owner's fixes of 24.11 — home from the logo, no raw AI journal, room covers, rising reactions, new objects on top, Tab on cards, movable comment pins
 
 **Status:** accepted (2026-11-24, owner). Research: `spec/fixes-2026-11-24.md`. Amends ADR-039,
 ADR-104, ADR-105, ADR-266 §2 (item 1), ADR-274 and ADR-276.
@@ -11548,7 +11548,7 @@ ADR-104, ADR-105, ADR-266 §2 (item 1), ADR-274 and ADR-276.
 **Consequences.** Task T27. Mockups `App-RoomTidy`, `App-AccountMenu` and `App-AgentsAdmin` are
 corrected. Backlog gains: full AI journal viewer, custom cover upload, Tab to the next card.
 
-## ADR-281: A screen is accepted only side by side with its mockup
+## ADR-286: A screen is accepted only side by side with its mockup
 
 **Status:** accepted (2026-11-24, owner). Spec: `spec/acceptance-character.md`. Task T28.
 
