@@ -18,7 +18,7 @@ A room without an owner is closed: roles and the public link give no access unti
 
 ## Example
 
-Input: a room, a colleague without access. Action: **Share** → invite with the role **Editor**. Result: the colleague sees the room and can edit objects. A backup is available to them as an editor; PNG and PDF are available to the viewer role too.
+Input: a room, a colleague without access. Action: **Invite** → invite with the role **Editor**. Result: the colleague sees the room and can edit objects. A backup is available to them as an editor; PNG and PDF are available to the viewer role too.
 
 ## Recover a room without an owner
 
@@ -38,7 +38,7 @@ You are the owner, the room is in your organisation and team, the archive mark i
 
 - The message about the room having no owner is gone.
 - The room appears in the organisation's room list.
-- In **Share** you are listed as the owner and can enable the public link.
+- In **Invite** you are listed as the owner and can enable the public link.
 
 ## What you can configure
 

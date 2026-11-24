@@ -1,9 +1,10 @@
 import { isEditable } from "./editable";
 import type { GestureEnv } from "./gestureEnv";
-import { cellAt, connectorHandles, connectorPath, kanbanContains, layerKey, pick, pickConnector, placementAt, kanbanTitleAt } from "@remo/canvas";
+import { cellAt, connectorHandles, connectorPath, frameLabelAt, frameLabelFont, kanbanContains, layerKey, pick, pickConnector, placementAt, kanbanTitleAt } from "@remo/canvas";
 import { expandGroups } from "@remo/model";
 import { openKanbanTitleEdit } from "./kanbanTitleEditStore";
 import { measureText } from "./KanbanTitleEditor";
+import { openFrameLabelEdit } from "./frameLabelEditStore";
 import { openImageViewer } from "./imageViewer";
 
 /**
@@ -18,6 +19,17 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   const { camera, settings, widgets, layouts, selectedIds, isCardOfKanban, toWorld, worldToScreenPoint, onSelect, onAddCard, onDeleteWaypoint, onEdit, readOnly, widgetById } = env;
   const world = toWorld(event);
   const hit = pick(widgets, world, isCardOfKanban);
+  const labelFrame = hit
+    ? null
+    : frameLabelAt(widgets, world, {
+        measureText: (text) => ({ width: measureText(text, frameLabelFont(settings.text.fontFamily)) }),
+      });
+  if (labelFrame) {
+    onSelect(expandGroups(widgets, [labelFrame.id]));
+    // The field is SectionTitleLayer's: one "Rename section", opened from the canvas.
+    if (!readOnly && !labelFrame.locked) openFrameLabelEdit(labelFrame.id);
+    return;
+  }
 
   // A picture opens in the viewer, and a reader may look at it: viewing a file is not a
   // write, so this answer comes before the read-only gate (`spec/images.md` §9.7).

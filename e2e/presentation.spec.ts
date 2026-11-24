@@ -1,5 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { 
+test, expect } from "@playwright/test";
 import {
+  ensureProperties,
   addSticky,
   PASSWORD,
   freshBoard,
@@ -38,13 +40,13 @@ test("starts, advances and stops a presentation, restoring the camera", async ({
 test("names any object and puts it into the presentation", async ({ page }) => {
   const account = await freshBoard(page, "present-object");
   const id = await addSticky(page);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
 
   const inspector = page.locator(".inspector");
   await openFold(page, "Name and link");
   await inspector.getByLabel("Name").fill("Intro note");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   // The panel names the object by its name now, and its ID is in ⋯ → Info (ADR-236).
   await expect(inspector.locator(".inspector-title")).toHaveText("Intro note");
   await inspector.getByRole("button", { name: "More actions", exact: true }).click();
@@ -94,7 +96,7 @@ test("a second session of one account cannot start another presentation", async 
     });
     expect(login.ok(), await login.text()).toBeTruthy();
     await other.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(other.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(other.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     // The second session sees the live presentation before it tries to start its own.
     await expect(other.locator(".present-join")).toContainText("Sess");
 

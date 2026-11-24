@@ -170,5 +170,15 @@ case ${1:-status} in
   backup) current; backup ;;
   status) current; compose ps ;;
   logs) current; compose logs --tail=100 sync web ;;
-  *) echo 'Usage: remo {deploy COMMIT|rollback --schema-compatible|backup|status|logs}' >&2; exit 1 ;;
+  # Operator commands from the release image: the host has no `pnpm` and no checkout.
+  # `shared/` is mounted read-only so `--secret-file /shared/…` works without putting a
+  # key in the image; stdin stays attached because `secret` reads the key from a prompt.
+  cli)
+    script=${2:-}
+    [[ -n $script ]] || { echo 'Usage: remo cli SCRIPT [ARGS...]' >&2; exit 1; }
+    shift 2
+    current
+    compose run --rm --no-deps -T -w /app -v "$ROOT/shared:/shared:ro" sync node "/app/scripts/$script" "$@"
+    ;;
+  *) echo 'Usage: remo {deploy COMMIT|rollback --schema-compatible|backup|status|logs|cli SCRIPT [ARGS...]}' >&2; exit 1 ;;
 esac

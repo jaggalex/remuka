@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enableLink, freshBoard, openBoardMenu, openMore } from "./helpers";
+import { enableLink, freshBoard, openAccount, openBoardMenu } from "./helpers";
 
 test("a public link is read-only, hides people and gives no export", async ({ page, browser }) => {
   const account = await freshBoard(page, "link");
@@ -15,9 +15,11 @@ test("a public link is read-only, hides people and gives no export", async ({ pa
   await expect(guest.getByRole("menuitem", { name: /Export/ })).toHaveCount(0);
   await expect(guest.getByRole("menuitem", { name: /Restore/ })).toHaveCount(0);
   await guest.keyboard.press("Escape");
-  // AI needs an account, so the link visitor never sees the item (spec §10, Ш2).
-  await openMore(guest);
-  await expect(guest.getByRole("menuitem", { name: /Ask AI/ })).toHaveCount(0);
+  // The agent needs an account, so the link visitor never sees the control or the row
+  // (spec §10, Ш2); the old "More" menu is gone.
+  await expect(guest.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
+  await openAccount(guest);
+  await expect(guest.getByRole("button", { name: /Ask the agent/ })).toHaveCount(0);
   // A link is not a people directory: no avatars and no names.
   await expect(guest.locator(".peer")).toHaveCount(0);
 

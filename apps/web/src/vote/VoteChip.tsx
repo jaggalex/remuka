@@ -113,7 +113,8 @@ export function VoteChip({
       className={`vote-chip ${state}${compact ? " compact" : ""}`}
       style={{ left: place.left, top: place.top, visibility: measured ? undefined : "hidden" }}
     >
-      <span className="vote-chip-count" aria-hidden="true">
+      {/* The key changes with the count, so the "click" animation replays on every new vote (ADR-265). */}
+      <span key={votes} className="vote-chip-count" aria-hidden="true">
         {votes}
       </span>
       {!compact && running && mine && (

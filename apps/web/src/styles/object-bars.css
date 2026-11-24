@@ -138,6 +138,11 @@
   color: var(--text-muted);
 }
 
+/* Auto: no colour is stored, so the sample is the Auto chip's split square (ADR-273). */
+.sb-multi-swatch.is-auto {
+  background: linear-gradient(135deg, var(--bg-panel) 50%, var(--text-primary) 50%);
+}
+
 .sb-multi-swatch.is-mixed {
   border: 1.5px dashed var(--border-strong);
   box-shadow: none;

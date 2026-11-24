@@ -12,7 +12,7 @@ Participants spread a limited number of votes across the chosen objects right in
 
 1. Start the shared timer if the vote should follow a common clock: it then ends with the timer.
 2. Select the objects to vote on.
-3. Open Facilitation ▾ and choose Voting.
+3. Open Run ▾ and choose Voting.
 4. On the New session tab set the votes per person, the duration and anonymity. When the room timer runs, the "With the timer" option is available and shows the time left.
 5. Click Start voting.
 

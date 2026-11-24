@@ -102,6 +102,9 @@ describe("readWidget (ADR-171)", () => {
     expect(readWidget({ ...shape, style: { elevation: "floating" } }, "n1")?.style).toEqual({
       elevation: "floating",
     });
+    expect(readWidget({ ...shape, style: { elevation: "cardboard" } }, "n1")?.style).toEqual({
+      elevation: "cardboard",
+    });
     expect(readWidget({ ...shape, style: { elevation: "hovering" } }, "n1")?.style).toEqual({});
     // A note has its own paper shadow: a pasted level is dropped, the rest stays.
     expect(

@@ -21,7 +21,9 @@ describe("the named values (ADR-140)", () => {
   it("is exactly the three values the document stores", () => {
     expect(NAMED_COLORS).toEqual({
       white: "#ffffff",
-      black: "#1a1a1a",
+      // True black: `#1a1a1a` is the old automatic near-black and reads as Auto (ADR-273,
+      // ADR-281), so the chip must be a value Auto never writes.
+      black: "#000000",
       none: "transparent",
     });
     for (const id of Object.keys(NAMED_COLORS) as NamedColorId[]) {
@@ -53,8 +55,9 @@ describe("the named values (ADR-140)", () => {
     expect(grid.has(NAMED_COLORS.white)).toBe(false);
     expect(grid.has(NAMED_COLORS.black)).toBe(false);
     expect(grid.has(NAMED_COLORS.none)).toBe(false);
-    // Black is the old palette's value of the same name: still named, never a grid entry.
-    expect(BOARD_COLORS.map((hex) => hex.toLowerCase())).toContain(NAMED_COLORS.black);
+    // The old palette's "Black" is `#1a1a1a`; it is not the chip's value any more, and
+    // neither value is a grid entry (ADR-281).
+    expect(BOARD_COLORS.map((hex) => hex.toLowerCase())).not.toContain(NAMED_COLORS.black);
   });
 
   it("offers transparency only to a fill and a stroke, where 'none' is paintable", () => {

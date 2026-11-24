@@ -13,6 +13,7 @@ import { useMenuFocus } from "../useMenuFocus";
  */
 export function BoardTitleMenu({
   title,
+  path,
   renaming,
   onRenaming,
   draft,
@@ -25,6 +26,8 @@ export function BoardTitleMenu({
   readOnly,
 }: {
   title: string;
+  /** "Organisation /" before the room: the path is part of the room menu, not a link. */
+  path?: string | null;
   renaming: boolean;
   onRenaming: (value: boolean) => void;
   draft: string;
@@ -80,6 +83,11 @@ export function BoardTitleMenu({
         aria-expanded={open}
         onClick={() => onOpen(!open)}
       >
+        {path && (
+          <span className="topbar-path" aria-hidden="true">
+            {path} <span className="topbar-path-slash">/</span>
+          </span>
+        )}
         {shown}
       </Button>
       {open && (

@@ -23,6 +23,8 @@ export interface StickyBarTarget {
   textColor?: string;
   /** The colour the text actually has right now, explicit or automatic. */
   ink: string;
+  /** The surface the text lies on, for the colour window's readability warning (ADR-273). */
+  ground: string;
   /** Shape outline; unused by notes. */
   strokeColor?: string;
   strokeWidth?: number;
@@ -52,7 +54,8 @@ export interface StickyBarActions {
   setColor: (name: string) => void;
   /** `null` restores the automatic colour that follows the fill. */
   setInk: (color: string | null) => void;
-  setStroke: (color: string) => void;
+  /** `null` restores the automatic outline that follows the shape's ground. */
+  setStroke: (color: string | null) => void;
   setStrokeWidth: (width: number) => void;
   setStrokeStyle: (style: "normal" | "dashed") => void;
   setSize: (size: StickySize) => void;

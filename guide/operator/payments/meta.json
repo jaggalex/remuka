@@ -1,0 +1,26 @@
+{
+  "id": "operator/payments",
+  "type": "how-to",
+  "status": "available",
+  "order": 85,
+  "title": {
+    "ru": "Подключение платёжного сервиса",
+    "en": "Connecting a payment service"
+  },
+  "summary": {
+    "ru": "Завести магазин ЮKassa на установке: секрет, включение, адрес уведомлений, прайс-лист, проверка оплаты и безопасное выключение.",
+    "en": "Set up a YooKassa shop on the installation: the secret, activation, the notification address, the price list, a payment check and a safe switch-off."
+  },
+  "related": [
+    "operator/money",
+    "operator/customers",
+    "operator/console"
+  ],
+  "updated": "2026-11-24",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:842d31de0029efab81047190a8f152426b124ab301e8f805b1b1abfbdd5f2946",
+      "targetHash": "sha256:2814d77703b09fc5c278f8a91818fc305b85b78efa05604fb8eab65657860945"
+    }
+  }
+}

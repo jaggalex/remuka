@@ -30,6 +30,7 @@ describe("card small print (ADR-235)", () => {
     drawCardMeta(ctx, 0, 0, 250, 70, card, {
       fontFamily: "Inter",
       palette: DEFAULT_PALETTE,
+      ink: { color: "#1e2136", halo: null },
       statusLabel: { todo: "To do", in_progress: "In progress", done: "Done" },
     });
     expect(seen.length).toBeGreaterThan(0);
@@ -71,6 +72,7 @@ describe("tags on a card face (ADR-106)", () => {
     drawCardMeta(ctx, 0, 0, 250, 70, card, {
       fontFamily: "Inter",
       palette: DEFAULT_PALETTE,
+      ink: { color: "#1e2136", halo: null },
       statusLabel: { todo: "To do", in_progress: "In progress", done: "Done" },
       tags: vocabulary,
     });

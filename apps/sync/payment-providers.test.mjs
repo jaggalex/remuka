@@ -19,6 +19,7 @@ import {
   forSalePrices,
   handleBilling,
   hasCompletePriceList,
+  mergedMethodGroups,
 } from "./billing-catalog-api.mjs";
 import { resetEntitlementCache } from "./billing.mjs";
 import { handleBilling as handleBillingEntry } from "./billing-api.mjs";
@@ -71,13 +72,13 @@ const PRICES = ["pro", "team", "business"].flatMap((plan) =>
   })),
 );
 
-function catalogStore({ prices = PRICES, groups = { RUB: ["invoice"] } } = {}) {
+function catalogStore({ prices = PRICES, groups = { RUB: ["invoice"] }, testGroups = {} } = {}) {
   return {
     async listPrices() {
       return prices;
     },
-    async methodGroupsFor({ currency }) {
-      return groups[currency] ?? [];
+    async methodGroupsFor({ currency, testMode = false }) {
+      return (testMode ? testGroups[currency] : groups[currency]) ?? [];
     },
   };
 }
@@ -352,6 +353,55 @@ describe("catalogue hiding rules (§2.1.1)", () => {
     });
     expect(response.out.status).toBe(200);
     expect(response.out.body.currencies).toEqual([]);
+  });
+
+  /* ------------------------------------------------- stand showcase (ADR-280) -- */
+
+  const catalog = async (store, env) => {
+    const response = fakeResponse();
+    await handleBilling({
+      request: fakeRequest("GET"),
+      response,
+      url: new URL("http://localhost/billing/catalog"),
+      store,
+      env,
+    });
+    expect(response.out.status).toBe(200);
+    return response.out.body.currencies;
+  };
+
+  const PROD = { REMO_BILLING: "on", REMO_BILLING_CURRENCIES: "RUB" };
+  const STAND = { ...PROD, REMO_STAGE: "1" };
+
+  it("shows a test-only currency on a stand and hides it on production", async () => {
+    const store = catalogStore({ groups: {}, testGroups: { RUB: ["invoice"] } });
+    expect(await catalog(store, PROD)).toEqual([]);
+    const stand = await catalog(store, STAND);
+    expect(stand.map((entry) => entry.currency)).toEqual(["RUB"]);
+    expect(stand[0].methodGroups).toEqual(["invoice"]);
+    // The prices are the same rows on both sides: only the route changes.
+    expect(stand[0].prices).toHaveLength(6);
+  });
+
+  it("adds the test groups after the live ones, once", async () => {
+    const store = catalogStore({
+      groups: { RUB: ["ru_card", "invoice"] },
+      testGroups: { RUB: ["invoice", "foreign_card"] },
+    });
+    expect((await catalog(store, PROD))[0].methodGroups).toEqual(["ru_card", "invoice"]);
+    expect((await catalog(store, STAND))[0].methodGroups).toEqual([
+      "ru_card",
+      "invoice",
+      "foreign_card",
+    ]);
+    expect(mergedMethodGroups(["invoice"], ["invoice"])).toEqual(["invoice"]);
+    expect(mergedMethodGroups([], ["invoice"])).toEqual(["invoice"]);
+  });
+
+  it("leaves a live-only currency unchanged on a stand", async () => {
+    const store = catalogStore({ groups: { RUB: ["invoice"] }, testGroups: {} });
+    expect((await catalog(store, PROD))[0].methodGroups).toEqual(["invoice"]);
+    expect((await catalog(store, STAND))[0].methodGroups).toEqual(["invoice"]);
   });
 });
 

@@ -68,6 +68,8 @@ The test database is separate from development: `pnpm test:db:up`, then
 4. Update `content/help` for a user-facing workflow and `guide/` when the guide describes it.
 5. Run `pnpm verify --e2e` before opening a pull request.
 6. Keep the diff focused; do not reformat unrelated files.
+7. Work on a `t/<n>-<slug>` branch. An agent commits only when the owner asks; merges, tags
+   and pushes belong to the owner (`CONTRIBUTING.md`, «Branches, stage and the release train»).
 
 ## Code rules that bite
 
@@ -79,6 +81,11 @@ The test database is separate from development: `pnpm test:db:up`, then
   the API, never invented locally.
 - **Canvas** (`packages/canvas`): painters take a palette/theme; hit-testing and geometry are
   pure functions and are tested without a browser.
+- **Ink** (`packages/model/src/ink.ts`): a colour of anything lying on a surface — text,
+  counters, grid lines, icons, «+», placeholders, the caret — is `ink(groundOf(...), role)`,
+  never a theme token (ADR-273). A new kind declares its ground and its part roles in
+  `WIDGET_KINDS` (`ink`); `ui:check` fails `var(--text-*)` and `var(--border-*)` in a canvas
+  layer. A new object that stores no colour reads as «Auto».
 - **UI** (`packages/ui`): `tokens.json` is the source; generated CSS is never edited by hand.
 - **Comments** explain why, not what.
 
@@ -106,11 +113,11 @@ _Факты дерева, проверяются `pnpm state:check`; числа 
 
 | Факт | Значение |
 |---|---|
-| ADR | 264, последний — ADR-264 |
+| ADR | 281, последний — ADR-281 |
 | Версия схемы | 39 |
-| Браузерные сценарии | 257 в 46 файлах |
+| Браузерные сценарии | 273 в 50 файлах |
 | Темы помощи | 40 (RU + EN) |
-| Страницы портала | 84 |
-| Эталоны | 48 продуктовых + 12 DS |
-| Крупнейший файл | `apps/web/src/BoardCanvas.tsx` — 800 строк |
+| Страницы портала | 86 |
+| Эталоны | 58 продуктовых + 12 DS |
+| Крупнейший файл | `apps/web/src/OrganisationDialog.tsx` — 800 строк |
 <!-- generated:state:end -->

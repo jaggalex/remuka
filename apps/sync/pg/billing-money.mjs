@@ -331,12 +331,18 @@ export const billingMoneyMethods = {
   },
 
   /**
-   * Mark an invoice paid by hand (stage 2: the operator is the payment service).
+   * Mark an invoice paid by hand (stage 2: the operator is the payment service) or by a
+   * provider event that already has its own payment row.
    *
    * The manual payment key is derived from the invoice, so a second click or a repeated
    * operator command updates the same row rather than charging twice. A payment that was
    * already refunded keeps its refunded status: marking the invoice paid again must not
    * reopen the money.
+   *
+   * `paymentId` is the checkout row a webhook carries. Updating that row instead of
+   * inserting the manual one keeps one attempt per payment and makes the transition
+   * forward-only: `failed`, `canceled`, `refunded` and `partially_refunded` refuse to
+   * become `succeeded`.
    */
   async markInvoicePaid({
     invoiceId,
@@ -345,6 +351,7 @@ export const billingMoneyMethods = {
     connectionId = null,
     providerPaymentId = null,
     receiptStatus = null,
+    paymentId = null,
   }) {
     const value = assertMinorUnits(amount, "amount");
     const code = normalCurrency(currency);
@@ -367,40 +374,73 @@ export const billingMoneyMethods = {
       const alreadyPaid = invoice.status === "paid";
       const idempotencyKey = `manual:${invoiceId}`;
 
-      const { rows: payments } = await client.query(
-        `insert into payments
-           (org_id, invoice_id, connection_id, provider_payment_id, idempotency_key,
-            amount, currency, status, receipt_status)
-         values ($1, $2, $3, $4, $5, $6, $7, 'succeeded', $8)
-         on conflict (idempotency_key) do update
-           set amount = excluded.amount,
-               currency = excluded.currency,
-               connection_id = case
-                 when payments.status in ('refunded', 'partially_refunded')
-                   then payments.connection_id
-                 else excluded.connection_id
-               end,
-               provider_payment_id = coalesce(excluded.provider_payment_id,
-                                              payments.provider_payment_id),
-               receipt_status = coalesce(excluded.receipt_status, payments.receipt_status),
-               status = case
-                 when payments.status in ('refunded', 'partially_refunded')
-                   then payments.status
-                 else 'succeeded'
-               end,
-               updated_at = now()
-         returning *`,
-        [
-          invoice.org_id,
-          invoiceId,
-          connectionId ?? MANUAL_CONNECTION_ID,
-          providerPaymentId,
-          idempotencyKey,
-          value,
-          code,
-          receiptStatus,
-        ],
-      );
+      let payments;
+      if (paymentId) {
+        const { rows: current } = await client.query(
+          "select * from payments where id = $1 for update",
+          [paymentId],
+        );
+        const payment = current[0];
+        if (!payment) throw codedError("PAYMENT_NOT_FOUND", "payment does not exist");
+        if (payment.invoice_id !== invoiceId) {
+          throw codedError("PAYMENT_MISMATCH", "the payment belongs to another invoice");
+        }
+        if (payment.status === "failed" || payment.status === "canceled") {
+          throw codedError(
+            "PAYMENT_NOT_FORWARD",
+            `a ${payment.status} payment cannot become succeeded`,
+          );
+        }
+        const refunded =
+          payment.status === "refunded" || payment.status === "partially_refunded";
+        ({ rows: payments } = await client.query(
+          `update payments
+              set status = case when $2 then payments.status else 'succeeded' end,
+                  provider_payment_id = coalesce($3, payments.provider_payment_id),
+                  connection_id = coalesce($4, payments.connection_id),
+                  receipt_status = coalesce($5, payments.receipt_status),
+                  failure_code = case when $2 then payments.failure_code else null end,
+                  updated_at = now()
+            where id = $1
+            returning *`,
+          [paymentId, refunded, providerPaymentId, connectionId, receiptStatus],
+        ));
+      } else {
+        ({ rows: payments } = await client.query(
+          `insert into payments
+             (org_id, invoice_id, connection_id, provider_payment_id, idempotency_key,
+              amount, currency, status, receipt_status)
+           values ($1, $2, $3, $4, $5, $6, $7, 'succeeded', $8)
+           on conflict (idempotency_key) do update
+             set amount = excluded.amount,
+                 currency = excluded.currency,
+                 connection_id = case
+                   when payments.status in ('refunded', 'partially_refunded')
+                     then payments.connection_id
+                   else excluded.connection_id
+                 end,
+                 provider_payment_id = coalesce(excluded.provider_payment_id,
+                                                payments.provider_payment_id),
+                 receipt_status = coalesce(excluded.receipt_status, payments.receipt_status),
+                 status = case
+                   when payments.status in ('refunded', 'partially_refunded')
+                     then payments.status
+                   else 'succeeded'
+                 end,
+                 updated_at = now()
+           returning *`,
+          [
+            invoice.org_id,
+            invoiceId,
+            connectionId ?? MANUAL_CONNECTION_ID,
+            providerPaymentId,
+            idempotencyKey,
+            value,
+            code,
+            receiptStatus,
+          ],
+        ));
+      }
 
       const { rows: paid } = await client.query(
         `update invoices
@@ -535,6 +575,42 @@ export const billingMoneyMethods = {
     );
     if (existing[0]) return mapAmount(existing[0]);
     throw new Error(`payment ${idempotencyKey} was not recorded`);
+  },
+
+  /**
+   * The provider's id for a payment the checkout just created. A later webhook or the
+   * hourly reconciliation finds the row by `(connection_id, provider_payment_id)`; without
+   * this column a notification could only be matched through `metadata.paymentId`.
+   */
+  async attachProviderPaymentId(paymentId, providerPaymentId) {
+    if (typeof providerPaymentId !== "string" || providerPaymentId.trim() === "") {
+      throw new TypeError("attachProviderPaymentId needs the provider's payment id");
+    }
+    const { rowCount } = await this.pool.query(
+      `update payments
+          set provider_payment_id = $2, updated_at = now()
+        where id = $1 and provider_payment_id is null`,
+      [paymentId, providerPaymentId.trim()],
+    );
+    return rowCount > 0;
+  },
+
+  /**
+   * `pending → canceled` and nothing else. A provider that reports a cancellation after
+   * a success must not un-pay an invoice (`spec/payment-providers.md` §5), so the row is
+   * changed only while it is still pending.
+   */
+  async cancelPayment({ paymentId, failureCode = null }) {
+    const { rows } = await this.pool.query(
+      `update payments
+          set status = 'canceled',
+              failure_code = coalesce($2, failure_code),
+              updated_at = now()
+        where id = $1 and status = 'pending'
+        returning *`,
+      [paymentId, failureCode],
+    );
+    return rows[0] ?? null;
   },
 
   /**

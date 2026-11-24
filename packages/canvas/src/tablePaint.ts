@@ -1,13 +1,17 @@
 import {
   headerLineHeight,
   headerText,
+  ink as inkOn,
+  inkFor,
   tableCellBorder,
   tableHeaderTextStyle,
   TABLE_HEADER_PADDING,
   type TableBorder,
   type Widget,
 } from "@remo/model";
+import { groundOfWidget } from "./ground";
 import type { CanvasPalette } from "./palette";
+import { fillWithHalo } from "./textPaint";
 import {
   cellFill,
   columnHeaderRect,
@@ -24,6 +28,23 @@ import {
  * title stays above. Fills are the named overrides; an absent fill leaves the frame's
  * panel showing.
  */
+
+/**
+ * The fill a table header band is painted with, by axis (ADR-196, ADR-267).
+ *
+ * The painter and the DOM field over the header both ask here, so the field opens in the
+ * ink of the band the text is painted on, not in the theme's (ADR-273 §2.4).
+ */
+export function tableHeaderGround(
+  frame: Widget,
+  kind: "column" | "row",
+  axisId: string,
+  palette: CanvasPalette,
+): string {
+  const appearance = frame.layout?.kind === "table" ? frame.layout.appearance : undefined;
+  const own = kind === "column" ? appearance?.columns?.[axisId] : appearance?.rows?.[axisId];
+  return own ?? appearance?.headers ?? appearance?.table ?? palette.tableHead;
+}
 
 /** A title shortened until it fits in one line, with an ellipsis. */
 function fitHeaderText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
@@ -92,14 +113,27 @@ export function drawTable(
   if (!grid) return;
 
   const appearance = layout.appearance;
-  const headerFill = appearance?.headers ?? appearance?.table ?? palette.hover;
+  // The body the table stands on, then its own fills: every line and header takes the ink
+  // of the surface it is actually painted on (ADR-273 §2.1).
+  const body = groundOfWidget(frame, palette);
+  const headerFill = appearance?.headers ?? appearance?.table ?? palette.tableHead;
   const tableFill = appearance?.table;
+  const tableGround = tableFill ?? body;
   const line = 1 / zoom;
   const headerStyle = tableHeaderTextStyle(layout);
+  // The mockup's default header is bold 700; an explicit weight still wins, and a
+  // header written before this change keeps its own appearance.
+  const explicitWeight = layout.appearance?.headerText?.weight;
   const headerWeight =
-    headerStyle.weight === "bold" ? 600 : headerStyle.weight === "medium" ? 500 : 400;
+    explicitWeight === "bold"
+      ? 700
+      : explicitWeight === "medium"
+        ? 500
+        : explicitWeight === "regular"
+          ? 400
+          : 700;
   const headerFont = `${headerStyle.italic ? "italic " : ""}${headerWeight} ${headerStyle.size}px ${fontFamily}`;
-  const headerColor = headerStyle.color ?? palette.textSecondary;
+  const haloWidth = 1.5 / zoom;
   const headerLine = headerLineHeight(headerStyle.size);
   const borders = appearance?.borders;
   const stroke = (border: TableBorder | undefined, fallback: string, fallbackWidth = 1) => {
@@ -128,13 +162,17 @@ export function drawTable(
     const rect = columnHeaderRect(grid, column.axis.id)!;
     ctx.fillStyle = appearance?.columns?.[column.axis.id] ?? headerFill;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    const headerGround = tableHeaderGround(frame, "column", column.axis.id, palette);
     const border =
       borders?.columns?.[column.axis.id] ?? borders?.headers ?? borders?.table;
-    if (stroke(border, palette.borderSubtle)) ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    if (stroke(border, inkOn(headerGround, "line"))) {
+      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    }
     resetStroke();
 
     const text = headerText(column.axis.title);
-    ctx.fillStyle = headerColor;
+    const headerInk = inkFor(headerGround, headerStyle.color);
+    ctx.fillStyle = headerInk.color;
     ctx.font = headerFont;
     if (column.axis.vertical) {
       ctx.save();
@@ -147,10 +185,13 @@ export function drawTable(
       const lineHeight = headerLine;
       const lines = text.split("\n");
       lines.forEach((line, index) =>
-        ctx.fillText(
+        fillWithHalo(
+          ctx,
           fitHeaderText(ctx, line, rect.height - TABLE_HEADER_PADDING * 2),
           0,
           (index - (lines.length - 1) / 2) * lineHeight,
+          headerInk.halo,
+          haloWidth,
         ),
       );
       ctx.restore();
@@ -176,7 +217,7 @@ export function drawTable(
             ? rect.x + rect.width - TABLE_HEADER_PADDING
             : rect.x + TABLE_HEADER_PADDING;
       lines.forEach((line, index) =>
-        ctx.fillText(line, textX, start + index * lineHeight),
+        fillWithHalo(ctx, line, textX, start + index * lineHeight, headerInk.halo, haloWidth),
       );
     }
   }
@@ -185,10 +226,14 @@ export function drawTable(
     const rect = rowHeaderRect(grid, row.axis.id)!;
     ctx.fillStyle = appearance?.rows?.[row.axis.id] ?? headerFill;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    const rowGround = tableHeaderGround(frame, "row", row.axis.id, palette);
     const border = borders?.rows?.[row.axis.id] ?? borders?.headers ?? borders?.table;
-    if (stroke(border, palette.borderSubtle)) ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    if (stroke(border, inkOn(rowGround, "line"))) {
+      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    }
     resetStroke();
-    ctx.fillStyle = headerColor;
+    const rowInk = inkFor(rowGround, headerStyle.color);
+    ctx.fillStyle = rowInk.color;
     ctx.font = headerFont;
     const text = headerText(row.axis.title);
     if (row.axis.vertical) {
@@ -200,10 +245,13 @@ export function drawTable(
       const lineHeight = headerLine;
       const lines = text.split("\n");
       lines.forEach((line, index) =>
-        ctx.fillText(
+        fillWithHalo(
+          ctx,
           fitHeaderText(ctx, line, rect.height - TABLE_HEADER_PADDING * 2),
           0,
           (index - (lines.length - 1) / 2) * lineHeight,
+          rowInk.halo,
+          haloWidth,
         ),
       );
       ctx.restore();
@@ -229,7 +277,7 @@ export function drawTable(
             ? rect.x + rect.width - TABLE_HEADER_PADDING
             : rect.x + TABLE_HEADER_PADDING;
       lines.forEach((line, index) =>
-        ctx.fillText(line, textX, start + index * lineHeight),
+        fillWithHalo(ctx, line, textX, start + index * lineHeight, rowInk.halo, haloWidth),
       );
     }
   }
@@ -237,7 +285,7 @@ export function drawTable(
   const corner = cornerRect(grid);
   ctx.fillStyle = headerFill;
   ctx.fillRect(corner.x, corner.y, corner.width, corner.height);
-  if (stroke(borders?.headers ?? borders?.table, palette.borderSubtle)) {
+  if (stroke(borders?.headers ?? borders?.table, inkOn(headerFill, "line"))) {
     ctx.strokeRect(corner.x, corner.y, corner.width, corner.height);
   }
   resetStroke();
@@ -249,15 +297,15 @@ export function drawTable(
       ctx.fillRect(cell.rect.x, cell.rect.y, cell.rect.width, cell.rect.height);
     }
     const border = tableCellBorder(layout, cell.rowId, cell.columnId);
-    if (stroke(border, palette.borderSubtle)) {
+    if (stroke(border, inkOn(fill ?? tableGround, "line"))) {
       ctx.strokeRect(cell.rect.x, cell.rect.y, cell.rect.width, cell.rect.height);
     }
     resetStroke();
   }
 
-  // The outer edge is stronger than the inner grid, so a table reads as one object; a
-  // table-level border replaces that emphasis (ADR-208).
-  if (stroke(borders?.table, palette.borderStrong)) {
+  // The outer edge is the object's ink at 1.5 px, stronger than the inner grid, so a
+  // table reads as one object; a table-level border replaces that emphasis (ADR-208).
+  if (stroke(borders?.table, inkOn(tableGround, "lineStrong"), 1.5)) {
     ctx.strokeRect(grid.origin.x, grid.origin.y, grid.width, grid.height);
   }
   ctx.restore();

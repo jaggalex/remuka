@@ -46,7 +46,8 @@ export function setStickyColor(board: BoardDocument, ids: string[], color: strin
  */
 export interface ShapeStylePatch {
   fillColor?: string;
-  strokeColor?: string;
+  /** Null restores Auto: the outline takes the ink of the shape's ground (ADR-273). */
+  strokeColor?: string | null;
   strokeWidth?: number;
   /** Solid or dashed outline; the painter reads it like a connector's dash (ADR-120). */
   strokeStyle?: "normal" | "dashed" | "dotted";
@@ -62,7 +63,11 @@ export function setShapeStyle(
       const widget = board.readWidget(id);
       if (!widget || widget.type !== "shape") continue;
       if (widget.locked) continue;
-      board.widgets.set(id, { ...widget, style: { ...widget.style, ...patch } });
+      const { strokeColor, ...rest } = patch;
+      const style = { ...widget.style, ...rest };
+      if (strokeColor === null) delete style.strokeColor;
+      else if (strokeColor !== undefined) style.strokeColor = strokeColor;
+      board.widgets.set(id, { ...widget, style });
     }
   });
 }

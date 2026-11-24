@@ -9,7 +9,7 @@ import { cx, forced, type Forced } from "./util";
 export type MenuItem =
   | { separator: true }
   | { heading: string }
-  | { label: string; icon?: IconName; shortcut?: string[]; hint?: string; checked?: boolean; disabled?: boolean; danger?: boolean; submenu?: boolean; force?: Forced; onSelect?: () => void };
+  | { label: string; icon?: IconName; shortcut?: string[]; hint?: string; checked?: boolean; disabled?: boolean; danger?: boolean; submenu?: boolean; force?: Forced; /** The registry id the row runs (ADR-050): a row without one is a defect. */ commandId?: string; onSelect?: () => void };
 
 /**
  * Menu and context menu are one component (right click and Shift+F10 open the same).
@@ -35,6 +35,7 @@ export function Menu({ items, label, width, onClose, children }: { items: MenuIt
         if ("heading" in it) return <div key={i} className="rm-menu-heading">{it.heading}</div>;
         return (
           <button key={i} type="button" role={it.checked != null ? "menuitemcheckbox" : "menuitem"} tabIndex={-1}
+            data-command={it.commandId}
             className={cx("rm-menu-item", it.danger && "is-danger", forced(it.force))}
             aria-checked={it.checked != null ? !!it.checked : undefined} aria-disabled={it.disabled || undefined}
             onClick={it.disabled ? undefined : it.onSelect}>

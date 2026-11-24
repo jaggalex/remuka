@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { patchWidget, type BoardDocument } from "@remo/doc";
-import type { Camera } from "@remo/canvas";
+import { FRAME_LABEL, type Camera, type CanvasPalette } from "@remo/canvas";
+import { ink as inkOn } from "@remo/model";
 import type { Widget } from "@remo/model";
 import { Icon, Menu, type MenuItem } from "@remo/ui";
 import { useI18n } from "./i18n";
 import { setSectionView } from "./sectionView";
+import { closeFrameLabelEdit, useFrameLabelEdit } from "./frameLabelEditStore";
 
 /**
  * The section title and the view badge on the canvas (ADR-207).
@@ -23,6 +25,7 @@ export function SectionTitleLayer({
   presenting,
   onSelect,
   onNotice,
+  palette,
 }: {
   board: BoardDocument;
   widgets: Widget[];
@@ -33,11 +36,23 @@ export function SectionTitleLayer({
   presenting: boolean;
   onSelect: (ids: string[]) => void;
   onNotice?: (text: string) => void;
+  /** The canvas palette: an empty label's placeholder is the canvas ground's ink. */
+  palette: CanvasPalette;
 }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null);
   const [menu, setMenu] = useState<{ frame: Widget; x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const labelRequest = useFrameLabelEdit();
+
+  useEffect(() => {
+    if (!labelRequest) return;
+    closeFrameLabelEdit();
+    const frame = widgets.find((widget) => widget.id === labelRequest && widget.type === "frame");
+    if (!frame || readOnly || frame.locked) return;
+    onSelect([frame.id]);
+    setEditing({ id: frame.id, draft: frame.title ?? "" });
+  }, [labelRequest, onSelect, readOnly, widgets]);
 
   useEffect(() => {
     if (!editing) return;
@@ -96,11 +111,21 @@ export function SectionTitleLayer({
           const table = frame.layout?.kind === "table" && frame.layout.active !== false;
           const title = frame.title?.trim() ?? "";
           const isEditing = editing?.id === frame.id;
+          // The control sits exactly over the painted plate (ADR-267): the canvas draws
+          // the name in the export, and this invisible button gives it focus and a field.
+          const labelHeight = FRAME_LABEL.height * camera.zoom;
+          const labelTop = top - (FRAME_LABEL.height - FRAME_LABEL.gap) * camera.zoom;
           return (
             <div
               key={frame.id}
               className={`section-title-strip${selected ? " is-selected" : ""}`}
-              style={{ left, top: top - 26 }}
+              style={{
+                left,
+                top: labelTop,
+                height: Math.max(labelHeight, 20),
+                // The placeholder sits above the frame, on the canvas ground (ADR-273).
+                ["--ink" as string]: inkOn(palette.canvas, "muted"),
+              }}
             >
               {isEditing ? (
                 <input
@@ -126,21 +151,12 @@ export function SectionTitleLayer({
               ) : (
                 <button
                   type="button"
-                  className={`section-title${title ? "" : " is-empty"}`}
+                  className={`section-title${title ? " is-inked" : " is-empty"}`}
+                  style={title ? { height: Math.max(labelHeight, 20), fontSize: 13 * camera.zoom } : undefined}
                   aria-label={t("section.title.rename")}
                   title={title || undefined}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (event.detail > 1) {
-                      if (!readOnly && !frame.locked) {
-                        setEditing({ id: frame.id, draft: title });
-                      }
-                      return;
-                    }
-                    onSelect([frame.id]);
-                  }}
                   onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== "F2") return;
+                    if (event.key !== "Enter" && event.key !== "F2" && event.key !== " ") return;
                     event.preventDefault();
                     if (readOnly || frame.locked) return;
                     setEditing({ id: frame.id, draft: title });

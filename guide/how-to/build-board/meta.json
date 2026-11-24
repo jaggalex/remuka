@@ -21,8 +21,8 @@
   "updated": "2026-11-22",
   "translations": {
     "en": {
-      "sourceHash": "sha256:2703ca044cff4f0f4d53759fdca69983414319e9045c40d4ba63998431c0947e",
-      "targetHash": "sha256:1027364ae2bf133e0bf61f5dfc8c2b73ea3710c3afef7e3a7433df31b11fe6c2"
+      "sourceHash": "sha256:78ac4c3e1337f6b99c3ba01cc756e10161bf11a4cf212a3abb744f59fda0d158",
+      "targetHash": "sha256:b2c378c0a4d8fda2f90db74d7ff0b654432c20dacb7c39258461ee9d5b40d199"
     }
   }
 }

@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
-import { openBoard, register, savedAfterEdit, seedNote, watchSave } from "./helpers";
+import { 
+test, expect, type Page } from "@playwright/test";
+import { openBoard, register, savedAfterEdit, seedNote, watchSave, ensureProperties } from "./helpers";
 
 interface Point {
   x: number;
@@ -91,7 +92,7 @@ test("a named group keeps its label after reload", async ({ page }) => {
   // Grouping lives on the multi-selection bar in front of the selection (ADR-120);
   // the inspector's button is the same command from the side panel.
   await page.locator(".arrange-bar").getByRole("button", { name: "Group", exact: true }).click();
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const field = page.getByRole("textbox", { name: "Group name" });
   await watchSave(page);
   await expect(field).toBeVisible();
@@ -100,7 +101,7 @@ test("a named group keeps its label after reload", async ({ page }) => {
   await savedAfterEdit(page);
 
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect
     .poll(() =>
       page.evaluate(

@@ -15,6 +15,7 @@ import { handleFakeBilling } from "./billing-fake-api.mjs";
 import { checkPromo, handleCheckoutRoutes } from "./billing-checkout-api.mjs";
 import { handleSubscriptionRoutes } from "./billing-subscription-api.mjs";
 import { PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
+import { isStage } from "./stage.mjs";
 import { handlePaymentWebhook } from "./payment-webhooks.mjs";
 import { PAID_PLANS, billingCurrencies } from "../../scripts/billing-prices.mjs";
 import { fail, json, sessionFromRequest } from "./iam-http.mjs";
@@ -82,6 +83,20 @@ export function hasCompletePriceList(prices, currency, { plans = PAID_PLANS, int
       .map((price) => `${price.plan}/${price.interval}`),
   );
   return plans.every((plan) => intervals.every((interval) => available.has(`${plan}/${interval}`)));
+}
+
+/**
+ * The groups a currency may offer. A stand adds the test connections to the live ones
+ * (ADR-280): `--mode live` is refused there, so a test connection is the only way to pay.
+ * Live order wins, a group served by both appears once, and production calls this with
+ * only the live list — the test read does not even happen.
+ */
+export function mergedMethodGroups(live, test) {
+  const groups = [...live];
+  for (const group of test) {
+    if (!groups.includes(group)) groups.push(group);
+  }
+  return groups;
 }
 
 /**
@@ -222,11 +237,17 @@ export async function handleBilling({
     }
 
     const prices = await store.listPrices({});
+    const stage = isStage(env);
     const methodGroups = {};
     for (const currency of currencies) {
-      // The public catalogue is for new buyers, so it offers live routes only: a test
-      // connection must never appear as a way to pay real money.
-      methodGroups[currency] = await store.methodGroupsFor({ currency, testMode: false });
+      // The public catalogue is for new buyers, so a production installation offers live
+      // routes only: a test connection must never appear as a way to pay real money.
+      // A stand is the one exception (ADR-280): it refuses live payments, so its showcase
+      // adds the test connections or no paid plan would ever be visible there.
+      const live = await store.methodGroupsFor({ currency, testMode: false });
+      methodGroups[currency] = stage
+        ? mergedMethodGroups(live, await store.methodGroupsFor({ currency, testMode: true }))
+        : live;
     }
     json(response, 200, buildCatalog({ currencies, prices, methodGroups }));
     return true;
@@ -301,7 +322,7 @@ export async function handleBilling({
     return true;
   }
 
-  if (rest !== "" && (await handleCheckoutRoutes({ request, response, url, store, orgId, rest }))) {
+  if (rest !== "" && (await handleCheckoutRoutes({ request, response, url, store, orgId, rest, env }))) {
     return true;
   }
 

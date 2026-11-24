@@ -7,6 +7,7 @@ import {
   TONES,
   FILL_LEVELS,
   PREVIOUS_FILL_LEVELS,
+  PREVIOUS_FILL_LEVELS_182,
   TONE_LEVELS,
   colorAt,
   colorsForLevels,
@@ -86,21 +87,24 @@ describe("the tonal palette (ADR-127)", () => {
 
   it("finds an exact value, ignoring case and stray whitespace", () => {
     const yellow = { color: colorAt("yellow", 100), exact: true, previous: false, distance: 0 };
-    expect(matchColor("#ece2c8")).toEqual(yellow);
-    expect(matchColor(" #ECE2C8 ")).toEqual(yellow);
+    expect(matchColor("#f4e0a8")).toEqual(yellow);
+    expect(matchColor(" #F4E0A8 ")).toEqual(yellow);
     expect(isPaletteColor("#8a35d6")).toBe(true);
   });
 
-  it("reads a fill painted before ADR-182 as its entry, without offering it", () => {
-    for (const tone of TONES) {
-      for (const level of FILL_LEVELS) {
-        const old = PREVIOUS_FILL_LEVELS[tone][level];
-        expect(matchColor(old)).toEqual({ color: colorAt(tone, level), exact: true, previous: true, distance: 0 });
-        expect(paletteValue(old)).toBe(TONE_LEVELS[tone][level]);
-        // Never a swatch: choosing one writes the new value (ADR-127 forbids rewriting).
-        expect(isPaletteColor(old)).toBe(false);
-        expect(COLOR_LEVELS.some((color) => color.hex === old)).toBe(false);
-        expect(isLegacyColor(old)).toBe(false);
+  it("reads a fill painted with a previous palette as its entry, without offering it", () => {
+    for (const table of [PREVIOUS_FILL_LEVELS_182, PREVIOUS_FILL_LEVELS]) {
+      for (const tone of TONES) {
+        for (const level of FILL_LEVELS) {
+          const old = table[tone][level];
+          if (old === TONE_LEVELS[tone][level]) continue; // grey did not change
+          expect(matchColor(old)).toEqual({ color: colorAt(tone, level), exact: true, previous: true, distance: 0 });
+          expect(paletteValue(old)).toBe(TONE_LEVELS[tone][level]);
+          // Never a swatch: choosing one writes the current value (ADR-127 forbids rewriting).
+          expect(isPaletteColor(old)).toBe(false);
+          expect(COLOR_LEVELS.some((color) => color.hex === old)).toBe(false);
+          expect(isLegacyColor(old)).toBe(false);
+        }
       }
     }
     expect(paletteValue(TONE_LEVELS.blue[600])).toBe(TONE_LEVELS.blue[600]);
@@ -108,17 +112,28 @@ describe("the tonal palette (ADR-127)", () => {
     expect(paletteValue("nonsense")).toBeNull();
   });
 
-  it("keeps ink readable on every fill (ADR-182: 6.98:1 at worst, orange 300)", () => {
+  it("keeps a value that did not change a swatch, not a memory of one", () => {
+    // Grey's rows are the same before and after ADR-267: the window must ring them.
+    expect(isPaletteColor(TONE_LEVELS.grey[100])).toBe(true);
+    expect(matchColor(TONE_LEVELS.grey[300])).toEqual({
+      color: colorAt("grey", 300),
+      exact: true,
+      previous: false,
+      distance: 0,
+    });
+  });
+
+  it("keeps ink readable on every fill (ADR-267: 6.81:1 at worst, orange 300)", () => {
     for (const color of colorsForLevels(FILL_LEVELS)) {
-      expect(contrast(color.hex, "#1e2136"), color.hex).toBeGreaterThanOrEqual(6.97);
+      expect(contrast(color.hex, "#1e2136"), color.hex).toBeGreaterThanOrEqual(6.8);
     }
   });
 
   it("finds the nearest value for a colour the palette does not contain", () => {
     // A fill from the old palette: no exact entry, closest is the pale orange.
-    const old = matchColor("#f8d3af");
+    const old = matchColor("#fe9f4d");
     expect(old?.exact).toBe(false);
-    expect(old?.color).toEqual(colorAt("orange", 100));
+    expect(old?.color).toEqual(colorAt("orange", 300));
     expect(old?.distance).toBeGreaterThan(0);
 
     // A dark grey has no exact entry: the model answers the nearest one rather than invent.

@@ -125,8 +125,6 @@ export function useBoardAppState() {
     synced,
     saveState,
     visiblePresence,
-    saveLabel,
-    saveTitle,
   } = useBoardSession({ board, identity, accountId: me?.id ?? null, accountHandle: me?.handle ?? null, access, refreshAccess,
     setNotice: showNotice, t });
   // Two different reasons stop writes: access, and the offline queue limit.
@@ -602,8 +600,6 @@ export function useBoardAppState() {
     synced,
     saveState,
     visiblePresence,
-    saveLabel,
-    saveTitle,
     writeBlocked,
     roomAgent,
     vote,

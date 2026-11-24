@@ -136,8 +136,10 @@ describe("the note bar", () => {
       settings: DEFAULT_SETTINGS,
       marks: null,
     })!;
-    expect(light.ink).toBe("#1a1a1a");
-    expect(dark.ink).toBe("#ffffff");
+    // Ink is derived from the sheet, not from the theme: dark ink on yellow paper,
+    // paper on a near-black sheet (ADR-273 §2.2).
+    expect(light.ink).toBe("#1e2136");
+    expect(dark.ink).toBe("#fbf3df");
   });
 });
 
@@ -218,7 +220,8 @@ describe("the arrange bar", () => {
       resolve: resolveWith(widgets),
     })!;
     expect(target.canArrange).toBe(false);
-    expect(target.colour).toEqual({ role: "line", value: "#1a1a1a", mixed: false });
+    // A line with no stored colour is Auto, and two Auto lines share that answer.
+    expect(target.colour).toEqual({ role: "line", value: "", mixed: false });
   });
 
   it("ignores cards as units of their own", () => {

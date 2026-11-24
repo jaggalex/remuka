@@ -2,12 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
 import { paintOrder, type Widget, type WidgetType } from "@remo/model";
 import {
+  CHROME_COMMANDS,
+  chromeCommandsFor,
   commandById,
   commandForShortcut,
+  commandGroup,
   commandsFor,
   isGroupable,
+  menuCommands,
+  reactionCommands,
+  registryCommand,
   selectionHasGroup,
+  type ChromeContext,
   type CommandContext,
+  type CommandIntent,
 } from "./commands";
 
 /**
@@ -253,6 +261,103 @@ describe("shortcuts", () => {
     // Grouping claims the key even when it would do nothing, so the browser's
     // "find next" never opens by accident.
     expect(commandForShortcut(key("g", { mod: true }), contextFor(board))?.id).toBe("group");
+  });
+});
+
+/**
+ * The chrome half of the registry (ADR-266 §1.1, T5 acceptance).
+ *
+ * Every row of every header menu has to be a command here: that is what keeps the
+ * menu and the future ⌘K search from drifting. The checks run over the registry, not
+ * over a component, so adding a menu row by hand fails before a browser opens.
+ */
+describe("the chrome registry", () => {
+  const allOn: ChromeContext = {
+    can: {
+      rename: true,
+      export: true,
+      import: true,
+      duplicate: true,
+      delete: true,
+      access: true,
+      facilitate: true,
+      agents: true,
+      askAgents: true,
+      apps: true,
+      signedIn: true,
+      support: true,
+      templates: true,
+    },
+    run: vi.fn(),
+  };
+
+  it("has one id per command, a title and RU/EN synonyms", () => {
+    const ids = CHROME_COMMANDS.map((command) => command.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const command of CHROME_COMMANDS) {
+      expect(command.title, command.id).toBeTruthy();
+      expect(command.synonyms.ru.length, `${command.id} ru`).toBeGreaterThan(0);
+      expect(command.synonyms.en.length, `${command.id} en`).toBeGreaterThan(0);
+      expect(command.surfaces, command.id).toContain("header");
+      expect(command.surfaces, command.id).toContain("palette");
+    }
+  });
+
+  it("builds each intent menu from registry entries only", () => {
+    const intents: CommandIntent[] = ["room", "run", "agent", "account", "help"];
+    for (const intent of intents) {
+      const menu = menuCommands([intent], allOn);
+      expect(menu.length, intent).toBeGreaterThan(0);
+      for (const command of menu) {
+        expect(registryCommand(command.id), `${intent}: ${command.id}`).toBe(command);
+        expect(command.intent, command.id).toBe(intent);
+      }
+    }
+  });
+
+  it("keeps a menu group at seven rows and puts danger last", () => {
+    const menu = menuCommands(["room"], allOn);
+    const groups = new Map<string, number>();
+    for (const command of menu) {
+      const group = commandGroup(command);
+      groups.set(group, (groups.get(group) ?? 0) + 1);
+    }
+    for (const [group, count] of groups) expect(count, group).toBeLessThanOrEqual(7);
+    expect(commandGroup(menu[menu.length - 1]!)).toBe("danger");
+    expect(menu[menu.length - 1]!.danger).toBe(true);
+  });
+
+  it("offers every chrome command the account menu needs, and the reactions", () => {
+    const account = menuCommands(["account", "help"], allOn);
+    const ids = account.map((command) => command.id);
+    for (const id of [
+      "account.allRooms",
+      "account.theme.light",
+      "account.theme.dark",
+      "account.lang.ru",
+      "account.lang.en",
+      "account.help",
+      "account.delete",
+      "account.signOut",
+    ]) {
+      expect(ids, id).toContain(id);
+    }
+    expect(reactionCommands().map((command) => command.id)).toContain("run.reaction.clap");
+    expect(chromeCommandsFor("account").every((command) => command.surfaces.includes("header"))).toBe(
+      true,
+    );
+  });
+
+  it("hides an unavailable row only when the command asks for it", () => {
+    const nothing: ChromeContext = { can: {}, run: vi.fn() };
+    const account = menuCommands(["account"], nothing);
+    expect(account.map((command) => command.id)).not.toContain("account.sessions");
+    // A row that stays is disabled and says why.
+    const room = menuCommands(["room"], nothing);
+    const trash = room.find((command) => command.id === "room.trash");
+    expect(trash).toBeUndefined();
+    const app = room.find((command) => command.id === "room.apps");
+    expect(app).toBeUndefined();
   });
 });
 

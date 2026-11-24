@@ -95,8 +95,6 @@ export function BoardApp() {
     synced,
     saveState,
     visiblePresence,
-    saveLabel,
-    saveTitle,
     writeBlocked,
     roomAgent,
     vote,
@@ -312,6 +310,8 @@ export function BoardApp() {
         setTitleDraft={setTitleDraft}
         titleCancelled={titleCancelled}
         renameBoard={renameBoard}
+        boardId={currentRoom()}
+        role={access?.role ?? null}
         writeBlocked={writeBlocked}
         readOnly={readOnly}
         onOpenHome={openHome}
@@ -337,19 +337,21 @@ export function BoardApp() {
         onTrash={() => setTrashOpen(true)}
         onReplace={replaceBoard}
         voteRunning={vote.running}
+        voteTotal={vote.active?.votes.reduce((total, entry) => total + entry.votes, 0) ?? 0}
         timerRunning={currentTimerPhase === "running"}
+        timerLeft={timerLeft}
         setVoteOpen={setVoteOpen}
         setTimerOpen={setTimerOpen}
         setFollowOpen={setFollowOpen}
         setAgentOpen={setAgentOpen}
         {...roomAgent.barProps}
+        onOpenAgentSettings={() => openAccount("agents")}
         setAppsOpen={setAppsOpen}
         onReact={react}
         follow={follow}
         toggleFollow={toggleFollow}
         myFollowers={myFollowers}
         otherPeers={otherPeers}
-        followOpen={followOpen}
         visiblePresence={visiblePresence}
         me={me}
         identity={identity}
@@ -357,8 +359,8 @@ export function BoardApp() {
         setAccountOpen={(value) => (value ? openAccount("people") : setAccountOpen(false))}
         setAuthOpen={setAuthOpen}
         onSignOut={() => void signOutAndForgetName()}
-        saveState={saveState} saveLabel={saveLabel} saveTitle={saveTitle}
-        inspectorOpen={inspectorOpen} toggleInspector={toggleInspector}
+        saveState={saveState}
+        toggleInspector={toggleInspector}
         addTemplate={addTemplate}
         templateRequest={templateRequest}
       />

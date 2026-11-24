@@ -81,3 +81,14 @@
 .context-menu-swatch[aria-checked="true"] {
   box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--selection-stroke);
 }
+
+/* "Same as the column": a named choice under the grid, marked while the card has no
+   colour of its own (ADR-267 §2.1). */
+.context-menu-swatch-reset {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+
+.context-menu-swatch-reset[aria-checked="true"] {
+  font-weight: 600;
+}

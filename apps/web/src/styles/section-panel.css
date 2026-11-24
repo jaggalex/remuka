@@ -242,7 +242,9 @@
   border: 1.5px solid var(--border-focus);
   border-radius: var(--radius-sm);
   background: var(--bg-panel);
-  color: var(--text-primary);
+  /* The band's own ink arrives inline as --ink (ADR-273 §2.4); the fallback is the
+     content ink a kanban title sits on in both themes. */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   outline: none;
 }
@@ -563,12 +565,13 @@
 }
 
 .section-title {
-  pointer-events: auto;
+  pointer-events: none;
   max-width: 320px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-secondary);
+  /* The placeholder lies on the canvas ground, so its ink is the canvas's (ADR-273). */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   text-align: left;
   white-space: nowrap;
@@ -577,8 +580,14 @@
   cursor: text;
 }
 
+/* A named frame's name is painted on the canvas, in the export too (ADR-267); this
+   button is the same rectangle made focusable, so its own text stays invisible. */
+.section-title.is-inked {
+  color: transparent;
+}
+
 .section-title-strip.is-selected .section-title {
-  color: var(--text-primary);
+  color: var(--ink, var(--sticker-ink));
 }
 
 .section-title.is-empty {
@@ -606,7 +615,8 @@
   border: 1.5px solid var(--border-focus);
   border-radius: var(--radius-sm);
   background: var(--bg-panel);
-  color: var(--text-primary);
+  /* The strip above sets --ink to the canvas ground's ink (ADR-273 §2.4). */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   outline: none;
 }

@@ -1,7 +1,7 @@
 /* REMO theme “light” — generated from tokens.json by scripts/build-tokens.mjs. Do not edit. */
 :root, [data-theme="light"] {
-  --bg-canvas: var(--neutral-25);
-  --bg-app: var(--neutral-25);
+  --bg-canvas: var(--paper-cream-50);
+  --bg-app: var(--paper-cream-50);
   --bg-panel: var(--neutral-0);
   --bg-raised: var(--neutral-0);
   --bg-qr: var(--neutral-0);
@@ -21,8 +21,8 @@
   --text-on-scrim: var(--neutral-0);
   --text-accent: var(--accent-700);
   --text-danger: var(--danger-700);
-  --text-agent: var(--neutral-900);
-  --border-subtle: var(--neutral-150);
+  --text-agent: var(--violet-700);
+  --border-subtle: var(--paper-cream-150);
   --border-strong: var(--neutral-400);
   --border-focus: var(--accent-600);
   --accent: var(--neutral-900);
@@ -32,7 +32,7 @@
   --danger: var(--danger-600);
   --danger-hover: var(--danger-700);
   --danger-soft: var(--danger-50);
-  --agent-soft: var(--neutral-100);
+  --agent-soft: var(--violet-50);
   --text-on-danger: var(--neutral-0);
   --state-success: var(--success-700);
   --success-soft: var(--success-50);
@@ -51,19 +51,34 @@
   --presence-5: var(--green-600);
   --presence-6: var(--ochre-600);
   --text-on-presence: var(--neutral-0);
+  --canvas-object-ink: var(--neutral-900);
+  --canvas-object-ink-text: var(--neutral-0);
+  --canvas-kanban-ground: var(--paper-green-100);
+  --canvas-object-paper: var(--paper-cream-25);
+  --canvas-table-head: var(--paper-cream-50);
+  --canvas-line-soft: var(--paper-cream-150);
   --canvas-raise-cast: var(--alpha-ink-14);
   --canvas-float-cast: var(--alpha-ink-20);
-  --agent: var(--neutral-900);
-  --agent-hatch: var(--neutral-50);
-  --agent-proposal: var(--neutral-400);
+  --agent: var(--violet-600);
+  --agent-hatch: var(--violet-50);
   --border-panel: var(--neutral-900);
   --text-on-agent: var(--neutral-0);
   --selection-edit: var(--neutral-900);
-  --shadow-pop: var(--elev-pop-light);
-  --shadow-bar: var(--elev-bar-light);
+  --bg-dialog: var(--paper-cream-25);
+  --accent-cta: var(--orange-300);
+  --accent-cta-hover: var(--orange-400);
+  --text-on-cta: var(--neutral-900);
+  --border-ink: var(--neutral-900);
+  --accent-chosen: var(--ochre-300);
+  --shadow-pop: var(--elev-hard-m-light);
+  --shadow-bar: var(--elev-hard-m-light);
   --shadow-sticker: var(--elev-sticker-light);
   --shadow-sticker-hover: var(--elev-sticker-hover-light);
   --shadow-hover: var(--elev-hover-light);
   --shadow-edit: var(--elev-edit-light);
+  --shadow-hard-s: var(--elev-hard-s-light);
+  --shadow-card: var(--elev-hard-m-light);
+  --shadow-cta: var(--elev-hard-l-light);
+  --shadow-dialog: var(--elev-hard-xl-light);
 }
 :root { color-scheme: light; }

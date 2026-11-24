@@ -34,9 +34,19 @@
 .topbar-mark {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar-mark:hover,
+.topbar-mark:focus-visible {
+  background: var(--bg-hover);
 }
 
 /* The logo itself, not a badge around it (ADR-181): same mark as the home page. */
@@ -45,27 +55,19 @@
   height: 26px;
 }
 
+/* The organisation path is part of the room's menu button, not a second control. */
 .topbar-path {
   min-width: 0;
-  max-width: 220px;
+  max-width: 180px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  padding-left: var(--space-1);
-  /* The path reads as the page title, as on reference 1: organisation muted, room in ink. */
   font: var(--type-path);
   color: var(--text-muted);
 }
 
-.topbar-path-button {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.topbar-path-button:hover {
-  color: var(--text-primary);
+.topbar-path-slash {
+  opacity: 0.7;
 }
 
 .board-title {
@@ -92,7 +94,8 @@
 }
 
 .board-title-button {
-  max-width: 260px;
+  /* Path and name share one button now; the old header had two controls with 220 + 260. */
+  max-width: 380px;
   font: var(--type-path);
   font-weight: 500;
 }
@@ -115,23 +118,216 @@
   min-width: 0;
 }
 
-.topbar-sync {
+.topbar-save {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0 var(--space-1);
+  min-width: 0;
 }
 
+/* Silence is the saved state (ADR-266 §3): the empty element takes no room. */
 .save-state {
-  display: inline-flex;
+  display: none;
   align-items: center;
   min-width: 0;
 }
 
-.topbar-presence {
+.save-state:not(:empty) {
+  display: inline-flex;
+}
+
+.save-state-text {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.save-state.is-offline .save-state-text {
+  background: var(--warning-soft);
+  color: var(--text-primary);
+}
+
+.save-state.is-blocked .save-state-text {
+  background: var(--danger-soft);
+  color: var(--text-danger);
+  white-space: normal;
+  max-width: 280px;
+}
+
+.save-state.is-saved .save-state-text {
+  background: var(--success-soft);
+  color: var(--state-success);
+}
+
+/* People: one control made of faces, up to four and a “+N”. */
+.people-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: var(--control-default);
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.people-trigger:hover,
+.people-trigger:focus-visible,
+.people-trigger[aria-expanded="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+
+.people-face {
+  display: inline-flex;
+  margin-left: -6px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 2px var(--bg-canvas);
+}
+
+.people-face:first-child {
+  margin-left: 0;
+}
+
+.people-more {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  margin-left: -6px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-ink);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.people-row {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.people-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.people-name {
+  font: var(--type-label);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-you,
+.people-handle {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.people-role {
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.people-watching {
+  margin: var(--space-2) 0 0;
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+/* Session states: a chip only while the session runs (ADR-266 amendment). */
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.session-chip:hover,
+.session-chip:focus-visible {
+  background: var(--bg-hover);
+}
+
+.session-chip.is-danger {
+  color: var(--text-danger);
+  border-color: var(--danger);
+}
+
+.agent-trigger {
+  border: 2px dashed var(--agent);
+  background: var(--agent-soft);
+  color: var(--text-agent);
+}
+
+.agent-trigger:hover,
+.agent-trigger:focus-visible,
+.agent-trigger[aria-expanded="true"] {
+  background: var(--agent-soft);
+  color: var(--text-agent);
+}
+
+.agent-trigger-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--agent);
+}
+
+.agent-trigger-dot.ready {
+  background: var(--state-success);
+}
+
+.topbar-invite .rm-btn-label {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
+}
+
+.topbar-templates-anchor {
+  position: absolute;
+  top: calc(var(--topbar-height) + var(--space-2));
+  left: 56px;
+  z-index: var(--z-popover);
+}
+
+.account-commands {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-command-wrap {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Every top-bar menu hangs under its own trigger; the app owns the position. */
@@ -162,7 +358,7 @@
   background: var(--accent);
 }
 
-.facilitation-trigger.is-live {
+.run-trigger.is-live {
   background: var(--accent-soft);
   color: var(--text-accent);
 }

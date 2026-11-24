@@ -10,7 +10,7 @@ A card should carry more than text: it has a status, an assignee and a date. The
 ## Steps
 
 1. Select a card. Result: the **Card fields** block appears on the **Properties** panel.
-2. Choose a status: **To do**, **In progress** or **Done**. Result: the card shows a coloured indicator and a label.
+2. Choose a status: **To do**, **In progress** or **Done**. Result: the card shows a status indicator and a label.
 3. Choose an assignee from the room's people. Result: the card shows the name; the email is not shown.
 4. Set **Start** and **Due**. Result: the card shows a date range; either field can stay empty.
 5. To clear a value, choose the empty status, Unassigned, or clear the date.

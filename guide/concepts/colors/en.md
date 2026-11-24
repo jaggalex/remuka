@@ -54,6 +54,14 @@ A key works when only objects with that role are selected: sticky notes and shap
 
 Named colours have no number: White, Black and Transparent are chosen with a button, not a key.
 
+## Auto: ink knows its paper
+
+**Auto** is the absence of a colour on the object. That is how a new text, label and line start: no colour is stored, and it is worked out from the surface under the object — the object's fill, the kanban or desk ground, the body of a section. On a light surface it is ink, on a dark one paper. So one document reads in both the light and the dark theme: an object's fills do not follow the theme, while text, counters, grid lines and icons adapt to them.
+
+Old objects carrying the former default colour — grey or near-black — read as **Auto**: the document is not rewritten, and nothing disappears on a dark background. If you chose that grey yourself, the window shows **Auto**; that is the accepted price for text that never vanishes.
+
+A colour a person chose stays theirs. If it almost disappears on its surface, the object gets a thin outline in the paper's ink, and the window says **"Hard to read on this background"** and offers **Auto** — one press and the colour is derived again.
+
 ## Custom colour
 
 When an object stores a value outside the palette — an old room's colour, for example — the window labels it **Custom colour** and shows the value below the grid. That is a label for the value, not a swatch to pick: only palette values can be chosen. The current colour is kept until you choose another: there is no migration, and the room is not repainted after the fact.

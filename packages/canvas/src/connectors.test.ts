@@ -554,7 +554,7 @@ describe("an arrow head meets its line cleanly (ADR-187)", () => {
   });
 
   it("grows with a thick line and keeps the default size at 2", () => {
-    expect(arrowHeadSize(2)).toBe(14);
+    expect(arrowHeadSize(2)).toBeCloseTo(16.8, 5);
     expect(arrowHeadSize(6)).toBeGreaterThan(arrowHeadSize(2));
   });
 

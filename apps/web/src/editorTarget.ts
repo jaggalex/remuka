@@ -1,5 +1,18 @@
-import { noteFontSizeFor, notePadding, textCapFor, textFloorFor, type Camera, type KanbanLayout, CARD_RADIUS } from "@remo/canvas";
 import {
+  CARD_RADIUS,
+  DEFAULT_PALETTE,
+  groundOfWidget,
+  noteFontSizeFor,
+  notePadding,
+  textCapFor,
+  textFloorFor,
+  type Camera,
+  type CanvasPalette,
+  type KanbanLayout,
+} from "@remo/canvas";
+import {
+  CARD_WHITE,
+  cardFillFor,
   inkFor,
   kindOf,
   stickyFill,
@@ -11,7 +24,7 @@ import type { EditorTarget } from "./InlineEditor";
 import { connectorEditorTarget } from "./connectorEditor";
 import { placementOfCard } from "./canvasGeometry";
 import type { BoardSettings } from "./settings";
-import { DEFAULT_FILL, DEFAULT_INK, DEFAULT_MUTED_INK } from "./objectDefaults";
+import { DEFAULT_FILL } from "./objectDefaults";
 
 /**
  * Where the inline editor sits and how it looks (ADR-038).
@@ -20,6 +33,16 @@ import { DEFAULT_FILL, DEFAULT_INK, DEFAULT_MUTED_INK } from "./objectDefaults";
  * padding and the same fill, or the caret sits at a different scale from the letters
  * around it. Kept out of the canvas component so the geometry has one home.
  */
+/** The accent of the column a card is in, for the fill the matrix paints it with. */
+function columnAccent(layouts: Map<string, KanbanLayout>, cardId: string): string | undefined {
+  for (const layout of layouts.values()) {
+    const placement = layout.placements.find((entry) => entry.cardId === cardId);
+    if (!placement) continue;
+    return layout.columns.find((column) => column.id === placement.columnId)?.accent;
+  }
+  return undefined;
+}
+
 export function editorTargetFor({
   editingId,
   widgets,
@@ -29,6 +52,7 @@ export function editorTargetFor({
   deltaOf,
   widgetById,
   rect,
+  palette,
 }: {
   editingId: string | null;
   widgets: Widget[];
@@ -38,6 +62,8 @@ export function editorTargetFor({
   deltaOf: (id: string) => TextDeltaOp[];
   widgetById: (id: string) => Widget | undefined;
   rect: DOMRect;
+  /** The canvas palette, so the editor opens in the ink the painter would use. */
+  palette?: CanvasPalette;
 }): EditorTarget | null {
   if (!editingId) return null;
   const widget = widgets.find((entry) => entry.id === editingId);
@@ -95,7 +121,12 @@ export function editorTargetFor({
       ) ?? 16);
 
   // The note's own fill and the ink that goes with it, so the editor shows the
-  // colours the text will really have (ADR-038).
+  // colours the text will really have (ADR-038). A card takes its column's fill, the
+  // same derived value the matrix paints (ADR-267 §2.1).
+  const cardFill =
+    widget.type === "card"
+      ? widget.style?.fillColor ?? cardFillFor(columnAccent(layouts, widget.id))
+      : CARD_WHITE;
   const fill =
     widget.type === "sticky_note"
       ? stickyFill(widget.style?.fillColor)
@@ -103,7 +134,13 @@ export function editorTargetFor({
         ? (widget.style?.fillColor ?? DEFAULT_FILL)
         : widget.type === "text"
           ? "transparent"
-          : DEFAULT_FILL;
+          : cardFill;
+  // Text has no fill of its own: it lies on the canvas or on the frame body it is in. A
+  // card lies on the fill the matrix derived, not on its empty stored style.
+  const ground = groundOfWidget(widget, palette ?? DEFAULT_PALETTE, {
+    fill: isCard ? cardFill : undefined,
+    resolve: widgetById,
+  });
 
   return {
     id: widget.id,
@@ -125,12 +162,12 @@ export function editorTargetFor({
     richBlocks: kindOf(widget.type).richBlocks,
     fontWeight: widget.style?.fontSize && widget.style.fontSize > 24 ? 700 : 400,
     fill,
-    ink:
-      widget.type === "text"
-        ? (widget.style?.color ?? DEFAULT_INK)
-        : isCard
-          ? DEFAULT_MUTED_INK
-          : inkFor(fill, widget.style?.textColor),
+    // The caret and the letters must be the painter's ink, never the theme's (ADR-273):
+    // a black text on the dark canvas opens as a black editor with its halo colour.
+    ink: inkFor(
+      ground,
+      widget.type === "text" ? widget.style?.color : widget.style?.textColor,
+    ).color,
     // The editor takes the shape of what it edits: a card is a sheet with CARD_RADIUS (ADR-234).
     radius: isCard ? CARD_RADIUS : widget.type === "sticky_note" ? 3 : 2,
   };

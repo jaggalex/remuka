@@ -16,7 +16,7 @@ You have a description — a brief, a list of stories, a file or selected sticky
 
 ## Steps
 
-1. In the room open **More (⋯) → Ask AI…**.
+1. In the room open **Agent ▾ → Ask the agent…**.
 2. Choose an agent. The list shows only your active agents.
 3. Choose a source. The task text is always there; a file and a selection are added to it.
 
@@ -78,7 +78,7 @@ Task text, a file and the room are data, never instructions. The model cannot ch
 
 | Symptom | Cause |
 |---|---|
-| No Ask AI… item | you are a viewer, a commenter, a public-link visitor, or you are not signed in |
+| No Ask the agent… item | you are a viewer, a commenter, a public-link visitor, or you are not signed in |
 | `AGENT_DENIED` | the agent is off, you lost access to the room, or agents are off in the organisation or in the room |
 | `BUDGET_REQUIRED` | the task has no budget |
 | No preview, the task stays queued | no provider key is configured; the task runs once the key appears |

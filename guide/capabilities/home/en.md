@@ -17,7 +17,7 @@ its room are left behind instead of becoming a filter over an open canvas.
 
 ## How it works
 
-1. **All rooms** in the room header, or the organisation name, opens the home.
+1. The account menu → **All rooms**, or the organisation name, opens the home.
 2. The **Organisation** field switches context. The personal organisation carries the
    **Personal** badge; every account has one, even a person working alone.
 3. Search looks at the room name. Sort by updated, created, name or author; the arrow

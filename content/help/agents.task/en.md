@@ -9,7 +9,7 @@ An agent does a task in the room on your behalf. There are four scenarios, and t
 
 ## Who can ask
 
-- **An account with edit rights.** The Ask AI… item in the More (⋯) menu is shown only to someone who can change the room: an editor, a co-owner or the owner.
+- **An account with edit rights.** The Ask the agent… item in the the room menu menu is shown only to someone who can change the room: an editor, a co-owner or the owner.
 - **A public-link visitor** gets no AI entry: a link is a view grant, and an agent needs an account to act for. Even when you are signed in, if the only access to this room is the link, AI stays closed.
 - **A viewer or commenter** can watch the room but cannot ask an agent: edit rights come first.
 
@@ -36,7 +36,7 @@ A key is access to the provider budget. Create a separate key for Remuka with a 
 
 ## Steps
 
-1. Open More (⋯) and choose Ask AI…
+1. Open the room menu and choose Ask the agent…
 2. Choose an agent and a skill. Brief to room is selected by default; the list shows only skills compatible with the task and the selection, plus Auto. Auto picks a skill from the wording of the task.
 3. Check the source: the Source block shows how many objects and characters of the selection will reach the model. Remove keeps the task without object text; Selection only makes the selection the task itself.
 4. Describe the task: what should exist afterwards. Brief to room also accepts a `.md`, `.txt` or `.csv` file in UTF-8.
@@ -103,7 +103,7 @@ The task, the file and the room are data, not instructions. The model cannot cha
 
 ## If it did not work
 
-- **No Ask AI… item.** You are a viewer, a commenter, a link visitor, or not signed in.
+- **No Ask the agent… item.** You are a viewer, a commenter, a link visitor, or not signed in.
 - **"Set a limit".** A task without a budget is not created.
 - **"Agents are off".** An organisation administrator or the room owner (co-owner) turned them off.
 - **"The agent service is unreachable".** Sync is not running; start it and click Retry.

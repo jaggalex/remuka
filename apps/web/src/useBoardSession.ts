@@ -182,11 +182,5 @@ export function useBoardSession({
     });
   }, [connection, identity.name, identity.color, accountId, accountHandle, session]);
 
-  const saveLabel =
-    saveState.state === "offline"
-      ? t("sync.offline", { count: saveState.pending })
-      : t(`sync.${saveState.state}` as "sync.saved");
-  const saveTitle = t(`sync.${saveState.state}Title` as "sync.savedTitle");
-
-  return { connection, status, synced, saveState, presence, visiblePresence, linkVisitor, saveLabel, saveTitle };
+  return { connection, status, synced, saveState, presence, visiblePresence, linkVisitor };
 }

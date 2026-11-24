@@ -26,7 +26,7 @@ describe("design rules", () => {
 
   it("reports an alias, a primitive and an undefined variable, but not one with a fallback", () => {
     const root = tree({
-      "apps/web/src/styles/a.css": ".x { color: var(--ink); border-color: var(--warning-300); background: var(--nope); width: var(--cols, 2); }\n",
+      "apps/web/src/styles/a.css": ".x { color: var(--muted); border-color: var(--warning-300); background: var(--nope); width: var(--cols, 2); }\n",
     });
     expect(scanDesignRules(root).map((f) => f.rule)).toEqual([
       "DS-COLOR-01/alias",

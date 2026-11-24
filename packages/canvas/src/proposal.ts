@@ -171,9 +171,9 @@ function roundedRect(ctx: CanvasRenderingContext2D, item: ProposalBox, corner: n
 }
 
 /** A ghost's faint fill; alpha, not a mixed colour, so any token format works. */
-function tint(ctx: CanvasRenderingContext2D, ink: string): void {
+function tint(ctx: CanvasRenderingContext2D, ink: string, alpha = 1): void {
   ctx.save();
-  ctx.globalAlpha = 0.06;
+  ctx.globalAlpha = 0.06 * alpha;
   ctx.fillStyle = ink;
   ctx.fill();
   ctx.restore();
@@ -189,26 +189,33 @@ export function drawProposal(
   layout: ProposalLayout,
   zoom: number,
   palette: CanvasPalette,
+  alpha = 1,
 ): void {
   if (layout.empty && !layout.lines.length) return;
-  const ink = palette.agentProposal;
+  const ink = palette.agent;
   const px = 1 / zoom;
   ctx.save();
+  // The hull "breathes" while a person considers it (ADR-265 §4.2): the caller owns the
+  // clock, so one frame can ask for any opacity and the next one repeats it exactly.
+  ctx.globalAlpha = alpha;
   ctx.lineWidth = PROPOSAL_HULL.width * px;
   ctx.setLineDash(PROPOSAL_HULL.dash.map((step) => step * px));
   ctx.strokeStyle = ink;
 
   for (const item of layout.moves) {
     roundedRect(ctx, item, PROPOSAL_HULL.leafCorner);
-    tint(ctx, ink);
+    tint(ctx, ink, alpha);
     ctx.stroke();
   }
   for (const item of layout.blocks) {
     const hull = item.type === "frame";
     roundedRect(ctx, item, hull ? PROPOSAL_HULL.corner : PROPOSAL_HULL.leafCorner);
-    if (!hull) tint(ctx, ink);
+    if (!hull) tint(ctx, ink, alpha);
     ctx.stroke();
   }
+  // A planned connector is a 2 px dashed line of the agent's colour (ADR-267 §2): the
+  // same token as the agent's mark, not a second violet beside it.
+  ctx.lineWidth = 2 * px;
   for (const line of layout.lines) {
     ctx.beginPath();
     ctx.moveTo(line.x1, line.y1);

@@ -371,7 +371,6 @@ export function WorkspaceHome({
             identityName={identity.name}
             onRenameSelf={renameSelf}
             onAccountRenamed={(user: SessionUser) => setMe(user)}
-            orgName={activeOrg?.name ?? null}
             onOrg={() => {
               setAccountOpen(false);
               openOrg();
@@ -380,6 +379,9 @@ export function WorkspaceHome({
               setAccountOpen(false);
               setSessionsOpen(true);
             }}
+            onAllRooms={() => setAccountOpen(false)}
+            theme={theme} setTheme={setTheme}
+            lang={lang} setLang={setLang} withView={false}
             onDeleteScheduled={(schedule) => {
               setDeletion(schedule);
               setMe(null);

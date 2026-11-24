@@ -146,11 +146,12 @@ The operator role is per installation and is granted only from that server's she
 installation has no operator until this step:
 
 1. Register in the application as a normal account and confirm the address from the letter.
-2. On the server, in the release directory, with `production.env` loaded:
+2. On the server, run the operator script from the release image (the bridge is described
+   under "Operator commands on the server" below):
 
    ```sh
-   pnpm operator:grant --email <address> --as <address> --reason "bootstrap"
-   pnpm operator:list
+   /srv/remo/remo cli operator-role grant --email <address> --as <address> --reason "bootstrap"
+   /srv/remo/remo cli operator-role list
    ```
 
 `--as` names the author of the act (ADR-259 amendment). The first operator names the account
@@ -166,6 +167,40 @@ The console at `/operator` is never indexed and never reachable without an opera
 session: the response carries `X-Robots-Tag: noindex, nofollow`, `robots.txt` disallows the
 path, and every `/api/operator/*` request without the role answers `404` (ADR-259 §5,
 ADR-260).
+
+## Operator commands on the server
+
+The server has no `pnpm` and no checkout. The scripts live in the release image at
+`/app/scripts`, and `remo cli` runs one of them in a throw-away container of the current
+release, with the installation's own `production.env` and a read-only mount of `shared/`:
+
+```sh
+# The payment connections, their health and their keys.
+/srv/remo/remo cli billing-providers list
+/srv/remo/remo cli billing-providers verify <connection-id>
+/srv/remo/remo cli billing-providers secret <connection-id> \
+  --secret-file /shared/yookassa-test.json --reason "quarterly rotation" --as ops@example.com
+
+# Any other script in scripts/, for example a test letter or the database check.
+/srv/remo/remo cli mail-test --to you@example.com
+/srv/remo/remo cli db-check
+```
+
+A file written on the host as `/srv/<instance>/shared/yookassa-test.json` is read inside
+the container as `/shared/yookassa-test.json`: a key never goes into the image or into the
+release directory. The terminal stays attached, so a command that prompts for a secret can
+be answered; a script receives everything after its name as arguments. `pnpm billing:providers`
+in a development tree is the same script as `remo cli billing-providers`; `pnpm operator:grant`
+is `remo cli operator-role grant`, because one script serves the whole `operator:` group.
+On a stand the controller is `/srv/stage-ru/remo` or `/srv/stage-eu/remo` instead.
+
+A payment notification is recorded by the webhook and applied by the `billing-inbox` drain
+in the same process: every 2 s, a batch of 10, eight attempts with the shared backoff, then
+`dead_at` and a row on the console's **Money** tab. A dead event is not retried by itself
+and the invoice stays open; if the money arrived, confirm the invoice with
+`billing-mark-paid`, and if it did not, fix the connection before the next payment. A
+payment in `pending` for more than 15 minutes is re-queried at the provider once an hour,
+so a lost notification does not by itself leave a paid invoice open.
 
 ## Resetting an operator's second factor
 
@@ -283,8 +318,9 @@ means. The defaults are the behaviour of an installation that sets nothing new.
 | `REMO_PULSE_BREAKEVEN` | optional | optional | `43` paid teams in the operator panel |
 | `REMO_OPERATOR_CLI_MFA` | unset | unset | production ignores it; `0` is honoured only together with `REMO_STAGE=1` |
 
-Billing providers are not environment keys: an operator creates a connection in the app
-(`billing:providers`), and its keys are sealed with `REMO_KEK`. YooKassa is the first
+Billing providers are not environment keys: an operator creates a connection with the
+operator command (`billing:providers` on the server as `remo cli billing-providers`),
+checks it with `verify`, and its keys are sealed with `REMO_KEK`. YooKassa is the first
 adapter (`spec/payment-providers.md`); `REMO_YOOKASSA_WEBHOOK_IPS` is the only
 provider-specific environment value.
 
@@ -469,10 +505,10 @@ docker compose ls
 # remo   running  /srv/remo/releases/<commit>/deploy/compose.production.yml
 ```
 
-`pnpm mail:test` and `pnpm db:check` need a tree with `pnpm` and dependencies plus the
-installation's environment (`DATABASE_URL`, `REMO_MIGRATION_DATABASE_URL`, the mail keys);
-they are not part of the deployed container image. `docker compose ls` on a stand shows
-`stage-ru` and `stage-eu` instead of `remo`.
+`pnpm mail:test` and `pnpm db:check` need a tree with `pnpm` and dependencies; on the
+server the same scripts run through `remo cli mail-test` and `remo cli db-check`, with the
+installation's environment (`DATABASE_URL`, `REMO_MIGRATION_DATABASE_URL`, the mail keys).
+`docker compose ls` on a stand shows `stage-ru` and `stage-eu` instead of `remo`.
 
 ### Rollback
 

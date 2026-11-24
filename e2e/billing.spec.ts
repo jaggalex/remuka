@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { freshBoard, openAccount } from "./helpers";
+import { freshBoard, openAccount, goAllRooms } from "./helpers";
 
 /**
  * Browser acceptance for the plan surface (ADR-247, `spec/billing.md` §11 and §13).
@@ -59,7 +59,7 @@ async function createRooms(
 
 test("the plan tab shows the free plan and an empty price book", async ({ page }) => {
   await freshBoard(page, "billing-tab");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await openOrganisation(page);
 
   // A personal organisation always has the tab while billing is on; it cannot buy a plan.
@@ -100,7 +100,7 @@ test("the plan tab shows the free plan and an empty price book", async ({ page }
 
 test("the tab is absent when the billing family answers 404", async ({ page }) => {
   await freshBoard(page, "billing-off");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
 
   // The off installation answers 404 for the whole family (proved for the server by
   // `payment-providers.test.mjs`, "is a 404 for the whole family when billing is off"),
@@ -127,7 +127,7 @@ test("Free keeps five rooms and names the sixth refusal", async ({ page }) => {
   const account = await freshBoard(page, "billing-rooms");
   // The helper already made one room; four more reach the Free ceiling of five.
   await createRooms(page, account.orgId, 4, "Room");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await expect(page.locator(".home-tile")).toHaveCount(5);
 
   // The server owns the decision: a §2.4 plan refusal, not a 500 and not silence.
@@ -169,7 +169,7 @@ test("the owner chooses which rooms stay active from the plan tab", async ({ pag
   const account = await freshBoard(page, "billing-picker");
   // Five rooms is exactly the Free ceiling: the choice is the owner's, not a repair.
   const extra = await createRooms(page, account.orgId, 4, "Picker");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await openOrganisation(page);
   await page.getByRole("tab", { name: "Plan & payment" }).click();
 
@@ -201,7 +201,7 @@ test("the owner chooses which rooms stay active from the plan tab", async ({ pag
   // The fifth room keeps its content and loses editing, exactly as the spec says.
   const frozenId = extra[extra.length - 1]!;
   await page.goto(`/?room=${frozenId}&lang=en`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Sticky note", exact: true })).toBeDisabled();
 });
 
@@ -232,7 +232,7 @@ test("a frozen room keeps its content and loses editing", async ({ page }) => {
 
   // The screen follows the same decision: the tool rail is there and dimmed.
   await page.goto(`/?room=${frozenId}&lang=en`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Sticky note", exact: true })).toBeDisabled();
 });
 

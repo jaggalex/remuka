@@ -145,31 +145,3 @@ export function stickyFill(name: string | undefined): string {
   if (name.startsWith("#")) return name;
   return STICKY_COLORS[name] ?? defaultNoteFill();
 }
-
-/** Text needs enough contrast on saturated sticky colours. */
-export function readableInk(fill: string): string {
-  const value = parseHex(fill);
-  if (!value) return "#1a1a1a";
-  const luminance = (0.299 * value.r + 0.587 * value.g + 0.114 * value.b) / 255;
-  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
-}
-
-/** Ink for a filled object: the person's choice, else the readable default. */
-export function inkFor(fill: string | undefined, explicit?: string): string {
-  return explicit ?? readableInk(fill ?? "#ffffff");
-}
-
-function parseHex(colour: string): { r: number; g: number; b: number } | null {
-  const raw = colour.trim().replace("#", "");
-  // #abc is a legitimate CSS colour and reaches us from hand-written settings.
-  const hex =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((char) => char + char)
-          .join("")
-      : raw;
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
-  const value = parseInt(hex, 16);
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-}

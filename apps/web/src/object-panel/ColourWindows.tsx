@@ -1,11 +1,12 @@
 import { Button, Segmented, Tooltip } from "@remo/ui";
-import { FILL_LEVELS, SHAPE_PRESETS, inkFor, resolveColor, type ShapePreset } from "@remo/model";
+import { FILL_LEVELS, SHAPE_PRESETS, autoInk, inkFor, resolveColor, type ShapePreset } from "@remo/model";
 import { useI18n } from "../i18n";
 import {
   ColorGridSection,
   ColorRule,
   ColorWindow,
   InkSection,
+  InkWarning,
 } from "./ColorWindow";
 import { isTransparent } from "./colorWindowData";
 import type { StickyBarActions, StickyBarTarget } from "./stickyTypes";
@@ -48,6 +49,7 @@ export function NoteColourWindow({
         value={target.textColor}
         onChange={actions.setInk}
         hint={t("color.inkAutoHint")}
+        ground={target.ground}
       />
     </ColorWindow>
   );
@@ -113,8 +115,10 @@ export function ShapeColourWindow({
         label={t("object.border")}
         ariaLabel={t("object.border")}
         levels={[600]}
-        value={stroke}
+        value={autoInk(stroke)}
         role="stroke"
+        auto
+        onAuto={() => actions.setStroke(null)}
         onPick={actions.setStroke}
       >
         <div className="cw-row">
@@ -138,12 +142,14 @@ export function ShapeColourWindow({
           />
         </div>
       </ColorGridSection>
+      <InkWarning value={target.strokeColor} ground={target.ground} onAuto={() => actions.setStroke(null)} />
       <ColorRule />
       <InkSection
         label={t("object.text")}
         value={target.textColor}
         onChange={actions.setInk}
         hint={t("color.inkAutoHint")}
+        ground={target.ground}
       />
     </ColorWindow>
   );
@@ -164,13 +170,14 @@ export function TextColourWindow({
       <ColorGridSection
         ariaLabel={t("object.text")}
         levels={[600]}
-        value={target.textColor ?? null}
+        value={autoInk(target.textColor) ?? null}
         role="text"
         auto
         onAuto={() => actions.setInk(null)}
         onPick={actions.setInk}
         showKeys
       />
+      <InkWarning value={target.textColor} ground={target.ground} onAuto={() => actions.setInk(null)} />
     </ColorWindow>
   );
 }
@@ -186,7 +193,7 @@ function ShapeSample({ preset }: { preset: ShapePreset }) {
         background: empty ? undefined : preset.fill,
         borderColor: preset.stroke,
         borderWidth: preset.strokeWidth ? Math.min(preset.strokeWidth, 2) : 0,
-        color: inkFor(preset.fill),
+        color: inkFor(preset.fill).color,
       }}
     >
       Aa

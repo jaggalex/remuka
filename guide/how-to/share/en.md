@@ -13,7 +13,7 @@ A colleague needs access to the room, someone outside the team needs to view it 
 
 ## Steps: a role for a person
 
-1. Open **Share**.
+1. Open **Invite**.
 2. Enter the colleague's address.
 3. Choose the role: **Viewer**, **Commenter**, **Editor**, **Co-owner**.
 4. Press **Добавить** (add).
@@ -35,7 +35,7 @@ Result: the link opens the room read-only; export and backup are not available.
 
 ## Steps: revoke access
 
-1. Open **Share**.
+1. Open **Invite**.
 2. Find the person in the access list and remove them.
 3. To close link access, press **Выключить** (disable) in the **Публичная ссылка** block.
 

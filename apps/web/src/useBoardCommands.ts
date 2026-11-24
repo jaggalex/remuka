@@ -511,7 +511,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     () => ({
       setColor: (name: string) => setFillColor(board, selectedIds, name),
       setInk: (color: string | null) => setTextColor(board, selectedIds, color),
-      setStroke: (color: string) => setShapeStyle(board, selectedIds, { strokeColor: color }),
+      setStroke: (color: string | null) => setShapeStyle(board, selectedIds, { strokeColor: color }),
       setStrokeWidth: (width: number) => setShapeStyle(board, selectedIds, { strokeWidth: width }),
       setStrokeStyle: (strokeStyle: "normal" | "dashed") =>
         setShapeStyle(board, selectedIds, { strokeStyle }),
@@ -554,8 +554,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
         lastConnector.current = { ...lastConnector.current, strokeStyle };
         setConnectorProps(board, selectedIds, { strokeStyle });
       },
-      setColor: (strokeColor) => {
-        lastConnector.current = { ...lastConnector.current, strokeColor };
+      setColor: (strokeColor: string | null) => {
+        lastConnector.current = { ...lastConnector.current, strokeColor: strokeColor ?? undefined };
         setConnectorProps(board, selectedIds, { strokeColor });
       },
       setArrow: (arrow) => {

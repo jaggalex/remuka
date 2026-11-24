@@ -11,6 +11,13 @@ import {
   type StyleSnapshot,
 } from "@remo/doc";
 import { canUnlock, kindOf, lockAuthorName, type Widget } from "@remo/model";
+import type { IconName } from "@remo/ui";
+import type { TranslationKey } from "./i18n";
+import { CHROME_COMMANDS } from "./commandsChrome";
+
+// The chrome list lives in its own module for the size ratchet; this file remains the
+// registry's public surface, so every consumer still imports one thing.
+export { CHROME_COMMANDS } from "./commandsChrome";
 
 /**
  * What can be done with the current selection (ADR-050).
@@ -75,7 +82,70 @@ export interface Shortcut {
   always?: boolean;
 }
 
-export type CommandSurface = "menu" | "panel";
+/**
+ * Where a command is offered (ADR-050, ADR-266).
+ *
+ * `menu` and `panel` are the object surfaces. `header` is a chrome menu built by
+ * intent; `palette` is the command search (T7). The registry is one list: a menu item
+ * that is not here cannot be rendered.
+ */
+export type CommandSurface = "menu" | "panel" | "header" | "palette";
+
+/** What a command is for, and therefore which menu it appears in (ADR-266 §1.1). */
+export type CommandIntent = "invite" | "run" | "agent" | "room" | "account" | "canvas" | "help";
+
+/** Words people type when they mean a command, in both interface languages. */
+export interface CommandSynonyms {
+  ru: readonly string[];
+  en: readonly string[];
+}
+
+/** What the person may do right now; the app decides, the registry only reads. */
+export type ChromeAbility =
+  | "rename"
+  | "export"
+  | "import"
+  | "duplicate"
+  | "delete"
+  | "access"
+  | "facilitate"
+  | "agents"
+  | "askAgents"
+  | "apps"
+  | "signedIn"
+  | "support"
+  | "templates";
+
+/**
+ * The chrome command's world: flags it may read and the one way to run a command.
+ *
+ * Handlers live in the app, by id, so the menu, the palette and any future surface
+ * dispatch the same action. A command never holds a callback of its own.
+ */
+export interface ChromeContext {
+  can: Partial<Record<ChromeAbility, boolean>>;
+  run: (id: string) => void;
+}
+
+export interface ChromeCommand {
+  id: string;
+  title: TranslationKey;
+  icon?: IconName;
+  synonyms: CommandSynonyms;
+  intent: CommandIntent;
+  surfaces: readonly CommandSurface[];
+  /** Shown, not handled, here: the keymap stays the owner of the key (ADR-050). */
+  shortcut?: string;
+  danger?: boolean;
+  /** A room with no agents or apps does not show a dead row; search still finds it. */
+  hideWhenUnavailable?: boolean;
+  /** Only in the account menu below 900 px, where the header hides the control. */
+  narrowOnly?: boolean;
+  /** Reactions are a row of faces, not menu rows, but still commands. */
+  inMenu?: false;
+  available: (ctx: ChromeContext) => true | { reason: TranslationKey };
+  run: (ctx: ChromeContext) => void;
+}
 
 export interface Command {
   id: string;
@@ -356,6 +426,118 @@ export function commandsFor(surface: CommandSurface, ctx?: CommandContext): Comm
 
 export function commandById(id: string): Command | undefined {
   return COMMANDS.find((command) => command.id === id);
+}
+
+/**
+ * How the chrome commands are grouped inside their menu.
+ *
+ * A menu group is at most seven rows (ADR-265 §3.6); the names are here, once, so a
+ * command added to the registry cannot land between two unrelated groups.
+ */
+const CHROME_GROUP: Record<string, string> = {
+  "room.rename": "main",
+  "room.settings": "main",
+  "room.properties": "main",
+  "room.access": "main",
+  "room.export": "document",
+  "room.restore": "document",
+  "room.duplicate": "document",
+  "room.copyLink": "document",
+  "room.template": "add",
+  "room.apps": "add",
+  "room.replace": "danger",
+  "room.trash": "danger",
+  "run.timer": "session",
+  "run.vote": "session",
+  "run.presentation": "session",
+  "run.follow": "session",
+  "agent.open": "main",
+  "agent.ask": "main",
+  "agent.settings": "main",
+  "invite.open": "main",
+  "account.allRooms": "main",
+  "header.agent": "main",
+  "header.comments": "main",
+  "account.theme.light": "view",
+  "account.theme.dark": "view",
+  "account.lang.ru": "view",
+  "account.lang.en": "view",
+  "account.sessions": "people",
+  "account.security": "people",
+  "account.org": "people",
+  "account.support": "people",
+  "account.help": "help",
+  "account.cookies": "help",
+  "account.documents": "help",
+  "account.docs": "help",
+  "account.signOut": "session",
+  "account.signIn": "session",
+  "account.delete": "danger",
+};
+
+const GROUP_ORDER: Record<CommandIntent, readonly string[]> = {
+  invite: ["main"],
+  run: ["session", "reactions"],
+  agent: ["main"],
+  room: ["main", "document", "add", "danger"],
+  account: ["main", "view", "people", "help", "session", "danger"],
+  canvas: ["main"],
+  help: ["main"],
+};
+
+/** The group a command belongs to; reactions keep their own row. */
+export function commandGroup(command: ChromeCommand): string {
+  if (command.inMenu === false) return "reactions";
+  return CHROME_GROUP[command.id] ?? "main";
+}
+
+/** Chrome commands for one intent, in registry order. */
+export function chromeCommandsFor(
+  intent: CommandIntent,
+  options: { narrow?: boolean } = {},
+): ChromeCommand[] {
+  return CHROME_COMMANDS.filter(
+    (command) =>
+      command.intent === intent &&
+      command.surfaces.includes("header") &&
+      (options.narrow || !command.narrowOnly),
+  );
+}
+
+/**
+ * What a menu shows: the intent's commands, minus dead rows and minus the hidden
+ * availability ones. Separators are presentation and are inserted by the menu.
+ */
+export function menuCommands(
+  intents: readonly CommandIntent[],
+  ctx: ChromeContext,
+  options: { narrow?: boolean; includeUnavailable?: boolean } = {},
+): ChromeCommand[] {
+  const order = [...new Set(intents.flatMap((intent) => GROUP_ORDER[intent]))];
+  const rank = (command: ChromeCommand) => {
+    const index = order.indexOf(commandGroup(command));
+    return index === -1 ? order.length : index;
+  };
+  return intents
+    .flatMap((intent) => chromeCommandsFor(intent, options))
+    .filter((command) => command.inMenu !== false)
+    .filter((command) => {
+      const available = command.available(ctx);
+      if (available === true) return true;
+      if (command.hideWhenUnavailable) return false;
+      return options.includeUnavailable !== false;
+    })
+    .sort((a, b) => rank(a) - rank(b));
+}
+
+/** The reaction row is commands too, so the menu and the search stay one list. */
+export function reactionCommands(): ChromeCommand[] {
+  return CHROME_COMMANDS.filter((command) => command.inMenu === false);
+}
+
+/** One registry entry by id, object or chrome. */
+export function registryCommand(id: string): Command | ChromeCommand | undefined {
+  return commandById(id) ?? CHROME_COMMANDS.find((command) => command.id === id);
 }
 
 /** The command that owns this key press, or null. */

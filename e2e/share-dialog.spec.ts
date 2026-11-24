@@ -10,7 +10,7 @@ import { freshBoard } from "./helpers";
  */
 test("room access invites, opens the link and puts an error on its field", async ({ page }) => {
   await freshBoard(page, "share-dialog");
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Room access" });
   await expect(dialog).toBeVisible();
 

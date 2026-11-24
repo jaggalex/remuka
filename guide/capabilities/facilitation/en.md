@@ -16,7 +16,7 @@ The **timer** lives in the room, not in your tab: everyone sees it, and it keeps
 
 In an open session the results name who voted for what after it ends; in an anonymous session only sums are visible, and nobody — including the facilitator — sees the names. Guests by link are shown as a number.
 
-**Bring everyone to me** is an invitation. When automatic following (**Follow automatically**) is on, participants' view moves at once; otherwise each person gets a "Follow / Stay" question and decides. The invitation lives in **Facilitation ▾ → Shared viewing → Bring everyone to me**.
+**Bring everyone to me** is an invitation. When automatic following (**Follow automatically**) is on, participants' view moves at once; otherwise each person gets a "Follow / Stay" question and decides. The invitation lives in **Run ▾ → Shared viewing → Bring everyone to me**.
 
 ## Example
 

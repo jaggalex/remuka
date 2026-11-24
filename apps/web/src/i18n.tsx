@@ -29,6 +29,7 @@ const STORAGE_KEY = "remo.lang";
  * after the English text, so a wording change never renames a key.
  */
 import { enCore } from "./i18n/en-core";
+import { enChrome } from "./i18n/en-chrome";
 import { enCollab } from "./i18n/en-collab";
 import { enWork } from "./i18n/en-work";
 import { enSection } from "./i18n/en-section";
@@ -41,6 +42,7 @@ import { enConsent } from "./i18n/en-consent";
 import { enAccount } from "./i18n/en-account";
 import { enLegal } from "./i18n/en-legal";
 import { ruCore } from "./i18n/ru-core";
+import { ruChrome } from "./i18n/ru-chrome";
 import { ruCollab } from "./i18n/ru-collab";
 import { ruWork } from "./i18n/ru-work";
 import { ruSection } from "./i18n/ru-section";
@@ -59,6 +61,7 @@ import { ruMfa } from "./i18n/ru-mfa";
 
 const en = {
   ...enCore,
+  ...enChrome,
   ...enCollab,
   ...enWork,
   ...enSection,
@@ -80,6 +83,7 @@ export type TranslationKey = Key;
 
 const ru: Record<Key, string> = {
   ...ruCore,
+  ...ruChrome,
   ...ruCollab,
   ...ruWork,
   ...ruSection,
@@ -272,7 +276,7 @@ const TYPE_DATIVE: Record<Lang, Record<string, [string, string, string]>> = {
   },
 };
 
-function pluralForm(lang: Lang, n: number): 0 | 1 | 2 {
+export function pluralForm(lang: Lang, n: number): 0 | 1 | 2 {
   if (lang === "en") return n === 1 ? 0 : 2;
   const last = n % 10;
   const lastTwo = n % 100;

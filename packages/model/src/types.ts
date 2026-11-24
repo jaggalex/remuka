@@ -67,10 +67,11 @@ export interface WidgetStyle {
    */
   textColor?: string;
   /**
-   * How far a kanban, frame or shape stands off the board (ADR-245). Absent is flat; the
-   * painter takes the colour from tokens and the geometry from the level, nothing else.
+   * How far a kanban, frame or shape stands off the board (ADR-245, ADR-267). Absent is
+   * flat; the painter takes the colour from tokens and the geometry from the level,
+   * nothing else. "cardboard" is the hard ink shadow without blur.
    */
-  elevation?: "raised" | "floating";
+  elevation?: "raised" | "cardboard" | "floating";
 }
 
 /** Preset sizes a sticky note can be set to from the toolbar. */

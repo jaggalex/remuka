@@ -132,7 +132,7 @@ describe("painting the three states (ADR-249, §9.6)", () => {
       palette: DEFAULT_PALETTE,
       fontFamily: "Inter",
     });
-    expect(fillStyles[0]).toBe(DEFAULT_PALETTE.hover);
+    expect(fillStyles[0]).toBe(DEFAULT_PALETTE.paper);
   });
 
   it("says the picture is unavailable when there is room for the sentence", () => {

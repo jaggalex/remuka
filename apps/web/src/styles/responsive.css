@@ -33,6 +33,36 @@
   }
 }
 
+@media (max-width: 899px) {
+  /* ADR-266 §2: title, two faces, Run as an icon, Invite and Account. The logo,
+     Agent and Comments move into the account menu, which the same list feeds. */
+  .topbar-wide-only {
+    display: none !important;
+  }
+  .topbar {
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+  }
+  .topbar-left {
+    gap: var(--space-1);
+  }
+  .topbar-path {
+    display: none;
+  }
+  .board-title-button {
+    max-width: 160px;
+  }
+  .topbar-invite-label {
+    display: none;
+  }
+  .save-state.is-blocked .save-state-text {
+    max-width: 150px;
+  }
+  .people-face:nth-child(n + 3) {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   :root {
     --inspector-width: 0px;

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { pick, placementAt, screenToWorld, textHitAt, type Camera, type KanbanLayout } from "@remo/canvas";
-import type { Presence, LineFormatInput } from "@remo/doc";
+import { DEFAULT_STICKY_SIZE, createWidget, setWidgetText, type BoardDocument, type LineFormatInput, type Presence } from "@remo/doc";
 import type { TextDeltaOp, Widget } from "@remo/model";
 
 import type { Gestures } from "./useGestures";
@@ -13,8 +13,34 @@ import { paintedProposal } from "./proposalStore";
  * exposes the camera, the widget list, the layout, the hit test and the paint counters
  * on `window.__remo` in development builds only. Production ships nothing here.
  */
+export interface CursorReadout {
+  sessionKey: string;
+  /** The name on the plate the painter draws, not the initials. */
+  label: string;
+  /** Where the spring has the cursor now, in board units. */
+  x: number;
+  y: number;
+  /** 0…1; 0 means the painter skips it. */
+  alpha: number;
+  /** The peer's latest reported point, which the spring chases. */
+  target: { x: number; y: number };
+}
+
+/** A note a scenario places with an id of its own (ADR-265 §3.2 turns the id into a tilt). */
+export interface SeedNoteInput {
+  id: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  text?: string;
+  parentId?: string | null;
+  style?: { fontSize?: number; fillColor?: string };
+}
+
 export function useCanvasProbe({
   boardTitle,
+  board,
   camera,
   viewport,
   layouts,
@@ -26,6 +52,7 @@ export function useCanvasProbe({
   isCardOfKanban,
   boardRef,
   paintStats,
+  cursors,
   setDelta,
   setLineFormat,
 }: {
@@ -41,6 +68,10 @@ export function useCanvasProbe({
   isCardOfKanban: (widget: Widget) => boolean;
   boardRef: React.RefObject<HTMLCanvasElement | null>;
   paintStats: React.RefObject<Record<string, unknown>>;
+  /** Where each peer's cursor is painted now, in board units (ADR-265). */
+  cursors: () => CursorReadout[];
+  /** The document, so a scenario can place a note with an id of its choosing. */
+  board: BoardDocument;
   /** Test automation sets a rich delta without an editor; development builds only. */
   setDelta: (id: string, delta: TextDeltaOp[]) => void;
   /** Test automation sets a line format through the same command the board uses. */
@@ -81,6 +112,8 @@ export function useCanvasProbe({
         placements: layout.placements,
       })),
       presence: presence.map((p) => ({ ...p })),
+      /** Where each peer's cursor is drawn now: the spring's position, name and alpha. */
+      cursors,
       selectedIds: [...selectedIds],
       connectDraft: connectDraft ? { ...connectDraft } : null,
       widgets: widgets.map((w) => ({
@@ -92,6 +125,7 @@ export function useCanvasProbe({
         width: w.width,
         height: w.height,
         style: w.style ? { ...w.style } : null,
+        title: w.title ?? null,
         shapeKind: w.shapeKind ?? null,
         arrow: w.arrow ?? null,
         routing: w.routing ?? null,
@@ -131,6 +165,27 @@ export function useCanvasProbe({
       setDelta: (id: string, delta: TextDeltaOp[]) => setDelta(id, delta),
       setLineFormat: (id: string, line: number, format: LineFormatInput | null) =>
         setLineFormat(id, line, format),
+      /**
+       * Place a sticky note with the id the scenario chose.
+       *
+       * Visual baselines compare pixels, and a note's tilt comes from its id (ADR-265
+       * §3.2): a random id would photograph the same screen differently on every run.
+       * This is the same document write the UI makes, so the note syncs and survives a
+       * reload; only the id is chosen by the test.
+       */
+      seedNote(input: SeedNoteInput) {
+        createWidget(board, {
+          id: input.id,
+          type: "sticky_note",
+          parentId: input.parentId ?? null,
+          x: input.x,
+          y: input.y,
+          width: input.width ?? DEFAULT_STICKY_SIZE.width,
+          height: input.height ?? DEFAULT_STICKY_SIZE.height,
+          ...(input.style ? { style: input.style } : {}),
+        });
+        if (input.text) setWidgetText(board, input.id, input.text);
+      },
       /** Mirrors the handlers: client coords → what would be hit. */
       probe(clientX: number, clientY: number) {
         const rect = boardRef.current?.getBoundingClientRect();
@@ -162,6 +217,7 @@ export function useCanvasProbe({
       },
     };
   }, [
+    board,
     boardTitle,
     camera,
     connectDraft,
@@ -174,6 +230,7 @@ export function useCanvasProbe({
     widgets,
     boardRef,
     paintStats,
+    cursors,
     setDelta,
     setLineFormat,
   ]);

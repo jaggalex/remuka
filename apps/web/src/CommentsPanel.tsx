@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import type { BoardConnection, Presence } from "@remo/doc";
+import { colorForAccount } from "@remo/doc";
 import type { Camera, KanbanLayout } from "@remo/canvas";
 import type { Widget } from "@remo/model";
 import { commentsApi, type CommentAnchor, type CommentMessage, type CommentThread } from "./commentsApi";
 import { currentRoom } from "./identity";
 import { threadInFrame } from "./commentScope";
 import { CommentPlacementLayer } from "./CommentPlacementLayer";
-import { Button, ConfirmDialog as UiConfirmDialog, Dialog, Icon, IconButton, Switch, Textarea } from "@remo/ui";
+import { Button, ConfirmDialog as UiConfirmDialog, Dialog, IconButton, Switch, Textarea } from "@remo/ui";
 import { formatMoment } from "./format";
 import { deletedUserName } from "./deletedUser";
 import { useI18n } from "./i18n";
@@ -196,6 +197,17 @@ export function CommentsPanel({
 
   const remove = (comment: CommentMessage) => setPendingDelete(comment);
 
+  /**
+   * A pin is a person's mark, not a state of the room: its colour comes from the
+   * author's account (ADR-267), so every client and an offline author see it alike.
+   */
+  const pinColour = (thread: CommentThread) =>
+    colorForAccount(thread.createdBy ?? thread.comments[0]?.authorId ?? null);
+  const pinLetter = (thread: CommentThread) => {
+    const name = thread.createdByName || thread.comments[0]?.authorName || "?";
+    return name.trim().charAt(0).toLocaleUpperCase() || "?";
+  };
+
   return (
     <>
       <div className="comment-pins">
@@ -209,7 +221,7 @@ export function CommentsPanel({
               className={`comment-pin${thread.id === active ? " active" : ""}${
                 thread.unread ? " unread" : ""
               }`}
-              style={{ left: point.x, top: point.y }}
+              style={{ left: point.x, top: point.y, "--pin-color": pinColour(thread) } as CSSProperties}
               title={anchorLabel(thread)}
               aria-label={t("comments.openThread", { anchor: anchorLabel(thread) })}
               onClick={() => {
@@ -217,11 +229,10 @@ export function CommentsPanel({
                 openThread(thread);
               }}
             >
-              {thread.unread ? (
-                <span className="comment-pin-count">{thread.unread}</span>
-              ) : (
-                <Icon name="comment" size={14} />
-              )}
+              <span className="comment-pin-letter" aria-hidden="true">
+                {pinLetter(thread)}
+              </span>
+              {thread.unread > 0 && <span className="comment-pin-count">{thread.unread}</span>}
             </button>
           );
         })}

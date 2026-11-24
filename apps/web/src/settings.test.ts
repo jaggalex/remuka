@@ -81,12 +81,13 @@ describe("settings", () => {
 describe("reading stored settings", () => {
   it("writes the new shape, line and text defaults", () => {
     expect(DEFAULT_SETTINGS.shapes).toEqual({
-      fill: "#ffffff",
-      stroke: "#58534e",
+      fill: "#fffdf8",
+      stroke: "#1e2136",
       strokeWidth: 2,
     });
     expect(DEFAULT_SETTINGS.connectors).toMatchObject({
-      colour: "#58534e",
+      // A new line stores no colour: Auto is the default (ADR-273 §2.3).
+      colour: null,
       width: 2,
       dash: "normal",
       arrow: "end",
@@ -121,7 +122,7 @@ describe("reading stored settings", () => {
     const thick = migrateLegacyDefaults(
       normalizeSettings({ shapes: { stroke: "#595959", strokeWidth: 3 } }),
     );
-    expect(thick.shapes).toEqual({ fill: "#ffffff", stroke: "#595959", strokeWidth: 3 });
+    expect(thick.shapes).toEqual({ fill: "#fffdf8", stroke: "#595959", strokeWidth: 3 });
 
     const custom = migrateLegacyDefaults(
       normalizeSettings({ shapes: { stroke: "#1a1a1a", strokeWidth: 4 } }),

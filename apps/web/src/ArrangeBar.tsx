@@ -106,7 +106,13 @@ export function ArrangeBar({
   const colourValue = target.colour
     ? target.colour.mixed
       ? t("color.mixed")
-      : t(colorName(target.colour.value, { role: colourRoleKind }).key)
+      : t(
+          colorName(target.colour.value, {
+            role: colourRoleKind,
+            // An absent line colour is Auto, not a custom value (ADR-273 §2.3).
+            auto: colourRoleKind === "stroke" && !target.colour.value,
+          }).key,
+        )
     : "";
 
   return (
@@ -194,10 +200,12 @@ export function ArrangeBar({
                   ? "sb-multi-swatch is-mixed"
                   : isTransparent(target.colour.value)
                     ? "sb-multi-swatch checkerboard"
-                    : "sb-multi-swatch"
+                    : target.colour.value
+                      ? "sb-multi-swatch"
+                      : "sb-multi-swatch is-auto"
               }
               style={
-                target.colour.mixed || isTransparent(target.colour.value)
+                target.colour.mixed || isTransparent(target.colour.value) || !target.colour.value
                   ? undefined
                   : { background: target.colour.value }
               }

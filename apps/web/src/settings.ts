@@ -44,7 +44,8 @@ export interface BoardSettings {
     shape: ConnectorShape;
     arrow: "none" | "end" | "both" | "start";
     width: number;
-    colour: string;
+    /** Null is Auto: a line stores no colour and takes its canvas ground's ink (ADR-273). */
+    colour: string | null;
     dash: "normal" | "dashed" | "dotted";
     /** Longest straight run an elbow leaves an object with. */
     stubMax: number;
@@ -136,7 +137,8 @@ function oneOf<T extends string>(value: unknown, options: readonly T[], fallback
   return options.includes(value as T) ? (value as T) : fallback;
 }
 
-function colour(value: unknown, fallback: string): string {
+function colour(value: unknown, fallback: string | null): string | null {
+  if (value === null) return null;
   return typeof value === "string" && /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallback;
 }
 
@@ -196,8 +198,8 @@ export function normalizeSettings(input: unknown): BoardSettings {
       stubRatio: num(connectors.stubRatio, DEFAULT_SETTINGS.connectors.stubRatio, "connectors.stubRatio"),
     },
     shapes: {
-      fill: colour(shapes.fill, DEFAULT_SETTINGS.shapes.fill),
-      stroke: colour(shapes.stroke, DEFAULT_SETTINGS.shapes.stroke),
+      fill: colour(shapes.fill, DEFAULT_SETTINGS.shapes.fill) ?? DEFAULT_SETTINGS.shapes.fill,
+      stroke: colour(shapes.stroke, DEFAULT_SETTINGS.shapes.stroke) ?? DEFAULT_SETTINGS.shapes.stroke,
       strokeWidth: num(shapes.strokeWidth, DEFAULT_SETTINGS.shapes.strokeWidth, "shapes.strokeWidth"),
     },
     text: {
@@ -241,7 +243,7 @@ export function migrateLegacyDefaults(settings: BoardSettings): BoardSettings {
 
   const connectors = settings.connectors;
   if (
-    connectors.colour.toLowerCase() === "#333333" &&
+    connectors.colour?.toLowerCase() === "#333333" &&
     connectors.width === 1
   ) {
     settings.connectors = {

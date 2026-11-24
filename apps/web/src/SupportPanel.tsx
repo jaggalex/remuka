@@ -42,7 +42,7 @@ export interface SupportTechnical {
   viewport: { width: number; height: number };
   /** The room id and this person's role in it; no title, no members, no content. */
   room: { id: string; role: string | null } | null;
-  /** What `SyncLine` shows, so "it did not save" arrives with the answer. */
+  /** What `SaveLine` shows, so "it did not save" arrives with the answer. */
   connection: string;
   errors: readonly ClientError[];
 }
@@ -73,7 +73,7 @@ function osName(userAgent: string): string {
 }
 
 /**
- * The connection as the header draws it. `SyncLine` is the one place that decides, so the
+ * The connection as the header draws it. `SaveLine` is the one place that decides, so the
  * panel reads the state it rendered instead of inventing a second answer.
  */
 function connectionState(): string {

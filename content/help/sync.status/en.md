@@ -1,18 +1,20 @@
 ## Result
 
-The header shows one of three states: **Saved**, **Saving** or **Offline (N)**. Saved and Saving are shown as an icon — a cloud with a tick, or a clock; hover it to see the word. Offline is shown as an icon and a word, because it needs your attention.
+A saved room has no indicator — that is normal. When something is wrong, one of these appears next to the room name:
 
-- **Saved** — the server confirmed that the edits are stored. It does not mean "stored in the browser": confirmation arrives over the socket after the server persists them.
-- **Saving** — an edit was sent but is not acknowledged yet. This is usually under a second.
-- **Offline (N)** — there is no connection; N edits are waiting. They stay in this tab and are sent after reconnect.
+- **Saving…** — the acknowledgement is taking longer than two seconds. Usually you never see it: the server answers sooner.
+- **No connection — edits will wait** — the connection dropped. Edits stay in this tab.
+- **Input paused** — the offline queue filled up; the cause and what to do are written in words.
+
+When the connection returns, **All saved** appears for two seconds, then the header is quiet again. "No connection" and "All saved" are announced by a screen reader; "Saving…" is not, so every keystroke is not read out.
 
 ## Offline
 
 1. If the connection drops, keep working: edits stay in the document.
-2. When the connection returns, the status changes to **Saving**, then **Saved**.
-3. Wait for **saved** before closing the tab.
+2. When the connection returns, the status changes to **Saving…**, then to **All saved**.
+3. Wait for **All saved** before closing the tab.
 
-If too many edits accumulate, input stops: the indicator shows **Offline · input paused**, and a message appears above the room. This protects the queue from growing without bound. Reconnect and wait for **Saved** to continue.
+If too many edits accumulate, input stops: **Input paused** appears, and a message appears above the room. This protects the queue from growing without bound. Reconnect and wait for **All saved** to continue.
 
 ## Too many edits
 
@@ -20,7 +22,7 @@ The server limits the write rate. If there are too many edits in a short time, i
 
 1. Stop the bulk action: a paste, a bulk move, or a change to many objects at once.
 2. Wait for reconnect. Before retrying, the client waits 5 seconds and doubles the pause up to 60 seconds.
-3. Continue once the status changes to **Saving**, then **Saved**.
+3. Continue once **All saved** appears.
 
 ## The room is full
 
@@ -44,11 +46,11 @@ If the owner changes your role while you work, the server closes the connection.
 
 ## What to check
 
-- The indicator in the header next to the help button.
-- After an edit it shows **Saving**, then **Saved**.
-- Offline, the N counter grows with each edit.
+- In a saved room, the space next to the name is empty.
+- After an edit nothing appears for a moment; if the server is silent for more than two seconds, **Saving…** appears.
+- Offline, **No connection — edits will wait** appears at once; after returning, **All saved** stays for two seconds.
 - After a page reload, saved edits are still there.
-- After a speed or limit close, the connection returns by itself; the status changes to **Saving**, then **Saved**.
+- After a speed or limit close, the connection returns by itself; the status changes to **Saving…**, then **All saved**.
 - In a full room a small edit saves, while a large paste does not.
 - After deleting extra content, new objects can be added again.
 

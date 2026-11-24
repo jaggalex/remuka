@@ -389,7 +389,7 @@ export function BoardCanvas({
 
   /* ------------------------------------------------------------- painting -- */
 
-  const { paintStats } = useCanvasPainting({
+  const { paintStats, cursorView, palette } = useCanvasPainting({
     boardRef,
     overlayRef,
     viewport,
@@ -415,7 +415,7 @@ export function BoardCanvas({
   });
 
   useCanvasProbe({
-    boardTitle,
+    boardTitle, board,
     camera,
     viewport,
     layouts,
@@ -426,7 +426,7 @@ export function BoardCanvas({
     textOf,
     isCardOfKanban,
     boardRef,
-    paintStats,
+    paintStats, cursors: cursorView,
     setDelta: onSetText,
     setLineFormat: (id, line, format) => setLineFormat(board, id, line, format),
   });
@@ -466,16 +466,9 @@ export function BoardCanvas({
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) return null;
     return editorTargetFor({
-      editingId,
-      widgets,
-      layouts,
-      camera,
-      settings,
-      deltaOf,
-      widgetById,
-      rect,
+      editingId, widgets, layouts, camera, settings, deltaOf, widgetById, rect, palette,
     });
-  }, [camera, deltaOf, editingId, layouts, settings, widgetById, widgets]);
+  }, [camera, deltaOf, editingId, layouts, palette, settings, widgetById, widgets]);
 
   /**
    * Keep the note being edited on screen.
@@ -555,6 +548,7 @@ export function BoardCanvas({
     readOnly,
     noteMarks,
     resolve: widgetById,
+    palette,
   });
 
   /** Format the selection inside the open editor, the way its old toolbar did. */
@@ -707,6 +701,7 @@ export function BoardCanvas({
         readOnly={Boolean(readOnly)}
         presenting={presenting}
         menu={cellMenu}
+        palette={palette}
       />
       <KanbanTitleEditor
         board={board}
@@ -726,6 +721,7 @@ export function BoardCanvas({
         drop={gestures.tableHover} refused={gestures.tableRefused} cursor={gestures.cursor}
         selectedIds={selectedIds}
         onNotice={onNotice}
+        palette={palette}
       />
       {/* Pictures arrive through three doors and one owner (§9.2, §9.3). */}
       <ImageIntake

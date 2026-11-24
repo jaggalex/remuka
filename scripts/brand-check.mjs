@@ -545,7 +545,14 @@ export function scanBrand(root = ROOT, { today = new Date() } = {}) {
 
   // Rule 3: code takes the brand from `@remo/brand` instead of spelling it (§4.3).
   for (const path of brandLiteralFiles(root)) {
-    const text = readFileSync(join(root, path), "utf8");
+    let text;
+    try {
+      text = readFileSync(join(root, path), "utf8");
+    } catch {
+      // A file deleted in the working tree is still in `git ls-files` until the owner
+      // stages the removal; there is nothing to scan in it.
+      continue;
+    }
     if (/\.(?:ts|tsx|mjs|js)$/.test(path)) {
       const offsetOf = lineIndex(text);
       for (const unit of codeText(text)) {

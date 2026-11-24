@@ -51,19 +51,34 @@
   --presence-5: var(--green-300);
   --presence-6: var(--ochre-300);
   --text-on-presence: var(--neutral-950);
+  --canvas-object-ink: var(--neutral-900);
+  --canvas-object-ink-text: var(--neutral-0);
+  --canvas-kanban-ground: var(--paper-green-100);
+  --canvas-object-paper: var(--paper-cream-25);
+  --canvas-table-head: var(--paper-cream-50);
+  --canvas-line-soft: var(--paper-cream-150);
   --canvas-raise-cast: var(--alpha-black-45);
   --canvas-float-cast: var(--alpha-black-60);
   --agent: var(--neutral-50);
   --agent-hatch: var(--neutral-850);
-  --agent-proposal: var(--neutral-400);
   --border-panel: var(--neutral-300);
   --text-on-agent: var(--neutral-950);
   --selection-edit: var(--neutral-50);
+  --bg-dialog: var(--neutral-850);
+  --accent-cta: var(--neutral-50);
+  --accent-cta-hover: var(--neutral-200);
+  --text-on-cta: var(--neutral-950);
+  --border-ink: var(--neutral-300);
+  --accent-chosen: var(--neutral-800);
   --shadow-pop: var(--elev-pop-dark);
   --shadow-bar: var(--elev-bar-dark);
   --shadow-sticker: var(--elev-sticker-dark);
   --shadow-sticker-hover: var(--elev-sticker-hover-dark);
   --shadow-hover: var(--elev-hover-dark);
   --shadow-edit: var(--elev-edit-dark);
+  --shadow-hard-s: var(--elev-hard-dark);
+  --shadow-card: var(--elev-hard-dark);
+  --shadow-cta: var(--elev-hard-dark);
+  --shadow-dialog: var(--elev-hard-dark);
 }
 [data-theme="dark"] { color-scheme: dark; }

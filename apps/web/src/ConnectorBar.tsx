@@ -9,8 +9,9 @@ import {
   ColorGridSection,
   ColorRule,
   ColorWindow,
+  InkWarning,
 } from "./object-panel/ColorWindow";
-import { colorName } from "./object-panel/colorWindowData";
+import { autoInk, colorName } from "./object-panel/colorWindowData";
 import { PanelWindow } from "./object-panel/PanelWindow";
 
 export interface ConnectorBarTarget {
@@ -20,7 +21,12 @@ export interface ConnectorBarTarget {
   routing: ConnectorRouting;
   strokeStyle: "normal" | "dashed" | "dotted";
   strokeWidth: number;
+  /** The colour the line is painted with right now (Auto included). */
   strokeColor: string;
+  /** The stored colour, or undefined for Auto; the grid rings this, not the painted ink. */
+  strokeColorStored?: string;
+  /** The surface the line lies on, for the readability warning (ADR-273). */
+  ground: string;
   arrow: "none" | "end" | "both" | "start";
   /** Whether the line already carries text; the button reads as pressed if so. */
   hasLabel: boolean;
@@ -36,7 +42,8 @@ export interface ConnectorBarActions {
   setRouting: (routing: ConnectorRouting) => void;
   setWidth: (width: number) => void;
   setDash: (style: "normal" | "dashed" | "dotted") => void;
-  setColor: (color: string) => void;
+  /** `null` restores Auto: the line takes the ink of the canvas ground. */
+  setColor: (color: string | null) => void;
   setArrow: (arrow: "none" | "end" | "both" | "start") => void;
   swapEnds: () => void;
   /** Label size; `null` is the default. */
@@ -195,8 +202,10 @@ export function ConnectorBar({
               label={t("line.colour")}
               ariaLabel={t("line.colour")}
               levels={[600]}
-              value={target.strokeColor}
+              value={autoInk(target.strokeColorStored) ?? null}
               role="stroke"
+              auto
+              onAuto={() => actions.setColor(null)}
               onPick={actions.setColor}
               showKeys
             >
@@ -225,6 +234,11 @@ export function ConnectorBar({
                 />
               </div>
             </ColorGridSection>
+            <InkWarning
+              value={target.strokeColorStored}
+              ground={target.ground}
+              onAuto={() => actions.setColor(null)}
+            />
             {target.hasLabel && (
               <>
                 <ColorRule />
@@ -364,8 +378,11 @@ export function ConnectorBar({
  * head at the end (ADR-120). A line recoloured by hand matches nothing, which is honest.
  */
 function linePresetSelected(preset: LinePreset, target: ConnectorBarTarget): boolean {
+  // Auto is the plain line's colour now, so the stored value (not the painted one) is
+  // compared, and an old grey-600 line still rings Plain (ADR-273 §2.3).
   return (
-    target.strokeColor.toLowerCase() === preset.color.toLowerCase() &&
+    (autoInk(target.strokeColorStored) ?? "").toLowerCase() ===
+      (preset.color ?? "").toLowerCase() &&
     target.strokeWidth === preset.width &&
     target.strokeStyle === preset.dash &&
     target.arrow === preset.arrow
@@ -386,16 +403,16 @@ function LineChip({ preset }: { preset: LinePreset }) {
         y1="5"
         x2="22"
         y2="5"
-        stroke={preset.color}
+        stroke={preset.color ?? "currentColor"}
         strokeWidth={preset.width}
         strokeDasharray={DASH_ARRAY[preset.dash]}
         strokeLinecap={preset.dash === "dotted" ? "round" : "butt"}
       />
       {preset.arrow === "end" || preset.arrow === "both" ? (
-        <path d="M22 1.5 29 5 22 8.5z" fill={preset.color} />
+        <path d="M22 1.5 29 5 22 8.5z" fill={preset.color ?? "currentColor"} />
       ) : null}
       {preset.arrow === "start" || preset.arrow === "both" ? (
-        <path d="M8 1.5 1 5 8 8.5z" fill={preset.color} />
+        <path d="M8 1.5 1 5 8 8.5z" fill={preset.color ?? "currentColor"} />
       ) : null}
     </svg>
   );

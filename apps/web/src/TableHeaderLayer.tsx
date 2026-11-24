@@ -13,8 +13,11 @@ import {
   columnHeaderRect,
   layoutTable,
   rowHeaderRect,
+  tableHeaderGround,
   type Camera,
+  type CanvasPalette,
 } from "@remo/canvas";
+import { ink as inkOn } from "@remo/model";
 import type { Rect, TableAxis, Widget } from "@remo/model";
 import { Menu, type MenuItem } from "@remo/ui";
 import { AxisDeleteDialog, type AxisDeleteTarget } from "./AxisDeleteDialog";
@@ -73,6 +76,7 @@ export function TableHeaderLayer({
   cursor = null,
   selectedIds = [],
   onNotice,
+  palette,
 }: {
   board: BoardDocument;
   widgets: Widget[];
@@ -91,6 +95,8 @@ export function TableHeaderLayer({
   /** The canvas selection; a selected table shows its insert controls. */
   selectedIds?: readonly string[];
   onNotice?: (text: string) => void;
+  /** The canvas palette: the editor's text colour is the ink of the band (ADR-273). */
+  palette: CanvasPalette;
 }) {
   const { t } = useI18n();
   const selection = useTableAxisSelection();
@@ -582,6 +588,10 @@ export function TableHeaderLayer({
                 top: rect.top + rect.height / 2 - height / 2,
                 width,
                 height,
+                ["--ink" as string]: inkOn(
+                  tableHeaderGround(entry.frame, entry.kind, entry.axis.id, palette),
+                  "text",
+                ),
               }}
               autoFocus
               value={draft}

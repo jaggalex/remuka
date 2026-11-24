@@ -4,32 +4,36 @@ The screen has three zones and menus: the header describes the room and the sess
 
 ## Header
 
-On the left: the logo, **All rooms** (⌘K), the organisation path and the room name. **All rooms** and the organisation name lead to the organisation home. The name is a button with a menu: rename, room settings, export, restore from a backup, create a copy, replace the room with a template, move to trash.
-
-On the right, in order from left to right:
+The header has eight places, and a calm room shows exactly eight. On the left are the Remuka mark and the path with the room name; on the right are people, **Run**, **Agent**, discussion, **Invite** and the account. Everything else lives in those eight menus and is found there by its name.
 
 | Element | What it opens |
 |---|---|
-| **Facilitation** | timer, voting, shared viewing, reactions |
-| **More** (⋯) | templates, an AI task, apps |
-| Save icon | the save state and the "Saving and offline" help; the word "Offline" shows next to the icon |
-| Avatar | the account name and `@handle`, cursor name, theme, language, organisation, sign in and out |
-| Participants | who is in the room; clicking a face follows that person |
-| **Properties** | the right panel with object or room properties |
-| **Start presentation** | the slide-order panel |
-| **Discussion** | the comments panel; the counter shows unread comments |
-| **Share** (icon) | participant roles and the public link |
+| Mark | the account menu: all rooms, theme, language, help, sign out |
+| Path and room name ▾ | rename, settings, properties, access, export, restore, copy, link, template, apps; below the line, replace and trash |
+| People | who is here, their roles, followers and guests by link; "follow" |
+| **Run** ▾ | timer, voting, presentation, shared viewing, reactions |
+| **Agent** ▾ | give the agent a task, ask the agent, agents and journal |
+| Discussion | the comments panel; the counter shows unread and hides zero |
+| **Invite** | participant roles and the public link — the screen's primary button |
+| Account | name and `@handle`, all rooms, theme, language, help and keys, sessions, security, organisation, documents, sign out |
 
-The centre of the header stays empty: nothing appears there and nothing needs to be looked for there. The buttons on the right are icons; each one's name shows in a tooltip on hover or focus.
+The centre of the header stays empty. Icon-only controls are named in a tooltip on hover or focus.
+
+**The save state** appears only when something is wrong. A saved room has no indicator; "Saving…" shows if the acknowledgement takes longer than two seconds; "No connection — edits will wait" appears at once; after coming back, "All saved" stays for two seconds.
+
+**Timer and voting** are states, not items. While a timer runs, a `04:12` chip sits to the right of **Run**; the last ten seconds turn red. While voting is open, the chip reads "Votes: 22". A chip appears on start, disappears on finish and opens **Run** at its section.
+
+On a narrow screen (below 900 px) the name, people (up to two faces), **Run** as an icon, **Invite** and the account stay. Agent and discussion move into the account menu, and a running session becomes a dot on the **Run** icon.
 
 ## Menus
 
 | Menu | What it contains |
 |---|---|
-| Room name | rename, settings, export, restore, copy, replace with a template, trash |
-| **Facilitation** | timer, voting, shared viewing, reactions |
-| **More** | templates, an AI task, apps |
-| Avatar | cursor name, theme (system, light, dark), language (Russian, English), active sessions, organisation, sign in and out. Theme and language belong to the account and follow it to another device; before sign-in the browser choice applies |
+| Room name | rename, settings, properties, access, export, restore, copy, link, template, apps, replace with a template, trash |
+| **Run** | timer, voting, presentation, shared viewing, reactions |
+| **Agent** | give the agent a task, ask the agent, agents and journal |
+| People | participants with roles, "follow", followers and guests by link |
+| Account | all rooms, theme (light, dark), language (Russian, English), help, active sessions, security, organisation, documents, cookies, sign out. Theme and language belong to the account and follow it to another device; before sign-in the browser choice applies |
 
 ## Rail
 
@@ -61,20 +65,20 @@ Below, in a separate panel, sit **Undo** and **Redo**: history is not a creation
 |---|---|
 | Create a sticky note, shape, text, frame or card | the rail on the left |
 | Change a colour | the sample on the object bar or the palette in the rail |
-| Open properties | **Properties** in the header |
-| Start a presentation | **▶ Start presentation** in the header |
-| Discuss an object | **Discussion** in the header or a pin on the canvas |
-| Start voting | **Facilitation ▾ → Voting** |
-| Change the theme or language | the avatar menu; with an account the choice follows you to other devices |
-| Find or end a session on another device | avatar menu → **Active sessions** |
-| Invite a person or turn on the link | **Share** |
-| Add a template | **More (⋯) → Templates…** |
-| Set a task for an agent | **More (⋯) → Ask AI…** |
-| Open all rooms | **All rooms** or ⌘K |
+| Open properties | room menu → **Properties** |
+| Start a presentation | **Run ▾ → Start presentation** |
+| Discuss an object | the discussion icon in the header or a pin on the canvas |
+| Start voting | **Run ▾ → Voting** |
+| Change the theme or language | the account menu; with an account the choice follows you to other devices |
+| Find or end a session on another device | account menu → **Active sessions** |
+| Invite a person or turn on the link | **Invite** |
+| Add a template | room menu → **Templates…** |
+| Set a task for an agent | **Agent ▾ → Give the agent a task** |
+| Open all rooms | account menu → **All rooms** |
 
 ## What changes with a role
 
-A viewer or commenter sees the room, but the creation rail is off: the tool explains that only an editor creates objects. A public-link visitor gets no AI, no export and no access management. For a role that may not grant access, **Share** copies the link instead of opening the dialog.
+A viewer or commenter sees the room, but the creation rail is off: the tool explains that only an editor creates objects. A public-link visitor gets no agent, no export and no access management. For a role that may not grant access, **Invite** copies the link instead of opening the dialog.
 
 ## Where to go next
 

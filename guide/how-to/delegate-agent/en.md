@@ -18,7 +18,7 @@ You need to turn a brief into a structure, turn text into a diagram, turn a sele
 ## Steps
 
 1. In the organisation open **Agents** and create an agent. Result: the agent is active.
-2. In the room open **More (⋯) → Ask AI…** and choose the agent.
+2. In the room open **Agent ▾ → Ask the agent…** and choose the agent.
 3. Choose a source: the task text, a file or a selection. The **Source** block shows how many objects and characters will reach the model; **Remove** leaves the task without object text, **Selection only** makes the selection the task itself.
 4. Choose a skill or **Auto**. **Brief to room** is selected by default; Auto picks a skill from the task and the selection.
 5. Describe the result, attach a brief file when you need one, and set a budget: changes and money. Tokens and time are server defaults. Money may be fractional: `0.1` is ten cents.
@@ -61,7 +61,7 @@ In detail:
 
 | Symptom | Cause |
 |---|---|
-| No Ask AI… item | you are a viewer, a commenter or a public-link visitor |
+| No Ask the agent… item | you are a viewer, a commenter or a public-link visitor |
 | `AGENT_DENIED` | the agent is disabled, you no longer have access to the room, agents are off in the organisation or in the room, or the agent lacks write capabilities |
 | `BUDGET_REQUIRED` | the task has no budget |
 | No preview, the task stays queued | no provider key is configured; the task runs once the key appears |

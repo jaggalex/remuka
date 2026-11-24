@@ -1,11 +1,11 @@
-import { Avatar, Button, Input, Popover } from "@remo/ui";
-import { BRAND } from "@remo/brand";
+import { Avatar, Button, Icon, Input, Popover } from "@remo/ui";
 import { useEffect, useState } from "react";
 import type { Presence } from "@remo/doc";
 import { api, ApiError, type SessionUser } from "../api";
 import { authCapabilities, resendVerification } from "../apiMail";
 import { useSupportSurface } from "../SupportPanel";
-import { useI18n } from "../i18n";
+import { useI18n, type Lang } from "../i18n";
+import { BRAND } from "@remo/brand";
 import { useConsent } from "../ConsentProvider";
 import { aboutLabel } from "../about";
 import { useMenuFocus } from "../useMenuFocus";
@@ -13,18 +13,15 @@ import { AccountDeletionDialog } from "../AccountDeletion";
 import type { DeletionSchedule } from "../accountDeletionApi";
 import { SecurityDialog } from "../mfa/SecurityDialog";
 import { GuestNameNotice } from "../legal/GuestNameNotice";
+import { commandGroup, menuCommands, type ChromeContext } from "../commands";
+import type { Theme } from "../useTheme";
 
 /**
- * The account avatar and the interface menu behind it (ADR-119, Ш3/Ш5).
+ * The account menu (ADR-266 §2): who I am here, and everything that is about me.
  *
- * The name appears once — on the avatar, with the full name in its tooltip — and the
- * menu answers "who am I here and where do I go": role source, the name on the cursor,
- * the organisation and the way out. Theme and language moved to the header's right edge
- * (ADR-194), so they are not repeated here. A link visitor has no account, so the same
- * menu offers a sign-in instead.
- *
- * «Cookie» is the §6.3 entry point: one click opens the same settings screen as the footer
- * link, in every zone, so withdrawing a choice never needs the footer of another page.
+ * Theme, language, all rooms and help moved here from the header's right edge; the
+ * rows themselves come from the chrome registry, so this menu and the command search
+ * cannot disagree. The name fields stay fields: editing a name is not a command.
  */
 export function AccountMenu({
   open,
@@ -39,11 +36,22 @@ export function AccountMenu({
   identityName,
   onRenameSelf,
   onAccountRenamed,
-  orgName,
-  onOrg,
   onSessions,
   onSignIn,
   onSignOut,
+  onAllRooms,
+  onOrg,
+  theme,
+  setTheme,
+  lang,
+  setLang,
+  /** Below 900 px the header hides Agent and Comments; the menu carries them. */
+  narrow = false,
+  agentAvailable = false,
+  /** The home still has the two interface toggles next to the account (ADR-194). */
+  withView = true,
+  onAgent,
+  onComments,
   /** The home needs the date to keep its banner after the account stops working. */
   onDeleteScheduled,
   onDeleteCancelled,
@@ -64,15 +72,25 @@ export function AccountMenu({
   identityName: string;
   onRenameSelf: (value: string) => void;
   onAccountRenamed: (user: SessionUser) => void;
-  orgName: string | null;
-  onOrg: () => void;
   onSessions: () => void;
   onSignIn: () => void;
   onSignOut: () => void;
+  /** Close the menu and go to the room list (the room screen) or stay (the home). */
+  onAllRooms: () => void;
+  onOrg: () => void;
+  theme: Theme;
+  setTheme: (value: Theme) => void;
+  lang: Lang;
+  setLang: (value: Lang) => void;
+  narrow?: boolean;
+  agentAvailable?: boolean;
+  withView?: boolean;
+  onAgent?: () => void;
+  onComments?: () => void;
   onDeleteScheduled?: (schedule: DeletionSchedule) => void;
   onDeleteCancelled?: () => void;
 }) {
-  const { t, lang, productName } = useI18n();
+  const { t, productName } = useI18n();
   const { openSettings: openCookieSettings } = useConsent();
   const anchor = useMenuFocus(open, true, ".rm-popover input");
   const [nameDraft, setNameDraft] = useState(name);
@@ -151,6 +169,58 @@ export function AccountMenu({
       setSavingName(false);
     }
   };
+
+  const checked = (id: string): boolean =>
+    (id === "account.theme.light" && theme === "light") ||
+    (id === "account.theme.dark" && theme === "dark") ||
+    (id === "account.lang.ru" && lang === "ru") ||
+    (id === "account.lang.en" && lang === "en");
+
+  /**
+   * Account rows are registry commands like every other menu. Theme and language stay
+   * open so the check mark can be compared; every other row closes and does its work.
+   */
+  const actions: Record<string, () => void> = {
+    "account.allRooms": onAllRooms,
+    "account.theme.light": () => setTheme("light"),
+    "account.theme.dark": () => setTheme("dark"),
+    "account.lang.ru": () => setLang("ru"),
+    "account.lang.en": () => setLang("en"),
+    "account.help": () => window.location.assign(`/help/${lang}`),
+    "account.sessions": onSessions,
+    "account.security": () => setSecurityOpen(true),
+    "account.org": onOrg,
+    "account.support": () => support.launch(),
+    "account.cookies": () => openCookieSettings(),
+    "account.documents": () =>
+      window.location.assign(`${window.location.pathname}?legal=documents`),
+    "account.docs": () =>
+      window.open(
+        `https://${BRAND.domains.docs}/guide/${lang}/overview/index.html`,
+        "_blank",
+        "noopener",
+      ),
+    "account.delete": () => setDeleteOpen(true),
+    "account.signOut": onSignOut,
+    "account.signIn": onSignIn,
+    "header.agent": () => onAgent?.(),
+    "header.comments": () => onComments?.(),
+  };
+  const ctx: ChromeContext = {
+    can: { signedIn, support: support.available, agents: agentAvailable },
+    run: (id) => {
+      const action = actions[id];
+      if (!action) return;
+      if (!id.startsWith("account.theme.") && !id.startsWith("account.lang.")) onOpen(false);
+      action();
+    },
+  };
+  const rows = menuCommands(["account", "help"], ctx, { narrow }).filter(
+    (command) =>
+      (command.id !== "account.support" || support.available) &&
+      (withView ||
+        (!command.id.startsWith("account.theme.") && !command.id.startsWith("account.lang."))),
+  );
 
   return (
     <span className="topbar-anchor topbar-account" ref={anchor}>
@@ -260,113 +330,45 @@ export function AccountMenu({
           )}
 
           <span className="account-sep" role="separator" />
-          {signedIn ? (
-            <>
-              <button
-                type="button"
-                className="rm-menu-item account-item"
-                onClick={() => {
-                  onOpen(false);
-                  onSessions();
-                }}
-              >
-                {t("account.sessions")}
-              </button>
-              <button
-                type="button"
-                className="rm-menu-item account-item"
-                onClick={() => {
-                  onOpen(false);
-                  setSecurityOpen(true);
-                }}
-              >
-                {t("mfa.menu")}
-              </button>
-              <button
-                type="button"
-                className="rm-menu-item account-item"
-                onClick={() => {
-                  onOpen(false);
-                  setDeleteOpen(true);
-                }}
-              >
-                {t("account.delete")}
-              </button>
-              {support.available && (
-                <button
-                  type="button"
-                  className="rm-menu-item account-item"
-                  onClick={() => {
-                    onOpen(false);
-                    support.launch();
-                  }}
-                >
-                  {t("support.menu")}
-                </button>
-              )}
-              <button
-                type="button"
-                className="rm-menu-item account-item"
-                onClick={() => {
-                  onOpen(false);
-                  onOrg();
-                }}
-              >
-                {orgName ? t("account.org") : t("org.title")}
-              </button>
-              <button
-                type="button"
-                className="rm-menu-item account-item"
-                onClick={() => {
-                  onOpen(false);
-                  // The widget forgets this person before the frame goes away (§2.3).
-                  support.signOut();
-                  onSignOut();
-                }}
-              >
-                {t("org.signOut")}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="rm-menu-item account-item"
-              onClick={() => {
-                onOpen(false);
-                onSignIn();
-              }}
-            >
-              {t("auth.login")}
-            </button>
-          )}
-
-          <a
-            className="rm-menu-item account-item"
-            href="/?legal=documents"
-            onClick={() => onOpen(false)}
-          >
-            {t("legal.documents")}
-          </a>
-
-          <button
-            type="button"
-            className="rm-menu-item account-item"
-            onClick={() => {
-              onOpen(false);
-              openCookieSettings();
-            }}
-          >
-            {t("consent.link")}
-          </button>
+          <div className="account-commands">
+            {rows.map((command, index) => {
+              const available = command.available(ctx);
+              const group = commandGroup(command);
+              const previous = index > 0 ? commandGroup(rows[index - 1]!) : group;
+              return (
+                <span key={command.id} className="account-command-wrap">
+                  {index > 0 && group !== previous && <span className="account-sep" role="separator" />}
+                  <button
+                    type="button"
+                    className={
+                      command.danger
+                        ? "rm-menu-item account-item is-danger"
+                        : "rm-menu-item account-item"
+                    }
+                    data-command={command.id}
+                    aria-disabled={available === true ? undefined : true}
+                    onClick={available === true ? () => ctx.run(command.id) : undefined}
+                  >
+                    <span className="rm-menu-icon">
+                      {checked(command.id) ? (
+                        <Icon name="check" />
+                      ) : command.icon ? (
+                        <Icon name={command.icon} />
+                      ) : null}
+                    </span>
+                    <span className="rm-menu-label">
+                      {t(command.title)}
+                      {available !== true && (
+                        <span className="rm-menu-hint">{t(available.reason)}</span>
+                      )}
+                    </span>
+                  </button>
+                </span>
+              );
+            })}
+          </div>
 
           <div className="account-about">
-            <a
-              href={`https://${BRAND.domains.docs}/guide/${lang}/overview/index.html`}
-              target="_blank"
-              rel="noopener"
-            >
-              {t("account.docs")}
-            </a>
             <span className="muted">{aboutLabel(lang, productName)}</span>
           </div>
         </Popover>

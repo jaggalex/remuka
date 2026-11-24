@@ -6,7 +6,6 @@ import {
   SHAPE_PRESETS,
   DEFAULT_LINE_PRESET,
   DEFAULT_SHAPE_PRESET,
-  DEFAULT_TEXT_COLOR,
   linePresetStyle,
   shapePresetStyle,
 } from "./index";
@@ -33,8 +32,8 @@ describe("built-in style presets (ADR-120, values ADR-129)", () => {
 
   it("writes the same WidgetStyle fields a manual edit writes", () => {
     expect(shapePresetStyle(SHAPE_PRESETS[0])).toEqual({
-      fillColor: "#ffffff",
-      strokeColor: "#58534e",
+      fillColor: "#fffdf8",
+      strokeColor: "#1e2136",
       strokeWidth: 2,
     });
     expect(linePresetStyle(LINE_PRESETS[1])).toEqual({
@@ -52,32 +51,34 @@ describe("built-in style presets (ADR-120, values ADR-129)", () => {
   });
 
   it("paints only palette values, so a pressed preset rings its swatch", () => {
-    // White is the one named exception: it is the chip beside "Fill", not a grid entry.
+    // Paper and ink are the shape's own canvas values (ADR-267), not grid entries.
+    const outside = new Set(["transparent", "#fffdf8", "#1e2136"]);
     for (const preset of SHAPE_PRESETS) {
       for (const value of [preset.fill, preset.stroke]) {
-        if (value === "transparent" || value === "#ffffff") continue;
+        if (outside.has(value)) continue;
         expect(isPaletteColor(value), `${preset.id}: ${value}`).toBe(true);
       }
     }
     for (const preset of LINE_PRESETS) {
-      expect(palette.has(preset.color), `${preset.id}: ${preset.color}`).toBe(true);
+      // The Plain line is Auto and has no value to match; every other preset is a swatch.
+      if (preset.color) expect(palette.has(preset.color), `${preset.id}: ${preset.color}`).toBe(true);
     }
   });
 
-  it("starts a new shape, line and text on a swatch", () => {
+  it("starts a new shape and line on a swatch", () => {
     expect(DEFAULT_SHAPE_PRESET).toMatchObject({
       id: "plain",
-      fill: "#ffffff",
-      stroke: "#58534e",
+      fill: "#fffdf8",
+      stroke: "#1e2136",
       strokeWidth: 2,
     });
     expect(DEFAULT_LINE_PRESET).toMatchObject({
       id: "plain",
-      color: "#58534e",
+      // Auto: a new line writes no colour and takes the canvas ground's ink (ADR-273).
+      color: null,
       width: 2,
       dash: "normal",
       arrow: "end",
     });
-    expect(isPaletteColor(DEFAULT_TEXT_COLOR)).toBe(true);
   });
 });

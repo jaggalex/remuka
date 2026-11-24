@@ -6,9 +6,9 @@
  */
 export const ruWork = {
   "sync.connecting": "Подключение",
-  "sync.saved": "Сохранено",
-  "sync.pending": "Сохраняется",
-  "sync.offline": "Офлайн · {count}",
+  "sync.saved": "Всё сохранено",
+  "sync.pending": "Сохраняем…",
+  "sync.offline": "Нет связи — правки подождут",
   "sync.connectingTitle": "Подключение к сервису синхронизации",
   "sync.savedTitle": "Все изменения сохранены на сервере",
   "sync.pendingTitle": "Ждём подтверждения сохранения от сервера",

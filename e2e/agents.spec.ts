@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, agentBoard, openBoard, openMore } from "./helpers";
+import { addSticky, agentBoard, openAccount, openBoard } from "./helpers";
 
 /**
  * The plan preview (ADR-142, M2b): a brief and a file become a plan, the person applies
@@ -12,11 +12,11 @@ import { addSticky, agentBoard, openBoard, openMore } from "./helpers";
 
 const BUDGET = { maxTokens: 6_000, maxActions: 60, maxCostUsd: 1 };
 
-/** Choose "Ask AI…"; what the dialog shows first depends on the room's tasks. */
+/** Choose "Ask the agent…"; what the dialog shows first depends on the room's tasks. */
 async function clickAskAi(page: Page): Promise<void> {
-  // Scoped to the header: a selected object adds its own "More" to the arrange bar.
-  await page.getByRole("banner").getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Ask AI…" }).click();
+  // The agent has its own header menu now (ADR-266 §2); the old "More" is gone.
+  await page.getByRole("banner").getByRole("button", { name: "Agent", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Ask the agent/ }).click();
 }
 
 async function openAgents(page: Page): Promise<void> {
@@ -24,6 +24,23 @@ async function openAgents(page: Page): Promise<void> {
   await expect(
     page.getByRole("dialog", { name: "AI agents in this room" }),
   ).toBeVisible();
+}
+
+/** Violet pixels on the overlay: the agent's dashed proposal, and nothing else (ADR-267). */
+async function violetPixels(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(".layer.overlay")!;
+    const ctx = canvas.getContext("2d")!;
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const r = data[index]!;
+      const g = data[index + 1]!;
+      const b = data[index + 2]!;
+      if (data[index + 3]! > 0 && b > 120 && b - r > 30 && r - g > 30) count += 1;
+    }
+    return count;
+  });
 }
 
 async function chooseBrief(page: Page): Promise<void> {
@@ -231,12 +248,17 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
   expect(drawn?.blocks).toHaveLength(2);
   expect(drawn?.lines).toHaveLength(1);
   expect(drawn!.lines[0]!.x2).toBeGreaterThan(drawn!.lines[0]!.x1);
+  // Before the decision the planned connector is the agent's violet dash (ADR-267).
+  await expect.poll(() => violetPixels(page)).toBeGreaterThan(0);
 
   await plan.getByRole("button", { name: "Apply" }).click();
   await expect(plan).toContainText(
     "The objects are in the room. One ⌘Z removes the whole structure.",
   );
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(3);
+  // The applied connector is a real, solid line: the violet preview is gone from the
+  // overlay instead of lingering under it.
+  await expect.poll(() => violetPixels(page)).toBe(0);
 
   const created = await page.evaluate(() => {
     const widgets = window.__remo.widgets;
@@ -253,6 +275,7 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
         startX: xOf(connector.start),
         endX: xOf(connector.end),
         arrow: connector.arrow,
+        dash: connector.style?.strokeStyle ?? "normal",
       })),
     };
   });
@@ -264,6 +287,8 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
     endType: "sticky_note",
     arrow: "end",
   });
+  // After "Apply" the connection is solid, not the agent's dash.
+  expect(created.lines[0]!.dash).not.toBe("dashed");
   expect(created.lines[0]!.startX!).toBeLessThan(created.lines[0]!.endX!);
 
   await plan.getByRole("button", { name: "Show in room" }).click();
@@ -378,8 +403,10 @@ test("a viewer cannot read or approve a plan, and a stranger cannot see it", asy
   expect(approve.status()).toBe(403);
 
   await openBoard(viewer, board.boardId, { user: "Viewer" });
-  await openMore(viewer);
-  await expect(viewer.getByRole("menuitem", { name: "Ask AI…" })).toHaveCount(0);
+  // A viewer has no agent control at all; the account menu does not hide one either.
+  await expect(viewer.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
+  await openAccount(viewer);
+  await expect(viewer.getByRole("button", { name: /Ask the agent|Give the agent/ })).toHaveCount(0);
 
   const stranger = await browser.newPage();
   const outsider = await stranger.request.post("/api/auth/register", {

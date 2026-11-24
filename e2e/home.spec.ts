@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { freshBoard, openBoardMenu } from "./helpers";
+import { freshBoard, openBoardMenu, goAllRooms } from "./helpers";
 
 test("home shows board tiles with metadata, then the directory at a second page", async ({
   page,
 }) => {
   const account = await freshBoard(page, "home-meta", { title: "Meta board" });
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
 
   const home = page.locator(".home");
   await expect(home.locator(".org-badge.personal").first()).toBeVisible();
@@ -59,7 +59,7 @@ test("trashes a board and restores it from the home", async ({ page }) => {
 
 test("the home header toggles theme and language in place", async ({ page }) => {
   await freshBoard(page, "home-prefs");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
 
   const home = page.locator(".home");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -78,7 +78,7 @@ test("sorts board tiles and pages them twenty-four at a time", async ({ page }) 
     expect(created.ok(), await created.text()).toBeTruthy();
   }
 
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   const home = page.locator(".home");
   await expect(home.locator(".home-tile")).toHaveCount(24);
   await expect(home.getByRole("button", { name: "Page 2" })).toBeVisible();

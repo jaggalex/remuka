@@ -73,7 +73,8 @@ describe("the named values' words (ADR-140)", () => {
     expect(namedColorWord("none", "fill")).toBe("color.transparent");
     expect(namedColorWord("none", "stroke")).toBe("object.none");
     expect(namedColorWord("white")).toBe("color.ffffff");
-    expect(namedColorWord("black")).toBe("color.1a1a1a");
+    // Black is true black since ADR-281; #1a1a1a is the old automatic near-black.
+    expect(namedColorWord("black")).toBe("color.000000");
   });
 
   it("gives White and Black different words in the same language", () => {
@@ -87,21 +88,28 @@ describe("the named values' words (ADR-140)", () => {
 
 describe("the current value's name", () => {
   it("names a palette value by its hex", () => {
-    expect(colorName(TONE_LEVELS.yellow[100])).toEqual({ key: "color.ece2c8" });
+    expect(colorName(TONE_LEVELS.yellow[100])).toEqual({ key: "color.f4e0a8" });
     expect(colorName("#1A6AD8")).toEqual({ key: "color.1a6ad8" });
-    expect(colorName(" #ECE2C8 ")).toEqual({ key: "color.ece2c8" });
+    expect(colorName(" #F4E0A8 ")).toEqual({ key: "color.f4e0a8" });
   });
 
-  it("names a fill painted before ADR-182 by the entry it stands for", () => {
-    // The stored hex stays; the word and the ringed swatch are the new entry's.
-    expect(colorName("#ffe07a")).toEqual({ key: "color.ece2c8" });
-    expect(colorName("#ff8a57")).toEqual({ key: "color.bca996" });
+  it("names a fill from either previous palette by the entry it stands for", () => {
+    // The stored hex stays; the word and the ringed swatch are the current entry's.
+    // Before ADR-182 (the bright 100 row)…
+    expect(colorName("#ffe07a")).toEqual({ key: "color.f4e0a8" });
+    // …and the muted ADR-182 row, which the mockups replaced (ADR-267).
+    expect(colorName("#ece2c8")).toEqual({ key: "color.f4e0a8" });
+    expect(colorName("#e2d2c4")).toEqual({ key: "color.ffdcc6" });
+    // The landing page's 300 row is current again, so its own name is the right one.
+    expect(colorName("#ff8a57")).toEqual({ key: "color.ff8a57" });
     expect(markedColor("#FFE07A")).toBe(TONE_LEVELS.yellow[100]);
+    expect(markedColor("#ece2c8")).toBe(TONE_LEVELS.yellow[100]);
     expect(markedColor("#f8d3af")).toBe("#f8d3af");
     expect(markedColor("#ffffff")).toBe("#ffffff");
     expect(markedColor(null)).toBeNull();
-    // A pre-ADR-182 300 fill keeps its row when only the hue changes.
+    // A previous 300 fill keeps its row when only the hue changes.
     expect(fillLevel("#85d965")).toBe(300);
+    expect(fillLevel("#d8c79e")).toBe(300);
   });
 
   it("keeps an old hex as Custom colour with the hex beside it", () => {
@@ -118,15 +126,18 @@ describe("the current value's name", () => {
     expect(colorName("#ffffff").key).toBe("color.own");
   });
 
-  it("names Black only where the role offers it (ADR-140)", () => {
-    expect(colorName("#1a1a1a", { role: "stroke" })).toEqual({
-      key: "color.1a1a1a",
-    });
+  it("names Black only where the role offers it (ADR-140, ADR-281)", () => {
     expect(colorName(NAMED_COLORS.black, { role: "text" })).toEqual({
-      key: "color.1a1a1a",
+      key: "color.000000",
     });
-    // #1a1a1a is also one of the old twenty-two; without the named list it stays custom.
-    expect(colorName("#1a1a1a").key).toBe("color.own");
+    // `#1a1a1a` is the old automatic near-black: a line window reads it as Auto before
+    // asking for a name (ADR-273), and on its own it is a custom value.
+    expect(colorName("#1a1a1a", { role: "stroke" })).toEqual({
+      key: "color.own",
+      detail: "#1a1a1a",
+    });
+    // The stroke grid passes `autoInk(value) ?? null`, so an old default arrives absent.
+    expect(colorName(null, { role: "stroke", auto: true })).toEqual({ key: "sticky.auto" });
   });
 
   it("says Auto only for a role that can have no explicit value", () => {

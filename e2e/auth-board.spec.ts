@@ -6,6 +6,7 @@ import {
   freshBoard,
   openAccount,
   openBoard,
+  openPeople,
   register,
   objectCount,
 } from "./helpers";
@@ -41,7 +42,7 @@ test("a signed-out visitor signs in from the access gate", async ({ page, browse
     await dialog.getByRole("button", { name: "Sign in" }).click();
 
     await expect(visitor.locator(".access-gate")).toHaveCount(0, { timeout: 20_000 });
-    await expect(visitor.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(visitor.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   } finally {
     await stranger.close();
   }
@@ -98,7 +99,7 @@ test("a guest invitation opens its room after acceptance", async ({ page, browse
     await expect(guest).toHaveURL((current) =>
       current.searchParams.get("room") === owner.boardId && !current.searchParams.has("invite"));
     await expect(guest.locator(".rm-readonly")).toContainText("View only");
-    await expect(guest.locator(".save-state")).toHaveText(/saved/i);
+    await expect(guest.locator(".save-state")).toHaveAttribute("data-state", "saved");
   } finally {
     await invited.close();
   }
@@ -119,7 +120,7 @@ test("two sessions of one account are two follow targets with labels", async ({
     });
     expect(login.ok(), await login.text()).toBeTruthy();
     await other.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(other.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(other.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
     // Presence is per session: the later one gets an index, and neither label is an
     // email — the @ belongs to the public handle (ADR-164).
@@ -132,9 +133,12 @@ test("two sessions of one account are two follow targets with labels", async ({
     expect(later).toContain("@");
     expect(later).not.toContain(account.email);
 
-    // Follow the exact session, not the account as a whole.
+    // Follow the exact session, not the account as a whole. The faces open the list;
+    // the row inside follows the session (ADR-266 §4).
     await page.locator(".presence .peer").click();
+    await page.getByRole("button", { name: "Follow Sess (2)", exact: true }).click();
     await expect(page.locator(".follow-pill")).toContainText("Following Sess (2)");
+    await openPeople(other);
     await expect(other.locator(".follow-counter")).toContainText("1");
   } finally {
     await second.close();
@@ -145,9 +149,11 @@ test("theme and language follow the account to another browser", async ({ page, 
   const account = await register(page, "prefs", { user: "Prefs Owner" });
   await openBoard(page, account.boardId);
 
-  // The two controls live at the right edge of the header (ADR-194), not in the menu.
-  await page.getByRole("button", { name: /Theme: light/ }).click();
-  await page.getByRole("button", { name: /Language: English/ }).click();
+  // Theme and language live in the account menu now (ADR-266 §2); picking a row keeps
+  // the menu open so the two choices can be compared.
+  await openAccount(page);
+  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await page.getByRole("button", { name: "Russian", exact: true }).click();
 
   // The account row is the source for the second browser (ADR-150).
   await expect
@@ -168,7 +174,7 @@ test("theme and language follow the account to another browser", async ({ page, 
     });
     expect(login.ok(), await login.text()).toBeTruthy();
     await other.goto(`/?room=${account.boardId}`);
-    await expect(other.locator(".save-state")).toHaveText(/saved|сохранено/i, { timeout: 20_000 });
+    await expect(other.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     await expect(other.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(other.locator("html")).toHaveAttribute("lang", "ru");
   } finally {
@@ -241,7 +247,7 @@ test("a public-link visitor who signs in gets a writable socket", async ({ page,
   const visitor = await context.newPage();
   try {
     await visitor.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(visitor.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(visitor.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
     await openAccount(visitor);
     await visitor.getByRole("button", { name: "Sign in", exact: true }).click();

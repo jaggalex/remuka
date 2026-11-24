@@ -186,6 +186,79 @@ export const paymentProviderMethods = {
   },
 
   /**
+   * Claim one batch of the inbound journal for the drain (`spec/payment-providers.md` §5).
+   *
+   * The lease is five minutes, the same as the mail drain: a crashed worker leaves the row
+   * to the next pass, a live one owns it until it records an outcome. `skip locked` keeps
+   * two workers from fighting over one row; the order is arrival, so a repeated delivery
+   * never starves an older event.
+   */
+  async claimProviderEventBatch(limit = 10, { now = new Date() } = {}) {
+    const { rows } = await this.pool.query(
+      `with claimed as (
+         select id
+           from billing_provider_events
+          where processed_at is null
+            and dead_at is null
+            and (next_attempt_at is null or next_attempt_at <= $2::timestamptz)
+          order by received_at asc, id asc
+          limit least(greatest($1, 1), 100)
+          for update skip locked
+       )
+       update billing_provider_events e
+          set next_attempt_at = $2::timestamptz + interval '5 minutes'
+         from claimed
+        where e.id = claimed.id
+       returning e.*`,
+      [limit, now],
+    );
+    return rows;
+  },
+
+  /**
+   * The event is done, whatever the outcome. A stale or duplicate delivery records its
+   * reason in `last_error` so the journal keeps the fact without pretending a failure;
+   * `org_id` is filled here, because the organisation is unknowable when the webhook is
+   * accepted.
+   */
+  async markProviderEventProcessed({ id, orgId = null, reason = null }) {
+    await this.pool.query(
+      `update billing_provider_events
+          set processed_at = now(),
+              next_attempt_at = null,
+              last_error = left($3, 500),
+              org_id = coalesce($2, org_id)
+        where id = $1`,
+      [id, orgId, reason],
+    );
+  },
+
+  async markProviderEventRetry({ id, attempts, error = null, nextAttemptAt = null, orgId = null }) {
+    await this.pool.query(
+      `update billing_provider_events
+          set attempts = $2,
+              last_error = left($3, 500),
+              next_attempt_at = $4::timestamptz,
+              org_id = coalesce($5, org_id)
+        where id = $1`,
+      [id, attempts, error, nextAttemptAt, orgId],
+    );
+  },
+
+  async markProviderEventDead({ id, attempts, error = null, orgId = null }) {
+    await this.pool.query(
+      `update billing_provider_events
+          set attempts = $2,
+              last_error = left($3, 500),
+              dead_at = now(),
+              next_attempt_at = null,
+              org_id = coalesce($4, org_id)
+        where id = $1`,
+      [id, attempts, error, orgId],
+    );
+  },
+
+  /**
    * A connection is created in `draft` and recorded with one event. The id may be passed
    * explicitly because the caller must know it before sealing: the AAD binds the
    * ciphertext to this row, so `encryptSecret` cannot run before the id exists.

@@ -43,11 +43,13 @@ import { corsHeadersFor, deprecationHeaders } from "./origins.mjs";
 import { newToken } from "./iam.mjs";
 import { createAgentLoops } from "./sync-agents.mjs";
 import { createEventDrain, createWebhookConsumer } from "./sync-events.mjs";
-import { assertMailConfig, enqueueMail, mailCapabilities, mailDriver, resolveMailConfig } from "./mail.mjs";
+import { assertMailConfig, mailCapabilities, mailDriver, resolveMailConfig } from "./mail.mjs";
 import { createMailDrain } from "./mail-drain.mjs";
 import { createAccountPurge } from "./account-purge.mjs";
 import { resolveSupportConfig } from "./support.mjs";
 import { createBillingLoops, openPaymentMethodRef } from "./billing-renewals.mjs";
+import { createBillingInbox } from "./billing-inbox.mjs";
+import { createBillingNotify } from "./billing-notify.mjs";
 import { assertFakeProviderGate } from "./pay-fake.mjs";
 import { paymentAdapters } from "./payment-adapters.mjs";
 import { openConnectionSecret } from "./payment-connections.mjs";
@@ -156,6 +158,9 @@ metrics.describe(
   "Transactional mail a test stand refused by its recipient allow-list",
 );
 metrics.describe("remo_mail_queue_depth", "Mail rows waiting to be sent", "gauge");
+metrics.describe("remo_billing_events_applied_total", "Payment webhook events that changed the ledger");
+metrics.describe("remo_billing_events_failed_total", "Payment webhook events scheduled for a retry, by code");
+metrics.describe("remo_billing_events_dead_total", "Payment webhook events buried after their attempts, by code");
 // Proof of a consent choice that could not be written: the choice is kept (ADR-255 §4).
 describeConsentMetrics(metrics);
 describeMfaMetrics(metrics);
@@ -336,6 +341,7 @@ const supportConfig = resolveSupportConfig();
 // Renewal runs in this process for providers that charge a saved method (ADR-247 §3.3).
 // With billing off there is nothing to renew, and a missing connection or saved method is
 // a failed attempt, not a crash: the subscription moves to `past_due` and a letter says so.
+const billingNotify = createBillingNotify({ store, mailConfig, log: console });
 const billing = createBillingLoops({
   store,
   async charge({ subscription, invoice, idempotencyKey }) {
@@ -369,30 +375,17 @@ const billing = createBillingLoops({
     );
     return { status: payment.status, failureCode: payment.failureCode };
   },
-  async notify(type, { orgId, invoice, failureCode }) {
-    if (!mailConfig || mailConfig.driver === "disabled") return;
-    const account = orgId
-      ? await store.withTenant(orgId, () => store.billingAccount(orgId))
-      : null;
-    const toEmail = account?.billing_email;
-    if (!toEmail) return;
-    const amount = invoice ? `${Number(invoice.total) / 100} ${invoice.currency}` : "";
-    const params = {
-      amount,
-      currency: invoice?.currency ?? "",
-      period: invoice?.period_end ? new Date(invoice.period_end).toISOString().slice(0, 10) : "",
-      retryAt: new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10),
-      date: new Date().toISOString().slice(0, 10),
-      invoiceUrl: `${mailConfig.appOrigin}/?billing=1`,
-      billingUrl: `${mailConfig.appOrigin}/?billing=1`,
-      failureCode: failureCode ?? "",
-    };
-    await enqueueMail(
-      store,
-      { toEmail, template: type, locale: "ru", params },
-      { config: mailConfig, kek: kekFromEnv() },
-    );
-  },
+  notify: billingNotify,
+});
+
+// The inbound journal (`spec/payment-providers.md` §5): webhooks only record, this loop
+// applies money every two seconds and reconciles pending payments once an hour on the
+// same timer. It is the only caller of `settleInvoice` besides the operator's command.
+const billingInbox = createBillingInbox({
+  store,
+  notify: billingNotify,
+  log: console,
+  metrics,
 });
 
 // Product metrics live in their own database (ADR-082), and the Pulse aggregates and the
@@ -750,7 +743,10 @@ server.listen(PORT, () => {
   // their own conditions below.
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.start();
   if (databaseUrl) filesGc.start();
-  if (process.env.REMO_BILLING === "on") billing.start();
+  if (process.env.REMO_BILLING === "on") {
+    billing.start();
+    billingInbox.start();
+  }
   // The Pulse writes in the background; the catch-up inside `start` does not block here.
   pulse.loop.start();
   pulse.peerCollector.start();
@@ -771,6 +767,7 @@ const shutdown = async (signal, exitCode = 0) => {
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.stop();
   filesGc.stop();
   billing.stop();
+  billingInbox.stop();
   pulse.loop.stop();
   pulse.peerCollector.stop();
   connections.stopSweep();

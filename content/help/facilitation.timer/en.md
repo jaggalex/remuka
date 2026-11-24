@@ -8,11 +8,11 @@ An editor or above controls the timer — the `board.facilitate` grant. A viewer
 
 ## Steps
 
-1. Open Facilitation ▾ and choose Timer.
+1. Open Run ▾ and choose Timer.
 2. Pick 1, 5, 10 or 15 minutes, or type your own.
 3. Click Start. The timer appears in the middle of the current view and becomes selected.
 
-While it runs, the Timer row in Facilitation ▾ shows the time left. Open the menu and click Timer to open the controls.
+While it runs, a chip with the time left sits beside Run; the last ten seconds turn red. Click the chip to open the controls. When time is up, the chip disappears.
 
 ## Controls
 

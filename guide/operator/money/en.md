@@ -4,6 +4,8 @@ Three money operations: mark an invoice paid, refund money and grant credit. Eac
 
 Amounts are always in the currency's minor units: `150000` is 1500.00 ₽ or 1500.00 $, depending on the organisation's currency. The command takes no fractions and no decimal point.
 
+Before you take a card payment, connect the payment service: that is a separate installation step — [Connecting a payment service](/guide/operator/payments).
+
 ## Mark an invoice paid
 
 ```sh
@@ -114,5 +116,7 @@ The journal row names the payment, invoice or organisation, the amount and the c
 | `--code` / "that code did not work" | no code or a wrong one | enter the code from the app or a recovery code; after five failures wait 15 minutes |
 
 ## Where next
+
+[Plans and the price list](/guide/operator/plans) — what a plan allows, how to set a price and how to grant a plan by hand.
 
 [Journal](/guide/operator/journal) — how to find the row about a refund, credit or payment.

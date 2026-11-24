@@ -249,8 +249,9 @@ function plannedConnector(
     // Elbow by default, the same choice a hand-drawn line makes (ADR-030).
     routing: connector.routing ?? "elbow",
     style: {
-      // The line Plain preset, so a planned line rings its own sample (ADR-129).
-      strokeColor: connector.style?.strokeColor ?? DEFAULT_LINE_PRESET.color,
+      // A planned line is Auto unless the plan names a colour: a draft still on the canvas
+      // must not store a colour the person never chose (ADR-273 §2.3).
+      ...(connector.style?.strokeColor ? { strokeColor: connector.style.strokeColor } : {}),
       strokeWidth: connector.style?.strokeWidth ?? DEFAULT_LINE_PRESET.width,
       ...(connector.style?.strokeStyle ? { strokeStyle: connector.style.strokeStyle } : {}),
     },

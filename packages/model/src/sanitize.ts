@@ -89,7 +89,7 @@ const STYLE_ENUMS: Record<string, ReadonlySet<string>> = {
   textAlign: new Set(["left", "center", "right"]),
   textVAlign: new Set(["top", "middle", "bottom"]),
   stickySize: new Set(["S", "M", "L"]),
-  elevation: new Set(["raised", "floating"]),
+  elevation: new Set(["raised", "cardboard", "floating"]),
 };
 
 const SIDES = new Set(["left", "right", "top", "bottom"]);

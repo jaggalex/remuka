@@ -10816,3 +10816,550 @@ statement with the full table one link away.
   so the layout does not have to change when analytics or marketing is added.
 - The screen is shorter than one viewport in both languages, which the end-to-end scenario
   checks together with "the register is folded until opened".
+
+## ADR-265: Remuka's character — voice, paper-and-ink chrome, physical motion
+
+Date: 2026-11-23. Spec: `spec/character.md`. Mockups approved by the owner: canvas
+«Ремука — лендинг и продукт» (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR).
+
+**Context.** Remuka is for ordinary people, not only for facilitators. "Traces and Fields"
+(ADR-181…188) made the product correct but impersonal: chrome without colour or shadow, an ink
+primary button, initials instead of names, cursors that jump between network updates. The
+landing page, built with warm paper, ink outlines, hard offset shadows, named cursors that move
+like hands and copy that talks like a colleague, is what early users responded to.
+
+**Decision.**
+- The landing page's language becomes the product's. Kept from ADR-181: authorship is visible,
+  circle = person and square = agent, differences by form, consequences before action, content
+  louder than chrome. Replaced: rule E2 (silent chrome) by a volume table — 10 landing, 8 entry
+  screens and dialogs, 6 room chrome, 4 operator/legal/security.
+- Visual tokens: paper `#fbf3df`, ink `#1e2136`, 1.5 px ink outlines, hard ink shadows without
+  blur, one coral (`#ff8a57`) primary button per screen, a marker stroke under one word of one
+  heading, sticker paper with a deterministic tilt, agent in dashed violet.
+- Voice: ten rules (colleague not system, action first, people and life, outcome not process,
+  consequences in words, cause + way out without blame, agent proposes and people decide,
+  short verbs, living numbers, one smile per screen where nothing hurts), a banned-words list
+  and a glossary for RU and EN.
+- Motion is physical: remote cursors follow a damped spring (k = 125, c = 23, chosen by the
+  owner: just above critical damping, so they ease in and out without overshoot) towards
+  their position 100 ms in the past; idle cursors fade; stickers
+  lift, settle and pop; every motion honours `prefers-reduced-motion` and a "calm animations"
+  setting.
+
+**Consequences.**
+- `@remo/ui` gains a semantic layer of character tokens; existing tokens are remapped, not
+  removed. `docs/design/DESIGN.md` and the REMO 2.0 design system become «Ремука 3.0».
+- Remote cursors show names and colour fills; `@remo/canvas` computes cursor and sticker
+  physics in its frame loop, with a performance budget of 30 cursors and 500 stickers at 60 fps.
+- All UI strings and letters get a voice pass; `brand:check` learns the banned-words list.
+- The dark theme needs its own version of "cardboard" before it adopts the new look.
+- **Amendment (2026-11-23): "a tidy desk".** Character needs room, so noise is hidden by rule:
+  one main task per screen; permanent places only for what most sessions use (decided by
+  Pulse data); buttons grouped by intent (Invite, Run the session, Agent, room menu, account
+  menu); tools in the context of a selection; states only when abnormal; limits — at most 8
+  items in the room header, 7 tools plus "more", 12 chrome controls on the working room
+  screen; one-time hints; chrome fades while drawing; progressive disclosure in dialogs;
+  nothing is lost — every hidden item is in a menu and in the command search (⌘K). Every
+  screen gets a mockup checked against these rules before it is rebuilt (`spec/character.md`
+  §3.6, §6a).
+- **Amendment (2026-11-23): icons are the same ink.** One family (`@remo/ui`), line weight 2.25
+  on the 24 grid and 1.75 on the 16 grid so icons match the 1.5 px outlines; ink by default,
+  colour only for meaning (agent, done, danger, a person); chosen state as a marker chip
+  (`accent-chosen`) with an ink outline instead of a recoloured icon; illustrations built from
+  the logo shapes are a separate tier for empty states and onboarding (`spec/character.md` §3.7).
+
+## ADR-266: A tidy desk — command registry, eight-item room header, quiet chrome
+
+Date: 2026-11-23. Spec: `spec/tidy-desk.md`. Principle: ADR-265 amendment "a tidy desk".
+
+**Context.** The character of ADR-265 needs room, but the room header has 16 controls, the
+save state is always on screen, zero counters are shown, several side panels can be open, and
+there is no way to find an action that is not on screen. Hiding controls without a way to find
+them, and without data on what people use, would trade noise for confusion.
+
+**Decision.**
+- One **command registry** — the existing object command list (`apps/web/src/commands.ts`,
+  ADR-050), extended with chrome commands and a `palette` surface — is the only list of actions; the intent menus (Run the session, Agent, room menu, account menu) are built from it,
+  and a **command search** (⌘K / Ctrl K) searches it by title and RU/EN synonyms, shows
+  unavailable commands with a reason, and offers "ask the agent" as the last line.
+- The room header has **eight** items: logo, room title menu, people, Run, Agent, comments,
+  Invite (the primary button), account. Everything else becomes a registry command in a menu.
+- Status only when abnormal: no save indicator while saved; "Saving…" after 2 s; offline and
+  stopped input at once. Zero counters are hidden; viewers fold into the people group.
+- One side panel at a time; hints until the action is learned (`useOnceHint`); chrome fades to
+  35 % and ignores the pointer during canvas gestures; "calm animations" is an account setting.
+- A `chrome.used` event (first use per organisation per day) and a Pulse section show what is
+  used, so placement is decided on data, quarterly, by the owner.
+
+**Consequences.**
+- Menus and search cannot drift: a menu item without a registry id fails a test.
+- E2e scenarios stop relying on the visible "saved" text and read `data-state`.
+- Dialogs gain `Disclosure` and `DangerZone` from `@remo/ui` when rebuilt from mockups.
+- Moving a control between "visible" and "in a menu" is a recorded decision, not a style edit.
+
+**Amendment (2026-11-24, owner's decision): session chips are states.** The timer and vote live
+in "Facilitate". A running timer shows a "04:12" chip and an open vote a "22 votes" chip next to
+it; each appears on start, disappears on finish, is not one of the eight header items and opens
+"Facilitate" at its section. The layout reference is the play prototype, not the artboard PNG. The
+title menu loses "Version history": the product has no such feature.
+
+## ADR-267: Canvas objects and the context menu get the character
+
+Date: 2026-11-23. Spec: `spec/canvas-character.md`. Extends ADR-265; amends ADR-182, ADR-234 and ADR-245.
+
+**Context.** After ADR-265 the chrome is "cardboard", but the canvas content is still muted:
+ADR-182 paper tones, thin grey frame outlines, an outline-less connector label, and a plain
+context menu. The approved room mockup shows brighter paper, ink outlines and hard shadows.
+
+**Decision.**
+- Fill palette: row 100 becomes the mockups' sticker tones and row 300 the landing page's
+  colours (the pre-ADR-182 bright row); the default sticky is yellow 100 `#f4e0a8`. Stored
+  colours are never rewritten (ADR-127): ADR-182 values join the "previous" sets that the colour
+  window recognises.
+- Objects: shapes with a 2 px ink outline and radius 10; connectors with rounded ink heads and an
+  outlined paper label; frames with an ink title tab that is also their handle; kanban cards,
+  tables, timer, comment pins, vote counters and selection handles in ink-and-paper.
+- A third elevation level, "Cardboard": a hard ink offset shadow without blur.
+- Kanban as on the landing page: a card without a colour of its own is filled with its column's
+  colour (to do — white, doing — yellow 300, done — green 300), computed from `column.accent`
+  at paint time, so moving a card recolours it without writing to it; a chosen card colour
+  wins; the board sits on a coloured ground and column headers read "Doing · 2/2".
+- The context menu is built from the command list (ADR-050) with new `group`, `icon` and
+  `menuTitle` fields: a title, groups (main, clipboard, arrange, danger last), icons, shortcuts,
+  a colour grid submenu and a final "Find an action ⌘K".
+
+**Consequences.**
+- Rooms look different without any data migration; old colours stay recognisable.
+- The elevation enum gains a value; old clients ignore an unknown level (ADR-245 reads unknown
+  as none) — acceptable for one release.
+- Visual baselines are re-recorded with this change.
+
+**Amendment (2026-11-24): the card colour rule is total; it amends ADR-234.**
+- `cardFillFor(accent)` in `@remo/model` maps any column accent to a card fill: look the hex up
+  in every `TONE_LEVELS` row (100/300/600 and the recognised previous sets); grey, `TODO_ACCENT`,
+  the new-column default `#9ca3af` and unknown hex give white paper; any other tone gives its
+  row-300 colour. A row-600 column accent changes only the header colour.
+- ADR-234's "a card is paper without colour" no longer holds for kanban cards; `cardTheme`
+  stays unpainted (it was an outline colour).
+- Cards still move by drag. The mockup's click-to-move is a demonstration only.
+- Selection has no rotation handle: rotation was removed by ADR-209.
+
+**Amendment (2026-11-24): "cardboard" is the third level (T4).**
+- `ELEVATIONS` is `raised`, `cardboard`, `floating`, in ascending lift, and the shadow menu
+  offers None, Raised, Cardboard, Floating. `WidgetStyle.elevation` gains `"cardboard"`;
+  `sanitize` keeps it on a kanban, frame or shape, and `elevationOf` still reads an unknown
+  level as none (ADR-245). No data migration: an object without the field stays flat.
+- The cast is the object's own silhouette moved down and right by six board units, with no
+  blur, in `canvas-object-ink`; it follows zoom like the card's hard shadow (ADR-267 §2.1)
+  and is clipped outside the outline, so a frame's translucent body is not darkened.
+- The screen, the presentation view and PNG/PDF export paint it with the same `castElevation`,
+  so the stored level survives a reload, reaches the other participant over Yjs, and lands in
+  the picture without a second painter.
+- Until the dark theme gets its own cardboard (ADR-265, stage 6), the level is painted as
+  Floating in the dark theme: the token colour would be invisible ink on the dark board. The
+  stored level is not rewritten, so switching back restores the hard shadow.
+- Visual baselines with an elevated object are re-recorded with this change.
+
+## ADR-268: Living words — sticky series, rotating hints, team news
+
+Date: 2026-11-24. Spec: `spec/living-words.md`. Extends ADR-265 (voice) and ADR-266 (hints).
+
+**Context.** The owner wants placing many notes to be fast, hints that do not go stale, and the
+home page to tell what is happening in the team, as the approved mockups do ("Ilya is already
+in the retro, and the agent sorted yesterday's notes").
+
+**Decision.**
+- Sticky series: holding a creation tool's key keeps the tool for every click; a double click
+  on the tool locks it until Esc. Each placed note is in edit mode; a click on empty space ends
+  the edit and places the next. One mechanism for sticky, shape and text.
+- Hints carry 2–3 variants (action, benefit, together) and rotate by visit, stable within a
+  visit; the learned-hint rules of ADR-266 still apply.
+- Team news: the sync service returns up to three items from data it already has — people in a
+  room now, unread mentions and replies, agent proposals awaiting a decision, people who joined —
+  filtered by room access, scored by type, freshness and involvement, at most one per room. The
+  client words them from i18n keys, with the phrasing stable for a day.
+
+**Consequences.**
+- No new tables in version 1; "what changed since your last visit" needs room-visit data and a
+  separate decision.
+- News never quotes room content: titles and names only.
+- A `news.clicked` metric shows which kinds of news people act on.
+
+## ADR-269: The hint catalog — operators edit the words, code keeps the rules
+
+Date: 2026-11-24. Spec: `spec/hint-catalog.md`. Extends ADR-268 and ADR-266; console per ADR-262.
+
+**Context.** The owner wants smart, rotating hints throughout the product, and their wording to
+be changeable by staff without a release. Wording that cannot be improved until the next
+version goes stale; but where and when a hint appears is product behaviour that needs tests.
+
+**Decision.**
+- Hint **slots** live in code (`apps/web/src/hints.ts`): place, trigger, audience, allowed
+  intents, fields, length limits, placeholders, and default texts. No slot exists in money,
+  deletion, security, legal or error surfaces.
+- Hint **texts** live per installation in `hint_texts`, versioned, draft or published; the client
+  loads published texts once per visit and falls back to the slot defaults. Hint texts leave
+  `i18n` for slot defaults, so there is one place for them.
+- Operators edit texts in a "Words" section of the console with server-side validation (length,
+  placeholders, plain text only, banned words and emoji), a live preview, a fresh TOTP code,
+  a reason, audit, and one-click rollback. News templates (ADR-268) use the same catalog.
+- `hint.shown` / `hint.acted` per slot and variant, aggregated per day, show which wording works.
+
+**Consequences.**
+- Staff can fix a confusing hint the same day; behaviour changes still go through code.
+- Button labels, errors, letters and legal texts stay in `i18n` and versions.
+- A new table and a console section; an empty catalog means the product looks as it does today.
+
+## ADR-270: Account screens of wave 2 — system theme, sign out elsewhere, what changed
+
+Date: 2026-11-24. Approved by the owner. Mockups: `#artboard-App-Account`. Task T15.
+
+**Context.** The wave 2 mockups show three small things the product does not have.
+
+**Decision.**
+- **Theme "As in the system".** `users.theme` accepts `system` besides `light` and `dark`; the
+  client follows `prefers-color-scheme` and its changes while the page is open. `null` keeps
+  meaning "not chosen" and behaves as **`light`** — light is the default; the system theme is
+  only what a person chooses (owner's decision, 2026-11-24).
+- **Sign out on other devices.** `DELETE /auth/sessions?others=1` revokes every session of the
+  account except the current one, with one audit row (`auth.sessions_revoked`, count) and the
+  existing "new sign-in / password changed" letters unchanged. The per-session revoke stays.
+- **What changed.** A published legal version may carry `changes: { ru?, en? }` — 1–3 short
+  sentences in `content/legal/index.json` (ADR-256). The re-accept window and the `legal_update`
+  letter show it above the links; `legal:check` requires it for every published version after
+  the first and freezes it with the version's hash.
+
+**Consequences.**
+- No new tables; one new value, one route variant, one registry field.
+- A lawyer writes the "what changed" lines together with the new version.
+
+## ADR-271: Shapes are switched, drawn by dragging and rotated like in common whiteboards
+
+**Status:** accepted (2026-11-24, owner: A — yes, B — yes). Spec: `spec/canvas-character.md` §2.2.
+Amends ADR-119 (creation) and supersedes the rotation part of ADR-209.
+
+**Context.** The model has five shape kinds, but the rail creates three and nothing in the UI
+changes `shapeKind`, so the reference mockup's rounded "Request" box and triangle cannot be made
+by hand. Common whiteboards (Excalidraw, Miro) let you draw a shape to size, switch its kind and
+corners, and rotate it.
+
+**Decision.**
+- The rail flyout shows all five kinds.
+- The shape selection bar gets "Kind ▾" (five silhouettes) and "Sharp / Rounded"; switching keeps
+  text, colours, size and connectors, which re-attach to the new outline. Undo is one step.
+  No new field: rounded is `round_rectangle`.
+- **Draw by dragging.** After choosing a shape tool (rail or key R/O), a drag on the canvas
+  draws the shape to size (Shift — square/circle, Alt — from the centre) and the rail returns
+  to Select; a click without a drag, or a second press of the key, still creates the default
+  shape at once (ADR-119). Esc cancels the armed tool. Double-clicking a tool keeps it armed
+  for a series (the same rule as the sticky series, ADR-268).
+- **Rotation returns** as `Widget.rotation` (degrees, default 0) for shapes, stickies, text,
+  images and frames; not for kanban, tables and connectors in this step. It is honoured by
+  hit-testing, the selection box and a round rotation handle, text (rotates with the object),
+  connector anchors on the rotated outline, presentation and PNG/PDF export. Shift snaps to 15°.
+  The agent projection writes the real value into the existing `widgets.rotation` column.
+  The existing sticky tilt (ADR-265) is decoration and stays separate from `rotation`.
+
+**Consequences.** Two tasks: T17 (kinds, switching, draw-by-drag, M) and T18 (rotation, L).
+Old clients ignore `rotation` and show such objects unrotated — acceptable for one release and
+written in the changelog. Rotated connector labels (ADR-213) stay out of scope.
+
+## ADR-272: One brand mark everywhere — the landing page's coloured mark
+
+**Status:** accepted (2026-11-24, owner). Spec: `spec/character.md` §3.8. Amends ADR-254 §6
+(what the old `/remo-logo.svg` path serves).
+
+**Context.** The landing page shows the mark in colour: a coral circle `#ff8a57`, a blue rounded
+square `#78b4ff` and an ink smile. The product shows a different one: the app header,
+help and favicon use a single-colour `#1E2A44` mark (`apps/web/public/remuka-mark.svg`), the home
+screen still loads the old `/remo-logo.svg`, and the root `remo-logo.svg`, which the guide, the
+documentation and the legal site copy, is an Inkscape edit with yellow, red and grey shapes. Four
+files, three pictures.
+
+**Decision.**
+- One source: `docs/design/brand/remuka-mark.svg` (light: graphite smile `#3f4256`, owner's
+  choice — softer than ink, 8.9:1 on paper) and `remuka-mark-dark.svg` (the smile becomes paper
+  `#fbf3df`; circle and square keep their colours). The landing page takes the graphite smile too. Geometry is the existing 200×200
+  grid; nothing else changes.
+- In the app the mark is one `BrandMark` component in `@remo/ui` that inlines the SVG and takes
+  the smile colour from a token (`brand-mark-ink`: light graphite `#3f4256`, dark paper `#fbf3df`), so no CSS
+  filter inverts it. Every place that shows the mark uses it; the wordmark "Ремука"/"Remuka" next
+  to it is Golos Text 800, letter-spacing −0.02em, as on the landing page.
+- Generated sites (guide, docs, legal) and the favicon read the source file through their build
+  scripts; `apps/web/public/remuka-mark.svg` and `/remo-logo.svg` are copies made by a build step,
+  not hand-kept files. The old `/remo-logo.svg` path stays for twelve months (ADR-254) but serves
+  the new mark.
+- `brand:check` fails when a served or generated mark differs from the source, or when an SVG
+  in the repo carries `#1E2A44` mark geometry or Inkscape metadata.
+- Letters stay text-only (`mail-templates` has no images by design); not changed here.
+
+**Consequences.** One picture of the brand in every surface; baselines with the header, help, home
+and site headers are re-recorded. Task T19 in `spec/dev-plan-character.md`.
+
+## ADR-273: Ink knows its paper — derived colours come from the surface under them
+
+**Status:** accepted (2026-11-24). Spec: `spec/ink-on-ground.md`. Amends ADR-120 (no default
+text colour is stored), ADR-182 and ADR-267 (content fills stay theme-independent; their ink
+does not), ADR-049 (a kind declares its ground and part roles).
+
+**Context.** In the dark theme a free text kept its stored grey-600 and vanished on the dark
+canvas, while kanban headers and lane titles took the theme's light text and vanished on the
+kanban's light-green ground, and grid lines turned heavy and dark. Text and line colours come
+from two unrelated sources — the theme palette (about 43 call sites in `packages/canvas` and
+`painters.ts`) and the document — while the surface under them comes from the document. Only
+stickies and cards use `inkFor(fill)`.
+
+**Decision.**
+- Colours fall into chrome (theme tokens), the canvas ground (theme), content fills (document,
+  theme-independent) and derived ink (text, counters, lines, icons, "+", placeholders, caret).
+- Derived ink is `ink(groundOf(target), role)` in `@remo/model`: `groundOf` resolves own fill →
+  container fill (kanban, table, frame body, mixed by alpha) → canvas ground; `ink` picks from two
+  fixed ladders (ink/graphite on light, paper on dark) by role thresholds: text and muted ≥ 4.5:1,
+  icon ≥ 3:1, line 1.25–1.6:1, strong line ≥ 3:1; dark ink wins a tie.
+- New objects store no text or line colour ("Auto"). Stored text equal to the former default
+  (`GREY[600]`, `#1a1a1a`) reads as Auto, like ADR-186. A person's explicit colour is kept; below
+  2:1 against its ground it gets a 1.5 px halo in the ground's ink, and the colour window warns.
+- DOM layers, export, presentation and thumbnails use the same two functions (`--ink` inline).
+- `CanvasPalette` loses its text and border fields for content, so a painter cannot reach theme
+  ink; a matrix test (every part × every palette fill × both themes × role) and `ui:check` keep it
+  that way, and dark-theme baselines cover kanban, table, frame, text and stickies.
+
+**Consequences.** Switching theme recolours only chrome and the canvas ground; everything else
+follows. The dark-theme wave of mockups (wave 8) starts after this. Task T20.
+
+## ADR-274: Wave 3 screens — a short account menu, new room, facilitation panel, export
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 3 (`App-AccountMenu`,
+`App-NewRoom`, `App-Facilitate`, `App-Export`). Amends ADR-266 §2 (item 8) and ADR-270.
+
+**Decision.**
+- **Account menu** has a person card (link to account settings), "All rooms", "Organisation and
+  people", inline segmented controls for theme (light / dark / as in system) and language, the
+  "Calm animations" switch, help and shortcuts, documentation, "Contact support", "Sign out" and
+  the version line. The name and handle form, active sessions, security, documents, cookies and
+  account deletion move to the account settings sections (wave 2 mockup). No item is removed.
+- **Step-up** (ADR-260): six digit cells accepting a pasted code, a link to the recovery code, an
+  error that says what to do; one shake, none with calm animations.
+- **New room**: name, four existing templates as picture cards, "Empty / With example" only for
+  the roadmap (as now), organisation and team folded under "Where: org · team — change".
+- **Facilitate**: one menu, one side panel with tabs Timer / Vote / Follow / Show; header chips
+  per ADR-266 amendment; follow invitation as a toast; presenter bar at the bottom while showing.
+- **Export**: format first (PNG / PDF / Backup), then scope only for pictures; restore from backup
+  folded under a disclosure in a danger frame.
+- Nothing here adds a capability: every control maps to an existing command or field.
+
+**Consequences.** Task T21. Baselines for these surfaces are re-recorded.
+
+## ADR-275: Wave 4 screens — organisation page, plan and payment, limits, all rooms
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 4 (`App-Org`,
+`App-Billing`, `App-Limits`, `App-AllRooms`). Builds on `spec/billing.md`, ADR-246, ADR-256.
+
+**Decision.**
+- **Organisation** becomes a page with tabs People / Teams / Journal / Plan and payment instead of
+  a dialog. A seat meter sits in the header ("Seats 4 of 5"; guests and viewers take no seat). A
+  person's rights and dangerous actions live in their "⋯" menu; removal keeps today's checks
+  (rooms still owned, last administrator). An invitation shows the one-time 30-day link to copy.
+- **Plan and payment**: current plan card with status chip and usage meters (seats, active rooms,
+  agent tasks), main action, cancel with a plain consequence; chooser with period, currency,
+  three paid plans, promo code under a disclosure, payment method, offer consent and one pay
+  button that names the sum; invoices table. Status banners for past due, over limit and
+  suspended say what happens to data and the one thing to do. Card data never reaches Remuka.
+- **Limits**: a limit dialog names the limit and the count, says nothing is deleted, and gives an
+  administrator "See plans" and a member the name of who to ask; a paid feature stays visible
+  with the plan's badge instead of disappearing; the active-rooms chooser counts "N of max" and
+  blocks saving above the limit; a frozen room carries the server's text and "Make active".
+- **All rooms**: search, sort, pages and a Trash tab; restoring above the room limit explains
+  why it cannot.
+- Prices in mockups are the landing page's preliminary ones; the product shows the server's
+  (`billing:prices`). Nothing here adds a capability.
+
+**Consequences.** Task T22. `OrganisationDialog` becomes a routed page; deep links to its tabs.
+
+## ADR-276: Wave 5 screens — the agent in a room, AI in the organisation, images, storage, apps
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 5 (`App-Agent`,
+`App-AgentsAdmin`, `App-Images`). Builds on ADR-066, ADR-142, ADR-265 (violet belongs to the agent).
+
+**Decision.**
+- **Violet means "the agent's, not accepted yet".** Agent work in a room — a room-agent draft frame
+  or a plan preview — is drawn with a dashed `agent` outline and a translucent violet fill; once
+  accepted it becomes ordinary paper and ink. The two code paths (room-agent draft, agent plan)
+  keep their mechanics; they share this look.
+- **Room agent panel**: one side panel with the request, skill chips, "What goes to the model"
+  under a disclosure, the task limit, one "Create draft" button and a line on what the agent cannot
+  do; running state with "Stop"; plan state with counts, warnings by severity (a critical one
+  blocks Apply), objects under a disclosure, "Apply" / "Reject" and "Clarify"; applied state with
+  "one ⌘Z removes it"; errors say what stopped and what to change. Past requests are listed below.
+- **AI in the organisation** is a tab of the organisation page (ADR-275): the organisation switch,
+  agents with one-time key reveal, the skills library with risk chips; AI keys with the safety
+  note, the key policy, organisation and personal keys (fingerprint only), and the add-key form
+  (Base URL only for a custom gateway); the evidence log with chain status and filters.
+- **Images**: drop overlay that counts what can be added, upload progress and errors with a way
+  out, the image bar (Description, Replace, Open, More), the description window with a counter,
+  the viewer; images on the canvas are unchanged (ADR-267).
+- **Storage**: used of limit, rooms that take the most, the 30-day release note, the quota state.
+- **Apps panel**: schema-driven apps as cards, the empty state names who installs them.
+- Providers, models, skill rights and limits come from the server; mockup values are examples.
+
+**Consequences.** Task T23.
+
+## ADR-277: Wave 6 screens — kanban menus and fields, card filter, sections and tables, tidy, tags
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 6 (`App-Kanban`,
+`App-Table`, `App-Tidy`). Builds on ADR-106, ADR-112, ADR-196, ADR-198, ADR-219, ADR-267.
+
+**Decision.**
+- **Kanban**: the column header is the button to its menu ("Name · N/WIP ▾" with a colour swatch).
+  The column menu holds rename, the colour grid (changes the column and its cards, ADR-267), the
+  WIP limit with "a warning, not a ban", add right, move, delete. The WIP limit moves from the
+  inspector into this menu (one place). Card fields — status chip, assignee, start, due (overdue
+  in danger ink), tags and "Card colour: like the column / own" — open in the side panel.
+- **Card filter** stays a selection (ADR-112): assignee and due, "Select cards", "Found: N"; the
+  board is never hidden.
+- **Sections and tables**: the section bar switches Free / Table and adds axes; an axis header is
+  the button to its menu (rename, insert, move, duplicate, vertical header, delete…). Deleting an
+  axis with objects asks where they go (move left / right / delete with N); the button names the
+  choice. Switching to Table asks "How to lay out the material?" with a dashed preview. A cell
+  range bar offers merge and "Move to cell…".
+- **Tidy** shows a dashed preview of target blocks before applying, the counts, block labels and
+  warnings (locked objects stay); the applied toast offers undo. The agent requirement stays.
+- **Tags**: the room's tags with colour, count, "Select (N)" and "⋯" (rename, colour, delete with
+  the plain consequence).
+- Nothing here adds a capability.
+
+**Consequences.** Task T24. The inspector loses its WIP field.
+
+## ADR-278: Wave 7 screens — cookies, access and connection states, help and documents, mail, operator
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 7 (`App-Consent`,
+`App-States`, `App-HelpDocs`, `App-Mail`, `App-Operator`). Builds on `spec/cookies.md`, ADR-246,
+ADR-256, ADR-259, ADR-262, ADR-270.
+
+**Decision.**
+- **Cookies**: RU — a notice with "Got it"; EU — a banner where "Reject all" and "Accept all" have
+  the same look and weight, "Customize" beside them; settings list categories in plain words,
+  "Always on" for necessary, switches for the rest, the GPC note; the policy page shows the
+  storage registry table and edition.
+- **Closed doors** share one template: what happened, why, one main action, an optional secondary
+  link; a face from the logo shapes. Covers no access, sign in to open, link inactive, link
+  expired, password, hidden by the operator (with the operator's reason), unclaimed room.
+- **Connection** has one chip scale in the room header (connecting, saved, saving, offline · N,
+  input paused, read only, moving) and a banner for states that need action (offline, queue full,
+  session ended, access changed, room full, address moved).
+- **Help** has search, four topic types as cards, articles with the translation note and related
+  topics. **Documents** show each document's state, edition, "what changed" and Accept / Withdraw.
+- **Mail**: one template — paper background, white card with a 2 px ink border, the mark built
+  from two coloured blocks and the word (still no images), one coral button, the signature; the
+  text version carries the same words in the same order.
+- **Operator console** keeps the character but denser (14 px); every action asks for a reason and
+  a second-factor code and lands in the journal; no "god mode".
+- A generic app 404 and server-error page do not exist and are not drawn (backlog 7.1).
+
+**Consequences.** Task T25.
+
+## ADR-279: A kanban has a name plate, and its cards stand on a hard shadow
+
+Date: 2026-11-23. Amends ADR-267 (`spec/canvas-character.md` §2.1). Owner's decisions while
+building T2. No new fields, no migration.
+
+**Context.** The approved room mockup shows the kanban as an object with its own identity:
+a dark plate above its left corner reading "Sprint 15 · kanban". ADR-267 gave the board a
+coloured ground and painted cards but said nothing about a plate, and `spec/canvas-character.md`
+§2.1 says a card has "no hard shadow". The owner asked for the card as it is in the mockup:
+a 2 px ink outline, radius 10, a hard shadow, and the column's fill.
+
+**Decision.**
+- A kanban paints a **title plate** above its top-left corner: ink `canvas-object-ink`, white
+  `canvas-object-ink-text`, radius 8, 24 board units tall, overlapping the board's edge by
+  2 units so it never covers a column title and stays inside the export's 24-unit padding.
+  The text is the object's own `title` plus the word for the type (`canvas.kanban`), e.g.
+  "Sprint 15 · Kanban"; without a title the plate says only the type. The plate is painted
+  for the screen and the export by the same painter. It is not a handle in this task: a
+  frame's label becomes one in T3.
+- **A card casts a hard shadow**, not a soft one: the same silhouette offset 3 board units
+  in ink, no blur, in both themes until the dark theme gets its own cardboard (ADR-265
+  stage 6). The card keeps its 2 px ink outline and radius 10; the outline and the shadow
+  are canvas content and are not recoloured by the theme.
+- **§2.1's "no hard shadow" is superseded.** A card being dragged keeps its deeper soft
+  shadow (the overlay) on top of the hard cast.
+
+**Consequences.**
+- Rooms show the board's name without opening a panel. Renaming is not in this task; when a
+  menu command exists it writes the same `title` field the frame's label uses (T3).
+- A nameless board says what it is; nothing invents a "Sprint 15".
+- Cards look the same in light and dark until the dark-cardboard task; their own colour
+  still wins over the column's and is written only when a person chooses one.
+
+## ADR-280: A stand shows its test price list and pays through a test connection
+
+Date: 2026-11-24. Amends ADR-247 (`spec/billing.md` §2.1.1) and ADR-248
+(`spec/payment-providers.md` §2.1, §3.3). Builds on ADR-261 (`spec/stage.md` §5). No new
+flag, no schema change.
+
+**Context.** A test stand repeats a cloud installation, so it must be able to sell the paid
+plans it demonstrates. Two rules made that impossible. The public catalogue asked the store
+for live method groups only, and checkout read `billing_accounts.test_mode`, a column no
+stand paths ever set. Meanwhile `REMO_STAGE=1` refuses live connections, so a stand could
+create only test connections and then show no paid plan at all — the showcase was empty by
+construction. The production rule "a test connection never appears as a way to pay real
+money" is right and stays; what was missing is the one installation where real money is not
+involved.
+
+**Decision.**
+- `REMO_STAGE=1` is the only switch, and `isStage` in `apps/sync/stage.mjs` remains its only
+  reader. There is no billing flag and no `billing_accounts` column for this.
+- On a stand the catalogue adds the test groups to the live ones per currency:
+  `methodGroupsFor({ currency, testMode: true })` after `testMode: false`, duplicates
+  dropped, live order kept. Production still performs only the live read and its answer is
+  unchanged byte for byte.
+- On a stand checkout routes with `testMode: isStage(env) || Boolean(account.test_mode)`, so
+  an organisation whose account was never marked as a test payer still pays into the test
+  connection. `account.test_mode` keeps its meaning on production.
+- A currency served only by live connections is not broken on a stand: the test union is
+  empty and the live groups stay as they are. The existing refusal of a live route at
+  payment time (`STAGE_LIVE_PAYMENT_REFUSED`, audit `billing.live_refused_on_stage`) stays.
+
+**Consequences.**
+- A stand shows paid plans as soon as a complete price list and one active test connection
+  exist, and a checkout there produces a real invoice and a pending payment through that
+  test connection.
+- Production behaviour is untouched: an `active` test connection is still absent from the
+  catalogue and is never selected by a checkout.
+- The operator guide must say that the stand is the exception to "live only"; the sentence
+  is corrected in the page that owns it, not in this record.
+- Tests: `payment-providers.test.mjs` covers the catalogue's two answers, and
+  `billing-checkout.db.test.mjs` covers the chosen connection id on both installations.
+
+## ADR-281: The Black chip is true black, because the old near-black is Auto
+
+**Status:** accepted (2026-11-24). Amends ADR-140 (the named values) and ADR-127's value
+list. Spec: `spec/ink-on-ground.md` §2.3. Found while building T20.
+
+**Context.** ADR-273 makes a stored ink equal to the old automatic default read as Auto:
+`GREY[600]` (#58534e), `#1a1a1a`, `#1e2136`, `#595959`. ADR-140's Black chip stores
+`#1a1a1a` — the value the old `BOARD_COLORS` palette called Black and the value
+`readableInk` wrote as an automatic near-black. The two rules collide: choosing **Black**
+on a text would store a value the painter reads as Auto, so in the dark theme it would
+paint paper instead of black, and the "hard to read" warning could never appear for an
+explicit black — the very case `spec/ink-on-ground.md` §2.3 names.
+
+**Decision.**
+- `NAMED_COLORS.black` is `#000000`. The chip writes a colour Auto never produces, so a
+  person's black is explicit in both themes and gets its halo and its warning.
+- `#1a1a1a` stays in the Auto list; a board already carrying it keeps painting its shade
+  on a light fill (Auto resolves to ink, #1e2136) and reads on a dark one. No value is
+  rewritten (ADR-127).
+- The colour window names `#000000` **Black**; an old `#1a1a1a` is shown and named as
+  Auto, exactly as it paints.
+- `color.000000` is the i18n key; `color.1a1a1a` remains so an old custom value still has
+  a word.
+
+**Consequences.**
+- A new Black fill is two levels darker than before; every existing board is unchanged.
+- ADR-140's sentence "Black is `#1a1a1a`, the old palette's value" is superseded for what
+  the chip writes; the old value is still recognised on read.
+- `namedColors.test.ts` pins both facts: the chip is `#000000`, and that value is not a
+  grid entry.
+- T20's acceptance "an explicit black in the dark theme has a halo and the window warns"
+  is reachable from the interface, not only from a hand-written document.

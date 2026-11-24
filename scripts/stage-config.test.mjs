@@ -158,3 +158,21 @@ describe("the stand runbook", () => {
     expect(DOC).toContain("stage:reset");
   });
 });
+
+describe("the server's operator command bridge", () => {
+  const CONTROLLER = read("deploy/remo");
+  const CLOUD = read("docs/operations/cloud.md");
+
+  it("runs a release script inside the sync image with shared/ mounted read-only", () => {
+    expect(CONTROLLER).toMatch(/^\s*cli\)/m);
+    expect(CONTROLLER).toContain('compose run --rm --no-deps -T -w /app -v "$ROOT/shared:/shared:ro" sync node "/app/scripts/$script"');
+    expect(CONTROLLER).toContain("Usage: remo cli SCRIPT");
+  });
+
+  it("documents the host command without pnpm", () => {
+    expect(CLOUD).toContain("remo cli billing-providers list");
+    expect(CLOUD).toContain("/shared/yookassa-test.json");
+    expect(CLOUD).toMatch(/no `pnpm`/);
+  });
+});
+

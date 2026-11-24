@@ -415,25 +415,31 @@
       120,
       121,
       123,
-      139
+      139,
+      265,
+      266
     ],
     "code": [
       "apps/web/src/BoardTopbar.tsx",
       "apps/web/src/topbar/BoardTitleMenu.tsx",
-      "apps/web/src/topbar/FacilitationMenu.tsx",
-      "apps/web/src/topbar/MoreMenu.tsx",
       "apps/web/src/topbar/AccountMenu.tsx",
       "apps/web/src/ToolRail.tsx",
       "apps/web/src/CanvasHud.tsx",
       "apps/web/src/SelectionBadge.tsx",
       "apps/web/src/CanvasHint.tsx",
       "apps/web/src/VoteLayer.tsx",
-      "apps/web/src/PresentationLayer.tsx"
+      "apps/web/src/PresentationLayer.tsx",
+      "apps/web/src/topbar/PeopleMenu.tsx",
+      "apps/web/src/topbar/SaveLine.tsx",
+      "apps/web/src/commands.ts",
+      "apps/web/src/commandsChrome.ts",
+      "apps/web/src/topbar/registryItems.ts"
     ],
     "tests": [
       "e2e/tools.spec.ts",
       "e2e/boards.spec.ts",
-      "e2e/a11y.spec.ts"
+      "e2e/a11y.spec.ts",
+      "e2e/header-tidy.spec.ts"
     ]
   },
   "how-to/tidy-selection": {
@@ -722,6 +728,48 @@
     "tests": [
       "apps/sync/operator-billing.db.test.mjs",
       "scripts/billing-mark-paid.test.mjs"
+    ]
+  },
+  "operator/payments": {
+    "adr": [
+      248,
+      247
+    ],
+    "code": [
+      "scripts/billing-providers.mjs",
+      "scripts/billing-prices.mjs",
+      "apps/sync/pay-yookassa.mjs",
+      "apps/sync/payment-connections.mjs",
+      "apps/sync/payment-webhooks.mjs",
+      "apps/sync/billing-catalog-api.mjs"
+    ],
+    "tests": [
+      "apps/sync/payment-providers.test.mjs",
+      "apps/sync/payment-providers.db.test.mjs",
+      "apps/sync/pay-yookassa.test.mjs",
+      "apps/sync/payment-webhooks.test.mjs"
+    ]
+  },
+  "operator/plans": {
+    "adr": [
+      247,
+      248,
+      262
+    ],
+    "code": [
+      "apps/sync/billing-catalog.mjs",
+      "apps/sync/billing-guard.mjs",
+      "apps/sync/billing-catalog-api.mjs",
+      "scripts/billing-prices.mjs",
+      "scripts/billing-grant.mjs",
+      "apps/sync/operator-billing-grant.mjs",
+      "apps/web/src/BillingPanel.tsx"
+    ],
+    "tests": [
+      "apps/sync/billing-prices.test.mjs",
+      "apps/sync/billing-prices.db.test.mjs",
+      "apps/sync/billing-guard.test.mjs",
+      "apps/sync/operator-billing.db.test.mjs"
     ]
   },
   "operator/totp": {

@@ -1,11 +1,20 @@
-import type { CardStatus, TagColor, Widget } from "@remo/model";
+import type { CardStatus, Ink, TagColor, Widget } from "@remo/model";
 import type { CanvasPalette } from "./palette";
+import { fillWithHalo } from "./textPaint";
 
 /** The small print on a card: status, assignee and date range (ADR-106 amendment). */
 export interface CardMetaTheme {
   fontFamily: string;
   palette: CanvasPalette;
   statusLabel: Record<CardStatus, string>;
+  /**
+   * The card's ink, picked from the sheet's fill (ADR-267, ADR-273), with the halo a
+   * person's nearly invisible colour needs. Required: a card without an answer would be
+   * a card painted in the chrome's colour, which is the defect ADR-273 removes.
+   */
+  ink: Ink;
+  /** Halo width in world units, so 1.5 px on screen at any zoom; 1.5 when absent. */
+  haloWidth?: number;
   /** The room's tag vocabulary (ADR-102), so the face can name a card's tags. */
   tags?: ReadonlyMap<string, { name: string; color: TagColor }>;
 }
@@ -95,12 +104,6 @@ function today(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-function statusColour(status: CardStatus, palette: CanvasPalette): string {
-  if (status === "done") return palette.success;
-  if (status === "in_progress") return palette.warning;
-  return palette.textMuted;
-}
-
 /**
  * Draw the card's meta line and return the title baseline.
  *
@@ -122,6 +125,8 @@ export function drawCardMeta(
 ): number {
   const hasMeta = Boolean(card.status || card.assigneeName || card.startAt || card.dueAt);
   const chips = faceTags(card, theme.tags);
+  const ink = theme.ink;
+  const haloWidth = theme.haloWidth ?? 1.5;
   if (!hasMeta && chips.length === 0) return top + height / 2;
   if (!hasMeta) {
     // Only tags: they take the bottom line, as the other fields would.
@@ -146,12 +151,14 @@ export function drawCardMeta(
     const labelWidth = ctx.measureText(label).width;
     const room = rightEdge - x - 62;
     if (room > 20) {
-      ctx.fillStyle = statusColour(card.status, theme.palette);
+      // A dot, then its word: the status is readable without colour, and one ink keeps
+      // it readable on every column's fill (ADR-267).
+      ctx.fillStyle = ink.color;
       ctx.beginPath();
       ctx.arc(x + 3, y, 3, 0, Math.PI * 2);
       ctx.fill();
       x += 11;
-      ctx.fillText(label, x, y);
+      fillWithHalo(ctx, label, x, y, ink.halo, haloWidth);
       x += labelWidth + 10;
     }
   }
@@ -166,14 +173,17 @@ export function drawCardMeta(
         .join("")
         .slice(0, 2);
       const radius = 7;
-      ctx.fillStyle = theme.palette.selectionFill;
+      ctx.fillStyle = theme.palette.objectPaper;
+      ctx.strokeStyle = ink.color;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(x + radius, y, radius, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = theme.palette.textSecondary;
+      ctx.stroke();
+      ctx.fillStyle = ink.color;
       ctx.font = `600 ${8}px ${theme.fontFamily}`;
       ctx.textAlign = "center";
-      ctx.fillText(initials || "?", x + radius, y);
+      fillWithHalo(ctx, initials || "?", x + radius, y, ink.halo, haloWidth);
       ctx.textAlign = "left";
       ctx.font = `${9.5}px ${theme.fontFamily}`;
       x += radius * 2 + 6;
@@ -183,9 +193,9 @@ export function drawCardMeta(
   const dates = range(card);
   if (dates) {
     const overdue = Boolean(card.dueAt && card.dueAt < today());
-    ctx.fillStyle = overdue ? theme.palette.danger : theme.palette.textMuted;
+    ctx.fillStyle = overdue ? theme.palette.danger : ink.color;
     ctx.textAlign = "right";
-    ctx.fillText(overdue ? `! ${dates}` : dates, rightEdge, y);
+    fillWithHalo(ctx, overdue ? `! ${dates}` : dates, rightEdge, y, ink.halo, haloWidth);
     ctx.textAlign = "left";
   }
   return chips.length > 0 ? top + 16 : top + height / 2 - 8;

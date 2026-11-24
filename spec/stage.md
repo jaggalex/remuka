@@ -153,6 +153,7 @@ REMO_DOCS_ORIGIN=https://docs.stage.remuka.ru
 | Черновики документов | `REMO_LEGAL_ALLOW_DRAFTS=1` разрешён | `REMO_LEGAL_ALLOW_DRAFTS=1` → **сервис не стартует** с понятной ошибкой |
 | Почта | Драйвер `smtp` на Mailpit. Драйверы `resend` и внешний `smtp` разрешены только вместе с `REMO_MAIL_ALLOW_RECIPIENTS` (список адресов и доменов через запятую); письмо на адрес вне списка — `mail_outbox.status = 'suppressed'` с причиной | `REMO_MAIL_ALLOW_RECIPIENTS` игнорируется |
 | Платежи | `billing:providers create --mode live` отказывает; существующие live-подключения не используются (ошибка при оплате, событие в журнале) | без изменений |
+| Витрина тарифов | Каталог добавляет способы оплаты тестовых подключений; checkout выбирает тестовое подключение даже без `billing_accounts.test_mode` | только боевые подключения: тестовое не показывается и не выбирается, даже если оно `active` |
 | `/api/health` | `"stage": true` | поле отсутствует |
 | Сброс и наполнение | `stage:reset`, `stage:seed` работают | отказываются с ошибкой |
 

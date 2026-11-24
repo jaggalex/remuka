@@ -1,6 +1,8 @@
 import {
   boxOf,
   connectorPath,
+  DEFAULT_PALETTE,
+  groundOfWidget,
   labelMetrics,
   labelPoint,
   pathPolyline,
@@ -10,7 +12,17 @@ import {
   textFloorFor,
   type Camera,
 } from "@remo/canvas";
-import { inkFor, kindOf, routingOf, stickyFill, type StickySize, type TextMarks, type TextRun, type Widget } from "@remo/model";
+import {
+  inkFor,
+  kindOf,
+  routingOf,
+  stickyFill,
+  type StickySize,
+  type TextMarks,
+  type TextRun,
+  type Widget,
+} from "@remo/model";
+import type { CanvasPalette } from "@remo/canvas";
 import type { ArrangeBarTarget } from "./ArrangeBar";
 import type { ConnectorBarTarget } from "./ConnectorBar";
 import type { StickyBarTarget } from "./StickyBar";
@@ -19,7 +31,7 @@ import { GATHERABLE_TYPES } from "@remo/doc";
 import type { BoardSettings } from "./settings";
 import type { ImageBarTarget } from "./object-panel/ImagePanel";
 import { COMPACT_BAR_ROOM, barTop } from "./canvasGeometry";
-import { DEFAULT_FILL, DEFAULT_INK } from "./objectDefaults";
+import { DEFAULT_FILL } from "./objectDefaults";
 
 /**
  * Where the floating bars go, and what they show.
@@ -120,6 +132,9 @@ export function noteBarTarget(args: {
   frame: Frame;
   settings: BoardSettings;
   marks: TextMarks | null;
+  /** The canvas palette, for the ground of a caption (ADR-273). */
+  palette?: CanvasPalette;
+  resolve?: (id: string) => Widget | undefined;
 }): StickyBarTarget | null {
   const { widget, frame, settings, marks } = args;
   if (widget.type !== "sticky_note" && widget.type !== "text" && widget.type !== "shape") {
@@ -162,6 +177,10 @@ export function noteBarTarget(args: {
     widget.type === "sticky_note"
       ? stickyFill(widget.style?.fillColor)
       : (widget.style?.fillColor ?? DEFAULT_FILL);
+  // The surface the bar's warning is measured against: the sheet's own fill, or the
+  // canvas/frame body for a caption with no fill (ADR-273 §2.3).
+  const palette = args.palette ?? DEFAULT_PALETTE;
+  const ground = groundOfWidget(widget, palette, { resolve: args.resolve });
 
   return {
     id: widget.id,
@@ -175,10 +194,11 @@ export function noteBarTarget(args: {
     placement,
     fillColor: widget.style?.fillColor,
     textColor: widget.type === "text" ? widget.style?.color : widget.style?.textColor,
-    ink:
-      widget.type === "text"
-        ? (widget.style?.color ?? "")
-        : inkFor(fill, widget.style?.textColor),
+    ink: inkFor(
+      widget.type === "sticky_note" || widget.type === "shape" ? fill : ground,
+      widget.type === "text" ? widget.style?.color : widget.style?.textColor,
+    ).color,
+    ground,
     strokeColor: widget.style?.strokeColor,
     strokeWidth: widget.style?.strokeWidth,
     strokeStyle: widget.style?.strokeStyle,
@@ -271,7 +291,9 @@ export function commonColour(
 ): { role: "fill" | "line"; value: string; mixed: boolean } | null {
   if (widgets.length === 0) return null;
   if (widgets.every((widget) => widget.type === "connector")) {
-    const values = widgets.map((widget) => (widget.style?.strokeColor ?? DEFAULT_INK).toLowerCase());
+    // An absent colour is Auto, its own state: comparing it with a stored hex says the
+    // selection does not share one colour, which is the honest answer (ADR-273).
+    const values = widgets.map((widget) => (widget.style?.strokeColor ?? "").toLowerCase());
     return { role: "line", value: values[0]!, mixed: new Set(values).size > 1 };
   }
   if (widgets.every((widget) => widget.type === "sticky_note" || widget.type === "shape")) {
@@ -298,8 +320,10 @@ export function connectorBarTarget(args: {
   frame: Frame;
   settings: BoardSettings;
   resolve: (id: string) => Widget | undefined;
+  palette?: CanvasPalette;
 }): ConnectorBarTarget | null {
   const { widget, frame, settings, resolve } = args;
+  const palette = args.palette ?? DEFAULT_PALETTE;
   if (widget.type !== "connector" || widget.locked) return null;
 
   const path = connectorPath(widget, resolve, {
@@ -339,12 +363,15 @@ export function connectorBarTarget(args: {
     routing: routingOf(widget),
     strokeStyle: widget.style?.strokeStyle ?? "normal",
     strokeWidth: widget.style?.strokeWidth ?? 2,
-    strokeColor: widget.style?.strokeColor ?? DEFAULT_INK,
+    // Auto is the strong ladder of the canvas ground; the sample shows what is painted.
+    strokeColor: inkFor(palette.canvas, widget.style?.strokeColor, "lineStrong").color,
+    strokeColorStored: widget.style?.strokeColor,
+    ground: palette.canvas,
     arrow: widget.arrow ?? "none",
     hasLabel,
     fontSize: widget.style?.fontSize ?? null,
     textColor: widget.style?.textColor,
-    ink: widget.style?.textColor ?? DEFAULT_INK,
+    ink: inkFor(palette.paper, widget.style?.textColor).color,
   };
 }
 

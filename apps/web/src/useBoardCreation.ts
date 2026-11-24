@@ -6,10 +6,9 @@
  */
 import { useCallback, useMemo, useRef } from "react";
 import type { BoardDocument } from "@remo/doc";
-import { addCard, addColumn, createShape, createSticky, createWidget } from "@remo/doc";
+import { addCard, addColumn, createShape, createSticky, createText, createWidget } from "@remo/doc";
 import {
   canConnect,
-  DEFAULT_TEXT_COLOR,
   newId,
   type KanbanState,
   type ShapeKind,
@@ -123,18 +122,9 @@ export function useBoardCreation({
   const addText = useCallback((): string => {
     const id = newId("text");
     const spot = nextSpot();
-    createWidget(board, {
-      id,
-      type: "text",
-      parentId: null,
-      x: spot.x,
-      y: spot.y,
-      width: 360,
-      height: 120,
-      // Greys 600 is a swatch in the text window, so the first open rings it; the old
-      // near-black fallback was outside the palette (ADR-129).
-      style: { color: DEFAULT_TEXT_COLOR },
-    });
+    // No colour is written: new text is "Auto" and takes its ink from the surface it
+    // lands on (ADR-273 §2.3). The old grey 600 reads as Auto too.
+    createText(board, id, spot);
     setSelectedIds([id]);
     return id;
   }, [board, nextSpot, setSelectedIds]);

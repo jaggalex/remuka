@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, agentBoard, openBoard, register, waitForBoardEditor } from "./helpers";
+import { addSticky, agentBoard, openBoard, register, waitForBoardEditor, openRoomAgent } from "./helpers";
 
 const roomPanel = (page: Page) => page.getByRole("dialog", { name: "Room agent" });
 const frames = (page: Page) => page.evaluate(() =>
@@ -35,13 +35,13 @@ test("a selected editor publishes a shared editable draft and loses launch acces
   try {
     const editor = await colleague.newPage();
     await addEditor(page, editor, orgId, boardId);
-    await page.getByRole("button", { name: "Assign an agent" }).click();
+    await openRoomAgent(page);
     const ownerPanel = roomPanel(page);
     await ownerPanel.getByRole("button", { name: "Assign an agent" }).click();
     await expect(ownerPanel.getByText("Assigned: Planner")).toBeVisible();
     await editor.reload();
     await waitForBoardEditor(editor);
-    await editor.getByRole("button", { name: "Assigned: Planner" }).click();
+    await openRoomAgent(editor);
     const editorPanel = roomPanel(editor);
     await expect(editorPanel.getByText(/Ask the room owner/)).toBeVisible();
     const endpoint = `/api/boards/${boardId}/agent-threads`;
@@ -104,14 +104,14 @@ test("a selected editor publishes a shared editable draft and loses launch acces
     await expect.poll(() => frames(page)).toHaveLength(2);
     expect(await remoteX()).toBe(editedX);
 
-    await page.getByRole("button", { name: "Assigned: Planner" }).click();
+    await openRoomAgent(page);
     await ownerPanel.locator(".agent-delegates label", { hasText: "Olga Editor" }).click();
     await expect(delegate).not.toBeChecked();
     await expect(editorPanel.getByRole("textbox")).toHaveCount(0);
     expect((await editor.request.post(endpoint, { data: { intent } })).status()).toBe(403);
     await editor.reload();
     await waitForBoardEditor(editor);
-    await editor.getByRole("button", { name: "Assigned: Planner" }).click();
+    await openRoomAgent(editor);
     await expect(editorPanel.getByText(intent, { exact: true }).first()).toBeVisible();
     await expect(editorPanel.getByRole("button", { name: "Show on canvas" })).toHaveCount(2);
     await testInfo.attach("shared room agent history", { body: await editor.screenshot(), contentType: "image/png" });
@@ -119,7 +119,7 @@ test("a selected editor publishes a shared editable draft and loses launch acces
     await ownerPanel.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect(ownerPanel.getByRole("button", { name: "Assign an agent" })).toBeVisible();
     await ownerPanel.getByRole("button", { name: "Close", exact: true }).click();
-    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await page.getByRole("button", { name: "Invite", exact: true }).click();
     const share = page.getByRole("dialog", { name: "Room access" });
     await share.getByRole("button", { name: "Turn on", exact: true }).click();
     await share.getByRole("button", { name: "Turn on link and share drafts" }).click();
@@ -143,14 +143,14 @@ test("a selected editor publishes a shared editable draft and loses launch acces
 
 test("a problem map keeps its selected source and identifies a hypothesis", async ({ page }, testInfo) => {
   await agentBoard(page, "agent-interviews");
-  await page.getByRole("button", { name: "Assign an agent" }).click();
+  await openRoomAgent(page);
   const panel = roomPanel(page);
   await panel.getByRole("button", { name: "Assign an agent" }).click();
   await expect(panel.getByText("Assigned: Planner")).toBeVisible();
   await panel.getByRole("button", { name: "Close", exact: true }).click();
   const source = await addSticky(page);
   await expect.poll(() => page.evaluate(() => window.__remo.selectedIds)).toContain(source);
-  await page.getByRole("button", { name: "Assigned: Planner" }).click();
+  await openRoomAgent(page);
   await panel.getByRole("combobox").selectOption("problem-map");
   await panel.getByRole("textbox").fill("Group the interview observations");
   await expect(panel.getByText("Sources: 1")).toBeVisible();
@@ -188,7 +188,7 @@ test("a problem map keeps its selected source and identifies a hypothesis", asyn
   // silently become a process map (defect found in acceptance).
   await page.reload();
   await waitForBoardEditor(page);
-  await page.getByRole("button", { name: "Assigned: Planner" }).click();
+  await openRoomAgent(page);
   const reopened = roomPanel(page);
   await expect(reopened.getByText("Group the interview observations", { exact: true }).first())
     .toBeVisible();

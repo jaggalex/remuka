@@ -19,28 +19,44 @@ const storeReachable = store !== null;
 const suite = storeReachable ? describe : describe.skip;
 let server = null;
 let base = "";
+let stageServer = null;
+let stageBase = "";
 const stamp = Date.now();
 const PASSWORD_HASH = "scrypt$placeholder";
+const BILLING_ENV = {
+  REMO_BILLING: "on",
+  REMO_BILLING_CURRENCIES: "TST,STG,BTH",
+};
 
-beforeAll(async () => {
-  if (!storeReachable) return;
-  server = createServer(async (request, response) => {
+async function startServer(env) {
+  const instance = createServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
     const orgId = /^\/orgs\/([^/]+)\//.exec(url.pathname)?.[1];
     const handled = orgId
       ? await store.withTenant(orgId, () =>
-          handleBilling({ request, response, url, store, env: { REMO_BILLING: "on" } }),
+          handleBilling({ request, response, url, store, env }),
         )
-      : await handleBilling({ request, response, url, store, env: { REMO_BILLING: "on" } });
+      : await handleBilling({ request, response, url, store, env });
     if (handled) return;
     response.writeHead(404, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ error: "not handled" }));
   });
-  await new Promise((resolve) => server.listen(0, resolve));
-  base = `http://127.0.0.1:${server.address().port}`;
+  await new Promise((resolve) => instance.listen(0, resolve));
+  return { instance, base: `http://127.0.0.1:${instance.address().port}` };
+}
+
+beforeAll(async () => {
+  if (!storeReachable) return;
+  ({ instance: server, base } = await startServer(BILLING_ENV));
+  // The same behaviour with the stand flag on: one installation, two envs, one database.
+  ({ instance: stageServer, base: stageBase } = await startServer({
+    ...BILLING_ENV,
+    REMO_STAGE: "1",
+  }));
 });
 
 afterAll(async () => {
+  if (stageServer) await new Promise((resolve) => stageServer.close(resolve));
   if (server) await new Promise((resolve) => server.close(resolve));
   if (store) await store.close();
 });
@@ -67,13 +83,13 @@ async function organisation(tag) {
   return { user, org, cookie: `remo_session=${token}` };
 }
 
-async function manualConnection(userId) {
+async function manualConnection(userId, { mode = "live", currency = "TST", groups = ["invoice"] } = {}) {
   const connection = await store.createConnection({
     provider: "manual",
-    name: "Bank invoice",
-    mode: "live",
-    currencies: ["TST"],
-    methodGroups: ["invoice"],
+    name: `Bank invoice ${mode} ${currency}`,
+    mode,
+    currencies: [currency],
+    methodGroups: groups,
     priority: 10,
     settings: { instructions: "Pay to account 40702810… and quote the invoice number" },
     sealed: null,
@@ -95,8 +111,8 @@ async function manualConnection(userId) {
   return connection;
 }
 
-async function call(path, { method = "GET", cookie, body } = {}) {
-  const response = await fetch(`${base}${path}`, {
+async function call(path, { method = "GET", cookie, body, from = base } = {}) {
+  const response = await fetch(`${from}${path}`, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
@@ -106,6 +122,37 @@ async function call(path, { method = "GET", cookie, body } = {}) {
   });
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) : null };
+}
+
+/** A complete price book (every paid plan and interval), which the catalogue demands. */
+async function priceBook(currency, userId) {
+  const ids = {};
+  const plans = { pro: 29_000, team: 59_000, business: 119_000 };
+  for (const [plan, amount] of Object.entries(plans)) {
+    for (const interval of ["month", "year"]) {
+      const id = `${plan}-${currency.toLowerCase()}-${interval}-${stamp}`;
+      await store.addPrice({ id, plan, interval, currency, amount, createdBy: userId });
+      await store.publishPrice(id);
+      ids[`${plan}/${interval}`] = id;
+    }
+  }
+  return ids;
+}
+
+function checkoutBody(priceId) {
+  return {
+    priceId,
+    methodGroup: "invoice",
+    consent: { autopay: false, termsVersion: "terms-2026-11" },
+    billingEmail: `billing-${stamp}@example.test`,
+  };
+}
+
+async function paidConnection(paymentId) {
+  const { rows } = await store.pool.query("select connection_id from payments where id = $1", [
+    paymentId,
+  ]);
+  return rows[0]?.connection_id ?? null;
 }
 
 suite("checkout by invoice (ADR-247 stage 2)", () => {
@@ -230,5 +277,65 @@ suite("checkout by invoice (ADR-247 stage 2)", () => {
     );
     expect(handled).toBe(true);
     expect(status).toBe(404);
+  });
+
+  /* ------------------------------------------------- stand showcase (ADR-280) -- */
+
+  it("sells a test-only currency on a stand and hides it in production", async () => {
+    const { user, org, cookie } = await organisation("stand");
+    const test = await manualConnection(user.id, { mode: "test", currency: "STG" });
+    const prices = await priceBook("STG", user.id);
+
+    const production = await call("/billing/catalog?currency=STG");
+    expect(production.status).toBe(200);
+    expect(production.body.currencies).toEqual([]);
+
+    const stand = await call("/billing/catalog?currency=STG", { from: stageBase });
+    expect(stand.status).toBe(200);
+    expect(stand.body.currencies.map((entry) => entry.currency)).toEqual(["STG"]);
+    expect(stand.body.currencies[0].methodGroups).toEqual(["invoice"]);
+
+    const body = checkoutBody(prices["pro/month"]);
+    const refused = await call(`/orgs/${org.id}/billing/checkout`, { method: "POST", cookie, body });
+    expect(refused.status).toBe(422);
+    expect(refused.body.error).toBe("NO_PAYMENT_ROUTE");
+
+    const paid = await call(`/orgs/${org.id}/billing/checkout`, {
+      method: "POST",
+      cookie,
+      body,
+      from: stageBase,
+    });
+    expect(paid.status).toBe(201);
+    expect(paid.body.widget.kind).toBe("instructions");
+    expect(await paidConnection(paid.body.paymentId)).toBe(test.id);
+  });
+
+  it("prefers live in production and test on a stand when both are active", async () => {
+    const { user, org, cookie } = await organisation("both");
+    const live = await manualConnection(user.id, { mode: "live", currency: "BTH" });
+    const test = await manualConnection(user.id, { mode: "test", currency: "BTH" });
+    const prices = await priceBook("BTH", user.id);
+    const body = checkoutBody(prices["pro/month"]);
+
+    const productionCatalog = await call("/billing/catalog?currency=BTH");
+    expect(productionCatalog.body.currencies[0].methodGroups).toEqual(["invoice"]);
+
+    const production = await call(`/orgs/${org.id}/billing/checkout`, {
+      method: "POST",
+      cookie,
+      body,
+    });
+    expect(production.status).toBe(201);
+    expect(await paidConnection(production.body.paymentId)).toBe(live.id);
+
+    const stand = await call(`/orgs/${org.id}/billing/checkout`, {
+      method: "POST",
+      cookie,
+      body,
+      from: stageBase,
+    });
+    expect(stand.status).toBe(201);
+    expect(await paidConnection(stand.body.paymentId)).toBe(test.id);
   });
 });

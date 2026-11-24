@@ -1,5 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { 
+test, expect } from "@playwright/test";
 import {
+  goAllRooms,
+  ensureProperties,
   addSticky,
   enableLink,
   freshBoard,
@@ -13,7 +16,7 @@ import {
 test("creates a board from the board list and opens the chosen template", async ({ page }) => {
   await freshBoard(page, "create");
 
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await page.getByRole("button", { name: "New room" }).click();
   await page.locator(".new-board-dialog input").first().fill("M0 launch");
   await page.locator(".new-board-dialog").getByRole("radio", { name: /With an example/ }).check();
@@ -21,7 +24,7 @@ test("creates a board from the board list and opens the chosen template", async 
   await page.locator(".new-board-dialog").getByRole("button", { name: "Create room" }).click();
 
   await expect(page).toHaveURL(/room=m0-launch/);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: /^Room menu: M0 launch/ })).toBeVisible();
   await expect.poll(() => objectCount(page, "kanban")).toBeGreaterThan(0);
 });
@@ -53,10 +56,10 @@ test("copies a deep link to the selected object", async ({ page, context }) => {
   await page.getByRole("button", { name: "Sticky note", exact: true }).click();
   await page.locator(".inline-editor").fill("Linked note");
   await page.keyboard.press("Escape");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   // ADR-197: the inspector starts closed; open it to reach the deep-link action.
-  await page.getByRole("button", { name: "Properties" }).click();
+  await ensureProperties(page);
   await page.getByRole("button", { name: "Copy link" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain(`room=${account.boardId}`);
@@ -66,7 +69,7 @@ test("copies a deep link to the selected object", async ({ page, context }) => {
 test("an empty board stays empty and a rename reaches the board list", async ({ page }) => {
   await freshBoard(page, "empty");
 
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await page.getByRole("button", { name: "New room" }).click();
   await page.locator(".new-board-dialog input").first().fill("Empty launch");
   // "Empty room" is the default card; there is no example list to choose from.
@@ -76,7 +79,7 @@ test("an empty board stays empty and a rename reaches the board list", async ({ 
   await page.locator(".new-board-dialog").getByRole("button", { name: "Create room" }).click();
 
   await expect(page).toHaveURL(/room=empty-launch/);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect.poll(() => objectCount(page)).toBe(0);
 
   const boardId = new URL(page.url()).searchParams.get("room")!;
@@ -85,7 +88,7 @@ test("an empty board stays empty and a rename reaches the board list", async ({ 
   await page.getByRole("menuitem", { name: "Rename" }).click();
   await page.locator(".board-title").fill("Renamed launch");
   await page.locator(".board-title").press("Enter");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   // The board list reads the SQL projection, which is written after the save ack.
   await expect
@@ -101,7 +104,7 @@ test("an empty board stays empty and a rename reaches the board list", async ({ 
     )
     .toBe("Renamed launch");
 
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   // The topbar button is also called "Room menu: Renamed launch"; the tile is the one
   // that proves the stored name reached the directory.
   await expect(
@@ -138,7 +141,7 @@ test("a board with a non-ASCII name is one room, not a percent-encoded twin", as
     .toBe(true);
 
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect.poll(() => page.evaluate(
     () =>
       (window as unknown as { __remo: { widgets: Array<{ id: string }> } }).__remo.widgets.map(
@@ -160,15 +163,15 @@ test("switches the organisation and leaves the previous board", async ({ page })
   await page.getByRole("dialog", { name: "Second team" }).getByRole("button", { name: "Close", exact: true }).first().click();
 
   // A board in that organisation, so the filter has something to switch between.
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await page.getByRole("button", { name: "New room" }).click();
   const create = page.locator(".new-board-dialog");
   await create.locator("input").first().fill("Second org board");
   await create.getByLabel("Organisation").selectOption({ label: "Second team" });
   await create.getByRole("button", { name: "Create room", exact: true }).click();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   const home = page.locator(".home");
   // Switch to the organisation that holds the new board. The board's own org is not
   // assumed here: the point is that the list follows the organisation context.
@@ -194,7 +197,7 @@ test("finds a board by its name on the home", async ({ page }) => {
     });
     expect(created.ok(), await created.text()).toBeTruthy();
   }
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await page.locator(".home-search").fill("Quarterly");
   await expect(page.locator(".home-tile")).toHaveCount(1);
   await expect(page.locator(".home-tile")).toContainText("Quarterly planning");
@@ -226,7 +229,7 @@ test("opening a named board without a template keeps its name and stays empty", 
   expect(await readTitle()).toBe("Quarterly planning");
 
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(
     page.getByRole("button", { name: /^Room menu: Quarterly planning/ }),
   ).toBeVisible();
@@ -252,7 +255,7 @@ test("?select= applies once and does not steal the next selection", async ({ pag
   const first = await addSticky(page);
 
   await page.goto(`/?room=${account.boardId}&lang=en&select=${first}`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds))
     .toEqual([first]);
@@ -277,7 +280,7 @@ test("a public-link viewer cannot add kanban columns or replace the board", asyn
   const viewer = await context.newPage();
   try {
     await viewer.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(viewer.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(viewer.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     // Kanban state is the selected kanban's (ADR-236): open the room with it selected.
     await expect.poll(() => objectCount(viewer, "kanban")).toBeGreaterThan(0);
     const kanbanId = await viewer.evaluate(
@@ -287,10 +290,10 @@ test("a public-link viewer cannot add kanban columns or replace the board", asyn
         )!.id,
     );
     await viewer.goto(`/?room=${account.boardId}&lang=en&select=${kanbanId}`);
-    await expect(viewer.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(viewer.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     // ADR-197: the inspector starts closed; open it to read the read-only controls.
     await expect(viewer.locator(".inspector")).toBeHidden();
-    await viewer.getByRole("button", { name: "Properties" }).click();
+    await ensureProperties(viewer);
     const inspector = viewer.locator(".inspector");
     await expect(inspector).toBeVisible();
     await expect(inspector.getByRole("button", { name: "+ column" })).toBeDisabled();

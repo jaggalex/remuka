@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
+import { describe, expect, it } from "vitest";
 import { applyStyleSnapshot, BoardDocument, createWidget, setElevation, styleSnapshotOf } from "./board";
 
 const base = { parentId: null, x: 0, y: 0, width: 200, height: 120 } as const;
@@ -32,6 +32,13 @@ describe("setElevation (ADR-245)", () => {
     doc.undoOnce();
     expect(doc.widgets.get("sh")!.style?.elevation).toBeUndefined();
     expect(doc.widgets.get("fr")!.style?.elevation).toBeUndefined();
+  });
+
+  it("accepts the cardboard level and writes it to the object", () => {
+    const doc = board();
+    setElevation(doc, ["sh", "fr"], "cardboard");
+    expect(doc.widgets.get("sh")!.style?.elevation).toBe("cardboard");
+    expect(doc.widgets.get("fr")!.style?.elevation).toBe("cardboard");
   });
 
   it("deletes the field when the object is put back flat", () => {

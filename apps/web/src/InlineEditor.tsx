@@ -469,7 +469,9 @@ export function InlineEditor({
         padding,
         justifyContent: vAlign === "top" ? "flex-start" : vAlign === "bottom" ? "flex-end" : "center",
         background: fill ?? DEFAULT_EDITOR_SURFACE,
-        color: ink ?? DEFAULT_INK,
+        // The ink of the surface under the object, not the theme's text colour
+        // (ADR-273 §2.4); the stylesheet reads it as `color: var(--ink)`.
+        ["--ink" as string]: ink ?? DEFAULT_INK,
         borderRadius: radius ?? 3,
       }}
       onInput={() => {

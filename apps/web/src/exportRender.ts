@@ -5,6 +5,7 @@ import {
   imageFieldsOf,
   imageVariantFallbacks,
   imageVariantFor,
+  kanbanGroundOf,
   layoutKanban,
   layoutTable,
   type ImageVariant,
@@ -12,12 +13,14 @@ import {
   type PaintTheme,
 } from "@remo/canvas";
 import {
+  ink,
   paintOrder,
   type KanbanState,
   type Rect,
   type Widget,
 } from "@remo/model";
 import { BRAND } from "@remo/brand";
+import { colorForAccount } from "@remo/doc";
 import { internalConnectors, placementOfCard } from "./canvasGeometry";
 import { boardImageCache, type ImageCache } from "./imageCache";
 import type { BoardSettings } from "./settings";
@@ -43,6 +46,8 @@ export interface ExportCommentThread {
     | { kind: "widget"; widgetId: string }
     | { kind: "point"; x: number; y: number };
   resolvedAt: string | null;
+  /** The author's account, so the pin carries the same colour as on the canvas (ADR-267). */
+  createdBy?: string | null;
   comments: Array<{
     authorName: string;
     body: string;
@@ -433,7 +438,8 @@ function paintWatermark(
   const size = Math.max(24, Math.min(width, height) / 14);
   ctx.save();
   ctx.globalAlpha = 0.16;
-  ctx.fillStyle = theme.palette.textPrimary;
+  // The sheet is the board's ground, so the mark is the ink of that ground (ADR-273).
+  ctx.fillStyle = ink(theme.palette.canvas, "text");
   ctx.font = `600 ${size}px ${theme.fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -489,7 +495,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
   if (extra) {
     ctx.fillStyle = palette.panel;
     ctx.fillRect(0, boardHeight, width, extra);
-    ctx.strokeStyle = palette.borderSubtle;
+    ctx.strokeStyle = ink(palette.panel, "line");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, boardHeight + 0.5);
@@ -554,6 +560,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
         cards,
         cardStatus: input.theme.cardStatus,
         tags: input.theme.tags,
+        ground: kanbanGroundOf(widget, palette),
       });
     }
   }
@@ -565,9 +572,10 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     const point = commentPoint(thread, byId, layouts);
     if (!point) return;
     const radius = 13 / scale;
-    ctx.fillStyle = palette.accent;
-    ctx.strokeStyle = palette.panel;
-    ctx.lineWidth = 2 / scale;
+    // A pin is the author's colour, with the number as the legend's link (ADR-267).
+    ctx.fillStyle = colorForAccount(thread.createdBy ?? null);
+    ctx.strokeStyle = palette.objectInk;
+    ctx.lineWidth = 1.5 / scale;
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -585,7 +593,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     let y = boardHeight + 30;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = palette.textPrimary;
+    ctx.fillStyle = ink(palette.panel, "text");
     ctx.font = `600 14px ${input.theme.fontFamily}`;
     ctx.fillText(
       `${input.commentsTitle ?? "Comments"} (${threads.length})`,
@@ -595,7 +603,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     y += 24;
     const maxChars = Math.max(24, Math.floor((width - pad * 2) / 7.2));
     threads.forEach((thread, index) => {
-      ctx.fillStyle = palette.textPrimary;
+      ctx.fillStyle = ink(palette.panel, "text");
       ctx.font = `600 12.5px ${input.theme.fontFamily}`;
       ctx.fillText(
         `#${index + 1}  ${commentLabel(thread, byId, pointLabel).slice(0, maxChars)}`,
@@ -604,7 +612,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
       );
       y += 18;
       ctx.font = `12px ${input.theme.fontFamily}`;
-      ctx.fillStyle = palette.textSecondary;
+      ctx.fillStyle = ink(palette.panel, "muted");
       for (const comment of thread.comments.slice(0, 3)) {
         const body = comment.deletedAt ? "—" : comment.body;
         for (const line of wrapText(`${comment.authorName}: ${body}`, maxChars, 2)) {

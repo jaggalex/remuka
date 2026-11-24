@@ -16,13 +16,15 @@ pnpm baselines
 | `connector-curved.png` | A curved connector with different endpoint heights |
 | `connectors.png` | The three routings on one canvas (overview) |
 | `board.png` | The board at 1440×900 with the inspector and a note |
+| `board-kanban.png` | A kanban room (ADR-267 §2.1, ADR-277): column headers with counts, cards in their column's colours on the green ground, the title plate |
+| `board-kanban-export.png` | The same room as the exported PNG, drawn by the same painters; the pair shows the file matches the screen |
 | `export.png` | The export dialog: scope, format, object count |
 | `timer.png` | The shared timer panel and its countdown |
 | `vote.png` | A voting session with two objects and the quota |
-| `topbar-board-menu.png` | The board's menu: rename, settings, export, restore, a copy, trash |
-| `topbar-facilitation.png` | «Фасилитация ▾»: timer, voting, follow along and the reactions row |
-| `topbar-more.png` | «Ещё ▾»: templates, AI, apps, the planned Story |
-| `topbar-account.png` | The account menu: name and role source, cursor name, theme, language |
+| `topbar-board-menu.png` | The room's menu: rename, settings, properties, access, export, a template, apps, danger |
+| `topbar-facilitation.png` | «Провести ▾»: timer, voting, presentation, follow along and the reactions row |
+| `topbar-people.png` | The people group: faces, roles, followers and watching guests (ADR-266 §4) |
+| `topbar-account.png` | The account menu: name and role source, all rooms, theme, language, help |
 | `topbar-dark.png` | The same header in the dark theme with a menu open |
 | `rail.png` | The tool rail: two panels — tools with the pressed Select, history below |
 | `rail-dark.png` | The same rail in the dark theme |
@@ -39,6 +41,8 @@ pnpm baselines
 | `section-panel-header.png` | The Header group scrolled into view: empty sizes read «Auto», with no unit |
 | `rich-blocks.png` | Headings, three list levels, a checklist, a link and inline code on a text block and a note |
 | `rich-blocks-dark.png` | The same block text in the dark theme: the paper note keeps its ink |
+| `elevation.png` | A shape on the "Cardboard" level: a hard ink shadow offset by six board units, no blur (ADR-267) |
+| `elevation-dark.png` | The same shape in the dark theme, where "Cardboard" is painted as "Floating" until the dark theme gets its own cardboard |
 
 The automatic gate **compares** every screen with its PNG in one Linux browser (ADR-222).
 A pixel counts as different when it differs by more than about 8 grey levels (threshold

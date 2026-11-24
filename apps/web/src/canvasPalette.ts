@@ -12,15 +12,11 @@ import { readCanvasTokens } from "@remo/ui";
 export function canvasPaletteFromTokens(root: Element = document.documentElement): CanvasPalette {
   const t = readCanvasTokens(root);
   return {
+    theme: root.getAttribute("data-theme") === "dark" ? "dark" : "light",
     canvas: t["bg-canvas"],
     panel: t["bg-panel"],
     raised: t["bg-raised"],
     hover: t["bg-hover"],
-    borderSubtle: t["border-subtle"],
-    borderStrong: t["border-strong"],
-    textPrimary: t["text-primary"],
-    textSecondary: t["text-secondary"],
-    textMuted: t["text-muted"],
     textAccent: t["text-accent"],
     accent: t["accent"],
     accentSoft: t["accent-soft"],
@@ -36,7 +32,14 @@ export function canvasPaletteFromTokens(root: Element = document.documentElement
     stickerCast: t["sticker-cast"],
     raiseCast: t["canvas-raise-cast"],
     floatCast: t["canvas-float-cast"],
-    agentProposal: t["agent-proposal"],
+    objectInk: t["canvas-object-ink"],
+    objectPaper: t["canvas-object-ink-text"],
+    kanbanGround: t["canvas-kanban-ground"],
+    paper: t["canvas-object-paper"],
+    tableHead: t["canvas-table-head"],
+    lineSoft: t["canvas-line-soft"],
+    dangerInk: t["text-danger"],
+    agent: t["agent"],
     // The pairs `.tag-<colour>` uses in boards-panel.css, so canvas and panel agree.
     tags: {
       blue: { fill: t["accent-soft"], ink: t["text-accent"] },

@@ -1,3 +1,4 @@
+import type { InkRole } from "./ink";
 import type { WidgetType } from "./types";
 
 /**
@@ -53,6 +54,25 @@ export interface KindSpec {
    * drop anything inside.
    */
   minSize?: { width: number; height: number };
+  /**
+   * The surface this kind's ink is derived from, and the roles its parts play
+   * (ADR-273 §3.5).
+   *
+   * `ownFill` is content with a fill of its own (a note, a shape, a card); `container`
+   * is a kind whose parts sit on a fill it paints (a frame body, a table); `canvas` is
+   * a kind with no surface of its own (a line, a caption). A new kind answers here, and
+   * `ink.matrix.test.ts` walks every role of every kind over every palette fill in both
+   * themes — a kind that does not declare its ink does not build.
+   */
+  ink: KindInk;
+}
+
+/** Where a kind's parts take their ink from (ADR-273 §2.1). */
+export type InkGround = "ownFill" | "container" | "canvas";
+
+export interface KindInk {
+  ground: InkGround;
+  roles: readonly InkRole[];
 }
 
 /** Generic floor for a kind whose box is still meaningful while small. */
@@ -77,6 +97,7 @@ export function minimumSizeOf(type: WidgetType | string): { width: number; heigh
  */
 export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   frame: {
+    ink: { ground: "container", roles: ["text", "muted", "line", "lineStrong"] },
     // Frames sit at the back: their contents must never be covered by their plate.
     rank: 0,
     text: false,
@@ -95,6 +116,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     minSize: { width: 160, height: 120 },
   },
   kanban: {
+    ink: { ground: "ownFill", roles: ["text", "muted", "icon", "line", "lineStrong"] },
     rank: 1,
     text: false,
     richBlocks: false,
@@ -106,6 +128,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: false,
   },
   shape: {
+    ink: { ground: "ownFill", roles: ["text", "lineStrong"] },
     rank: 2,
     text: true,
     richBlocks: true,
@@ -120,6 +143,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: true,
   },
   image: {
+    ink: { ground: "ownFill", roles: ["icon", "muted", "line"] },
     rank: 2,
     text: false,
     richBlocks: false,
@@ -134,6 +158,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     aspectLocked: true,
   },
   unsupported: {
+    ink: { ground: "canvas", roles: ["muted", "lineStrong"] },
     rank: 2,
     text: false,
     richBlocks: false,
@@ -145,6 +170,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: false,
   },
   connector: {
+    ink: { ground: "canvas", roles: ["text", "lineStrong"] },
     // A line sits above the objects it joins; its label is painted on top of it.
     rank: 3,
     text: true,
@@ -166,6 +192,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
    * and it must keep behaving like the plain box it was.
    */
   group: {
+    ink: { ground: "canvas", roles: ["lineStrong"] },
     rank: 5,
     text: false,
     richBlocks: false,
@@ -177,6 +204,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: false,
   },
   timer: {
+    ink: { ground: "ownFill", roles: ["text", "muted"] },
     // Above notes and cards: a countdown nobody can see is not a shared timer.
     rank: 7,
     richBlocks: false,
@@ -191,6 +219,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: true,
   },
   stamp: {
+    ink: { ground: "ownFill", roles: ["muted"] },
     rank: 4,
     text: false,
     richBlocks: false,
@@ -202,6 +231,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: false,
   },
   sticky_note: {
+    ink: { ground: "ownFill", roles: ["text", "muted", "line"] },
     rank: 5,
     text: true,
     richBlocks: true,
@@ -213,6 +243,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: true,
   },
   card: {
+    ink: { ground: "ownFill", roles: ["text", "muted"] },
     rank: 6,
     richBlocks: false,
     // A card's text is its title, typed in place.
@@ -228,6 +259,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
     resizable: false,
   },
   text: {
+    ink: { ground: "canvas", roles: ["text"] },
     // Text blocks sit above everything: a caption is never covered.
     rank: 9,
     text: true,
@@ -249,6 +281,8 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
  */
 const UNKNOWN_KIND: KindSpec = {
   rank: 5,
+  // An unknown kind is a plain box on the canvas: it declares the weakest ink there is.
+  ink: { ground: "canvas", roles: ["muted", "lineStrong"] },
   text: false,
   richBlocks: false,
   connectable: false,

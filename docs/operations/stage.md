@@ -334,6 +334,10 @@ scp scripts/db-rls-setup.mjs deploy@<stand-ip>:/tmp/
    and the guide on `app.stage.remuka.ru` / `docs.stage.remuka.ru`. The health check is
    the one path that does not need the password.
 
+   Deploy the commit that passed CI on `main`: stage is the trunk, production is a tag
+   (`CONTRIBUTING.md`, «Branches, stage and the release train»). Both zones must report the
+   same commit on `/api/health` before the acceptance list runs.
+
 6. **The inbox.** Start it after the first release, because it joins the application's
    `backend` network:
 

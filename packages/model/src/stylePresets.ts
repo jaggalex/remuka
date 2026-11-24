@@ -1,4 +1,5 @@
 import { TONE_LEVELS } from "./colorLevels";
+import { SHAPE_INK, SHAPE_PAPER } from "./shapeFill";
 import type { WidgetStyle } from "./types";
 
 /**
@@ -24,11 +25,8 @@ const ORANGE = TONE_LEVELS.orange;
 const BLUE = TONE_LEVELS.blue;
 const GREEN = TONE_LEVELS.green;
 
-/** White is not one of the twenty-one: it is the named chip beside "Fill" (ADR-127). */
-const WHITE = "#ffffff";
-
 export const SHAPE_PRESETS = [
-  { id: "plain", fill: WHITE, stroke: GREY[600], strokeWidth: 2 },
+  { id: "plain", fill: SHAPE_PAPER, stroke: SHAPE_INK, strokeWidth: 2 },
   { id: "outline", fill: "transparent", stroke: GREY[600], strokeWidth: 2 },
   { id: "sunny", fill: YELLOW[300], stroke: "transparent", strokeWidth: 0 },
   { id: "warm", fill: ORANGE[100], stroke: ORANGE[600], strokeWidth: 2 },
@@ -49,14 +47,18 @@ export function shapePresetStyle(preset: ShapePreset): WidgetStyle {
 
 export interface LinePreset {
   id: string;
-  color: string;
+  /**
+   * The line's colour, or null for Auto (ADR-273 §2.3): a new line stores no colour and
+   * takes the ink of the canvas ground, so it reads in both themes.
+   */
+  color: string | null;
   width: number;
   dash: "normal" | "dashed" | "dotted";
   arrow: "none" | "end" | "start" | "both";
 }
 
 export const LINE_PRESETS = [
-  { id: "plain", color: GREY[600], width: 2, dash: "normal", arrow: "end" },
+  { id: "plain", color: null, width: 2, dash: "normal", arrow: "end" },
   { id: "dashed", color: GREY[300], width: 1, dash: "dashed", arrow: "end" },
   { id: "accent", color: GREEN[600], width: 4, dash: "normal", arrow: "end" },
   { id: "warning", color: ORANGE[600], width: 2, dash: "normal", arrow: "end" },
@@ -66,13 +68,10 @@ export const LINE_PRESETS = [
 /** The line a new connector starts with (ADR-129). */
 export const DEFAULT_LINE_PRESET: LinePreset = LINE_PRESETS[0];
 
-/** The ink a new free text object starts with: grey 600, a swatch the window can ring. */
-export const DEFAULT_TEXT_COLOR: string = GREY[600];
-
 /** The stroke half of a line preset; the arrow head is a widget field, applied beside it. */
 export function linePresetStyle(preset: LinePreset): WidgetStyle {
   return {
-    strokeColor: preset.color,
+    ...(preset.color ? { strokeColor: preset.color } : {}),
     strokeWidth: preset.width,
     strokeStyle: preset.dash,
   };

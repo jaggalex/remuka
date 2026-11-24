@@ -6,7 +6,7 @@
  * rule that a notification is believed only when the API confirms it.
  */
 import { describe, expect, it } from "vitest";
-import { YooKassaError, yookassaAdapter } from "./pay-yookassa.mjs";
+import { ipAllowed, YooKassaError, yookassaAdapter } from "./pay-yookassa.mjs";
 
 const CONN = {
   id: "conn-1",
@@ -349,6 +349,40 @@ describe("healthCheck (§2.2)", () => {
   });
 });
 
+describe("the notification sender allowlist (§5)", () => {
+  const BLOCKS = ["185.71.76.0/27", "185.71.77.0/27", "77.75.153.0/25"];
+
+  it("accepts an address inside a published block", () => {
+    expect(ipAllowed("185.71.76.5", BLOCKS)).toBe(true);
+    expect(ipAllowed("185.71.77.30", BLOCKS)).toBe(true);
+    expect(ipAllowed("77.75.153.127", BLOCKS)).toBe(true);
+  });
+
+  it("refuses an address outside every block", () => {
+    expect(ipAllowed("185.71.76.40", BLOCKS)).toBe(false);
+    expect(ipAllowed("185.71.76.255", BLOCKS)).toBe(false);
+    expect(ipAllowed("203.0.113.9", BLOCKS)).toBe(false);
+  });
+
+  it("takes an exact address as a full prefix and a mapped sender as IPv4", () => {
+    expect(ipAllowed("185.71.76.10", ["185.71.76.10"])).toBe(true);
+    expect(ipAllowed("185.71.76.11", ["185.71.76.10"])).toBe(false);
+    expect(ipAllowed("::ffff:185.71.76.5", ["185.71.76.0/27"])).toBe(true);
+  });
+
+  it("matches IPv6 blocks and never mixes the two families", () => {
+    expect(ipAllowed("2001:db8::5", ["2001:db8::/32"])).toBe(true);
+    expect(ipAllowed("2001:db9::5", ["2001:db8::/32"])).toBe(false);
+    expect(ipAllowed("185.71.76.5", ["2001:db8::/32"])).toBe(false);
+  });
+
+  it("refuses everything when the list is empty or an entry is not an address", () => {
+    expect(ipAllowed("185.71.76.5", [])).toBe(false);
+    expect(ipAllowed("185.71.76.5", ["185.71.76.0/nonsense"])).toBe(false);
+    expect(ipAllowed(undefined, ["0.0.0.0/0"])).toBe(false);
+  });
+});
+
 describe("parseWebhook (§5)", () => {
   it("rejects a sender outside the allowlist without asking the API", async () => {
     const fetchImpl = fakeFetch({ status: 200, body: PAYMENT });
@@ -397,6 +431,16 @@ describe("parseWebhook (§5)", () => {
         },
       },
     ]);
+  });
+
+  it("accepts a sender that belongs to a published block", async () => {
+    const result = await yookassaAdapter.parseWebhook(
+      CONN,
+      { headers: {}, rawBody: notification(), remoteIp: "185.71.76.5" },
+      { fetchImpl: fakeFetch({ status: 200, body: PAYMENT }), allowedIps: ["185.71.76.0/27"] },
+    );
+    expect(result.verified).toBe(true);
+    expect(result.events).toHaveLength(1);
   });
 
   it("believes the API status, not the body", async () => {

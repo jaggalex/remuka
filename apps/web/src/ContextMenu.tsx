@@ -6,7 +6,16 @@ export interface MenuItem {
   disabled?: boolean;
   danger?: boolean;
   /** Shows a row of colour swatches; choosing one acts and closes the menu. */
-  swatches?: { choices: Array<{ value: string; label: string }>; current: string; pick: (value: string) => void };
+  swatches?: {
+    choices: Array<{ value: string; label: string }>;
+    current: string;
+    pick: (value: string) => void;
+    /**
+     * A named choice under the grid for "no colour of its own" (a card following its
+     * column), so clearing is one click, not a hunt for the same hex.
+     */
+    reset?: { label: string; active: boolean; onPick: () => void };
+  };
 }
 
 export interface MenuState {
@@ -118,6 +127,20 @@ export function ContextMenu({
                 />
               ))}
             </div>
+            {item.swatches.reset && (
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={item.swatches.reset.active}
+                className="context-menu-swatch-reset"
+                onClick={() => {
+                  item.swatches!.reset!.onPick();
+                  onClose();
+                }}
+              >
+                {item.swatches.reset.label}
+              </button>
+            )}
           </div>
         ) : (
           <button

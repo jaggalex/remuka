@@ -762,9 +762,9 @@ export interface ArrowHead {
 
 const HEAD_SPREAD = 0.42;
 
-/** Head length for a line of `width` board units: 14 at the default 2, longer when thick. */
+/** Head length for a line of `width` board units: 16.8 at the default 2, longer when thick. */
 export function arrowHeadSize(width: number): number {
-  return Math.max(14, 10 + width * 2);
+  return Math.max(16.8, 12 + width * 2.4);
 }
 
 export function roundedArrowHead(tip: Vec2, tail: Vec2, width: number): ArrowHead {

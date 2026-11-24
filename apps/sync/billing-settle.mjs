@@ -34,6 +34,7 @@ export async function settleInvoice({
   invoice,
   connectionId = null,
   providerPaymentId = null,
+  paymentId = null,
 }) {
   const lines = Array.isArray(invoice.lines) ? invoice.lines : [];
   const subscription = lines.find((line) => line?.kind === "subscription");
@@ -60,6 +61,7 @@ export async function settleInvoice({
       currency: invoice.currency,
       connectionId,
       providerPaymentId,
+      ...(paymentId ? { paymentId } : {}),
     });
 
     if (subscription) {

@@ -33,17 +33,18 @@
 .rm-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
   height: var(--control-h); padding: 0 var(--control-padding-x); max-width: var(--label-max);
-  border-radius: var(--radius-pill); border: 1px solid transparent; box-sizing: border-box;
+  border-radius: var(--radius-control); border: var(--panel-border-width) solid transparent; box-sizing: border-box;
   font: var(--type-label); white-space: nowrap; cursor: pointer;
-  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
 }
 .rm-btn-label { overflow: hidden; text-overflow: ellipsis; }
 .rm-compact { --control-h: var(--control-compact); }
 .rm-default { --control-h: var(--control-default); }
-.rm-btn-primary { background: var(--accent); color: var(--text-on-accent); }
-.rm-btn-primary:hover, .rm-btn-primary.is-hover { background: var(--accent-hover); }
-.rm-btn-primary:active, .rm-btn-primary.is-active { background: var(--accent-hover); }
-.rm-btn-secondary { background: var(--bg-panel); color: var(--text-primary); border-color: var(--border-strong); }
+/* ADR-265: the one primary button of a screen — coral, ink outline, hard shadow; pressing pushes it into the paper. */
+.rm-btn-primary { background: var(--accent-cta); color: var(--text-on-cta); border-color: var(--border-ink); box-shadow: var(--shadow-card); font-weight: 700; }
+.rm-btn-primary:hover, .rm-btn-primary.is-hover { background: var(--accent-cta-hover); }
+.rm-btn-primary:active, .rm-btn-primary.is-active { background: var(--accent-cta-hover); transform: translate(3px, 3px); box-shadow: none; }
+.rm-btn-secondary { background: var(--bg-panel); color: var(--text-primary); border-color: var(--border-ink); }
 .rm-btn-secondary:hover, .rm-btn-secondary.is-hover { background: var(--bg-hover); }
 .rm-btn-secondary:active, .rm-btn-secondary.is-active { background: var(--bg-active); }
 .rm-btn-ghost, .rm-btn-ghost-danger { background: transparent; color: var(--text-primary); }
@@ -53,7 +54,8 @@
 .rm-btn-danger { background: var(--danger); color: var(--text-on-danger); }
 .rm-btn-danger:hover, .rm-btn-danger.is-hover { background: var(--danger-hover); }
 .rm-btn-danger:active, .rm-btn-danger.is-active { background: var(--danger-hover); }
-.rm-btn[aria-pressed="true"], .rm-btn.is-selected { background: var(--accent-soft); color: var(--text-primary); border-color: transparent; }
+/* ADR-265 §3.7: a chosen tool sits on a marker chip with an ink outline; the icon stays ink. */
+.rm-btn[aria-pressed="true"], .rm-btn.is-selected { background: var(--accent-chosen); color: var(--text-primary); border-color: var(--border-ink); }
 .rm-btn:disabled, .rm-btn.is-disabled { cursor: not-allowed; background: var(--bg-hover); color: var(--text-muted); border-color: transparent; box-shadow: none; }
 .rm-btn-ghost:disabled { background: transparent; }
 .rm-btn.is-loading { cursor: progress; background: var(--bg-hover); color: var(--text-secondary); }
@@ -71,7 +73,7 @@
 .rm-field-success { color: var(--state-success); }
 .rm-input {
   display: flex; align-items: center; gap: var(--space-2); height: var(--control-h); padding: 0 var(--control-padding-x); box-sizing: border-box;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--bg-panel); color: var(--text-secondary);
+  border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-control); background: var(--bg-panel); color: var(--text-secondary);
   transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease); position: relative;
 }
 .rm-input input, .rm-input select, .rm-input textarea { flex: 1; min-width: 0; border: 0; background: transparent; padding: 0; color: var(--text-primary); font: var(--type-body); height: 100%; }
@@ -93,7 +95,7 @@
 /* ---------- Checkbox / Radio / Switch ---------- */
 .rm-check, .rm-switch { display: inline-flex; align-items: flex-start; gap: var(--space-2); cursor: pointer; font: var(--type-body); color: var(--text-primary); position: relative; }
 .rm-check input, .rm-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.rm-check-box { width: 16px; height: 16px; margin-top: 2px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--bg-panel); display: grid; place-items: center; color: transparent; box-sizing: border-box; flex: none; transition: background-color var(--dur-1) var(--ease); }
+.rm-check-box { width: 18px; height: 18px; margin-top: 1px; border: var(--panel-border-width) solid var(--border-ink); border-radius: 4px; background: var(--bg-panel); display: grid; place-items: center; color: transparent; box-sizing: border-box; flex: none; transition: background-color var(--dur-1) var(--ease); }
 .rm-check:hover .rm-check-box, .rm-check.is-hover .rm-check-box { border-color: var(--text-secondary); }
 .rm-check input:checked + .rm-check-box, .rm-check input[type="checkbox"]:indeterminate + .rm-check-box { background: var(--accent); border-color: var(--accent); color: var(--text-on-accent); }
 .rm-check input:focus-visible + .rm-check-box, .rm-check.is-focus-visible .rm-check-box, .rm-switch input:focus-visible + .rm-switch-track, .rm-switch.is-focus-visible .rm-switch-track { outline: 2px solid var(--border-focus); outline-offset: 2px; }
@@ -194,7 +196,7 @@
 .rm-tooltip-wrap.is-open .rm-tooltip { display: inline-flex; }
 
 /* ---------- Menu ---------- */
-.rm-menu { width: 240px; padding: var(--space-2); background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); box-sizing: border-box; }
+.rm-menu { width: 240px; padding: var(--space-2); background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); box-sizing: border-box; }
 .rm-menu-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: var(--control-compact); padding: 0 var(--space-3); border: 0; background: transparent; border-radius: var(--radius-pill); color: var(--text-primary); font: 400 13px/18px var(--font-sans); text-align: left; cursor: pointer; }
 .rm-menu-item:hover, .rm-menu-item:focus-visible, .rm-menu-item.is-hover { background: var(--bg-hover); outline-offset: -2px; }
 /* A hint is a second line: the item grows instead of clipping it (spec §10, Home-Menus). */
@@ -211,7 +213,7 @@
 
 /* ---------- Dialog ---------- */
 .rm-dialog-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--bg-overlay); display: grid; place-items: center; padding: 20px; }
-.rm-dialog { display: flex; flex-direction: column; max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); background: var(--bg-panel); border: var(--panel-border-width) solid var(--border-panel); border-radius: var(--radius-2xl); box-shadow: var(--shadow-pop); box-sizing: border-box; color: var(--text-primary); overflow: hidden; }
+.rm-dialog { display: flex; flex-direction: column; max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); background: var(--bg-dialog); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-dialog); box-shadow: var(--shadow-dialog); animation: rm-dialog-drop var(--dur-4) var(--ease-spring) both; box-sizing: border-box; color: var(--text-primary); overflow: hidden; }
 .rm-dialog-sm { width: var(--dialog-sm); }
 .rm-dialog-md { width: var(--dialog-md); }
 .rm-dialog-lg { width: var(--dialog-lg); }
@@ -250,7 +252,7 @@
 .rm-list-meta { font: var(--type-caption); color: var(--text-secondary); }
 
 /* ---------- Toast / Banner / Empty ---------- */
-.rm-toast { display: flex; align-items: flex-start; gap: var(--space-3); width: 360px; max-width: 100%; box-sizing: border-box; padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); background: var(--bg-raised); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
+.rm-toast { display: flex; align-items: flex-start; gap: var(--space-3); width: 360px; max-width: 100%; box-sizing: border-box; padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-card); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
 .rm-toast > .rm-icon { margin-top: 1px; color: var(--text-secondary); }
 .rm-toast-success > .rm-icon { color: var(--state-success); }
 .rm-toast-warning > .rm-icon { color: var(--state-warning); }
@@ -303,10 +305,10 @@
 .rm-topbar-group:last-child { gap: var(--space-3); }
 .rm-topbar-mark { width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--text-primary); color: var(--bg-panel); display: grid; place-items: center; font: 600 13px/1 var(--font-sans); flex: none; }
 .rm-topbar-name { font: 600 14px/20px var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
-.rm-toolbar { display: inline-flex; flex-direction: column; align-items: center; gap: var(--space-1); width: var(--toolbar-width); padding: var(--space-1) 0; box-sizing: border-box; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); box-shadow: var(--shadow-bar); }
+.rm-toolbar { display: inline-flex; flex-direction: column; align-items: center; gap: var(--space-1); width: var(--toolbar-width); padding: var(--space-1) 0; box-sizing: border-box; background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-lg); box-shadow: var(--shadow-bar); }
 .rm-tool { --control-h: 36px; }
 .rm-toolbar-sep { width: 24px; height: 1px; background: var(--border-subtle); margin: var(--space-1) 0; }
-.rm-floatbar, .rm-zoom { display: inline-flex; align-items: center; gap: 2px; padding: var(--space-1); background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); box-shadow: var(--shadow-bar); color: var(--text-primary); }
+.rm-floatbar, .rm-zoom { display: inline-flex; align-items: center; gap: 2px; padding: var(--space-1); background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-pill); box-shadow: var(--shadow-bar); color: var(--text-primary); }
 .rm-floatbar-count { font: 500 12px/16px var(--font-sans); color: var(--text-secondary); padding: 0 var(--space-2); white-space: nowrap; }
 .rm-floatbar-sep { width: 1px; height: 20px; background: var(--border-subtle); margin: 0 var(--space-1); }
 .rm-swatch { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--border-strong); }
@@ -414,8 +416,8 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-pin.is-selected { box-shadow: 0 0 0 2px var(--selection-stroke); }
 
 /* ---------- Popover ---------- */
-.rm-popover { position: relative; width: 280px; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
-.rm-popover-arrow { position: absolute; width: 10px; height: 10px; background: var(--bg-raised); border: 1px solid var(--border-subtle); transform: rotate(45deg); }
+.rm-popover { position: relative; width: 280px; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
+.rm-popover-arrow { position: absolute; width: 10px; height: 10px; background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); transform: rotate(45deg); }
 .rm-popover-bottom .rm-popover-arrow { top: -6px; left: 24px; border-right: 0; border-bottom: 0; }
 .rm-popover-top .rm-popover-arrow { bottom: -6px; left: 24px; border-left: 0; border-top: 0; }
 .rm-popover-right .rm-popover-arrow { left: -6px; top: 18px; border-right: 0; border-top: 0; }
@@ -528,3 +530,8 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-lightbox-actions .rm-btn:hover { color: var(--accent); background: transparent; }
 .rm-lightbox-body { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
 .rm-lightbox-caption { margin: 0; font: var(--type-body); color: var(--text-on-scrim); opacity: 0.8; max-width: 70ch; }
+
+/* ADR-265: a dialog drops onto the table with a small bounce. It does not fade: body text
+   must stay at contrast from the first frame, and a browser accessibility scan reads the
+   dialog while it is still falling. Reduced motion zeroes the duration. */
+@keyframes rm-dialog-drop { 0% { transform: translateY(-18px) rotate(-1deg); } 70% { transform: translateY(3px) rotate(0.3deg); } 100% { transform: none; } }

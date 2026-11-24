@@ -4,6 +4,7 @@ import {
   freshBoard,
   openBoard,
   openFacilitation,
+  openPeople,
   zoomInTo,
   objectCount,
 } from "./helpers";
@@ -14,16 +15,14 @@ test("the shared timer counts down, pauses and resumes", async ({ page }) => {
   await page.getByRole("menuitem", { name: /Timer/ }).click();
   await page.getByRole("button", { name: "5 min", exact: true }).click();
 
-  // The countdown is a hint on the menu row: the header names the state in words.
-  await openFacilitation(page);
-  const timerRow = page.getByRole("menuitem", { name: /Timer/ });
-  await expect(timerRow).toContainText("05:00");
-  await page.keyboard.press("Escape");
+  // The running countdown is a chip next to Run, not an item in the count of eight
+  // (ADR-266 amendment): it appears on start, ticks and opens Facilitate at its section.
+  const chip = page.locator(".topbar .session-chip").first();
+  await expect(chip).toContainText(/^\d{2}:\d{2}$/);
+  const first = await chip.innerText();
   await page.waitForTimeout(1_500);
-  await openFacilitation(page);
-  await expect(page.getByRole("menuitem", { name: /Timer/ })).not.toContainText("05:00");
-
-  await page.getByRole("menuitem", { name: /Timer/ }).click();
+  await expect(chip).not.toHaveText(first);
+  await chip.click();
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.locator(".timer-face")).toContainText("Paused by");
   await page.getByRole("button", { name: "Resume" }).click();
@@ -236,7 +235,9 @@ test("one person follows another, and the followed person can stop it", async ({
 
   await expect(page.locator(".peer")).toHaveCount(2);
   await bob.locator(".peer:not(.self)").click();
+  await bob.getByRole("button", { name: "Follow Alice", exact: true }).click();
   await expect(bob.locator(".follow-pill")).toContainText("Following Alice");
+  await openPeople(page);
   await expect(page.locator(".follow-counter")).toContainText("1");
 
   await page.locator(".follow-counter").click();

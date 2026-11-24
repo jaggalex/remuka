@@ -71,7 +71,8 @@ export function buildCss(t) {
     head("component tokens and density") +
     block(":root", [...comp.map((x) => ({ name: x.name, value: css(x.value) })), { name: "control-h", value: "var(--control-default)" }]) +
     `[data-density="compact"] {\n  --control-h: var(--control-compact);\n}\n` +
-    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --dur-1: 0ms;\n    --dur-2: 0ms;\n  }\n}\n`;
+    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --dur-1: 0ms;\n    --dur-2: 0ms;\n    --dur-3: 0ms;\n    --dur-4: 0ms;\n  }\n}\n` +
+    `/* «Спокойные анимации» в настройках аккаунта (ADR-265): то же, что reduced motion. */\n:root[data-motion="calm"] {\n  --dur-1: 0ms;\n  --dur-2: 0ms;\n  --dur-3: 0ms;\n  --dur-4: 0ms;\n}\n`;
   return {
     "primitive.css": primitive,
     "semantic.css": semantic,
@@ -128,12 +129,19 @@ const STICKERS = ["neutral", "yellow", "green", "blue", "pink", "violet", "orang
 export const PAIRS = [
   ...TEXT.flatMap((f) => GROUNDS.map((g) => [f, g, 4.5])),
   ["text-accent", "accent-soft", 4.5], ["text-danger", "danger-soft", 4.5], ["text-agent", "agent-soft", 4.5], ["state-success", "success-soft", 4.5], ["state-warning", "warning-soft", 4.5], ["text-primary", "accent-soft", 4.5],
-  ["text-on-accent", "accent", 4.5], ["text-on-accent", "accent-hover", 4.5], ["text-on-danger", "danger", 4.5], ["text-on-danger", "danger-hover", 4.5], ["text-inverse", "bg-inverse", 4.5],
+  ["text-on-accent", "accent", 4.5], ["text-on-accent", "accent-hover", 4.5], ["text-on-cta", "accent-cta", 4.5], ["text-primary", "accent-chosen", 4.5], ["text-on-cta", "accent-cta-hover", 4.5], ["text-primary", "bg-dialog", 4.5], ["text-secondary", "bg-dialog", 4.5], ["text-on-danger", "danger", 4.5], ["text-on-danger", "danger-hover", 4.5], ["text-inverse", "bg-inverse", 4.5],
   ["border-strong", "bg-panel", 3], ["border-strong", "bg-raised", 3], ["border-focus", "bg-panel", 3], ["border-focus", "bg-canvas", 3], ["border-focus", "bg-raised", 3],
   ["selection-stroke", "bg-canvas", 3], ["accent", "bg-panel", 3],
   ...[1, 2, 3, 4, 5, 6].map((i) => ["text-on-presence", `presence-${i}`, 4.5]),
   ...[1, 2, 3, 4, 5, 6].map((i) => [`presence-${i}`, "bg-canvas", 3]),
-  ...STICKERS.map((c) => ["sticker-ink", `sticker-${c}`, 4.5]),
+  ...STICKERS.map((c) => ["sticker-ink", `sticker-${c}`, 6.8]),
+  // The bright 300 row of ADR-267 (§1): ink on every fill is at least 6.8:1, orange 300
+  // being the darkest at 6.81. The 100 row is the sticker set above.
+  ...STICKERS.map((c) => [
+    "sticker-ink",
+    `paper-${c === "neutral" ? "grey" : c}-300`,
+    6.8,
+  ]),
 ];
 
 /** Contrast of every promised pair in every theme. Translucent grounds sit on bg-panel. */

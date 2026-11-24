@@ -42,7 +42,8 @@
   /* The fill and the text colour come from the object being edited (ADR-038); these
      are only the fallback for a card, which has no fill of its own. */
   background: var(--bg-panel);
-  color: var(--text-primary);
+  /* The object's own ink arrives inline as --ink (ADR-273 §2.4); the fallback is paper. */
+  color: var(--ink, var(--sticker-ink));
   font-family: var(--font-sans);
   resize: none;
   overflow: hidden;
@@ -176,7 +177,8 @@
 }
 
 .inline-editor a {
-  color: var(--text-accent);
+  /* The painter draws a link in the text's own ink on paper (ADR-273 §2.4). */
+  color: inherit;
   text-decoration: underline;
 }
 /* ------------------------------------------------------------- boards panel */

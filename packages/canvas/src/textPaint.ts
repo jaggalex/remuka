@@ -7,7 +7,7 @@
  * and never decides their size.
  */
 import type { TextRun, Widget } from "@remo/model";
-import { stickyFill } from "@remo/model";
+import { ink as inkOn, stickyFill } from "@remo/model";
 import { type CanvasPalette, DEFAULT_PALETTE, withAlpha } from "./palette";
 import { roundRect } from "./path";
 import {
@@ -39,10 +39,39 @@ import { CODE_PADDING_EM } from "./textMetrics";
 /** Colours a block's marker or link may need that the caller's fillStyle cannot answer. */
 export interface BlockPaint {
   palette: CanvasPalette;
+  /** The surface the text lies on; muted marks are derived from it (ADR-273). */
+  ground: string;
   /** True on a sticky note: the sheet's ink, never a chrome colour (README REMO 2.0). */
   paper: boolean;
   /** The sheet's own colour, for the tick inside a filled checkbox. */
   paperFill: string;
+  /** The halo colour when a person's ink nearly disappears, and its width in world units. */
+  halo?: string | null;
+  haloWidth?: number;
+}
+
+/**
+ * Draw text in the current fill colour, first stroking its halo when it needs one
+ * (ADR-273 §2.3). A halo is only drawn for a colour the person chose, never for derived
+ * ink, so a board with Auto text pays nothing for this.
+ */
+export function fillWithHalo(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  halo?: string | null,
+  width = 1,
+): void {
+  if (halo) {
+    ctx.save();
+    ctx.strokeStyle = halo;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.strokeText(text, x, y);
+    ctx.restore();
+  }
+  ctx.fillText(text, x, y);
 }
 
 /**
@@ -62,7 +91,12 @@ export function drawRichLine(
   align: "left" | "center" | "right",
   centre = false,
   family: string = DEFAULT_FONT_FAMILY,
-  paint: BlockPaint = { palette: DEFAULT_PALETTE, paper: false, paperFill: DEFAULT_PALETTE.panel },
+  paint: BlockPaint = {
+    palette: DEFAULT_PALETTE,
+    ground: DEFAULT_PALETTE.canvas,
+    paper: false,
+    paperFill: DEFAULT_PALETTE.panel,
+  },
 ): void {
   let cursor = align === "center" ? x - line.width / 2 : align === "right" ? x - line.width : x;
   const ink = ctx.fillStyle as string;
@@ -105,7 +139,7 @@ export function drawRichLine(
     // A link on paper keeps the object's ink (content is never recoloured); on a white
     // text block it is the accent, which is the only place the token may be used (§7).
     if (segment.href) ctx.fillStyle = paint.paper ? ink : paint.palette.textAccent;
-    ctx.fillText(segment.text, cursor + pad, baseline);
+    fillWithHalo(ctx, segment.text, cursor + pad, baseline, paint.halo, paint.haloWidth);
     if (segment.href) ctx.fillStyle = ink;
 
     const lineWidth = segment.code ? fontPx * 0.18 : Math.max(1, fontPx / 14);
@@ -140,7 +174,12 @@ export function drawRichLine(
 
 /** Colour of a checked line: muted on white, the ink at 55 % on paper. */
 function checkedColour(paint: BlockPaint, ink: string): string {
-  return paint.paper ? ink : paint.palette.textMuted;
+  return paint.paper ? ink : inkOf(paint);
+}
+
+/** Muted ink of the text block's own ground; a paper sheet keeps the sheet's ink. */
+function inkOf(paint: BlockPaint): string {
+  return inkOn(paint.ground, "muted");
 }
 
 function drawMarker(
@@ -163,7 +202,7 @@ function drawMarker(
     ctx.font = fontFor(em, {}, family);
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(marker.glyph || BULLET_GLYPHS[0], x, top + line.h / 2);
+    fillWithHalo(ctx, marker.glyph || BULLET_GLYPHS[0], x, top + line.h / 2, paint.halo, paint.haloWidth);
     return;
   }
 
@@ -172,7 +211,7 @@ function drawMarker(
     ctx.textAlign = "right";
     ctx.textBaseline = "alphabetic";
     const right = x + marker.width - em * MARKER_GAP_EM;
-    ctx.fillText(marker.glyph, right, baseline);
+    fillWithHalo(ctx, marker.glyph, right, baseline, paint.halo, paint.haloWidth);
     return;
   }
 
@@ -192,7 +231,7 @@ function drawMarker(
     ctx.font = `600 ${side * 0.78}px ${family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("✓", left + side / 2, boxTop + side / 2 + side * 0.02);
+    fillWithHalo(ctx, "✓", left + side / 2, boxTop + side / 2 + side * 0.02, paint.halo, paint.haloWidth);
     ctx.fillStyle = ink;
   } else {
     ctx.stroke();
@@ -235,7 +274,7 @@ function drawBlockRuns(
       if (run.marks.href) ctx.fillStyle = paint.paper ? ink : paint.palette.textAccent;
       else if (!run.marks.code) ctx.fillStyle = ink;
     }
-    ctx.fillText(run.text, x + run.x + run.pad, baseline);
+    fillWithHalo(ctx, run.text, x + run.x + run.pad, baseline, paint.halo, paint.haloWidth);
 
     const underline = (run.marks.underline && !run.marks.code) || Boolean(run.marks.href);
     if (underline) {
@@ -317,6 +356,12 @@ export function drawTextInBox(
     vAlign: "top" | "middle" | "bottom";
     clip?: boolean;
     palette?: CanvasPalette;
+    /** The surface the text lies on; without it the block is read as lying on the canvas. */
+    ground?: string;
+    /** A person's ink that nearly disappears on that surface (ADR-273 §2.3). */
+    halo?: string | null;
+    /** Halo width in world units: the caller knows the zoom, the painter does not. */
+    haloWidth?: number;
   },
 ): boolean {
   const palette = options.palette ?? DEFAULT_PALETTE;
@@ -324,8 +369,11 @@ export function drawTextInBox(
   const paper = widget.type === "sticky_note";
   const paint: BlockPaint = {
     palette,
+    ground: options.ground ?? palette.canvas,
     paper,
     paperFill: paper ? stickyFill(widget.style?.fillColor) : palette.panel,
+    halo: options.halo,
+    haloWidth: options.haloWidth,
   };
 
   // Block text takes the block layout, exactly as it was measured for the fit; every

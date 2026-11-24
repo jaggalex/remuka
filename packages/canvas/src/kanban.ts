@@ -1,9 +1,19 @@
-import type { CardStatus, TagColor, Widget } from "@remo/model";
+import {
+  cardFillFor,
+  ink,
+  inkFor,
+  matchColor,
+  type CardStatus,
+  type TagColor,
+  type Widget,
+} from "@remo/model";
 import { drawCardMeta } from "./cardMeta";
-import { drawCardSheet } from "./cardSheet";
+import { CARD_RADIUS, drawCardSheet } from "./cardSheet";
 import type { KanbanLayout } from "./layout";
 import { DEFAULT_PALETTE, type CanvasPalette } from "./palette";
+import { roundRect } from "./path";
 import { DEFAULT_FONT_FAMILY } from "./textLayout";
+import { fillWithHalo } from "./textPaint";
 
 export interface KanbanPaintOptions {
   selectedIds?: readonly string[];
@@ -32,6 +42,11 @@ export interface KanbanPaintOptions {
   cardStatus?: Record<CardStatus, string>;
   /** The room's tag vocabulary, for tag chips on a card face (ADR-106). */
   tags?: ReadonlyMap<string, { name: string; color: TagColor }>;
+  /**
+   * The board's own fill: its chosen colour or the default ground (ADR-267 §2.1).
+   * Every part of the matrix derives its ink from it (ADR-273 §2.1).
+   */
+  ground?: string;
 }
 
 /** The cell whose empty-cell `+` is under a world point, if any. */
@@ -77,10 +92,14 @@ export function drawKanbanHover(
   ctx.fillRect(column.left, lane.top, column.width, lane.height);
 }
 
-/** The count beside a column title: `n`, or `n / limit` and `!` when over (ADR-106). */
+/** The count beside a column title: `n`, or `n/limit` when the column has a WIP limit. */
 export function columnCountText(column: { count: number; wipLimit?: number }): string {
-  const over = column.wipLimit != null && column.count > column.wipLimit;
-  return column.wipLimit != null ? `${column.count} / ${column.wipLimit}${over ? " !" : ""}` : String(column.count);
+  return column.wipLimit != null ? `${column.count}/${column.wipLimit}` : String(column.count);
+}
+
+/** The whole header: the column's name, a dot, and its count (ADR-267 §2.1). */
+export function columnHeaderText(column: { title: string; count: number; wipLimit?: number }): string {
+  return `${column.title} · ${columnCountText(column)}`;
 }
 
 /** A title on the kanban: what it names, and its box in world units. */
@@ -122,9 +141,8 @@ export function kanbanTitles(
   const titleY = top + headerHeight * 0.42;
   layout.columns.forEach((column, index) => {
     const width =
-      measure(column.title || " ", `600 20px ${fontFamily}`) +
-      14 +
-      measure(columnCountText(column), `19px ${fontFamily}`);
+      measure(columnHeaderText(column), `800 20px ${fontFamily}`) +
+      8;
     const room = column.width - padding * 2;
     out.push({
       kind: "column",
@@ -168,29 +186,32 @@ export function drawKanban(
   const hairline = 1 / zoom;
   const palette = options.palette ?? DEFAULT_PALETTE;
   const font = options.fontFamily ?? FONT;
+  const ground = options.ground ?? palette.kanbanGround;
+  const hairlineInk = ink(ground, "line");
 
-  // Column headers.
+  // Column headers: "Name · n" or "Name · n/limit", 800. An over-limit column says so in
+  // danger ink; the extra cards carry the dashed outline below. The accent stripe under
+  // the title is gone: the cards themselves carry the column's colour (ADR-267 §2.1).
+  // A row-600 accent is the header's own colour — that is the only thing it changes, since
+  // the cards take the 300 row of the same tone. Everything else is derived ink of the
+  // board's ground, which is content and stays light green in both themes (ADR-273,
+  // ADR-279).
   for (const column of layout.columns) {
-    ctx.fillStyle = palette.textPrimary;
+    const over = column.wipLimit != null && column.count > column.wipLimit;
+    const accent = matchColor(column.accent);
+    const chosen = accent?.exact && accent.color.level === 600 ? column.accent : null;
+    const headerInk = inkFor(ground, chosen);
+    ctx.fillStyle = over ? palette.dangerInk : headerInk.color;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.font = `600 ${20}px ${font}`;
-    ctx.fillText(column.title, column.left + padding, top + headerHeight * 0.42);
-
-    const over = column.wipLimit != null && column.count > column.wipLimit;
-    const countText = columnCountText(column);
-    // Measured in the title's own font: the count starts where the title ends.
-    const titleWidth = ctx.measureText(column.title).width;
-    ctx.fillStyle = over ? palette.warning : palette.textMuted;
-    ctx.font = `${19}px ${font}`;
-    ctx.fillText(countText, column.left + padding + titleWidth + 14, top + headerHeight * 0.42);
-
-    ctx.fillStyle = column.accent;
-    ctx.fillRect(
+    ctx.font = `800 ${20}px ${font}`;
+    fillWithHalo(
+      ctx,
+      columnHeaderText(column),
       column.left + padding,
-      top + headerHeight * 0.68,
-      column.width - padding * 2,
-      3 / zoom,
+      top + headerHeight * 0.42,
+      headerInk.halo,
+      1.5 / zoom,
     );
   }
 
@@ -199,7 +220,7 @@ export function drawKanban(
   const strip = layout.laneStrip;
   layout.lanes.forEach((lane, index) => {
     if (index > 0) {
-      ctx.strokeStyle = palette.borderSubtle;
+      ctx.strokeStyle = hairlineInk;
       ctx.lineWidth = hairline;
       ctx.beginPath();
       ctx.moveTo(left + padding, lane.top);
@@ -208,7 +229,7 @@ export function drawKanban(
     }
     if (strip <= 0) return;
 
-    ctx.fillStyle = palette.textPrimary;
+    ctx.fillStyle = ink(ground, "text");
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.font = `600 ${20}px ${font}`;
@@ -216,13 +237,13 @@ export function drawKanban(
     lines.forEach((line, row) => {
       ctx.fillText(line, left + padding, lane.top + 30 + row * 26);
     });
-    ctx.fillStyle = palette.textMuted;
+    ctx.fillStyle = ink(ground, "muted");
     ctx.font = `${19}px ${font}`;
     ctx.fillText(String(lane.count), left + padding, lane.top + 30 + lines.length * 26);
   });
 
   // Column separators, and the edge between the lane strip and the first column.
-  ctx.strokeStyle = palette.borderSubtle;
+  ctx.strokeStyle = hairlineInk;
   ctx.lineWidth = hairline;
   const separators = strip > 0 ? layout.columns : layout.columns.slice(1);
   const lastLane = layout.lanes[layout.lanes.length - 1];
@@ -234,6 +255,16 @@ export function drawKanban(
     ctx.stroke();
   });
 
+  // Cards beyond a column's WIP limit: the last ones in the column, lane by lane, get the
+  // dashed danger outline. The count in the header already says why.
+  const extra = new Set<string>();
+  for (const column of layout.columns) {
+    if (column.wipLimit == null || column.count <= column.wipLimit) continue;
+    const inColumn = layout.placements.filter((placement) => placement.columnId === column.id);
+    for (const placement of inColumn.slice(column.wipLimit)) extra.add(placement.cardId);
+  }
+  const accents = new Map(layout.columns.map((column) => [column.id, column.accent]));
+
   // Cards.
   for (const placement of layout.placements) {
     if (placement.cardId === options.hiddenCardId) continue;
@@ -242,6 +273,10 @@ export function drawKanban(
     const selectedCard = options.selectedIds?.includes(placement.cardId) ?? false;
     const title = titles.get(placement.cardId) ?? "";
     const card = options.cards?.get(placement.cardId);
+    // A card without a colour of its own takes its column's (ADR-267 §2.1). The value is
+    // computed when painting, so a move recolours the card and writes nothing.
+    const fill = card?.style?.fillColor ?? cardFillFor(accents.get(placement.columnId));
+    const cardInk = inkFor(fill, card?.style?.textColor);
 
     ctx.save();
 
@@ -249,8 +284,26 @@ export function drawKanban(
       ctx,
       { x: cardLeft, y: cardTop, width: placement.width, height: placement.height },
       zoom,
-      { palette, selected: selectedCard },
+      { palette, selected: selectedCard, fill },
     );
+
+    if (extra.has(placement.cardId)) {
+      const out = 3 / zoom;
+      ctx.save();
+      ctx.strokeStyle = palette.dangerInk;
+      ctx.lineWidth = 1.5 / zoom;
+      ctx.setLineDash([6 / zoom, 4 / zoom]);
+      roundRect(
+        ctx,
+        cardLeft - out,
+        cardTop - out,
+        placement.width + out * 2,
+        placement.height + out * 2,
+        CARD_RADIUS + out,
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Meta goes on top of the card fill, so the badges are not painted under it.
     const titleY = card
@@ -267,27 +320,43 @@ export function drawKanban(
             statusLabel:
               options.cardStatus ?? { todo: "To do", in_progress: "In progress", done: "Done" },
             tags: options.tags,
+            ink: cardInk,
+            haloWidth: 1.5 / zoom,
           },
         )
       : placement.y;
 
     if (title) {
-      ctx.fillStyle = palette.textSecondary;
-      ctx.font = `${15}px ${font}`;
+      ctx.fillStyle = cardInk.color;
+      ctx.font = `600 ${15}px ${font}`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       const lines = wrapText(ctx, title, placement.width - 28, 2);
       const lineHeight = 19;
       const offset = ((lines.length - 1) * lineHeight) / 2;
       lines.forEach((line, index) => {
-        ctx.fillText(line, cardLeft + 14, titleY - offset + index * lineHeight);
+        fillWithHalo(
+          ctx,
+          line,
+          cardLeft + 14,
+          titleY - offset + index * lineHeight,
+          cardInk.halo,
+          1.5 / zoom,
+        );
       });
     } else {
-      ctx.fillStyle = palette.textMuted;
+      ctx.fillStyle = cardInk.color;
       ctx.font = `${15}px ${font}`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(options.placeholder ?? "Type something", cardLeft + 14, titleY);
+      fillWithHalo(
+        ctx,
+        options.placeholder ?? "Type something",
+        cardLeft + 14,
+        titleY,
+        cardInk.halo,
+        1.5 / zoom,
+      );
     }
     ctx.restore();
   }
@@ -303,7 +372,7 @@ export function drawKanban(
       if (occupied) continue;
       const cx = column.left + padding + 16;
       const cy = lane.centerY;
-      ctx.strokeStyle = palette.borderStrong;
+      ctx.strokeStyle = ink(ground, "icon");
       ctx.lineWidth = 1.4 / zoom;
       ctx.beginPath();
       ctx.moveTo(cx - 8, cy);

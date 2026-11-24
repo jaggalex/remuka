@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { 
+expect, test, type Page } from "@playwright/test";
 import {
+  ensureProperties,
   addSticky,
   applyDefaultTableLayout,
   freshBoard,
@@ -8,7 +10,7 @@ import {
   openBoard,
   openBoardMenu,
   openFacilitation,
-  openMore,
+  openPeople,
   register,
   seedNote,
   seedObject,
@@ -79,8 +81,11 @@ test("the four header menus have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "facilitation menu");
   await page.keyboard.press("Escape");
 
-  await openMore(page);
-  await expectNoSerious(page, "more menu");
+  await openPeople(page);
+  await expectNoSerious(page, "people menu");
+  await page.keyboard.press("Escape");
+
+  await openBoardMenu(page);
   await page.getByRole("menuitem", { name: "Templates…" }).click();
   await expectNoSerious(page, "templates popover");
   await page.keyboard.press("Escape");
@@ -193,7 +198,7 @@ test("a section table has no serious accessibility violations", async ({ page })
     };
   }, frameId);
   await page.mouse.click(point.x, point.y);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   await page.locator(".section-panel").getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
   await expect(page.locator(".table-mirror table")).toHaveCount(1);
@@ -227,8 +232,8 @@ test("modal dialogs keep the keyboard inside and return focus", async ({ page })
     },
     {
       name: "Room access",
-      open: () => page.getByRole("button", { name: "Share", exact: true }).click(),
-      opener: () => page.getByRole("button", { name: "Share", exact: true }),
+      open: () => page.getByRole("button", { name: "Invite", exact: true }).click(),
+      opener: () => page.getByRole("button", { name: "Invite", exact: true }),
     },
   ];
   for (const { name, open, opener } of cases) {
@@ -353,32 +358,37 @@ test("a tooltip waits, stays under the pointer and closes on Escape (WCAG 1.4.13
   await expect(tool).toBeFocused();
 });
 
-test("header and zoom icons are named in their tooltips (ADR-232)", async ({ page }) => {
+test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", async ({ page }) => {
   await freshBoard(page, "a11y-header-icons");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
-  // Names stay what they were, so roles find the same controls.
-  const more = page.getByRole("button", { name: "More", exact: true });
-  const share = page.getByRole("button", { name: "Share", exact: true });
+  // Icon-only controls keep a name: the mark, the discussion icon, the account face
+  // and the zoom's Fit. Named buttons ("Run", "Invite", "Agent") carry their word.
+  const mark = page.getByRole("button", { name: "Remuka: account and rooms", exact: true });
+  const discussion = page.getByRole("button", { name: /^Discussion/ });
+  const account = page.getByRole("button", { name: /^Account and interface/ });
   const fit = page.getByRole("button", { name: "Fit", exact: true });
-  for (const control of [more, share, fit]) {
+  for (const control of [mark, discussion, fit]) {
     await expect(control).toBeVisible();
     await expect(control).not.toContainText(/\w/);
   }
+  await expect(account).toBeVisible();
+  await expect(account).toHaveAttribute("aria-label", /^Account and interface/);
 
   // Hover shows the name; focus shows it at once.
-  await more.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^More$/ })).toBeVisible();
+  await discussion.hover();
+  await expect(page.getByRole("tooltip").filter({ hasText: /^Discussion$/ })).toBeVisible();
   await page.keyboard.press("Shift");
-  await share.focus();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^Room access$/ })).toBeVisible({ timeout: 300 });
+  await discussion.focus();
+  await expect(
+    page.getByRole("tooltip").filter({ hasText: /^Discussion$/ }),
+  ).toBeVisible({ timeout: 300 });
+  await expect(mark).toHaveAttribute("aria-label", "Remuka: account and rooms");
   await fit.hover();
   await expect(page.getByRole("tooltip").filter({ hasText: /selection/ })).toBeVisible();
 
-  // A calm save state is an icon: the word is in the live region but not drawn.
-  const word = page.locator(".save-state .rm-sync > span");
-  await expect(word).toHaveText(/saved/i);
-  expect(await word.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
+  // Saved is silence: the protocol attribute is there, the indicator is not.
+  await expect(page.locator(".save-state")).toBeHidden();
 });
 
 test("selection actions are one row of named icons, the rest behind More actions (ADR-237)", async ({ page }) => {

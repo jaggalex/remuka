@@ -1,7 +1,7 @@
 import { ANCHOR_GAP, HANDLE_GAP, anchorsOf, portsAreEdgePlus, bendAxis, connectTargetAt, cornerAt, nearestAnchor, placedWidget, resizeMembersOf } from "./canvasGeometry";
 import type { GestureEnv } from "./gestureEnv";
 import type { ConnectDraft } from "./gestureTypes";
-import { boxOf, connectorHandles, connectorPath, facingSide, labelPoint, layerKey, layoutTable, pick, pickConnector, placementAt, plusHit, resolvedEndSide, tableHitAt, textCapFor, textHitAt, unionBox, kanbanTitleAt } from "@remo/canvas";
+import { boxOf, connectorHandles, connectorPath, facingSide, frameLabelAt, frameLabelFont, labelPoint, layerKey, layoutTable, pick, pickConnector, placementAt, plusHit, resolvedEndSide, tableHitAt, textCapFor, textHitAt, unionBox, kanbanTitleAt } from "@remo/canvas";
 import { canConnect, expandGroups, kindOf, minimumSizeOf, scalesInBlock } from "@remo/model";
 import type { ConnectorSide } from "@remo/model";
 import { capture } from "./gestureEnv";
@@ -274,7 +274,12 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
   // What is under the cursor decides how the gesture is interpreted. The widget
   // that is painted on top wins, so an object dropped over a kanban stays
   // selectable (the kanban is only reached where nothing else covers it).
-  const hit = pick(widgets, world, isCardOfKanban);
+  // A frame's label is above its box, so it is hit-tested as a part of the frame: the
+  // plate is the frame's handle (ADR-267).
+  const labelFrame = frameLabelAt(widgets, world, {
+    measureText: (text) => ({ width: measureText(text, frameLabelFont(settings.text.fontFamily)) }),
+  });
+  const hit = pick(widgets, world, isCardOfKanban) ?? labelFrame;
 
   // ⌘/Ctrl+click on a link opens it; a plain click still selects the object (§8). The
   // address has already passed the document's scheme gate, so only http(s) and mailto

@@ -1,8 +1,10 @@
 import {
+  CARD_WHITE,
   formatRemaining,
+  groundOf,
+  ink as inkOn,
   inkFor,
-  shade,
-  stickyFill,
+  TONE_LEVELS,
   timerPhase,
   timerRemainingMs,
   type CardStatus,
@@ -11,6 +13,8 @@ import {
   type Widget,
 } from "@remo/model";
 import { drawCardMeta } from "./cardMeta";
+import { groundOfWidget, kanbanGroundOf } from "./ground";
+import { paintSticky } from "./stickyPaint";
 import {
   connectorPath,
   insetPath,
@@ -20,15 +24,18 @@ import {
   type ConnectorPath,
 } from "./connectors";
 import { drawClipMark } from "./clipMark";
-import { deviceScale, roundRect } from "./path";
-import { drawCardSheet } from "./cardSheet";
+import { roundRect } from "./path";
+import { CARD_SHADOW, drawCardSheet } from "./cardSheet";
 import { castElevation } from "./elevation";
+import { drawFrameLabel } from "./frameLabel";
 import { imageFieldsOf, paintImage } from "./imagePaint";
 import { layoutLabel } from "./labelLayout";
+import { drawKanbanPlate } from "./kanbanPlate";
 export { deviceScale, roundRect } from "./path";
 import { DEFAULT_PALETTE, withAlpha, type CanvasPalette } from "./palette";
 import { layoutRuns, textCapFor } from "./textLayout";
-import { drawRichLine, drawTextInBox } from "./textPaint";
+import { drawRichLine, drawTextInBox, fillWithHalo } from "./textPaint";
+
 
 /**
  * Stacking order.
@@ -58,8 +65,9 @@ export function drawDragOrigin(
   palette: CanvasPalette = DEFAULT_PALETTE,
 ): void {
   ctx.save();
-  ctx.fillStyle = withAlpha(palette.textSecondary, 0.07);
-  ctx.strokeStyle = withAlpha(palette.textSecondary, 0.6);
+  const ghost = inkOn(palette.canvas, "icon");
+  ctx.fillStyle = withAlpha(ghost, 0.07);
+  ctx.strokeStyle = withAlpha(ghost, 0.6);
   ctx.lineWidth = 1.5 / zoom;
   ctx.setLineDash([6 / zoom, 5 / zoom]);
   if (radius > 0) {
@@ -101,18 +109,6 @@ export function drawGuide(
   ctx.stroke();
   ctx.restore();
 }
-
-/** The sticky sheet of ADR-181, in world units: radius, and the shadow under the bottom edge. */
-export const STICKY_RADIUS = 2;
-/**
- * The sheet's cast shadow, in board units at zoom 1: a soft warm band under the bottom
- * edge, a touch to the right, as if lit from the upper left (the ADR-181 concept).
- */
-export const STICKY_SHADOW = { offset: 12, blur: 14, inset: 6, dx: 2 } as const;
-/** How much lighter the upper-left corner is and how much darker the lower-right one. */
-export const STICKY_SHEEN = { light: 0.3, dark: -0.03 } as const;
-
-
 
 /** Greedy word wrap; returns the lines that fit into `maxLines`. */
 export function wrapText(
@@ -165,6 +161,21 @@ export interface DrawWidgetOptions {
    * (ADR-211).
    */
   memberRing?: boolean;
+  /** Paint paper square: no tilt on sticky notes (ADR-265), e.g. for kanban cards in columns. */
+  straight?: boolean;
+  /**
+   * How much the sheet is in hand, 0…1 (ADR-265 §4.2): hover lift, growth and
+   * straightening; a released note settles from 1 back to 0 with one overshoot.
+   */
+  hand?: number;
+  /** A carried sheet casts a deeper shadow than a hovered one (§4.2). */
+  shadowBoost?: boolean;
+  /**
+   * The fill of a card being painted where its column is known (ADR-267): the colour a
+   * card without a fill of its own takes from its column. The matrix computes it for the
+   * cards in place; the overlay passes it for a card in flight.
+   */
+  cardFill?: string;
   /**
    * The decoded picture for an image object, or null while it loads (ADR-249).
    *
@@ -185,6 +196,8 @@ export interface PaintTheme {
   shapeStrokeWidth: number;
   /** Copy shown in an empty card; the app passes its translation. */
   cardPlaceholder: string;
+  /** The word on a kanban's title plate when the object has no name of its own. */
+  kanbanTitle: string;
   /** Copy shown on a finished shared timer; the app passes its translation. */
   timerExpired: string;
   /** Copy on an image that could not be loaded; the app passes its translation. */
@@ -202,6 +215,7 @@ export const DEFAULT_THEME: PaintTheme = {
   fontCap: { S: 13, M: 16, L: 20 },
   shapeStrokeWidth: 2,
   cardPlaceholder: "Type something",
+  kanbanTitle: "Kanban",
   timerExpired: "Time is up",
   imageUnavailable: "Image unavailable",
   cardStatus: { todo: "To do", in_progress: "In progress", done: "Done" },
@@ -275,7 +289,7 @@ function traceShape(ctx: CanvasRenderingContext2D, widget: Widget, left: number,
     }
     ctx.closePath();
   } else {
-    roundRect(ctx, left, top, widget.width, widget.height, kind === "round_rectangle" ? widget.height * 0.3 : 2);
+    roundRect(ctx, left, top, widget.width, widget.height, kind === "round_rectangle" ? widget.height * 0.3 : 10);
   }
 }
 
@@ -315,25 +329,36 @@ function paintWidget(
     case "timer": {
       // One card, painted from the stored `endsAt` rather than from a local countdown:
       // two clients, a late joiner and a reconnect all show the same second (ADR-075).
+      // It is a piece of cardboard (ADR-267): white paper, an ink edge and a hard shadow.
       const timer = widget.timer;
       const phase = timerPhase(timer);
       const expires = phase === "expired";
+      const remaining = expires ? 0 : timerRemainingMs(timer);
+      const urgent = !expires && remaining > 0 && remaining <= 10_000;
       ctx.save();
-      ctx.fillStyle = palette.panel;
+      ctx.fillStyle = palette.objectInk;
+      roundRect(ctx, left + CARD_SHADOW.offset, top + CARD_SHADOW.offset, widget.width, widget.height, 10);
+      ctx.fill();
+      ctx.fillStyle = CARD_WHITE;
       roundRect(ctx, left, top, widget.width, widget.height, 10);
       ctx.fill();
-      ctx.strokeStyle = expires ? palette.danger : palette.borderStrong;
+      ctx.strokeStyle = palette.objectInk;
       ctx.lineWidth = 1.5 / zoom;
       ctx.stroke();
 
       const pad = 14;
       ctx.textBaseline = "top";
       ctx.textAlign = "left";
-      ctx.fillStyle = expires ? palette.danger : palette.textPrimary;
-      const value = expires ? "00:00" : formatRemaining(timerRemainingMs(timer));
+      // The timer is white cardboard, so its ink is the ink of that paper in both themes
+      // (ADR-273 §2.4): a shared timer must not disappear on a dark board.
+      const timerInk = expires || urgent
+        ? { color: palette.dangerInk, halo: null }
+        : inkFor(CARD_WHITE);
+      ctx.fillStyle = timerInk.color;
+      const value = expires ? "00:00" : formatRemaining(remaining);
       const size = Math.min(46, widget.height * 0.42);
-      ctx.font = `600 ${size}px ${theme.fontFamily}`;
-      ctx.fillText(value, left + pad, top + pad);
+      ctx.font = `800 ${size}px ${theme.fontFamily}`;
+      fillWithHalo(ctx, value, left + pad, top + pad, timerInk.halo, 1.5 / zoom);
 
       const caption = expires
         ? theme.timerExpired
@@ -341,7 +366,7 @@ function paintWidget(
           ? `${timer?.setBy ?? ""}`.trim()
           : `${timer?.setBy ?? ""}`.trim();
       ctx.font = `400 ${Math.max(9, Math.min(13, size * 0.28))}px ${theme.fontFamily}`;
-      ctx.fillStyle = palette.textSecondary;
+      ctx.fillStyle = inkOn(CARD_WHITE, "muted");
       ctx.fillText(caption, left + pad, top + widget.height - pad - 12);
 
       if (phase === "running" || phase === "paused") {
@@ -354,71 +379,38 @@ function paintWidget(
       break;
     }
     case "frame": {
-      castElevation(ctx, widget, zoom, palette, () => roundRect(ctx, left, top, widget.width, widget.height, 6));
-      ctx.fillStyle = withAlpha(palette.panel, 0.72);
-      roundRect(ctx, left, top, widget.width, widget.height, 6);
+      castElevation(ctx, widget, zoom, palette, () => roundRect(ctx, left, top, widget.width, widget.height, 18));
+      ctx.fillStyle = withAlpha(palette.paper, 0.75);
+      roundRect(ctx, left, top, widget.width, widget.height, 18);
       ctx.fill();
-      ctx.strokeStyle = palette.borderStrong;
-      ctx.lineWidth = 1 / zoom;
+      ctx.strokeStyle = palette.objectInk;
+      ctx.lineWidth = 1.5 / zoom;
       ctx.stroke();
+      // The name is content, so it is painted here: a PNG and a PDF show it too. The
+      // plate is also the frame's handle; the gesture machine hit-tests the same box.
+      drawFrameLabel(ctx, widget, palette, theme.fontFamily);
       break;
     }
     case "sticky_note": {
-      const fill = stickyFill(widget.style?.fillColor);
-      // A paper sheet (ADR-181): the shadow sits only under the bottom edge. Canvas has no
-      // shadow spread, so a narrower sheet hidden behind the note casts it; the shadow is in
-      // device pixels, so it is scaled with the note to stay the same paper at any zoom.
-      const scale = deviceScale(ctx, zoom);
-      const inset = Math.min(STICKY_SHADOW.inset, widget.width / 4);
-      ctx.save();
-      ctx.shadowColor = palette.stickerCast;
-      ctx.shadowBlur = STICKY_SHADOW.blur * scale;
-      ctx.shadowOffsetX = STICKY_SHADOW.dx * scale;
-      ctx.shadowOffsetY = STICKY_SHADOW.offset * scale;
-      ctx.fillStyle = fill;
-      ctx.fillRect(left + inset, top + widget.height / 2, widget.width - inset * 2, widget.height / 2);
-      ctx.restore();
-
-      // The sheet itself, lighter where the light falls (upper left) than at the far corner.
-      const sheen = ctx.createLinearGradient(left, top, left + widget.width, top + widget.height);
-      if (sheen) {
-        sheen.addColorStop(0, shade(fill, STICKY_SHEEN.light));
-        sheen.addColorStop(1, shade(fill, STICKY_SHEEN.dark));
-      }
-      ctx.fillStyle = sheen ?? fill;
-      roundRect(ctx, left, top, widget.width, widget.height, STICKY_RADIUS);
-      ctx.fill();
-
-      // A note has an edge: without one a pale note on the board's pale background is
-      // a rectangle you have to guess at (ADR-030). The edge is ink, not a darker fill, so
-      // every colour gets the same line (ADR-181).
-      ctx.strokeStyle = withAlpha(palette.textPrimary, 0.2);
-      ctx.lineWidth = 1 / zoom;
-      roundRect(ctx, left + 0.5 / zoom, top + 0.5 / zoom, widget.width - 1 / zoom, widget.height - 1 / zoom, STICKY_RADIUS);
-      ctx.stroke();
-
-      // The text colour follows the fill unless it was chosen: a deep note with dark
-      // text is a note whose content nobody can read (ADR-038).
-      ctx.fillStyle = inkFor(fill, widget.style?.textColor);
-
-      // Notes and shapes share one text block: same Auto sizing, same alignment,
-      // same runs. Two implementations would drift (ADR-033).
-      if (!editing) {
-        const clipped = drawTextInBox(ctx, widget, { x: left, y: top, width: widget.width, height: widget.height }, theme.fontFamily, {
-          cap: textCapFor(widget, theme.fontCap),
-          align: widget.style?.textAlign ?? "center",
-          vAlign: widget.style?.textVAlign ?? "middle",
-          clip: true,
-          palette,
-        });
-        if (clipped) drawClipMark(ctx, { x: left, y: top, width: widget.width, height: widget.height }, zoom, palette);
-      }
+      paintSticky(ctx, widget, zoom, {
+        palette,
+        fontFamily: theme.fontFamily,
+        fontCap: theme.fontCap,
+        hand: options.hand ?? 0,
+        straight: options.straight === true || selected,
+        editing,
+        shadowBoost: options.shadowBoost === true,
+      });
       break;
     }
     case "text": {
       if (editing) break;
       const size = widget.style?.fontSize ?? 16;
-      ctx.fillStyle = widget.style?.color ?? palette.textPrimary;
+      // A caption has no fill: it lies on the canvas ground, or on the frame body it was
+      // dropped into, so its ink follows that surface and not the theme (ADR-273 §2.4).
+      const ground = groundOfWidget(widget, palette, { resolve: options.resolve });
+      const ink = inkFor(ground, widget.style?.color);
+      ctx.fillStyle = ink.color;
       const runs: TextRun[] = widget.runs?.length
         ? widget.runs
         : [{ text: widget.title ?? widget.content ?? "" }];
@@ -437,6 +429,9 @@ function paintWidget(
             align: hAlign,
             vAlign: widget.style?.textVAlign ?? "middle",
             palette,
+            ground,
+            halo: ink.halo,
+            haloWidth: 1.5 / zoom,
           },
         );
         break;
@@ -451,25 +446,36 @@ function paintWidget(
       lines.forEach((line, i) => {
         drawRichLine(ctx, line, lineX, widget.y - offset + i * lineHeight, size, hAlign, true, theme.fontFamily, {
           palette,
+          ground,
           paper: false,
           paperFill: palette.panel,
+          halo: ink.halo,
+          haloWidth: 1.5 / zoom,
         });
       });
       break;
     }
     case "kanban": {
-      // Only the ground the matrix stands on: the section around it is the one frame, and
-      // `drawKanban` draws the real column and lane separators (ADR-234).
-      castElevation(ctx, widget, zoom, palette, () => roundRect(ctx, left, top, widget.width, widget.height, 8));
-      ctx.fillStyle = palette.panel;
-      roundRect(ctx, left, top, widget.width, widget.height, 8);
+      // The board's own ground: the landing page's green paper, or the colour someone
+      // chose for it (ADR-267 §2.1). The matrix is painted on top by `drawKanban`.
+      castElevation(ctx, widget, zoom, palette, () => roundRect(ctx, left, top, widget.width, widget.height, 18));
+      ctx.fillStyle = kanbanGroundOf(widget, palette);
+      roundRect(ctx, left, top, widget.width, widget.height, 18);
       ctx.fill();
+      ctx.strokeStyle = palette.objectInk;
+      ctx.lineWidth = 1.5 / zoom;
+      ctx.stroke();
+      drawKanbanPlate(ctx, widget, palette, theme.fontFamily, theme.kanbanTitle);
       break;
     }
     case "card": {
-      // The same sheet as a card in a kanban (ADR-234). `cardTheme` is kept in the data
-      // but not painted: an outline colour would be the frame that decision removes.
-      drawCardSheet(ctx, { x: left, y: top, width: widget.width, height: widget.height }, zoom, { palette });
+      // The same sheet as a card in a kanban (ADR-234, ADR-267). The fill is the card's
+      // own colour or white paper; a card inside a matrix gets its column's colour from
+      // `drawKanban`, which is the only place that knows the column.
+      const fill = options.cardFill ?? widget.style?.fillColor ?? CARD_WHITE;
+      drawCardSheet(ctx, { x: left, y: top, width: widget.width, height: widget.height }, zoom, { palette, fill });
+      const ink = inkFor(fill, widget.style?.textColor);
+      const haloWidth = 1.5 / zoom;
       const titleY = drawCardMeta(
         ctx,
         left,
@@ -477,26 +483,33 @@ function paintWidget(
         widget.width,
         widget.height,
         widget,
-        { fontFamily: theme.fontFamily, palette, statusLabel: theme.cardStatus, tags: theme.tags },
+        { fontFamily: theme.fontFamily, palette, statusLabel: theme.cardStatus, tags: theme.tags, ink, haloWidth },
       );
       if (editing) break;
       if (widget.title) {
-        ctx.fillStyle = palette.textSecondary;
-        ctx.font = `13px ${theme.fontFamily}`;
+        ctx.fillStyle = ink.color;
+        ctx.font = `600 13px ${theme.fontFamily}`;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         const lines = wrapText(ctx, widget.title, widget.width - 24, 2);
         lines.forEach((line, i) => {
-          ctx.fillText(line, left + 12, titleY + (i - (lines.length - 1) / 2) * 16);
+          fillWithHalo(
+            ctx,
+            line,
+            left + 12,
+            titleY + (i - (lines.length - 1) / 2) * 16,
+            ink.halo,
+            haloWidth,
+          );
         });
       } else {
         // The same placeholder the matrix paints, so a carried empty card does not
         // turn into a blank pill mid-drag.
-        ctx.fillStyle = palette.textMuted;
+        ctx.fillStyle = ink.color;
         ctx.font = `13px ${theme.fontFamily}`;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-        ctx.fillText(theme.cardPlaceholder, left + 12, titleY);
+        fillWithHalo(ctx, theme.cardPlaceholder, left + 12, titleY, ink.halo, haloWidth);
       }
       break;
     }
@@ -520,8 +533,11 @@ function paintWidget(
       break;
     }
     case "shape": {
-      const fill = widget.style?.fillColor ?? palette.panel;
-      const stroke = widget.style?.strokeColor ?? palette.textPrimary;
+      // A shape without a fill is a diagram node standing on what is under it: the frame
+      // body or the canvas. Its outline and its text take that surface's ink (ADR-273).
+      const ground = groundOfWidget(widget, palette, { resolve: options.resolve });
+      const fill = widget.style?.fillColor ?? palette.paper;
+      const stroke = inkFor(ground, widget.style?.strokeColor, "lineStrong").color;
       ctx.fillStyle = fill;
       ctx.strokeStyle = stroke;
       // Same rule as a connector: the outline is part of the object, so it scales,
@@ -541,13 +557,17 @@ function paintWidget(
       ctx.setLineDash([]);
 
       if (!editing && (widget.content || widget.runs?.length)) {
-        ctx.fillStyle = inkFor(fill, widget.style?.textColor);
+        const ink = inkFor(ground, widget.style?.textColor);
+        ctx.fillStyle = ink.color;
         const clipped = drawTextInBox(ctx, widget, { x: left, y: top, width: widget.width, height: widget.height }, theme.fontFamily, {
           cap: textCapFor(widget, theme.fontCap),
           align: widget.style?.textAlign ?? "center",
           vAlign: widget.style?.textVAlign ?? "middle",
           clip: true,
           palette,
+          ground,
+          halo: ink.halo,
+          haloWidth: 1.5 / zoom,
         });
         if (clipped) drawClipMark(ctx, { x: left, y: top, width: widget.width, height: widget.height }, zoom, palette);
       }
@@ -565,7 +585,9 @@ function paintWidget(
       // *object*, not of the screen: zooming out must make the whole line smaller,
       // head included. Dividing by zoom here made a head the same 14 pixels at every
       // scale, so at 25% the arrows dwarfed the notes they pointed at (ADR-052).
-      const stroke = widget.style?.strokeColor ?? palette.textPrimary;
+      // A line has no fill of its own, so it lies on the canvas ground. Auto is the
+      // strong ladder there; a person's colour is kept (ADR-273 §2.3).
+      const stroke = inkFor(palette.canvas, widget.style?.strokeColor, "lineStrong").color;
       const strokeStyle = widget.style?.strokeStyle;
 
       // Selection is shown along the line, not around its box: a curved connector
@@ -622,24 +644,32 @@ function paintWidget(
       if (!editing && label) {
         const at = labelPoint(attached, widget.labelAt);
         const fontPx = widget.style?.fontSize ?? 13;
-        ctx.font = `500 ${fontPx}px ${theme.fontFamily}`;
+        ctx.font = `600 ${fontPx}px ${theme.fontFamily}`;
         // The chip and the editor share one layout (ADR-213): explicit lines are kept,
         // automatic wrapping stops at three, the guard at eight.
         const metrics = layoutLabel(ctx, label, fontPx);
         const chipWidth = metrics.width;
         const chipHeight = metrics.height;
-        ctx.fillStyle = withAlpha(palette.panel, 0.96);
-        ctx.strokeStyle = withAlpha(palette.textPrimary, 0.12);
-        ctx.lineWidth = 1 / zoom;
-        roundRect(ctx, at.x - chipWidth / 2, at.y - chipHeight / 2, chipWidth, chipHeight, 4);
+        ctx.fillStyle = palette.paper;
+        ctx.strokeStyle = palette.objectInk;
+        ctx.lineWidth = 1.5 / zoom;
+        roundRect(ctx, at.x - chipWidth / 2, at.y - chipHeight / 2, chipWidth, chipHeight, 8);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = widget.style?.textColor ?? palette.textPrimary;
+        const labelInk = inkFor(palette.paper, widget.style?.textColor);
+        ctx.fillStyle = labelInk.color;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const firstY = at.y - ((metrics.lines.length - 1) * metrics.lineHeight) / 2;
         metrics.lines.forEach((line, index) => {
-          ctx.fillText(line, at.x, firstY + index * metrics.lineHeight + 0.5);
+          fillWithHalo(
+            ctx,
+            line,
+            at.x,
+            firstY + index * metrics.lineHeight + 0.5,
+            labelInk.halo,
+            1.5 / zoom,
+          );
         });
       }
       break;
@@ -648,7 +678,7 @@ function paintWidget(
       // A sticker: a tinted plate with an optional caption. It has no glyph or
       // reaction count — those came from the captured templates and are gone.
       const size = Math.min(widget.width, widget.height);
-      const tint = widget.style?.fillColor ?? "#ffdd33";
+      const tint = widget.style?.fillColor ?? TONE_LEVELS.yellow[300];
       const radius = size * 0.22;
 
       ctx.fillStyle = withAlpha(tint, 0.22);
@@ -659,7 +689,9 @@ function paintWidget(
       ctx.stroke();
 
       if (widget.label) {
-        ctx.fillStyle = palette.textSecondary;
+        // The caption sits on the tinted plate, so its ink is the plate's, not the theme's.
+        const ground = groundOf({ fill: tint, fillAlpha: 0.22, canvas: palette.canvas });
+        ctx.fillStyle = inkOn(ground, "muted");
         ctx.font = `600 ${size * 0.115}px ${theme.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -674,14 +706,15 @@ function paintWidget(
         ctx.save();
         ctx.translate(widget.x, widget.y);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = palette.panel;
-        ctx.strokeStyle = palette.borderSubtle;
+        // A plate is content: paper on the canvas, ink derived from that paper.
+        ctx.fillStyle = palette.paper;
+        ctx.strokeStyle = inkFor(palette.paper, null, "line").color;
         ctx.lineWidth = 1 / zoom;
         roundRect(ctx, -widget.height / 2, -widget.width / 2, widget.height, widget.width, 8);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = palette.textSecondary;
+        ctx.fillStyle = inkOn(palette.paper, "muted");
         ctx.font = `600 ${Math.min(widget.width * 0.5, 22)}px ${theme.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -691,15 +724,16 @@ function paintWidget(
       }
 
       ctx.setLineDash([6 / zoom, 4 / zoom]);
-      ctx.strokeStyle = palette.borderStrong;
+      ctx.strokeStyle = inkOn(palette.canvas, "lineStrong");
       ctx.lineWidth = 1 / zoom;
       ctx.strokeRect(left, top, widget.width, widget.height);
       ctx.setLineDash([]);
       break;
     }
     default: {
-      ctx.fillStyle = palette.hover;
-      ctx.strokeStyle = palette.borderStrong;
+      // An unknown kind is a plain paper box on the canvas.
+      ctx.fillStyle = palette.paper;
+      ctx.strokeStyle = inkOn(palette.paper, "line");
       ctx.lineWidth = 1 / zoom;
       roundRect(ctx, left, top, widget.width, widget.height, 4);
       ctx.fill();
@@ -711,13 +745,15 @@ function paintWidget(
   if (selected && widget.type !== "connector") {
     const member = options.memberRing === true;
     const inset = (member ? 3 : 2) / zoom;
-    ctx.strokeStyle = member ? palette.selectionMember : palette.selectionStroke;
-    ctx.lineWidth = (member ? 1 : 2) / zoom;
+    ctx.strokeStyle = member ? palette.selectionMember : palette.objectInk;
+    ctx.lineWidth = 1.5 / zoom;
+    if (member) ctx.setLineDash([4 / zoom, 3 / zoom]);
     ctx.strokeRect(
       left - inset,
       top - inset,
       widget.width + inset * 2,
       widget.height + inset * 2,
     );
+    ctx.setLineDash([]);
   }
 }

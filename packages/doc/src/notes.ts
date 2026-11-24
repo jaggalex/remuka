@@ -52,6 +52,32 @@ export function createSticky(
   return id;
 }
 
+/** The box a new free text gets: wide enough for a heading, tall enough for two lines. */
+export const DEFAULT_TEXT_SIZE = { width: 360, height: 120 };
+
+/**
+ * Add a free text at a point.
+ *
+ * It stores no colour: text is Auto and takes the ink of the surface it lands on
+ * (ADR-273 §2.3). The editor opens over it, so there is nothing to see yet.
+ */
+export function createText(
+  board: BoardDocument,
+  id: string,
+  at: { x: number; y: number },
+): string {
+  createWidget(board, {
+    id,
+    type: "text",
+    parentId: null,
+    x: at.x,
+    y: at.y,
+    width: DEFAULT_TEXT_SIZE.width,
+    height: DEFAULT_TEXT_SIZE.height,
+  });
+  return id;
+}
+
 /** Add a shape at a point. */
 export function createShape(
   board: BoardDocument,
@@ -210,7 +236,8 @@ export function createConnectedNote(
       arrow: connectorStyle.arrow ?? "end",
       routing: connectorStyle.routing ?? (connectorStyle.shape ? routingFromShape(connectorStyle.shape) : "elbow"),
       style: {
-        strokeColor: connectorStyle.strokeColor ?? DEFAULT_LINE_PRESET.color,
+        // Auto: no colour is written, the line takes the ink of the canvas ground.
+        ...(connectorStyle.strokeColor ? { strokeColor: connectorStyle.strokeColor } : {}),
         strokeWidth: connectorStyle.strokeWidth ?? DEFAULT_LINE_PRESET.width,
         ...(connectorStyle.strokeStyle ? { strokeStyle: connectorStyle.strokeStyle } : {}),
       },

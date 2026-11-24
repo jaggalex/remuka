@@ -150,7 +150,7 @@ export function labelMetrics(
   const measure = labelMeasure();
   if (!measure) return null;
   const previous = (measure as CanvasRenderingContext2D).font;
-  (measure as CanvasRenderingContext2D).font = `500 ${fontPx}px ${family}`;
+  (measure as CanvasRenderingContext2D).font = `600 ${fontPx}px ${family}`;
   const metrics = layoutLabel(measure, text, fontPx);
   (measure as CanvasRenderingContext2D).font = previous;
   return metrics;

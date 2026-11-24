@@ -1,6 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { 
+expect, test, type Page } from "@playwright/test";
 import { layoutTable, type Widget } from "@remo/model";
 import {
+  ensureProperties,
   applyDefaultTableLayout,
   openBoard,
   PASSWORD,
@@ -95,7 +97,7 @@ async function openTable(page: Page, tag: string, second = false) {
       ),
     )
     .toEqual([frameId]);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
@@ -159,7 +161,7 @@ test("turns a section into a table and deletes it without its objects", async ({
     )
     .toEqual([frameId]);
 
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await expect(panel).toBeVisible();
 
@@ -217,7 +219,7 @@ test("deleting an axis with objects asks and moves them to a neighbour", async (
     )
     .toEqual([frameId]);
 
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
@@ -275,7 +277,7 @@ test("a table header edits its title and opens the axis menu", async ({ page }) 
     )
     .toEqual([frameId]);
 
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
@@ -457,7 +459,7 @@ test("a follower follows the presented cell step", async ({ page, browser }) => 
     });
     expect(login.ok(), await login.text()).toBeTruthy();
     await other.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(other.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+    await expect(other.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     const join = other.locator(".present-join");
     await expect(join).toBeVisible();
     await join.getByRole("button", { name: "Watch", exact: true }).click();
@@ -828,7 +830,7 @@ test("turning a section with material into a table asks how to lay it out", asyn
   const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
   const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
   await page.mouse.click(point.x, point.y);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
 
@@ -874,7 +876,7 @@ test("cancelling the layout dialog leaves the section free", async ({ page }) =>
   const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
   const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
   await page.mouse.click(point.x, point.y);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   await page
     .locator(".section-panel")
     .getByRole("radio", { name: "Table", exact: true })
@@ -1027,14 +1029,21 @@ test("duplicates a column from the header menu", async ({ page }) => {
 });
 
 test("a locked table disables the title and the view badge", async ({ page }) => {
-  const { panel } = await openTable(page, "table-locked");
+  const { panel, frameId } = await openTable(page, "table-locked");
   await page.keyboard.press("Meta+Shift+l");
   await expect
     .poll(() => page.locator(".badge-lock").count())
     .toBeGreaterThan(0);
   const badge = page.getByRole("button", { name: "Section view: Table" });
   await expect(badge).toBeDisabled();
-  await page.getByRole("button", { name: "Rename section" }).dblclick();
+  // The label is a canvas handle now (ADR-267): double-clicking it must not open a
+  // field on a locked section, whichever layer receives the press.
+  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
+  const label = await screenPoint(page, {
+    x: frame.x - frame.width / 2 + 20,
+    y: frame.y - frame.height / 2 - 10,
+  });
+  await page.mouse.dblclick(label.x, label.y);
   await expect(page.locator(".section-title-input")).toHaveCount(0);
   // Read-only is a value, not a disabled form (ADR-219).
   await expect(panel.locator(".table-header-group .section-readonly")).toContainText("Header height: Auto");

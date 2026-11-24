@@ -63,7 +63,7 @@ test("the author releases the lock, another editor is refused, copies are unlock
   await page.mouse.down();
   await page.mouse.move(centre.x + 90, centre.y + 60, { steps: 8 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const moved = await box(page, widgetId);
   expect(Math.abs(moved.x - before.x - 90 / at.camera.zoom)).toBeLessThan(30);
@@ -73,7 +73,7 @@ test("the author releases the lock, another editor is refused, copies are unlock
   await expect(page.locator(".badge-lock")).toHaveCount(1);
 
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   const undone = await box(page, widgetId);
   expect(Math.round(undone.x)).toBe(Math.round(before.x));
   expect(Math.round(undone.y)).toBe(Math.round(before.y));

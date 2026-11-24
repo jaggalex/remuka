@@ -6,9 +6,9 @@
  */
 export const enWork = {
   "sync.connecting": "Connecting",
-  "sync.saved": "Saved",
-  "sync.pending": "Saving",
-  "sync.offline": "Offline ({count})",
+  "sync.saved": "All saved",
+  "sync.pending": "Saving…",
+  "sync.offline": "No connection — edits will wait",
   "sync.connectingTitle": "Connecting to the sync service",
   "sync.savedTitle": "All changes are stored on the server",
   "sync.pendingTitle": "Waiting for the server to confirm the save",

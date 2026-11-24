@@ -7,12 +7,19 @@ import {
   deleteWidgets,
   moveColumn,
   moveSwimlane,
+  setCardFill,
   type BoardDocument,
 } from "@remo/doc";
 import { setSectionView } from "./sectionView";
 import { openSectionLayout } from "./sectionLayoutStore";
 import { openKanbanTitleEdit } from "./kanbanTitleEditStore";
-import { TONES, TONE_LEVELS, type KanbanState } from "@remo/model";
+import {
+  FILL_LEVELS,
+  TONES,
+  TONE_LEVELS,
+  cardFillFor,
+  type KanbanState,
+} from "@remo/model";
 import { colorName } from "./object-panel/colorWindowData";
 import type { ContextTarget } from "./BoardCanvas";
 import type { MenuState } from "./ContextMenu";
@@ -86,7 +93,8 @@ export function buildBoardMenu({
           label: t("menu.columnColor"),
           action: () => undefined,
           swatches: {
-            // The palette's soft (300) and strong (600) rows, named by the palette's words.
+            // The bright fill row and the line row: a row-600 accent changes only the
+            // header's colour, the cards still read the 300 fill (ADR-267 §2.1).
             choices: [300, 600].flatMap((level) =>
               TONES.map((tone) => {
                 const value = TONE_LEVELS[tone][level as 300 | 600];
@@ -170,6 +178,13 @@ export function buildBoardMenu({
   if (target.kind === "card") {
     result.select = [target.cardId];
     result.point = { x, y };
+    // The card's own colour, or the column's when it has none (ADR-267 §2.1). The grid
+    // offers the two fill rows; "same as column" clears the card's own value and lets the
+    // column paint it again.
+    const state = kanbanStates[target.kanbanId];
+    const columnId = state?.cards[target.cardId]?.columnId;
+    const accent = state?.columns.find((column) => column.id === columnId)?.accent;
+    const own = board.readWidget(target.cardId)?.style?.fillColor;
     menu({
       x,
       y,
@@ -182,6 +197,25 @@ export function buildBoardMenu({
         {
           label: t("menu.duplicate"),
           action: () => duplicateIds([target.cardId]),
+        },
+        {
+          label: t("menu.cardColour"),
+          action: () => undefined,
+          swatches: {
+            choices: FILL_LEVELS.flatMap((level) =>
+              TONES.map((tone) => {
+                const value = TONE_LEVELS[tone][level];
+                return { value, label: t(colorName(value).key) };
+              }),
+            ),
+            current: (own ?? cardFillFor(accent)).toLowerCase(),
+            pick: (value) => setCardFill(board, target.cardId, value),
+            reset: {
+              label: t("menu.likeColumn"),
+              active: !own,
+              onPick: () => setCardFill(board, target.cardId, null),
+            },
+          },
         },
         {
           label: t("menu.deleteCard"),

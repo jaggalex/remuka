@@ -14,7 +14,11 @@ import { join, relative } from "node:path";
 /** The DS catalogue demonstrates tokens; help has its own reading styles. */
 const SKIP_DIRS = new Set(["ds", "help"]);
 
-const ALIASES = new Set(["--ink", "--muted", "--faint", "--line", "--line-strong", "--accent-strong", "--surface", "--canvas"]);
+/**
+ * The aliases of the previous system. `--ink` is not one any more: it is the per-object
+ * content ink a canvas DOM layer receives inline (ADR-273 §2.4), always with a fallback.
+ */
+const ALIASES = new Set(["--muted", "--faint", "--line", "--line-strong", "--accent-strong", "--surface", "--canvas"]);
 const PRIMITIVE =
   /^--(?:neutral|alpha|paper|green|blue|pink|orange|ochre|violet|elev)-[a-z0-9-]+$|^--(?:success|warning|danger|accent)-\d+$/;
 const WEIGHTS = new Set(["400", "500", "600", "inherit", "normal"]);
@@ -52,6 +56,9 @@ export const BUTTON_ALLOW = {
   "home-tile-main": "tile", "home-emoji": "tile", "home-emoji-none": "tile",
   // Who and where: the avatar or name is the control.
   "agent-avatar": "identity", "peer": "identity", "account-button": "identity", "topbar-path-button": "identity",
+  "topbar-mark": "identity", "people-trigger": "identity",
+  // A state that is also a shortcut to its section (ADR-266 amendment).
+  "session-chip": "state",
   // The DS menu row.
   "rm-menu-item": "menu",
 };
@@ -137,7 +144,10 @@ function definedVariables(root) {
   // A component may set its own variable inline: style={{ "--who": colour }}.
   for (const base of ["apps/web/src", "packages/ui/src/components"]) {
     for (const file of walk(join(root, base), [".ts", ".tsx"])) {
-      for (const match of readFileSync(file, "utf8").matchAll(/["'](--[a-z0-9-]+)["']\s*:/g)) names.add(match[1]);
+      // `{ "--who": colour }` and the computed key `{ ["--ink" as string]: colour }`.
+      for (const match of readFileSync(file, "utf8").matchAll(/["'](--[a-z0-9-]+)["'](?:\s+as\s+[A-Za-z]+)?\]?\s*:/g)) {
+        names.add(match[1]);
+      }
     }
   }
   return names;

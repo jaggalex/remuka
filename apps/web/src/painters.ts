@@ -15,6 +15,7 @@ import {
   CARD_RADIUS,
   cardDropSlot,
   connectorHandles,
+  kanbanGroundOf,
   connectorPath,
   drawDragOrigin,
   drawGuide,
@@ -28,6 +29,7 @@ import {
   labelPoint,
   lockBadgeRect,
   paintOrder,
+  roundRect,
   translateLayout,
   unionBox,
   visibleWorldRect,
@@ -37,7 +39,15 @@ import {
   type ProposalLayout,
   withAlpha,
 } from "@remo/canvas";
-import { bounds, canConnect, scalesInBlock, soleSelectedGroup, type Widget } from "@remo/model";
+import {
+  bounds,
+  canConnect,
+  cardFillFor,
+  ink,
+  scalesInBlock,
+  soleSelectedGroup,
+  type Widget,
+} from "@remo/model";
 import type { Presence } from "@remo/doc";
 import { resizeMembersOf } from "./canvasGeometry";
 import type { BoardSettings } from "./settings";
@@ -88,6 +98,8 @@ export interface BoardPaintInput {
   /** Decoded pictures, asked only for objects that are actually painted (ADR-249). */
   image?: (widget: Widget) => ImageBitmap | null;
   imageUnavailable?: (widget: Widget) => boolean;
+  /** How much a sheet is in hand now, 0…1 (ADR-265 §4.2); 0 when nothing moves. */
+  hand?: (id: string) => number;
 }
 
 export function paintBoardLayer(input: BoardPaintInput): void {
@@ -124,7 +136,8 @@ export function paintBoardLayer(input: BoardPaintInput): void {
     const offsetY = ((-camera.y * camera.zoom + height / 2) % step + step) % step;
 
     if (grid === "lines") {
-      ctx.strokeStyle = withAlpha(palette.textPrimary, 0.07);
+      // A view preference drawn on the canvas, so its ink is the canvas ground's line.
+      ctx.strokeStyle = withAlpha(ink(palette.canvas, "lineStrong"), 0.12);
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let x = offsetX; x < width; x += step) {
@@ -139,7 +152,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
       }
       ctx.stroke();
     } else {
-      ctx.fillStyle = withAlpha(palette.textPrimary, 0.13);
+      ctx.fillStyle = withAlpha(ink(palette.canvas, "lineStrong"), 0.22);
       for (let x = offsetX; x < width; x += step) {
         for (let y = offsetY; y < height; y += step) {
           ctx.fillRect(Math.round(x), Math.round(y), 1.5, 1.5);
@@ -194,7 +207,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
       // A lifted object carries a soft shadow, so it reads as "in hand" rather
       // than as a duplicate of what is still in place.
       ctx.save();
-      ctx.shadowColor = withAlpha(palette.textPrimary, 0.28);
+      ctx.shadowColor = withAlpha(palette.objectInk, 0.28);
       ctx.shadowBlur = 18 / camera.zoom;
       ctx.shadowOffsetY = 6 / camera.zoom;
     }
@@ -204,6 +217,10 @@ export function paintBoardLayer(input: BoardPaintInput): void {
       theme,
       editingId: editingId ?? undefined,
       memberRing: outlined.length > 1,
+      // A selected or carried note straightens up under its square handles (ADR-265).
+      straight: dragging || selectedIds.includes(widget.id),
+      hand: input.hand?.(widget.id) ?? 0,
+      shadowBoost: dragging,
       image: input.image,
       imageUnavailable: input.imageUnavailable,
     });
@@ -232,6 +249,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
           cards,
           cardStatus: theme.cardStatus,
           tags: theme.tags,
+          ground: kanbanGroundOf(widget, palette),
         },
       );
     }
@@ -282,8 +300,8 @@ export function paintBoardLayer(input: BoardPaintInput): void {
     });
     const box = bounds(moved);
     const pad = 4 / camera.zoom;
-    ctx.strokeStyle = palette.selectionStroke;
-    ctx.lineWidth = 2 / camera.zoom;
+    ctx.strokeStyle = palette.objectInk;
+    ctx.lineWidth = 1.5 / camera.zoom;
     ctx.strokeRect(box.x - pad, box.y - pad, box.width + pad * 2, box.height + pad * 2);
   }
 
@@ -297,7 +315,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
     namedGroups.set(widget.groupId, list);
   }
   if (namedGroups.size) {
-    ctx.fillStyle = palette.textSecondary;
+    ctx.fillStyle = ink(palette.canvas, "muted");
     ctx.textBaseline = "bottom";
     ctx.font = `${12 / camera.zoom}px ${theme.fontFamily}`;
     for (const [groupId, members] of namedGroups) {
@@ -358,6 +376,10 @@ export interface OverlayPaintInput {
   /** Decoded pictures, for the ghost of a dragged or copied object (ADR-249). */
   image?: (widget: Widget) => ImageBitmap | null;
   imageUnavailable?: (widget: Widget) => boolean;
+  /** Where to draw a peer's cursor and how opaque (ADR-265, `cursorMotion.ts`). */
+  cursorAt?: (peer: Presence) => { x: number; y: number; alpha: number } | null;
+  /** The agent hull's breathing opacity, 0.72…1 (ADR-265 §4.2). */
+  proposalAlpha?: number;
 }
 
 export function paintOverlayLayer(input: OverlayPaintInput): void {
@@ -392,7 +414,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   ctx.scale(camera.zoom, camera.zoom);
   ctx.translate(-camera.x, -camera.y);
 
-  if (proposal) drawProposal(ctx, proposal, camera.zoom, palette);
+  if (proposal) drawProposal(ctx, proposal, camera.zoom, palette, input.proposalAlpha ?? 1);
 
   // The cell tint is a card-drop affordance: while a note is being dragged or
   // resized, a highlight left over from an earlier hover would just sit on top.
@@ -427,7 +449,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
       drawLockBadge(
         ctx,
         lockBadgeRect(boxOf(placed), camera.zoom),
-        withAlpha(palette.textPrimary, 0.75),
+        withAlpha(ink(palette.canvas, "icon"), 0.75),
       );
     }
   }
@@ -451,8 +473,9 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   ) {
     for (const anchor of anchorsOf(selected, ANCHOR_GAP / camera.zoom)) {
       const active = hoverAnchor?.id === selected.id && hoverAnchor.side === anchor.side;
-      ctx.fillStyle = active ? palette.textPrimary : palette.panel;
-      ctx.strokeStyle = palette.textPrimary;
+      const anchorInk = ink(palette.canvas, "lineStrong");
+      ctx.fillStyle = active ? anchorInk : palette.panel;
+      ctx.strokeStyle = anchorInk;
       ctx.lineWidth = (active ? 2.5 : 2) / camera.zoom;
       ctx.beginPath();
       ctx.arc(anchor.x, anchor.y, (active ? 6.5 : 5.5) / camera.zoom, 0, Math.PI * 2);
@@ -496,8 +519,11 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   if (dragPreview) {
     const card = widgetById(dragPreview.cardId);
     if (card) {
+      // The card keeps its column's colour while it is carried: the fill is computed from
+      // the column it is still in until the drop writes the new one (ADR-267 §2.1).
+      const cardFill = card.style?.fillColor ?? cardFillFor(columnAccentOf(layouts, card.id));
       ctx.save();
-      ctx.shadowColor = withAlpha(palette.textPrimary, 0.3);
+      ctx.shadowColor = withAlpha(palette.objectInk, 0.3);
       ctx.shadowBlur = 18 / camera.zoom;
       ctx.shadowOffsetY = 6 / camera.zoom;
       // The real widget, so the card keeps its title and text while it is carried.
@@ -505,7 +531,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
         ctx,
         { ...card, x: dragPreview.x, y: dragPreview.y },
         camera.zoom,
-        { theme, image: input.image, imageUnavailable: input.imageUnavailable },
+        { theme, cardFill, image: input.image, imageUnavailable: input.imageUnavailable },
       );
       ctx.restore();
     }
@@ -519,13 +545,15 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
       ? unionBox(resizeMembers.map(boxOf))
       : null;
   if (box) {
-    const radius = 4.5 / camera.zoom;
+    // The mockup's handles: white 9 px squares with an ink edge and a 2 px radius
+    // (ADR-267). Screen-sized, so they are converted to board units by the zoom.
+    const size = 9 / camera.zoom;
+    const radius = 2 / camera.zoom;
     for (const corner of cornerPoints(box, HANDLE_GAP / camera.zoom)) {
-      ctx.beginPath();
-      ctx.arc(corner.x, corner.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = palette.panel;
+      roundRect(ctx, corner.x - size / 2, corner.y - size / 2, size, size, radius);
+      ctx.fillStyle = palette.objectPaper;
       ctx.fill();
-      ctx.strokeStyle = palette.accent;
+      ctx.strokeStyle = palette.objectInk;
       ctx.lineWidth = 1.5 / camera.zoom;
       ctx.stroke();
     }
@@ -603,7 +631,10 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
 
   for (const peer of presence) {
     if (peer.self || !peer.cursor) continue;
-    drawRemoteCursor(ctx, peer, camera.zoom, palette, theme.fontFamily);
+    // Where the cursor is drawn comes from its spring (ADR-265); without one, where it is.
+    const at = input.cursorAt ? input.cursorAt(peer) : { ...peer.cursor, alpha: 1 };
+    if (!at || at.alpha <= 0) continue;
+    drawRemoteCursor(ctx, { ...peer, cursor: { x: at.x, y: at.y } }, camera.zoom, palette, theme.fontFamily, at.alpha);
   }
 
   ctx.restore();
@@ -673,4 +704,17 @@ function drawContinuePreview(
 /** The side of the copy that faces the source. */
 function oppositeSide(side: ConnectorSide): ConnectorSide {
   return side === "left" ? "right" : side === "right" ? "left" : side === "top" ? "bottom" : "top";
+}
+
+/** The accent of the column a card is in, for a card painted outside its matrix. */
+function columnAccentOf(
+  layouts: Map<string, KanbanLayout>,
+  cardId: string,
+): string | undefined {
+  for (const layout of layouts.values()) {
+    const placement = layout.placements.find((entry) => entry.cardId === cardId);
+    if (!placement) continue;
+    return layout.columns.find((entry) => entry.id === placement.columnId)?.accent;
+  }
+  return undefined;
 }

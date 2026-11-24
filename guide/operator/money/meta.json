@@ -16,11 +16,11 @@
     "operator/journal",
     "operator/limits"
   ],
-  "updated": "2026-11-23",
+  "updated": "2026-11-24",
   "translations": {
     "en": {
-      "sourceHash": "sha256:65aef0c9b60616b4d2c0730615e807759b9a264e1809406ac46119b1cfcc81d4",
-      "targetHash": "sha256:b95713ed634226b803743769083f05c9a137121b576f7c0ea6ef62b5a00a0463"
+      "sourceHash": "sha256:ea99788eb2f8329b4f9582b75f9627a05e1248b9f5f16cf1a5382280f5e4f233",
+      "targetHash": "sha256:6e7b4e99fb9391b791bd2bd3b30d602d765a11f2e3dec0f01654b05a1c729aa0"
     }
   }
 }

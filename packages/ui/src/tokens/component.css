@@ -34,5 +34,14 @@
   :root {
     --dur-1: 0ms;
     --dur-2: 0ms;
+    --dur-3: 0ms;
+    --dur-4: 0ms;
   }
+}
+/* «Спокойные анимации» в настройках аккаунта (ADR-265): то же, что reduced motion. */
+:root[data-motion="calm"] {
+  --dur-1: 0ms;
+  --dur-2: 0ms;
+  --dur-3: 0ms;
+  --dur-4: 0ms;
 }

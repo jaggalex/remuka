@@ -736,17 +736,62 @@ export const billingRenewalMethods = {
    * recorded at checkout, which is what `savePaymentMethod` must store with the method.
    */
   async paymentChainFor(paymentId) {
+    return this.providerPaymentChain("p.id = $1", [paymentId]);
+  },
+
+  /**
+   * The same chain found by the provider's own id. A notification may omit our
+   * `metadata.paymentId` (or carry a stale one), and the pair
+   * `(connection_id, provider_payment_id)` is unique by schema.
+   */
+  async paymentChainByProviderId({ connectionId, providerPaymentId }) {
+    if (!connectionId || !providerPaymentId) return null;
+    return this.providerPaymentChain("p.connection_id = $1 and p.provider_payment_id = $2", [
+      connectionId,
+      providerPaymentId,
+    ]);
+  },
+
+  async providerPaymentChain(where, params) {
     return this.withOwnerClient(async (client) => {
       const { rows } = await client.query(
         `select p.id as payment_id, p.org_id, p.invoice_id, p.status as payment_status,
                 p.connection_id, p.amount as payment_amount, p.currency as payment_currency,
-                i.subscription_id, i.currency as invoice_currency, i.lines, i.period_end
+                i.status as invoice_status, i.subscription_id,
+                i.currency as invoice_currency, i.lines, i.period_end
            from payments p
            join invoices i on i.id = p.invoice_id
-          where p.id = $1`,
-        [paymentId],
+          where ${where}
+          limit 1`,
+        params,
       );
       return rows[0] ?? null;
+    });
+  },
+
+  /**
+   * Payments a notification may have missed (`spec/payment-providers.md` §5.1): still
+   * pending, already carrying the provider id, and older than the caller's cutoff. Only
+   * rows with a provider id can be asked about, so a manual invoice is never reconciled
+   * against a shop that never saw it.
+   */
+  async pendingPaymentsForReconcile({ olderThan, limit = 50 } = {}) {
+    if (!(olderThan instanceof Date) || Number.isNaN(olderThan.getTime())) {
+      throw new TypeError("pendingPaymentsForReconcile needs a cutoff date");
+    }
+    return this.withOwnerClient(async (client) => {
+      const { rows } = await client.query(
+        `select p.id, p.org_id, p.invoice_id, p.connection_id, p.provider_payment_id,
+                p.amount, p.currency, p.created_at
+           from payments p
+          where p.status = 'pending'
+            and p.provider_payment_id is not null
+            and p.created_at <= $1
+          order by p.created_at asc, p.id asc
+          limit least(greatest($2, 1), 200)`,
+        [olderThan, limit],
+      );
+      return rows;
     });
   },
 };

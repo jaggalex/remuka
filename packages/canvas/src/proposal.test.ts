@@ -73,13 +73,18 @@ describe("proposalLayout", () => {
 
 describe("drawProposal", () => {
   function recorder() {
-    const calls: Array<{ name: string; args: unknown[] }> = [];
+    const calls: Array<{ name: string; args: unknown[]; lineWidth?: unknown; strokeStyle?: unknown }> = [];
     const state: Record<string | symbol, unknown> = {};
     const ctx = new Proxy(state, {
       get(target, key) {
         if (key in target) return target[key];
         return (...args: unknown[]) => {
-          calls.push({ name: String(key), args });
+          calls.push({
+            name: String(key),
+            args,
+            lineWidth: target.lineWidth,
+            strokeStyle: target.strokeStyle,
+          });
         };
       },
       set(target, key, value) {
@@ -100,8 +105,8 @@ describe("drawProposal", () => {
     const round = calls.find((call) => call.name === "roundRect");
     expect(round?.args).toEqual([-200, -100, 400, 200, 200 * PROPOSAL_HULL.corner]);
     expect(calls.find((call) => call.name === "setLineDash")?.args[0]).toEqual([3, 2.5]);
-    expect(state.lineWidth).toBe(0.75);
-    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agentProposal);
+    expect(calls.find((call) => call.name === "stroke")?.lineWidth).toBe(0.75);
+    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agent);
     // A hull is an outline: the frame is not filled as if it already existed.
     expect(calls.filter((call) => call.name === "fill")).toHaveLength(0);
   });
@@ -110,5 +115,26 @@ describe("drawProposal", () => {
     const { ctx, calls } = recorder();
     drawProposal(ctx, proposalLayout({}, none), 1, DEFAULT_PALETTE);
     expect(calls).toEqual([]);
+  });
+
+  it("draws a planned connector as a 2 px dashed line in the agent's colour", () => {
+    const { ctx, calls, state } = recorder();
+    const layout = proposalLayout(
+      {
+        objects: [
+          { tempId: "a", type: "sticky_note", x: 0, y: 0, width: 100, height: 100 },
+          { tempId: "b", type: "sticky_note", x: 200, y: 0, width: 100, height: 100 },
+        ],
+        connectors: [{ tempId: "link", from: "a", to: "b" }],
+      },
+      none,
+    );
+    drawProposal(ctx, layout, 2, DEFAULT_PALETTE);
+    // The hulls are 1.5 px; the planned line is the mockup's 2 px, both dashed.
+    expect(calls.filter((call) => call.name === "lineTo")).toHaveLength(1);
+    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agent);
+    expect(calls.filter((call) => call.name === "setLineDash")).toHaveLength(1);
+    // The line is the last stroke drawn, at 2 px / zoom (zoom 2 → 1 board unit).
+    expect(calls.filter((call) => call.name === "stroke").at(-1)?.lineWidth).toBe(1);
   });
 });

@@ -24,7 +24,7 @@ test("a comment thread survives a reload, has a pin, and resolve hides it", asyn
   await expect(page.locator(".comment-pin")).toHaveCount(1);
 
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   // The resolved thread is still there, just hidden until asked for — pin included.
   await openComments(page);
   await page.locator(".comments-toggle").click();

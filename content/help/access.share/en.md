@@ -4,12 +4,12 @@ The person gets access to the room with the chosen role. The access list shows w
 
 ## Before you start
 
-- You need the Share permission in the room. Only an owner or co-owner can change a team role and assign a co-owner.
+- You need the Invite permission in the room. Only an owner or co-owner can change a team role and assign a co-owner.
 - The person needs an account with the email you enter. If there is no account, an invitation link appears; send it yourself.
 
 ## Steps
 
-1. Open Share in the room.
+1. Open Invite in the room.
 2. Enter the email, choose a role and click Add.
 3. Check the source in the person's row: Directly, Through team … or Through organisation ….
 4. To change a role, choose another one in the row. A team role can only be changed by an owner or co-owner.
@@ -24,6 +24,6 @@ If Remuka gives you an invitation link, send it to the recipient. They can use t
 
 ## If it did not work
 
-- **Share copies the link instead of opening the dialog.** The role cannot share: viewer, commenter, guest, or an editor when policy forbids it.
+- **Invite copies the link instead of opening the dialog.** The role cannot share: viewer, commenter, guest, or an editor when policy forbids it.
 - **A team role does not change.** Only an owner or co-owner can do that.
 - **The person cannot open the room.** Check that they signed in with the account you granted and that access was not revoked.

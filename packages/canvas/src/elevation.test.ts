@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
-import { ELEVATION_SHADOW } from "./elevation";
-import { DEFAULT_PALETTE } from "./palette";
-import { drawWidget } from "./render";
+import { describe, expect, it } from "vitest";
+import { ELEVATION_SHADOW, paintedElevation } from "./elevation";
+import { type CanvasPalette, DEFAULT_PALETTE } from "./palette";
+import { DEFAULT_THEME, drawWidget } from "./render";
 
 /** Records each call with the shadow in force when it was made. */
 function recorder(scale = 1) {
-  const calls: Array<{ name: string; args: unknown[]; shadowColor?: unknown; shadowBlur?: unknown; shadowOffsetY?: unknown }> = [];
+  const calls: Array<{ name: string; args: unknown[]; shadowColor?: unknown; shadowBlur?: unknown; shadowOffsetX?: unknown; shadowOffsetY?: unknown }> = [];
   const stack: Array<Record<string | symbol, unknown>> = [];
   const state: Record<string | symbol, unknown> = { getTransform: () => ({ a: scale, b: 0 }) };
   const ctx = new Proxy(state, {
@@ -17,7 +17,7 @@ function recorder(scale = 1) {
         return () => {
           const saved = stack.pop();
           if (!saved) return;
-          for (const name of ["shadowColor", "shadowBlur", "shadowOffsetY", "fillStyle"]) target[name] = saved[name];
+          for (const name of ["shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY", "fillStyle"]) target[name] = saved[name];
         };
       }
       if (key in target) return target[key];
@@ -28,6 +28,7 @@ function recorder(scale = 1) {
           args,
           shadowColor: target.shadowColor,
           shadowBlur: target.shadowBlur,
+          shadowOffsetX: target.shadowOffsetX,
           shadowOffsetY: target.shadowOffsetY,
         });
       };
@@ -40,7 +41,10 @@ function recorder(scale = 1) {
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls };
 }
 
-const widget = (type: Widget["type"], elevation?: "raised" | "floating"): Widget => ({
+const widget = (
+  type: Widget["type"],
+  elevation?: "raised" | "cardboard" | "floating",
+): Widget => ({
   id: "w",
   type,
   parentId: null,
@@ -75,6 +79,7 @@ describe("elevation painter (ADR-245)", () => {
       expect(cast).toHaveLength(1);
       expect(cast[0]!.shadowColor).toBe(DEFAULT_PALETTE.floatCast);
       expect(cast[0]!.shadowBlur).toBe(ELEVATION_SHADOW.floating.blur * 2);
+      expect(cast[0]!.shadowOffsetX).toBe(0);
       expect(cast[0]!.shadowOffsetY).toBe(ELEVATION_SHADOW.floating.offset * 2);
       // The cast comes first: the object's own fill is painted over it, unclipped.
       expect(calls.indexOf(cast[0]!)).toBeLessThan(calls.findLastIndex((c) => c.name === "fill"));
@@ -85,5 +90,35 @@ describe("elevation painter (ADR-245)", () => {
     const { ctx, calls } = recorder();
     drawWidget(ctx, widget("frame", "raised"), 1);
     expect(shadowed(calls)[0]!.shadowColor).toBe(DEFAULT_PALETTE.raiseCast);
+  });
+
+  it("draws cardboard as hard ink moved by six units, with no blur (ADR-267)", () => {
+    for (const type of ["frame", "kanban", "shape"] as const) {
+      const { ctx, calls } = recorder(2);
+      drawWidget(ctx, widget(type, "cardboard"), 2);
+      const cast = shadowed(calls);
+      expect(cast).toHaveLength(1);
+      expect(cast[0]!.shadowColor).toBe(DEFAULT_PALETTE.objectInk);
+      expect(cast[0]!.shadowBlur).toBe(0);
+      expect(cast[0]!.shadowOffsetX).toBe(6 * 2);
+      expect(cast[0]!.shadowOffsetY).toBe(6 * 2);
+    }
+  });
+
+  it("paints cardboard as floating in the dark theme until stage 6 (ADR-267 §2.1)", () => {
+    const dark: CanvasPalette = { ...DEFAULT_PALETTE, theme: "dark" };
+    expect(paintedElevation("cardboard", "dark")).toBe("floating");
+    expect(paintedElevation("cardboard", "light")).toBe("cardboard");
+    expect(paintedElevation("raised", "dark")).toBe("raised");
+
+    const { ctx, calls } = recorder();
+    drawWidget(ctx, widget("shape", "cardboard"), 1, {
+      theme: { ...DEFAULT_THEME, palette: dark },
+    });
+    const cast = shadowed(calls);
+    expect(cast[0]!.shadowColor).toBe(dark.floatCast);
+    expect(cast[0]!.shadowBlur).toBe(ELEVATION_SHADOW.floating.blur);
+    expect(cast[0]!.shadowOffsetX).toBe(0);
+    expect(cast[0]!.shadowOffsetY).toBe(ELEVATION_SHADOW.floating.offset);
   });
 });

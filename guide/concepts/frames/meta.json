@@ -17,11 +17,11 @@
     "start/first-scenario",
     "capabilities/canvas"
   ],
-  "updated": "2026-11-18",
+  "updated": "2026-11-24",
   "translations": {
     "en": {
-      "sourceHash": "sha256:3cfc4ef47c5aa8eb38e5b16148a8f91da5f62404398cdb6c25560c7d14a49731",
-      "targetHash": "sha256:675c6c6b776bb692f16077b310039c29570e8b38839628e02c4db6f6daa0e218"
+      "sourceHash": "sha256:9639c9f46b2278260bf8d7702710c68183d0d3266d9e23edb64d86edf18c1f57",
+      "targetHash": "sha256:03481b676f0be6fc08aa4d4067d09acec6279da469965b42e227e74e4d22eaf3"
     }
   }
 }

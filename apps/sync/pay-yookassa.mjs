@@ -322,8 +322,9 @@ export const yookassaAdapter = {
 
   /**
    * Verify a notification. The allowlist is supplied by the caller because YooKassa's
-   * published addresses change without a release; an empty list refuses everything
-   * rather than trusting a body the sender controls.
+   * published addresses change without a release; an entry is an exact address or a CIDR
+   * block, and an empty list refuses everything rather than trusting a body the sender
+   * controls.
    *
    * `verified: false` means "do not touch money". A provider outage is different: it
    * throws a retryable error so the HTTP layer can answer `503` and the sender repeats
@@ -336,11 +337,7 @@ export const yookassaAdapter = {
       respond: { status: 401, body: "" },
     };
 
-    const allowed = (Array.isArray(allowedIps) ? allowedIps : [])
-      .map((value) => normalizeIp(value))
-      .filter(Boolean);
-    const sender = normalizeIp(remoteIp);
-    if (!sender || allowed.length === 0 || !allowed.includes(sender)) return denied;
+    if (!ipAllowed(remoteIp, allowedIps)) return denied;
 
     let notification;
     try {
@@ -381,7 +378,97 @@ export const yookassaAdapter = {
 function normalizeIp(value) {
   const address = String(value ?? "").trim();
   if (!address) return "";
-  return address.startsWith("::ffff:") ? address.slice(7) : address;
+  return address.toLowerCase().startsWith("::ffff:") ? address.slice(7) : address;
+}
+
+/** An IPv4 dotted quad as one 32-bit number, or null. */
+function parseIpv4(text) {
+  const parts = text.split(".");
+  if (parts.length !== 4) return null;
+  let value = 0n;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    value = (value << 8n) | BigInt(octet);
+  }
+  return value;
+}
+
+/** An IPv6 address as one 128-bit number, or null. Handles `::`, a zone and a v4 tail. */
+function parseIpv6(text) {
+  let body = String(text ?? "").toLowerCase();
+  const zone = body.indexOf("%");
+  if (zone >= 0) body = body.slice(0, zone);
+  const tail = [];
+  const embedded = body.match(/^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (embedded) {
+    const address = parseIpv4(embedded[2]);
+    if (address === null) return null;
+    tail.push((address >> 16n) & 0xffffn, address & 0xffffn);
+    body = embedded[1].replace(/:$/, "");
+  }
+  const halves = body.split("::");
+  if (halves.length > 2) return null;
+  const groups = (part) => {
+    if (part === "") return [];
+    return part
+      .split(":")
+      .map((group) => (/^[0-9a-f]{1,4}$/.test(group) ? BigInt(parseInt(group, 16)) : null));
+  };
+  const left = groups(halves[0]);
+  const right = halves.length === 2 ? groups(halves[1]) : [];
+  if (left.includes(null) || right.includes(null)) return null;
+  const missing = 8 - left.length - right.length - tail.length;
+  // `::` stands for at least one zero group; without it the address must be complete.
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+  const full = [
+    ...left,
+    ...Array(halves.length === 2 ? missing : 0).fill(0n),
+    ...right,
+    ...tail,
+  ];
+  return full.reduce((value, group) => (value << 16n) | group, 0n);
+}
+
+/** One address as bits and a width, so a CIDR of another family cannot match it. */
+function ipToBits(raw) {
+  const normalized = normalizeIp(raw);
+  if (!normalized) return null;
+  const v4 = parseIpv4(normalized);
+  if (v4 !== null) return { width: 32, value: v4 };
+  const v6 = parseIpv6(normalized);
+  if (v6 !== null) return { width: 128, value: v6 };
+  return null;
+}
+
+/**
+ * Whether one sender is inside the allowlist.
+ *
+ * An entry is either an exact address or a CIDR block (`185.71.76.0/27`): the published
+ * YooKassa list is written as blocks, and comparing whole addresses refused every
+ * notification that came from one. An empty list still refuses everything, and a value
+ * that is neither an address nor a block matches nothing — an operator typo must close
+ * the door, not open it. Addresses and entries are never logged.
+ */
+export function ipAllowed(remoteIp, allowedIps = []) {
+  const entries = Array.isArray(allowedIps) ? allowedIps : [];
+  if (entries.length === 0) return false;
+  const sender = ipToBits(remoteIp);
+  if (!sender) return false;
+  return entries.some((entry) => {
+    const text = String(entry ?? "").trim();
+    if (!text) return false;
+    const slash = text.indexOf("/");
+    const base = ipToBits(slash >= 0 ? text.slice(0, slash) : text);
+    if (!base || base.width !== sender.width) return false;
+    const prefixText = slash >= 0 ? text.slice(slash + 1) : "";
+    if (slash >= 0 && !/^\d{1,3}$/.test(prefixText)) return false;
+    const prefix = slash >= 0 ? Number(prefixText) : base.width;
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > base.width) return false;
+    const shift = BigInt(base.width - prefix);
+    return sender.value >> shift === base.value >> shift;
+  });
 }
 
 export default yookassaAdapter;

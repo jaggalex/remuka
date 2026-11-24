@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
   bounds,
+  cardFillFor,
   DEFAULT_COLUMN_WIDTH,
   MAX_TEXT_CHARS,
+  TONE_LEVELS,
   type Board,
   type KanbanState,
   type Widget,
@@ -30,6 +32,7 @@ import {
   moveSelection,
   renameColumn,
   setCardFields,
+  setCardFill,
   setColumnAccent,
   setColumnWip,
   setWidgetText,
@@ -155,6 +158,41 @@ describe("card moves", () => {
     const after = doc.snapshot();
     expect(after.widgets.some((w) => w.id === "c9")).toBe(false);
     expect(after.kanbanStates.k1!.cards.c9).toBeUndefined();
+  });
+
+  it("recolours a moving card by its column without writing a colour (ADR-267)", () => {
+    const doc = fresh();
+    setColumnAccent(doc, "k1", "col1", TONE_LEVELS.yellow[300]);
+    const before = doc.readWidget("c1")!;
+    expect(cardFillFor(doc.snapshot().kanbanStates.k1!.columns[0]!.accent)).toBe("#ffffff");
+
+    moveCard(doc, "k1", "c1", "col1", "lane0");
+
+    const after = doc.readWidget("c1")!;
+    expect(after.style?.fillColor).toBeUndefined();
+    expect(cardFillFor(doc.snapshot().kanbanStates.k1!.columns[1]!.accent)).toBe("#f2b94a");
+    // The move wrote a placement, not a colour: the card's own style did not change.
+    expect(after.style).toEqual(before.style);
+  });
+
+  it("keeps a card's own colour across a move and clears it with 'same as column'", () => {
+    const doc = fresh();
+    setCardFill(doc, "c1", TONE_LEVELS.blue[100]);
+    moveCard(doc, "k1", "c1", "col1", "lane0");
+    expect(doc.readWidget("c1")!.style?.fillColor).toBe(TONE_LEVELS.blue[100]);
+
+    setCardFill(doc, "c1", null);
+    const cleared = doc.readWidget("c1")!;
+    expect(cleared.style?.fillColor).toBeUndefined();
+    // One undo brings the chosen colour back.
+    doc.undoOnce();
+    expect(doc.readWidget("c1")!.style?.fillColor).toBe(TONE_LEVELS.blue[100]);
+  });
+
+  it("does not write the column's colour to a card", () => {
+    const doc = fresh();
+    setCardFill(doc, "c1", null);
+    expect(doc.canUndo).toBe(false);
   });
 });
 
@@ -719,7 +757,7 @@ describe("authoring: stickies, shapes and connectors", () => {
     const widgets = board.snapshot().widgets;
     expect(widgets.find((w) => w.id === "s1")!.style?.fillColor).toBe("green");
     // A shape keeps its own colour vocabulary.
-    expect(widgets.find((w) => w.id === "sh1")!.style?.fillColor).toBe("#ffffff");
+    expect(widgets.find((w) => w.id === "sh1")!.style?.fillColor).toBe("#fffdf8");
 
     board.stopCapturing();
     setStickyColor(board, ["s1"], "red");

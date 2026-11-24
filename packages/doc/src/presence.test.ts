@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readPresence, type AwarenessLike, type PresenceUser } from "./presence";
+import { colorForAccount, PRESENCE_COLORS, readPresence, type AwarenessLike, type PresenceUser } from "./presence";
 
 function awareness(
   states: Array<[clientId: number, user: PresenceUser]>,
@@ -88,5 +88,28 @@ describe("presence (ADR-151)", () => {
     );
     expect(entries[0]).toMatchObject({ sessionKey: "session-a", self: true });
     expect(entries.filter((entry) => entry.self)).toHaveLength(1);
+  });
+});
+
+describe("comment pin colour (ADR-267)", () => {
+  it("is stable per account and uses the presence palette", () => {
+    const first = colorForAccount("acc-7f3a");
+    expect(colorForAccount("acc-7f3a")).toBe(first);
+    expect(PRESENCE_COLORS).toContain(first);
+  });
+
+  it("does not colour a person by their tab, so every client paints the pin alike", () => {
+    // The same account id hashes the same way in any browser; a session id never enters.
+    const colours = new Set(
+      Array.from({ length: 40 }, (_, index) => colorForAccount(`account-${index}`)),
+    );
+    expect(colours.size).toBeGreaterThan(3);
+    for (const colour of colours) expect(PRESENCE_COLORS).toContain(colour);
+  });
+
+  it("gives a guest or a deleted author a person colour, not a transparent pin", () => {
+    expect(PRESENCE_COLORS).toContain(colorForAccount(null));
+    expect(PRESENCE_COLORS).toContain(colorForAccount(undefined));
+    expect(PRESENCE_COLORS).toContain(colorForAccount("   "));
   });
 });

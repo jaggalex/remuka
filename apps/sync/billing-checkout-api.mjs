@@ -65,7 +65,7 @@ export async function checkPromo({ request, response, store }) {
  * invoice and a pending payment; nothing is charged here, and no plan is granted until
  * the operator marks the invoice paid.
  */
-async function checkout({ request, response, store, orgId }) {
+async function checkout({ request, response, store, orgId, env = process.env }) {
   const session = await memberOr404(store, request, response, orgId);
   if (!session) return true;
   if (!(await canPay(store, orgId, session.user.id, response))) return true;
@@ -108,7 +108,10 @@ async function checkout({ request, response, store, orgId }) {
   const routes = await store.routesFor({
     methodGroup: String(body.methodGroup),
     currency,
-    testMode: Boolean(account.test_mode),
+    // On a stand every organisation pays through a test connection (ADR-280): live
+    // connections are refused there, so a missing `test_mode` column cannot hide the
+    // only payment the stand is allowed to take. Production keeps reading the account.
+    testMode: isStage(env) || Boolean(account.test_mode),
   });
   const route = routes[0];
   if (!route) {
@@ -118,7 +121,7 @@ async function checkout({ request, response, store, orgId }) {
   const connection = (await store.connectionById?.(route.id)) ?? route;
   // A live connection on a stand is a misconfiguration, not a test payment (§5). The
   // refusal is recorded so the journal names the attempt instead of only the error.
-  if (isStage() && connection.mode === "live") {
+  if (isStage(env) && connection.mode === "live") {
     await store.recordAudit?.({
       actorId: session.user.id,
       orgId,
@@ -265,13 +268,13 @@ async function invoices({ request, response, store, orgId }) {
 }
 
 /** Routes under `/orgs/:id/billing/…`; the caller has already resolved the organisation. */
-export async function handleCheckoutRoutes({ request, response, url, store, orgId, rest }) {
+export async function handleCheckoutRoutes({ request, response, url, store, orgId, rest, env = process.env }) {
   const method = request.method ?? "GET";
   const [head, tail] = rest.split("/");
 
   if (head === "checkout" && !tail) {
     if (method !== "POST") return fail(response, 405, "METHOD_NOT_ALLOWED", "use POST"), true;
-    return checkout({ request, response, store, orgId });
+    return checkout({ request, response, store, orgId, env });
   }
   if (head === "checkout" && tail) {
     if (method !== "GET") return fail(response, 405, "METHOD_NOT_ALLOWED", "use GET"), true;
