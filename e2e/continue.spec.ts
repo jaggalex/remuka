@@ -126,6 +126,19 @@ test("the edge plus is the port: it names its action and a drag from it draws a 
   const b = await seedNote(page, account.boardId, { x: 260, y: 0 }, undefined, "B");
   await openBoard(page, account.boardId);
   await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
+  // The document arrives over the socket after the probe exists: wait for both seeded
+  // notes, or a loaded machine reads an empty widget list (a harness race, not a defect).
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        (ids) =>
+          (window as unknown as { __remo?: { widgets?: Array<{ id: string }> } }).__remo?.widgets?.filter(
+            (widget) => ids.includes(widget.id),
+          ).length ?? 0,
+        [a, b],
+      ),
+    )
+    .toBe(2);
   const all = () =>
     page.evaluate(
       () =>

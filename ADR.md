@@ -11507,3 +11507,66 @@ environments; the stand keeps `REMO_DOCS_ORIGIN=https://docs.stage.remuka.ru` an
 the address the browser uses. The legal texts in `content/legal/**` still name
 `docs.remuka.com` and `docs.remuka.ru` in prose: they are published revisions and bind the
 cloud, so they are deliberately out of scope until a new revision is published.
+
+## ADR-280: Owner's fixes of 24.11 — home from the logo, no raw AI journal, room covers, rising reactions, new objects on top, Tab on cards, movable comment pins
+
+**Status:** accepted (2026-11-24, owner). Research: `spec/fixes-2026-11-24.md`. Amends ADR-039,
+ADR-104, ADR-105, ADR-266 §2 (item 1), ADR-274 and ADR-276.
+
+**Decision.**
+1. **The logo goes home.** A click on the mark opens all rooms (tooltip "All rooms · G R").
+   Next to the room title sits the path "Team › Room ▾": the team part also goes home, filtered
+   by that team; the room part opens the room menu. The account menu opens only from the avatar;
+   its "All rooms" row stays.
+2. **No raw AI journal in the organisation UI.** `AiJournal` leaves the organisation's AI
+   section. In its place: one summary line (calls this month, spend, chain verified) and
+   "Download journal (CSV)" for administrators. The server journal and its hash chain are
+   unchanged. A full viewer is a backlog item.
+3. **Room icon and cover.** The emoji icon stays, gains search over all emoji and a visible
+   "⋯ → Cover and icon" on the home tile and in the room title menu; the agent glyph leaves that
+   button. Every room gets a **live preview** (the PNG export renderer over all content, rebuilt
+   in the background at most every 10 minutes after changes, visible only to people with access).
+   A frame's context menu gets **"Make cover"**: the cover follows that frame. One stored image
+   per room: 640 × 360 WebP, centre crop, about 150 KB. Uploading a custom cover is backlog.
+4. **Reactions work and rise.** Command ids and handlers match (the bug: `run.reaction.${index}`
+   versus `run.reaction.<name>`); the sender sees their own burst at once. With one selected
+   object the burst rises from it (as now); otherwise it starts in the bottom 15 % of the visible
+   area at a random X within the middle 80 %, rises about 60 % of the height in 2.4 s with a
+   ±12 px sway and fades. Calm animations: a short flash in place.
+5. **New objects go on top.** Every creation path (tool, draw, paste, duplicate, series, agent,
+   template) sets `z = topZ(board) + 1` in the same transaction. Exception: a new frame is placed
+   above other frames but below the content it covers at creation.
+6. **Tab on a kanban card does nothing** and does not move focus off the canvas. On the canvas,
+   Tab outside an input either performs the object's action or nothing.
+7. **Comment pins sit where clicked and can be moved.** A widget anchor stores the offset inside
+   the object as fractions: `{kind: "widget", widgetId, fx, fy}`; the pin follows the object
+   through moves, resizes and rotation. "Comment on selection" without a click uses `fx 0.9,
+   fy 0.1`. Dragging a pin changes the offset within the object, re-anchors it to another object,
+   or turns it into a point anchor on empty canvas; one ⌘Z; the author and moderators may drag.
+   Threads without `fx/fy` render as before (middle of the top edge); no migration.
+
+**Consequences.** Task T27. Mockups `App-RoomTidy`, `App-AccountMenu` and `App-AgentsAdmin` are
+corrected. Backlog gains: full AI journal viewer, custom cover upload, Tab to the next card.
+
+## ADR-281: A screen is accepted only side by side with its mockup
+
+**Status:** accepted (2026-11-24, owner). Spec: `spec/acceptance-character.md`. Task T28.
+
+**Context.** Accepted tasks drifted from the mockups: the sign-in became a modal with tabs and two
+titles instead of the "Welcome back" screen, and the tool rail became a pill with a round
+selection and a separate undo pill. Visual baselines compare the product with itself, and reports
+were accepted on checklists without side-by-side images.
+
+**Decision.**
+- Every task with an artboard ships a "mockup | product | difference" page for every artboard
+  state, light and dark, 1440 and 390 px, built by `pnpm accept:shots` from mockup fixtures
+  (the mockup's data) and reference PNGs of the play prototypes in `docs/design/reference/`.
+- Differences are classed: A — structure, texts, brand colours, accessibility (zero allowed);
+  B — shape, sizes beyond ±2 px, type, motion (at most 3 per screen, each a tracked defect);
+  C — polish. Any A returns the task.
+- Deviating from a mockup needs the owner's decision recorded in an ADR.
+- T8 (rail) and T15 (sign-in) are re-taken; all screens of waves 0–8 go through the protocol.
+
+**Consequences.** Definition of Done gains item 11. Claude captures the reference PNGs before a
+task starts and reviews every report against them.
+
