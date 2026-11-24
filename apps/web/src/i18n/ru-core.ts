@@ -455,6 +455,7 @@ export const ruCore = {
   "canvas.selected": "Выбрано: {count}",
   "canvas.editText": "Редактирование текста",
   "canvas.kanban": "Канбан",
+  "canvas.kanbanPlate": "канбан",
   "kanban.cardPlaceholder": "Введите текст",
   "canvas.group": "Группа",
   "canvas.text.overflow": "Текст не помещается",

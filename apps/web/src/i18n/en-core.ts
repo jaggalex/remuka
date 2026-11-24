@@ -456,6 +456,7 @@ export const enCore = {
   "canvas.selected": "{count} selected",
   "canvas.editText": "Edit text",
   "canvas.kanban": "Kanban",
+  "canvas.kanbanPlate": "kanban",
   "kanban.cardPlaceholder": "Type something",
   "canvas.group": "Group",
   "canvas.text.overflow": "Text does not fit",

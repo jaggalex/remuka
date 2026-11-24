@@ -560,6 +560,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
         cards,
         cardStatus: input.theme.cardStatus,
         tags: input.theme.tags,
+        assigneeColor: input.theme.assigneeColor,
         ground: kanbanGroundOf(widget, palette),
       });
     }

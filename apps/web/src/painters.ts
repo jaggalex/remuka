@@ -221,6 +221,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
       straight: dragging || selectedIds.includes(widget.id),
       hand: input.hand?.(widget.id) ?? 0,
       shadowBoost: dragging,
+      assigneeColor: theme.assigneeColor,
       image: input.image,
       imageUnavailable: input.imageUnavailable,
     });
@@ -249,6 +250,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
           cards,
           cardStatus: theme.cardStatus,
           tags: theme.tags,
+          assigneeColor: theme.assigneeColor,
           ground: kanbanGroundOf(widget, palette),
         },
       );

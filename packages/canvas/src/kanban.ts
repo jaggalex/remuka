@@ -42,6 +42,8 @@ export interface KanbanPaintOptions {
   cardStatus?: Record<CardStatus, string>;
   /** The room's tag vocabulary, for tag chips on a card face (ADR-106). */
   tags?: ReadonlyMap<string, { name: string; color: TagColor }>;
+  /** The person's colour by account id, for the assignee's circle (ADR-267 §2.1). */
+  assigneeColor?: (accountId: string) => string;
   /**
    * The board's own fill: its chosen colour or the default ground (ADR-267 §2.1).
    * Every part of the matrix derives its ink from it (ADR-273 §2.1).
@@ -242,10 +244,11 @@ export function drawKanban(
     ctx.fillText(String(lane.count), left + padding, lane.top + 30 + lines.length * 26);
   });
 
-  // Column separators, and the edge between the lane strip and the first column.
+  // The edge between the lane strip and the first column; columns themselves have no
+  // separators in the mockup, the fills and headers do the dividing (ADR-267 §2.1).
   ctx.strokeStyle = hairlineInk;
   ctx.lineWidth = hairline;
-  const separators = strip > 0 ? layout.columns : layout.columns.slice(1);
+  const separators = strip > 0 ? layout.columns.slice(0, 1) : [];
   const lastLane = layout.lanes[layout.lanes.length - 1];
   const bottom = Math.max(top + height, lastLane ? lastLane.top + lastLane.height : 0);
   separators.forEach((column) => {
@@ -320,6 +323,7 @@ export function drawKanban(
             statusLabel:
               options.cardStatus ?? { todo: "To do", in_progress: "In progress", done: "Done" },
             tags: options.tags,
+            assigneeColor: options.assigneeColor,
             ink: cardInk,
             haloWidth: 1.5 / zoom,
           },

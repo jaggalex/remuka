@@ -15,7 +15,7 @@ import { useProposalLayout } from "./proposalStore";
 import { imageFieldsOf, imageVariantFallbacks, imageVariantForWidget } from "@remo/canvas";
 import { boardImageCache } from "./imageCache";
 import type { Camera, KanbanLayout } from "@remo/canvas";
-import type { Presence } from "@remo/doc";
+import { colorForAccount, type Presence } from "@remo/doc";
 import type { KanbanState, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 import type { GridStyle } from "./BoardCanvas";
@@ -166,7 +166,7 @@ export function useCanvasPainting({
       fontCap: settings.notes.fontCap,
       shapeStrokeWidth: settings.shapes.strokeWidth,
       cardPlaceholder: t("kanban.cardPlaceholder"),
-      kanbanTitle: t("canvas.kanban"),
+      kanbanTitle: t("canvas.kanbanPlate"),
       timerExpired: t("facilitation.timer.timeUp"),
       imageUnavailable: t("canvas.imageUnavailable"),
       cardStatus: {
@@ -176,6 +176,7 @@ export function useCanvasPainting({
       },
       palette,
       tags: new Map(Object.values(tags).map((tag) => [tag.id, tag])),
+      assigneeColor: colorForAccount,
     }),
     // `fontsLoaded` is not read: a new theme object is what makes both layers repaint.
     [settings, t, palette, fontsLoaded, tags],

@@ -170,6 +170,8 @@ export interface DrawWidgetOptions {
   hand?: number;
   /** A carried sheet casts a deeper shadow than a hovered one (§4.2). */
   shadowBoost?: boolean;
+  /** The person's colour by account id, for a card's assignee circle (ADR-267 §2.1). */
+  assigneeColor?: (accountId: string) => string;
   /**
    * The fill of a card being painted where its column is known (ADR-267): the colour a
    * card without a fill of its own takes from its column. The matrix computes it for the
@@ -208,6 +210,8 @@ export interface PaintTheme {
   palette: CanvasPalette;
   /** The room's tag vocabulary, for tag chips on a card face (ADR-102, ADR-106). */
   tags?: ReadonlyMap<string, { name: string; color: TagColor }>;
+  /** The person's colour by account id, for the assignee's circle (ADR-267 §2.1). */
+  assigneeColor?: (accountId: string) => string;
 }
 
 export const DEFAULT_THEME: PaintTheme = {
@@ -483,7 +487,7 @@ function paintWidget(
         widget.width,
         widget.height,
         widget,
-        { fontFamily: theme.fontFamily, palette, statusLabel: theme.cardStatus, tags: theme.tags, ink, haloWidth },
+        { fontFamily: theme.fontFamily, palette, statusLabel: theme.cardStatus, tags: theme.tags, assigneeColor: options.assigneeColor ?? theme.assigneeColor, ink, haloWidth },
       );
       if (editing) break;
       if (widget.title) {

@@ -17,6 +17,8 @@ export interface CardMetaTheme {
   haloWidth?: number;
   /** The room's tag vocabulary (ADR-102), so the face can name a card's tags. */
   tags?: ReadonlyMap<string, { name: string; color: TagColor }>;
+  /** The person's colour by account id (ADR-078, ADR-267 §2.1): the assignee's circle. */
+  assigneeColor?: (accountId: string) => string;
 }
 
 /** At most this many tags on a face; the rest are in the panel (ADR-106). */
@@ -58,8 +60,9 @@ function drawTagChips(
       width = ctx.measureText(label).width + pad * 2;
     }
     if (left + width > rightEdge) break;
-    const colours = theme.palette.tags[chip.color] ?? theme.palette.tags.gray;
-    ctx.fillStyle = colours.fill;
+    // A tag is content: a white plate with an ink outline, not a coloured chip that
+    // would fight the card's fill (ADR-267 §2.1).
+    ctx.fillStyle = theme.palette.objectPaper;
     ctx.beginPath();
     const r = height / 2;
     ctx.moveTo(left + r, y - r);
@@ -69,7 +72,10 @@ function drawTagChips(
     ctx.arcTo(left, y - r, left + width, y - r, r);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = colours.ink;
+    ctx.strokeStyle = theme.ink.color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = theme.ink.color;
     ctx.fillText(label, left + pad, y);
     left += width + 4;
   }
@@ -173,14 +179,18 @@ export function drawCardMeta(
         .join("")
         .slice(0, 2);
       const radius = 7;
-      ctx.fillStyle = theme.palette.objectPaper;
+      // The assignee's own colour, like their avatar and cursor; a name without an
+      // account (an old card or a guest) keeps the neutral paper circle (ADR-267 §2.1).
+      const person =
+        card.assigneeId && theme.assigneeColor ? theme.assigneeColor(card.assigneeId) : null;
+      ctx.fillStyle = person ?? theme.palette.objectPaper;
       ctx.strokeStyle = ink.color;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(x + radius, y, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = ink.color;
+      ctx.fillStyle = person ? theme.palette.textOnPresence : ink.color;
       ctx.font = `600 ${8}px ${theme.fontFamily}`;
       ctx.textAlign = "center";
       fillWithHalo(ctx, initials || "?", x + radius, y, ink.halo, haloWidth);

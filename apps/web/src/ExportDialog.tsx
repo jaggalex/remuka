@@ -228,7 +228,7 @@ export function ExportDialog({
         fontCap: settings.notes.fontCap,
         shapeStrokeWidth: settings.shapes.strokeWidth,
         cardPlaceholder: t("kanban.cardPlaceholder"),
-        kanbanTitle: t("canvas.kanban"),
+        kanbanTitle: t("canvas.kanbanPlate"),
         timerExpired: t("facilitation.timer.timeUp"),
         imageUnavailable: t("canvas.imageUnavailable"),
         cardStatus: {

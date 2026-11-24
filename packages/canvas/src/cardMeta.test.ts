@@ -79,3 +79,49 @@ describe("tags on a card face (ADR-106)", () => {
     expect(texts).toContain("Важно");
   });
 });
+
+describe("the card face is paper and ink (ADR-267 §2.1)", () => {
+  it("paints the assignee in the person's colour and a tag as an outlined plate", () => {
+    const texts: string[] = [];
+    const fills: string[] = [];
+    const strokes: string[] = [];
+    const state: Record<string | symbol, unknown> = {};
+    const ctx = new Proxy(state, {
+      get(target, key) {
+        if (key in target) return target[key];
+        if (key === "measureText") return (text: string) => ({ width: String(text).length * 6 });
+        return (...args: unknown[]) => {
+          if (key === "fillText") texts.push(String(args[0]));
+          if (key === "fill" && typeof state.fillStyle === "string") fills.push(state.fillStyle);
+          if (key === "stroke" && typeof state.strokeStyle === "string") strokes.push(state.strokeStyle);
+        };
+      },
+      set(target, key, value) {
+        target[key] = value;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+
+    const card = {
+      id: "c",
+      type: "card",
+      tagIds: ["t1"],
+      assigneeId: "acc-1",
+      assigneeName: "Аня Петрова",
+    } as unknown as Widget;
+    drawCardMeta(ctx, 0, 0, 260, 70, card, {
+      fontFamily: "Inter",
+      palette: DEFAULT_PALETTE,
+      ink: { color: "#1e2136", halo: null },
+      statusLabel: { todo: "To do", in_progress: "In progress", done: "Done" },
+      tags: new Map([["t1", { name: "Важно", color: "red" as const }]]),
+      assigneeColor: () => "#c93e0a",
+    });
+
+    expect(fills).toContain("#c93e0a");
+    expect(fills).toContain(DEFAULT_PALETTE.objectPaper);
+    expect(strokes.every((colour) => colour === "#1e2136")).toBe(true);
+    expect(texts).toContain("АП");
+    expect(texts).toContain("Важно");
+  });
+});
