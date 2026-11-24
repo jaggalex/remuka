@@ -13,8 +13,23 @@ import {
 import { measureText } from "./KanbanTitleEditor";
 
 export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
-  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets, worldToScreenPoint } = env;
+  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setTableHover, setTableRefused, settings, shapeTool, toWorld, widgetById, widgets, worldToScreenPoint } = env;
   const world = toWorld(event);
+
+  // The armed shape tool owns the canvas: a press starts a draw, and the release
+  // either commits the box or, if the pointer never travelled, the default shape
+  // (ADR-271). Alt is "from the centre" here, not panning.
+  if (!readOnly && shapeTool && event.button === 0) {
+    dragRef.current = {
+      mode: "shape",
+      kind: shapeTool.kind,
+      start: world,
+      startScreen: { x: event.clientX, y: event.clientY },
+      moved: false,
+    };
+    capture(event);
+    return;
+  }
 
   // A resize handle is a UI affordance of the selection, so it is tried before the
   // objects and before panning: Alt over a handle resizes around the centre (ADR-212),

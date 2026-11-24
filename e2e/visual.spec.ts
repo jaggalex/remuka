@@ -4,6 +4,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   addSticky,
   agentBoard,
+  createShape,
   applyDefaultTableLayout,
   ensureProperties,
   freshBoard,
@@ -1081,7 +1082,92 @@ test("a connector label keeps its lines", async ({ page }) => {
 });
 
 /**
- * The hard ink shadow of the third level (ADR-267, T4).
+ * The five shape kinds, the kind switch and connectors on the new outlines (ADR-271).
+ *
+ * Drawn through the same pointer path a person uses, so the baseline covers the rounded
+ * rectangle and the triangle as painted objects, and the two connectors show that a line
+ * meets a triangle's slanted edge and a diamond's vertex instead of the box corner.
+ */
+test("shapes: five kinds, the kind switch and connectors on the outline", async ({ page }) => {
+  const account = await freshBoard(page, "visual-shapes", { template: "empty" });
+  await page.waitForFunction(() => {
+    const probe = (window as unknown as { __remo?: { camera?: unknown } }).__remo;
+    return !!probe?.camera;
+  });
+  await page.waitForTimeout(400);
+
+  const draw = async (
+    kind: "rectangle" | "round_rectangle" | "ellipse" | "diamond" | "triangle",
+    at: { x: number; y: number },
+    size: { width: number; height: number },
+  ): Promise<string> => {
+    const view = await canvasView(page);
+    if (kind === "rectangle") await page.keyboard.press("r");
+    else if (kind === "ellipse") await page.keyboard.press("o");
+    else {
+      await page.getByRole("toolbar", { name: "Tools" })
+        .getByRole("button", { name: "Shape variants" })
+        .click();
+      const names = {
+        round_rectangle: "Rounded rectangle",
+        diamond: "Diamond",
+        triangle: "Triangle",
+      } as const;
+      await page.getByRole("button", { name: names[kind], exact: true }).click();
+    }
+    const start = clientPoint(view, at);
+    const end = {
+      x: start.x + size.width * view.camera.zoom,
+      y: start.y + size.height * view.camera.zoom,
+    };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 6 });
+    await page.mouse.up();
+    return page.evaluate(
+      () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds[0]!,
+    );
+  };
+
+  const rounded = await draw("round_rectangle", { x: -620, y: -240 }, { width: 260, height: 140 });
+  const rectangle = await draw("rectangle", { x: -280, y: -240 }, { width: 200, height: 120 });
+  const ellipse = await draw("ellipse", { x: 20, y: -240 }, { width: 200, height: 140 });
+  const diamond = await draw("diamond", { x: 320, y: -240 }, { width: 200, height: 140 });
+  const triangle = await draw("triangle", { x: -620, y: 40 }, { width: 220, height: 160 });
+
+  const labels: Array<[string, string, { x: number; y: number }]> = [
+    [rounded, "Заявка", { x: -620, y: -240 }],
+    [rectangle, "Правило", { x: -280, y: -240 }],
+    [ellipse, "Проверка", { x: 20, y: -240 }],
+    [diamond, "Вопрос", { x: 320, y: -240 }],
+    [triangle, "Риск", { x: -620, y: 40 }],
+  ];
+  for (const [, text, at] of labels) {
+    const point = clientPoint(await canvasView(page), at);
+    await page.mouse.dblclick(point.x, point.y);
+    const editor = page.locator(".inline-editor");
+    await expect(editor).toBeVisible();
+    await editor.fill(text);
+    await page.keyboard.press("Escape");
+  }
+  await seedConnector(page, account.boardId, rounded, triangle);
+  await seedConnector(page, account.boardId, rectangle, ellipse);
+  await seedConnector(page, account.boardId, ellipse, diamond);
+  await expect(page.locator(".inline-editor")).toHaveCount(0);
+
+  // Fit frames the whole board, not the last shape: selection would narrow the frame.
+  await page.keyboard.press("Escape");
+  await zoomInToReadable(page);
+  // The middle rectangle keeps the bar inside the viewport; the five shapes stay visible.
+  const point = clientPoint(await canvasView(page), { x: -180, y: -180 });
+  await page.mouse.click(point.x, point.y);
+  const bar = page.getByRole("toolbar", { name: "Object properties" });
+  await expect(bar.getByRole("button", { name: /Kind: Rectangle/ })).toBeVisible();
+  await calmMotion(page);
+  await capture(page, page.locator(".canvas-wrap"), "shapes");
+});
+
+/** The hard ink shadow of the third level (ADR-267, T4).
  *
  * One shape carries "Cardboard": the photo shows the offset silhouette with no blur in
  * the light theme, and the same object in the dark theme, where the level is painted as
@@ -1091,9 +1177,7 @@ test("cardboard casts a hard shadow in light and falls back to floating in dark"
   page,
 }) => {
   await freshBoard(page, "visual-cardboard", { template: "empty" });
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Ellipse", exact: true }).click();
+  await createShape(page, "Ellipse");
 
   const at = await page.evaluate(() => {
     const probe = (window as unknown as {
@@ -1142,9 +1226,7 @@ test("a shape grows for its text", async ({ page }) => {
   await page.waitForTimeout(400);
   await zoomInToReadable(page);
 
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   const at = await page.evaluate(() => {
     const probe = (window as unknown as {

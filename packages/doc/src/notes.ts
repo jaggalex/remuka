@@ -78,15 +78,15 @@ export function createText(
   return id;
 }
 
-/** Add a shape at a point. */
+/** Add a shape at a point, or in an explicit box when it was drawn by dragging (ADR-271). */
 export function createShape(
   board: BoardDocument,
   id: string,
   kind: ShapeKind,
   at: { x: number; y: number },
   style: WidgetStyle = {},
+  size: { width: number; height: number } = SHAPE_SIZES[kind] ?? SHAPE_SIZES.rectangle!,
 ): string {
-  const size = SHAPE_SIZES[kind] ?? SHAPE_SIZES.rectangle!;
   createWidget(board, {
     id,
     type: "shape",

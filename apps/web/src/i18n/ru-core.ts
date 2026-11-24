@@ -120,8 +120,10 @@ export const ruCore = {
   "tool.stickyColors": "Цвета стикера",
   "tool.shapeVariants": "Виды фигур",
   "tool.shapeRectangle": "Прямоугольник",
+  "tool.shapeRoundRectangle": "Скруглённый прямоугольник",
   "tool.shapeEllipse": "Эллипс",
   "tool.shapeDiamond": "Ромб",
+  "tool.shapeTriangle": "Треугольник",
   "note.sheetColour": "Цвет листа",
   // Palette names (ADR-120): a colour is never an unnamed circle. Keyed by hex, so the
   // word always describes the value it names.
@@ -453,6 +455,7 @@ export const ruCore = {
   "canvas.hint":
     "Двойной клик — правка · синяя точка на линии меняет её форму · подпись можно перетащить",
   "canvas.selected": "Выбрано: {count}",
+  "canvas.shapeSize": "Размер: {size}",
   "canvas.editText": "Редактирование текста",
   "canvas.kanban": "Канбан",
   "canvas.kanbanPlate": "канбан",

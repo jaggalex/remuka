@@ -629,11 +629,6 @@
   outline-offset: 2px;
 }
 
-.tool-flyout-shapes {
-  display: flex;
-  gap: var(--space-1);
-}
-
 /* A DS Button with a silhouette instead of a label; the sample is the shape itself. */
 .tool-shape {
   width: var(--space-10);
@@ -647,23 +642,38 @@
   place-items: center;
 }
 
-.tool-shape-rect {
-  width: 20px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
+/* The shape flyout lists all five kinds: silhouette, name and key (ADR-271). */
+.shape-kind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shape-kind-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--space-9);
+  padding: 0 var(--space-2);
+  text-align: left;
+}
+
+.shape-kind-row-icon {
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+}
+
+.shape-kind-row-name {
+  flex: 1;
+}
+
+.shape-kind-row-key {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xs);
-}
-
-.tool-shape-ellipse {
-  width: 20px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
-  border-radius: var(--radius-pill);
-}
-
-.tool-shape-diamond {
-  width: 14px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
-  transform: rotate(45deg);
+  color: var(--text-muted);
+  font: var(--type-caption);
 }

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { BoardDocument } from "@remo/doc";
-import { rigidWaypoints, type Widget } from "@remo/model";
+import { rigidWaypoints, type ShapeKind, type Widget } from "@remo/model";
 import {
   clearTableCellSelection,
   setTableCellSelection,
@@ -38,6 +38,8 @@ export function useBoardKeyboard({
   forceRender,
   pasteSelection,
   onTool,
+  armedShape,
+  onCancelTool,
   onTone,
   onLineBlock,
   onAgentUndo,
@@ -62,6 +64,9 @@ export function useBoardKeyboard({
   pasteSelection: unknown;
   /** Creation from the rail; one function shared by clicks and keys (ADR-119). */
   onTool?: (tool: RailTool) => void;
+  /** The armed shape tool, if any: Escape cancels it before it clears the selection. */
+  armedShape?: ShapeKind | null;
+  onCancelTool?: () => void;
   /** Keys 1–7 paint the main colour of the selection (ADR-127). */
   onTone?: (toneIndex: number) => void;
   /**
@@ -263,6 +268,12 @@ useEffect(() => {
     }
 
     if (event.key === "Escape") {
+      // An armed tool is a mode; Escape leaves the mode before it drops the selection.
+      if (armedShape) {
+        event.preventDefault();
+        onCancelTool?.();
+        return;
+      }
       setEditingId(null);
       setSelectedIds([]);
       return;
@@ -320,10 +331,12 @@ useEffect(() => {
   return () => window.removeEventListener("keydown", onKeyDown);
 }, [
   addConnectedNote,
+  armedShape,
   board,
   commandContext,
   editingId,
   focusedWaypoint,
+  onCancelTool,
   onDeleteWaypoint,
   onMoveWaypoint,
   onTool,

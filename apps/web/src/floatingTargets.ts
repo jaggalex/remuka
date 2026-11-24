@@ -17,6 +17,7 @@ import {
   kindOf,
   routingOf,
   stickyFill,
+  type ShapeKind,
   type StickySize,
   type TextMarks,
   type TextRun,
@@ -59,11 +60,17 @@ const NOTE_BAR_HALF = 332;
  * The shape bar has no S/M/L row: sample, text size, marks, block formats, alignment,
  * link and More, measured at 1440: 426 + 147 px wide.
  */
-const SHAPE_BAR_HALF = 287;
+const SHAPE_BAR_HALF = 450;
 /** A free text bar is the same controls without the note sizes: 420 + 147 px wide. */
 const TEXT_BAR_HALF = 284;
 /** The arrange bar names the selection, shows the shared role, Align, grouping and More. */
-const ARRANGE_BAR_WIDTH = 500;
+/**
+ * Arrange-bar widths: the toolbar grows with its content, and the placement must know
+ * which one it is guessing. A shape-only selection carries the kind switch and the two
+ * corner buttons; every other selection does not.
+ */
+const ARRANGE_BAR_WIDTH = 740;
+const ARRANGE_BAR_WIDTH_SHAPES = 980;
 /**
  * The connector bar: line type, one colour sample, the three end controls, the label and
  * More. Measured at 1440 with English words ≈ 440 px without a label and ≈ 540 px once the
@@ -202,6 +209,7 @@ export function noteBarTarget(args: {
     strokeColor: widget.style?.strokeColor,
     strokeWidth: widget.style?.strokeWidth,
     strokeStyle: widget.style?.strokeStyle,
+    shapeKind: widget.type === "shape" ? (widget.shapeKind ?? "rectangle") : undefined,
     size: (widget.style?.stickySize ?? "M") as StickySize,
     fontSize: widget.style?.fontSize ?? null,
     autoSize,
@@ -256,11 +264,20 @@ export function arrangeBarTarget(args: {
   const counts = new Map<string, number>();
   for (const widget of selected) counts.set(widget.type, (counts.get(widget.type) ?? 0) + 1);
 
+  // The kind switch belongs to a selection made only of shapes; a mixed selection has
+  // no single type to change, so the item is hidden rather than disabled (ADR-271).
+  const allShapes = selected.every((widget) => widget.type === "shape");
+  const shapeKinds: ShapeKind[] = allShapes
+    ? selected.map((widget) => widget.shapeKind ?? "rectangle")
+    : [];
+
+  const barWidth = shapeKinds.length ? ARRANGE_BAR_WIDTH_SHAPES : ARRANGE_BAR_WIDTH;
   return {
     units: units.size,
     objects: selected.length,
     canArrange: units.size >= 2,
     canGather: selected.filter((widget) => GATHERABLE_TYPES.has(widget.type)).length >= 2,
+    shapeKinds,
     types: [...counts.entries()]
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
@@ -269,8 +286,8 @@ export function arrangeBarTarget(args: {
       left: Math.max(
         8,
         Math.min(
-          left + width / 2 - ARRANGE_BAR_WIDTH / 2,
-          frame.viewport.width - ARRANGE_BAR_WIDTH - 8,
+          left + width / 2 - barWidth / 2,
+          frame.viewport.width - barWidth - 8,
         ),
       ),
       top: barTop({ top, height }, frame.viewport, COMPACT_BAR_ROOM),

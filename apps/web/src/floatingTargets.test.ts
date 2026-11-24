@@ -85,7 +85,7 @@ describe("the note bar", () => {
     const shapeBar = noteBarTarget({ widget: shape, frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     const noteBar = noteBarTarget({ widget: note("n", 0, 0), frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     // The shape bar has no S/M/L row, so it is narrower than the note's.
-    expect(shapeBar.placement.left).toBe(720 - 287);
+    expect(shapeBar.placement.left).toBe(720 - 450);
     expect(noteBar.placement.left).toBe(720 - 332);
   });
 
@@ -153,8 +153,8 @@ describe("the arrange bar", () => {
     })!;
     expect(target.units).toBe(2);
     expect(target.canArrange).toBe(true);
-    // Union box centre (400) minus half of the 500 px arrange bar.
-    expect(target.placement.left).toBe(400 - 250);
+    // A note selection's bar is 740 px wide; the 800 px frame still centres it.
+    expect(target.placement.left).toBe(400 - 370);
     expect(target.placement.top).toBe(250 - COMPACT_BAR_ROOM);
   });
 

@@ -1,6 +1,6 @@
 import { 
 expect, test, type Page } from "@playwright/test";
-import { addSticky, freshBoard, seedObject, ensureProperties } from "./helpers";
+import { addSticky, createShape, freshBoard, seedObject, ensureProperties } from "./helpers";
 
 /**
  * The object bar after S5d (ADR-119 §4.2, ADR-127).
@@ -240,9 +240,7 @@ test("a shape's one sample opens presets, fill, border and text in that order", 
   page,
 }) => {
   await freshBoard(page, "object-panel-shape", { template: "empty" });
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle" }).click();
+  await createShape(page, "Rectangle");
 
   const bar = page.getByRole("toolbar", { name: "Object properties" });
   const sample = bar.getByRole("button", { name: "Shape style: Plain" });
@@ -425,9 +423,7 @@ test("a multi-selection shows the shared role, mixes with ≠ and narrows to a t
   await freshBoard(page, "object-panel-multi", { template: "empty" });
   await addSticky(page);
   await addSticky(page);
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle" }).click();
+  await createShape(page, "Rectangle");
 
   // Creating objects centres the camera on the new one; fit the whole board so every
   // target is on screen and the click points below are stable.
@@ -507,9 +503,7 @@ test("a shape is lifted off the board from More actions, one level for the selec
   page,
 }) => {
   await freshBoard(page, "object-panel-elevation", { template: "empty" });
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle" }).click();
+  await createShape(page, "Rectangle");
   const shape = (await widgets(page)).find((widget) => widget.type === "shape")!;
   // ADR-197: the inspector starts closed for a fresh person.
   await ensureProperties(page);

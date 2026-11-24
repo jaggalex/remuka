@@ -11,6 +11,7 @@ import {
 } from "./canvasGeometry";
 import type { GestureEnv } from "./gestureEnv";
 import { bendStep, curveStep, flipStep, moveStep } from "./gestureSteps";
+import { drawnShapeBox, isShapeDrag } from "./shapeDraw";
 import type { ConnectDraft } from "./gestureTypes";
 import { axisDropSlot, cellAt, cellGuides, closestOnPath, connectorPath, minScale, pick, rectFrom, scaleBoxes, snapResize, type ResizeEdges } from "@remo/canvas";
 import type { Widget } from "@remo/model";
@@ -24,7 +25,7 @@ import type { Widget } from "@remo/model";
    * matrix, not chosen by dragging a widget.
    */
 export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
-  const { alignmentTargets, anchorNear, anchorPressRef, applyPreview, camera, cardPreviewRef, connectDraftRef, connectPendingRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onCamera, publishCursor, setConnectDraft, setCursor, setDragPreview, setGuides, setHoverAnchor, setHoverCell, setHoverId, setMarquee, setResizeLimit, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets } = env;
+  const { alignmentTargets, anchorNear, anchorPressRef, applyPreview, camera, cardPreviewRef, connectDraftRef, connectPendingRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onCamera, publishCursor, setConnectDraft, setCursor, setDragPreview, setGuides, setHoverAnchor, setHoverCell, setHoverId, setMarquee, setResizeLimit, setShapeDraft, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets } = env;
   const drag = dragRef.current;
   setCursor({ x: event.clientX, y: event.clientY });
   const world = toWorld(event);
@@ -70,9 +71,23 @@ export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanva
     return;
   }
 
+  if (drag.mode === "shape") {
+    const moved = drag.moved || isShapeDrag(drag.startScreen, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (!moved) return;
+    drag.moved = true;
+    drag.rect = drawnShapeBox(drag.start, world, {
+      square: event.shiftKey,
+      fromCenter: event.altKey,
+    });
+    setShapeDraft({ kind: drag.kind, rect: drag.rect });
+    return;
+  }
+
   if (drag.mode === "pan") {
-    const dx = (event.clientX - drag.startScreen.x) / camera.zoom;
-    const dy = (event.clientY - drag.startScreen.y) / camera.zoom;
+    const dx = (event.clientX - drag.startScreen.x) / camera.zoom;    const dy = (event.clientY - drag.startScreen.y) / camera.zoom;
     onCamera({ ...camera, x: drag.startCamera.x - dx, y: drag.startCamera.y - dy });
     return;
   }

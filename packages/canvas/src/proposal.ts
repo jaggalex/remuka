@@ -1,5 +1,5 @@
 import type { Rect, Widget } from "@remo/model";
-import { edgePoint } from "./connectors";
+import { edgePoint } from "./anchor";
 import type { CanvasPalette } from "./palette";
 
 /**

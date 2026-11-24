@@ -1,5 +1,6 @@
 import { Button, IconButton, Menu, Popover } from "@remo/ui";
 import type { AlignEdge, DistributeAxis } from "@remo/doc";
+import type { ShapeKind } from "@remo/model";
 import { useI18n } from "./i18n";
 import { useMenuFocus } from "./useMenuFocus";
 import { usePopover } from "./usePopover";
@@ -7,6 +8,12 @@ import { ObjectBar } from "./object-panel/ObjectBar";
 import { ColorGridSection, ColorWindow } from "./object-panel/ColorWindow";
 import { colorName, isTransparent } from "./object-panel/colorWindowData";
 import { PanelWindow } from "./object-panel/PanelWindow";
+import {
+  SHAPE_KIND_LABEL,
+  ShapeCorners,
+  ShapeKindGrid,
+  shapeSelection,
+} from "./object-panel/ShapeKindPicker";
 
 export interface ArrangeBarTarget {
   /** Where the bar itself goes, already clamped to the canvas. */
@@ -21,6 +28,8 @@ export interface ArrangeBarTarget {
   types: Array<{ type: string; count: number }>;
   /** The one colour role every selected object has, or null when they share none. */
   colour: { role: "fill" | "line"; value: string; mixed: boolean } | null;
+  /** The kinds of the selected shapes; empty unless every selected object is a shape. */
+  shapeKinds: ShapeKind[];
   /** Two or more ordinary objects can become one section (ADR-198). */
   canGather: boolean;
 }
@@ -46,6 +55,8 @@ export interface ArrangeBarActions {
   selectType: (type: string | null) => void;
   /** Write the shared role to every selected object: one transaction, one undo step. */
   setColour: (color: string) => void;
+  /** Switch every selected shape to one kind; one transaction, one undo step. */
+  setShapeKind: (kind: ShapeKind) => void;
 }
 
 const ALIGN = [
@@ -84,7 +95,7 @@ export function ArrangeBar({
 }) {
   const { t, count, typeCount } = useI18n();
   // A different selection closes whatever was open for the previous one.
-  const { open, setOpen, ref } = usePopover<"types" | "align" | "colour" | "more">(
+  const { open, setOpen, ref } = usePopover<"types" | "kind" | "align" | "colour" | "more">(
     target ? `${target.objects}:${target.units}` : undefined,
   );
   // The DS menu expects something focused inside it, and focus comes back to its button
@@ -114,6 +125,10 @@ export function ArrangeBar({
           }).key,
         )
     : "";
+  const shape = target.shapeKinds.length ? shapeSelection(target.shapeKinds) : null;
+  const shapeName = shape?.kind
+    ? t(SHAPE_KIND_LABEL[shape.kind])
+    : t("shape.kindMixed");
 
   return (
     <ObjectBar
@@ -162,6 +177,47 @@ export function ArrangeBar({
           </PanelWindow>
         )}
       </span>
+
+      {shape && (
+        <>
+          <span className="sb-anchor">
+            <Button
+              variant="ghost"
+              size="compact"
+              className="sb-kind"
+              iconEnd="chevron-down"
+              aria-label={`${t("shape.kind")}: ${shapeName}`}
+              aria-haspopup="dialog"
+              aria-expanded={open === "kind"}
+              selected={open === "kind"}
+              onClick={() => setOpen(open === "kind" ? null : "kind")}
+            >
+              {t("shape.kind")}
+            </Button>
+            {open === "kind" && (
+              <PanelWindow>
+                <Popover title={t("shape.kindTitle")} width={240} onClose={() => setOpen(null)}>
+                  <ShapeKindGrid
+                    value={shape.kind}
+                    ariaLabel={t("shape.kindTitle")}
+                    onPick={(kind) => {
+                      actions.setShapeKind(kind);
+                      setOpen(null);
+                    }}
+                  />
+                </Popover>
+              </PanelWindow>
+            )}
+          </span>
+          <ShapeCorners
+            rounded={shape.rounded}
+            disabled={!shape.canRound}
+            onChange={(rounded) =>
+              actions.setShapeKind(rounded ? "round_rectangle" : "rectangle")
+            }
+          />
+        </>
+      )}
 
       {target.canGather && (
         <Button

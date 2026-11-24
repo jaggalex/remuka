@@ -27,6 +27,7 @@
   "presentation.mode": "how-to/present",
   "comments.thread": "how-to/comment",
   "objects.lock": "how-to/lock",
+  "objects.shapes": "capabilities/canvas",
   "about.remo": "support/about",
   "rooms.home": "capabilities/home",
   "account.profile": "how-to/account",

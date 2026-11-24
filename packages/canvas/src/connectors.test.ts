@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
 import {
-  anchorPoint,
-  boxOf,
   connectorHandles,
   connectorPath,
   closestOnPath,
   distanceToPath,
   elbowPoints,
-  facingSide,
   pathMidpoint,
   pathPolyline,
   resolvedEndSide,
@@ -18,6 +15,7 @@ import {
   insetPath,
   roundedArrowHead,
 } from "./connectors";
+import { anchorPoint, boxOf, facingSide, outlineAnchor } from "./anchor";
 
 const note = (id: string, x: number, y: number, width = 100, height = 100): Widget => ({
   id,
@@ -62,6 +60,17 @@ describe("connector anchors", () => {
     expect(anchorPoint(box, "left", 1)).toEqual({ x: -50, y: 40 });
     expect(anchorPoint(box, "bottom", 0)).toEqual({ x: -50, y: 40 });
     expect(anchorPoint(box, "top", 0.5)).toEqual({ x: 0, y: -40 });
+  });
+
+  it("folds a triangle's side anchor onto its slanted edge (ADR-271)", () => {
+    const box = boxOf({ ...note("a", 0, 0, 100, 80), shapeKind: "triangle" });
+    expect(outlineAnchor(box, "top", "triangle")).toEqual({ x: 0, y: -40 });
+    expect(outlineAnchor(box, "bottom", "triangle")).toEqual({ x: 0, y: 40 });
+    // Halfway down the box is empty space for a triangle; a quarter in is the edge.
+    expect(outlineAnchor(box, "right", "triangle")).toEqual({ x: 25, y: 0 });
+    expect(outlineAnchor(box, "left", "triangle")).toEqual({ x: -25, y: 0 });
+    // A diamond already meets its box at the side midpoint.
+    expect(outlineAnchor(box, "right", "diamond")).toEqual({ x: 50, y: 0 });
   });
 });
 

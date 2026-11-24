@@ -5,6 +5,7 @@ import {
   routingOf,
   withRouting,
   type ConnectorRouting,
+  type ShapeKind,
   type StickySize,
   type TextDeltaOp,
   type TextMarks,
@@ -68,6 +69,28 @@ export function setShapeStyle(
       if (strokeColor === null) delete style.strokeColor;
       else if (strokeColor !== undefined) style.strokeColor = strokeColor;
       board.widgets.set(id, { ...widget, style });
+    }
+  });
+}
+
+/**
+ * Change the kind of every selected shape: one shape kind write, nothing else (ADR-271).
+ *
+ * Text, style, size, grouping and the connectors attached to it stay as they are; the
+ * line re-attaches to the new outline because its point is derived at paint time. The
+ * two corner kinds are a switch between `rectangle` and `round_rectangle`, not a field.
+ */
+export function setShapeKind(
+  board: BoardDocument,
+  ids: readonly string[],
+  kind: ShapeKind,
+): void {
+  board.transact(() => {
+    for (const id of ids) {
+      const widget = board.readWidget(id);
+      if (!widget || widget.type !== "shape" || widget.locked) continue;
+      if ((widget.shapeKind ?? "rectangle") === kind) continue;
+      board.widgets.set(id, { ...widget, shapeKind: kind });
     }
   });
 }

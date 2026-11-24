@@ -5,6 +5,13 @@
  * `keyof typeof en` in i18n.tsx remains the single type (ADR-093).
  */
 export const ruWork = {
+  "shape.kind": "Вид",
+  "shape.kindTitle": "Вид фигуры",
+  "shape.kindMixed": "Разные",
+  "shape.corners": "Углы",
+  "shape.sharp": "Острые",
+  "shape.rounded": "Скруглённые",
+  "shape.cornersRectangleOnly": "Только у прямоугольника",
   "sync.connecting": "Подключение",
   "sync.saved": "Всё сохранено",
   "sync.pending": "Сохраняем…",

@@ -22,6 +22,30 @@
   background: var(--border-subtle);
 }
 
+/* --------------------------------------------------------------- shape kind */
+
+/* The five silhouettes in one row: the sample is the shape itself (ADR-271). */
+.shape-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(5, var(--space-9));
+  gap: var(--space-1);
+}
+
+.shape-kind-button {
+  display: grid;
+  place-items: center;
+  width: var(--space-9);
+  height: var(--space-9);
+  padding: 0;
+}
+
+/* "Sharp / Rounded" is two pressed buttons, not a switch: both states are words. */
+.shape-corners {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 /* ------------------------------------------------------------- arrange bar */
 
 .arrange-bar {

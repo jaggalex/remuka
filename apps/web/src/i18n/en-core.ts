@@ -122,8 +122,10 @@ export const enCore = {
   "tool.stickyColors": "Sticky note colours",
   "tool.shapeVariants": "Shape variants",
   "tool.shapeRectangle": "Rectangle",
+  "tool.shapeRoundRectangle": "Rounded rectangle",
   "tool.shapeEllipse": "Ellipse",
   "tool.shapeDiamond": "Diamond",
+  "tool.shapeTriangle": "Triangle",
   "note.sheetColour": "Sheet colour",
   // Palette names (ADR-120): a colour is never an unnamed circle. Keyed by hex.
   // The tonal palette of the colour window (ADR-127): seven hues at 100/300/600.
@@ -454,6 +456,7 @@ export const enCore = {
   "canvas.hint":
     "Double-click to edit · drag a line's blue dot to reshape it · drag a label to move it",
   "canvas.selected": "{count} selected",
+  "canvas.shapeSize": "Size: {size}",
   "canvas.editText": "Edit text",
   "canvas.kanban": "Kanban",
   "canvas.kanbanPlate": "kanban",

@@ -6,7 +6,7 @@ import {
   textCapFor,
   textClipped,
 } from "@remo/canvas";
-import type { Rect } from "@remo/model";
+import type { Rect, ShapeKind } from "@remo/model";
 import type { MutableRefObject } from "react";
 import {
   addConnectorWaypoint,
@@ -34,6 +34,7 @@ import {
   setNoteTextAlign,
   setNoteTextVAlign,
   setShapeStyle,
+  setShapeKind,
   setStickySize,
   setTextColor,
   clearTextFormatting,
@@ -515,6 +516,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       setStrokeWidth: (width: number) => setShapeStyle(board, selectedIds, { strokeWidth: width }),
       setStrokeStyle: (strokeStyle: "normal" | "dashed") =>
         setShapeStyle(board, selectedIds, { strokeStyle }),
+      setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
       setSize: (size: StickySize) => setStickySize(board, selectedIds, size),
       setFont: (size: number | null) => setNoteFontSize(board, selectedIds, size),
       toggleMark: (mark: keyof TextMarks) => toggleNoteMark(board, selectedIds, mark),
@@ -625,6 +627,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       canGroup: isGroupable(commandContext),
       canUngroup: selectionHasGroup(commandContext),
       selectType,
+      setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
       setColour: (color) => {
         const allConnectors =
           selectedIds.length > 0 &&

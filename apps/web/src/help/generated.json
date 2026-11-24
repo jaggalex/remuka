@@ -728,6 +728,31 @@
       }
     },
     {
+      "id": "objects.shapes",
+      "type": "how-to",
+      "title": {
+        "ru": "Нарисовать фигуру и сменить её вид",
+        "en": "Draw a shape and switch its kind"
+      },
+      "summary": {
+        "ru": "Пять видов, рисование протягиванием и смена вида без потери текста и связей.",
+        "en": "Five kinds, drawing by dragging, and switching the kind without losing text or connectors."
+      },
+      "related": [
+        "connectors.create",
+        "room.colours",
+        "room.panel"
+      ],
+      "verifiedAgainst": "2026-11-24",
+      "audience": "public",
+      "sourceHash": "sha256:14e145eb3c4479124819eaaf03af876853bddaadd560e87fa2983425bd48f03d",
+      "translationStatus": "current",
+      "html": {
+        "ru": "<h2>Результат</h2>\n<p>На холсте фигура нужного размера: прямоугольник, скруглённый прямоугольник, овал, ромб или треугольник. Её вид можно сменить позже — текст, цвет, размер и связи останутся на месте.</p>\n<h2>Шаги</h2>\n<ol>\n<li>Нажмите <strong>Фигура</strong> в рейке, <code>R</code> для прямоугольника или <code>O</code> для овала. Каретка у инструмента открывает все пять видов с названиями и клавишами.</li>\n<li>Протяните по холсту — фигура будет того размера, который вы нарисовали. Плашка рядом показывает ширину и высоту. <code>Shift</code> делает ровный квадрат или круг, <code>Alt</code> растягивает от точки нажатия.</li>\n<li>Отпустите — фигура выделена, а рейка вернулась к <strong>Выбору</strong>. Короткий клик без протяжки ставит фигуру по умолчанию в центре; второе нажатие <code>R</code> или <code>O</code> делает то же.</li>\n<li>Выделите фигуру и откройте <strong>Вид ▾</strong> на планке объекта: пять силуэтов. <strong>Острые</strong> и <strong>Скруглённые</strong> переключают прямоугольник; у остальных видов переключатель неактивен и говорит почему.</li>\n<li><code>Esc</code> отменяет выбранный инструмент. Двойной клик по <strong>Фигуре</strong> оставляет инструмент для серии фигур — тоже до <code>Esc</code>.</li>\n</ol>\n<h2>Проверка</h2>\n<ul>\n<li>Нарисованная протяжкой фигура имеет ровно тот размер, который показывала плашка, при любом масштабе.</li>\n<li>После смены вида текст, цвет, размер и связи на месте; одна отмена возвращает прежний вид.</li>\n<li>Связь касается контура: у треугольника — наклонной стороны, у ромба — ближайшей точки.</li>\n<li>Второй участник видит новую фигуру и смену вида в реальном времени.</li>\n</ul>\n<h2>Ограничения</h2>\n<ul>\n<li><strong>Острые</strong> и <strong>Скруглённые</strong> есть только у прямоугольника: это два его вида, а не отдельное поле.</li>\n<li>Новые виды не добавляются; штриховки и стиля «от руки» нет.</li>\n<li>В режиме <strong>Только просмотр</strong> инструмент не взводится: фигуру создаёт редактор комнаты.</li>\n</ul>\n",
+        "en": "<h2>Result</h2>\n<p>A shape of the size you drew is on the board: a rectangle, a rounded rectangle, an ellipse, a diamond or a triangle. You can switch its kind later — text, colour, size and connectors stay where they are.</p>\n<h2>Steps</h2>\n<ol>\n<li>Click <strong>Shape</strong> in the rail, press <code>R</code> for a rectangle or <code>O</code> for an ellipse. The caret beside the tool opens all five kinds with their names and keys.</li>\n<li>Drag across the board — the shape takes the size you drew. The plate beside it shows width and height. <code>Shift</code> makes a square or a circle, <code>Alt</code> grows it from the press point.</li>\n<li>Release — the shape is selected and the rail is back on <strong>Select</strong>. A short click without a drag places the default shape at the centre; a second press of <code>R</code> or <code>O</code> does the same.</li>\n<li>Select a shape and open <strong>Kind ▾</strong> on its bar: five silhouettes. <strong>Sharp</strong> and <strong>Rounded</strong> switch the rectangle; on the other kinds the switch is disabled and says why.</li>\n<li><code>Esc</code> cancels the chosen tool. A double click on <strong>Shape</strong> keeps the tool for a series — also until <code>Esc</code>.</li>\n</ol>\n<h2>Check</h2>\n<ul>\n<li>A shape drawn by dragging has exactly the size the plate showed, at any zoom.</li>\n<li>After a kind switch, text, colour, size and connectors are still there; one undo brings the previous kind back.</li>\n<li>A connector meets the drawn outline: the slanted side of a triangle, the nearest point of a diamond.</li>\n<li>A second participant sees the new shape and the kind switch in real time.</li>\n</ul>\n<h2>Limits</h2>\n<ul>\n<li><strong>Sharp</strong> and <strong>Rounded</strong> exist only for a rectangle: they are two of its kinds, not a separate field.</li>\n<li>No new kinds are added; there is no hatching or hand-drawn style.</li>\n<li>In <strong>View only</strong> the tool does not arm: a room editor creates shapes.</li>\n</ul>\n"
+      }
+    },
+    {
       "id": "org.manage",
       "type": "how-to",
       "title": {
@@ -1156,6 +1181,12 @@
         "text": "Результат У объекта есть необязательное Имя для поиска и презентации и постоянный ID для ссылок и команд. Имя не рисуется на холсте; ID не меняется. Шаги Выделите объект в комнате. На панели Свойства раскройте строку Имя и ссылка , заполните поле Имя и нажмите Enter или кликните вне поля. Пустое значение убирает имя. ID только для чтения показан в ⋯ → Инфо (меню объекта или ⋯ Ещё действия на панели). Нажмите Скопировать ID , чтобы вставить его в ссылку, команду или сообщение об ошибке. Проверка Имя видно в списке объектов презентации и находится поиском. Имя не появилось на холсте и не изменило текст объекта. ID остался прежним после переименования и перезагрузки. Ограничения Имя не обязано быть уникальным: два объекта могут называться одинаково. ID изменить нельзя; это стабильная идентичность объекта. Пустое имя означает «без имени»; подпись в презентации берётся из заголовка, текста или ID."
       },
       {
+        "id": "objects.shapes",
+        "title": "Нарисовать фигуру и сменить её вид",
+        "summary": "Пять видов, рисование протягиванием и смена вида без потери текста и связей.",
+        "text": "Результат На холсте фигура нужного размера: прямоугольник, скруглённый прямоугольник, овал, ромб или треугольник. Её вид можно сменить позже — текст, цвет, размер и связи останутся на месте. Шаги Нажмите Фигура в рейке, R для прямоугольника или O для овала. Каретка у инструмента открывает все пять видов с названиями и клавишами. Протяните по холсту — фигура будет того размера, который вы нарисовали. Плашка рядом показывает ширину и высоту. Shift делает ровный квадрат или круг, Alt растягивает от точки нажатия. Отпустите — фигура выделена, а рейка вернулась к Выбору . Короткий клик без протяжки ставит фигуру по умолчанию в центре; второе нажатие R или O делает то же. Выделите фигуру и откройте Вид ▾ на планке объекта: пять силуэтов. Острые и Скруглённые переключают прямоугольник; у остальных видов переключатель неактивен и говорит почему. Esc отменяет выбранный инструмент. Двойной клик по Фигуре оставляет инструмент для серии фигур — тоже до Esc . Проверка Нарисованная протяжкой фигура имеет ровно тот размер, который показывала плашка, при любом масштабе. После смены вида текст, цвет, размер и связи на месте; одна отмена возвращает прежний вид. Связь касается контура: у треугольника — наклонной стороны, у ромба — ближайшей точки. Второй участник видит новую фигуру и смену вида в реальном времени. Ограничения Острые и Скруглённые есть только у прямоугольника: это два его вида, а не отдельное поле. Новые виды не добавляются; штриховки и стиля «от руки» нет. В режиме Только просмотр инструмент не взводится: фигуру создаёт редактор комнаты."
+      },
+      {
         "id": "org.manage",
         "title": "Организация и команды",
         "summary": "Личная и общая организация, переименование, команды и их участники.",
@@ -1396,6 +1427,12 @@
         "title": "Object name and ID",
         "summary": "An object label for search and presentation; a stable ID and copying.",
         "text": "Result An object has an optional Name for search and presentation and a permanent ID for links and commands. The name is not painted on the canvas; the ID never changes. Steps Select an object in the room. On the Properties panel, open the Name and link row, fill in Name and press Enter or click outside the field. An empty value removes the name. The read-only ID is in ⋯ → Info (the object menu, or ⋯ More actions on the panel). Click Copy ID to paste it into a link, a command or a bug report. Check The name appears in the presentation object list and is found by search. The name did not appear on the canvas and did not change the object's text. The ID stayed the same after renaming and reloading. Limits A name does not have to be unique: two objects may share one. An ID cannot be changed; it is the object's stable identity. An empty name means &quot;no name&quot;; the presentation label falls back to the title, text or ID."
+      },
+      {
+        "id": "objects.shapes",
+        "title": "Draw a shape and switch its kind",
+        "summary": "Five kinds, drawing by dragging, and switching the kind without losing text or connectors.",
+        "text": "Result A shape of the size you drew is on the board: a rectangle, a rounded rectangle, an ellipse, a diamond or a triangle. You can switch its kind later — text, colour, size and connectors stay where they are. Steps Click Shape in the rail, press R for a rectangle or O for an ellipse. The caret beside the tool opens all five kinds with their names and keys. Drag across the board — the shape takes the size you drew. The plate beside it shows width and height. Shift makes a square or a circle, Alt grows it from the press point. Release — the shape is selected and the rail is back on Select . A short click without a drag places the default shape at the centre; a second press of R or O does the same. Select a shape and open Kind ▾ on its bar: five silhouettes. Sharp and Rounded switch the rectangle; on the other kinds the switch is disabled and says why. Esc cancels the chosen tool. A double click on Shape keeps the tool for a series — also until Esc . Check A shape drawn by dragging has exactly the size the plate showed, at any zoom. After a kind switch, text, colour, size and connectors are still there; one undo brings the previous kind back. A connector meets the drawn outline: the slanted side of a triangle, the nearest point of a diamond. A second participant sees the new shape and the kind switch in real time. Limits Sharp and Rounded exist only for a rectangle: they are two of its kinds, not a separate field. No new kinds are added; there is no hatching or hand-drawn style. In View only the tool does not arm: a room editor creates shapes."
       },
       {
         "id": "org.manage",

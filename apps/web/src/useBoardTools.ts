@@ -1,18 +1,20 @@
 import { useMemo, useState } from "react";
-import type { Widget, KanbanState, ShapeKind } from "@remo/model";
+import type { Rect, Widget, KanbanState, ShapeKind } from "@remo/model";
 import type { RailTool } from "./ToolRail";
 import { cardTargetFor } from "./cardTarget";
 import { useI18n } from "./i18n";
 import { noteFillChoices, noteFillExtras } from "./object-panel/palette";
 import { requestImagePicker } from "./imageIntake";
+import { armedShapeKind, useArmedTool } from "./useArmedTool";
 
 /**
- * The rail's behaviour, in one place (ADR-119).
+ * The rail's behaviour, in one place (ADR-119, ADR-271).
  *
  * Clicking a tool and pressing its key run the same function, so the two can never
- * drift. A tool without variants creates at once; a tool with variants opens a flyout
- * and creates the chosen sample. There is no "active tool" mode: the canvas keeps its
- * select-and-drag gestures, and the rail returns to Select after every creation.
+ * drift. A tool without variants creates at once; a shape tool is *armed* instead and
+ * waits for the canvas: a drag draws it at size, a click creates the default, Escape
+ * puts the rail back to Select. `useArmedTool` is the one state the rail, the keys and
+ * the gesture read.
  */
 export function useBoardTools({
   widgets,
@@ -53,7 +55,8 @@ export function useBoardTools({
   createSticky: (fill?: string) => void;
   createStickyStack: () => void;
   createText: () => void;
-  createShape: (kind: ShapeKind) => void;
+  /** Without a box the default shape lands at the centre; with one it is drawn to size. */
+  createShape: (kind: ShapeKind, box?: Rect) => void;
   createFrame: () => void;
   createCard: () => boolean;
   openComment: () => void;
@@ -62,6 +65,7 @@ export function useBoardTools({
 }) {
   const { t } = useI18n();
   const [flyout, setFlyout] = useState<"sticky" | "shape" | null>(null);
+  const { armed, arm, disarm, finish } = useArmedTool();
 
   /**
    * The fill grid of the colour window, read once: the rail is a shortcut into the same
@@ -73,9 +77,23 @@ export function useBoardTools({
 
   const canAddCard = Boolean(cardTargetFor(widgets, selectedIds, kanbanStates));
 
+  /** Choosing a shape — the rail button, the flyout or a key — arms it (ADR-271). */
+  const armShape = (kind: ShapeKind, series = false) => {
+    arm("shape", kind, series);
+    setFlyout(null);
+  };
+
+  const cancelArmed = () => disarm();
+
+  const drawShape = (kind: ShapeKind, box: Rect | null) => {
+    createShape(kind, box ?? undefined);
+    finish();
+  };
+
   const run = (tool: RailTool, fill?: string) => {
     switch (tool) {
       case "select":
+        disarm();
         setSelectedIds([]);
         break;
       case "sticky":
@@ -96,17 +114,26 @@ export function useBoardTools({
       case "rectangle":
       case "ellipse":
       case "diamond":
-        createShape(tool);
-        setFlyout(null);
+        // The key is both "take the tool" and "make one now": a second press creates the
+        // default at the centre, as ADR-119 promised (ADR-271 keeps that).
+        if (armedShapeKind(armed) === tool) {
+          createShape(tool);
+          finish();
+        } else {
+          armShape(tool);
+        }
         break;
       case "connector":
+        disarm();
         if (canConnect) connectSelection();
         else notify(t("tool.connectorHint"));
         break;
       case "frame":
+        disarm();
         createFrame();
         break;
       case "card":
+        disarm();
         if (!createCard()) notify(t("tool.cardHint"));
         break;
       case "comment":
@@ -125,10 +152,9 @@ export function useBoardTools({
     onSticky: (fill?: string) => run("sticky", fill),
     onText: () => run("text"),
     onImage: () => requestImagePicker(),
-    onShape: (kind: ShapeKind) => {
-      createShape(kind);
-      setFlyout(null);
-    },
+    onShape: (kind: ShapeKind) => armShape(kind),
+    onShapeSeries: (kind: ShapeKind) => armShape(kind, true),
+    armedShape: armedShapeKind(armed),
     onConnector: () => run("connector"),
     onFrame: () => run("frame"),
     onCard: () => run("card"),
@@ -143,5 +169,5 @@ export function useBoardTools({
     noteExtras,
   };
 
-  return { rail, run };
+  return { rail, run, cancelArmed, drawShape };
 }

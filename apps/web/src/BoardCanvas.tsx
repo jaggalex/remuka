@@ -35,6 +35,8 @@ import { useTableCellMenu } from "./TableCellMenu";
 import { CanvasTableLayer } from "./CanvasTableLayer";
 import { placedWidget, type ContinuePreview } from "./canvasGeometry";
 import { useGestures } from "./useGestures";
+import type { ShapeTool } from "./gestureTypes";
+import { ShapeDraftOverlay } from "./ShapeDraftOverlay";
 import { useCanvasWheel } from "./useCanvasWheel";
 import { useCanvasPainting } from "./useCanvasPainting";
 import { useBoardCameraFit } from "./useBoardCameraFit";
@@ -163,6 +165,7 @@ interface Props {
   settings: BoardSettings;
   /** A viewer or a public link: selection and panning work, writing does not. */
   readOnly?: boolean;
+  shapeTool?: ShapeTool | null;
   /** The open voting session, painted on the objects it covers (ADR-115). */
   voteSession: VoteSession | null;
   voteBusy: boolean;
@@ -239,6 +242,7 @@ export function BoardCanvas({
   hintAllowed,
   settings,
   readOnly = false,
+  shapeTool,
   voteSession,
   voteBusy,
   voteOffset,
@@ -371,6 +375,7 @@ export function BoardCanvas({
     onCreateConnected,
     onCursor,
     onToggleCheck,
+    shapeTool,
     readOnly,
   });
 
@@ -478,7 +483,6 @@ export function BoardCanvas({
    * going without the person having to pan.
    */
   const centredFor = useRef<string | null>(null);
-
   useEffect(() => {
     if (!editingId) return;
     // Once per editing session: panning while a note is open must not snap back.
@@ -502,7 +506,6 @@ export function BoardCanvas({
   }, [camera, editingId, layouts, setCamera, viewport, widgets]);
 
   useCanvasWheel(overlayRef, camera, setCamera);
-
   const { fit, zoomBy } = useBoardCameraFit({
     camera,
     setCamera,
@@ -773,6 +776,7 @@ export function BoardCanvas({
         camera={camera}
         viewport={viewport}
       />
+      <ShapeDraftOverlay draft={gestures.shapeDraft} camera={camera} viewport={viewport} />
       <ImageLightbox widgets={presenting ? [] : widgets} />
       <ConnectorBar
         target={presenting ? null : connectorBar}

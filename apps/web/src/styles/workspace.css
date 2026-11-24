@@ -51,6 +51,42 @@
 }
 
 /*
+ * The shape being drawn (ADR-271): a dashed silhouette and its size. It is chrome over
+ * the canvas, like the marquee, and never takes a click.
+ */
+.shape-draft {
+  position: absolute;
+  z-index: var(--z-bar);
+  pointer-events: none;
+  color: var(--selection-stroke);
+}
+
+.shape-draft-outline {
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+
+.shape-draft-size {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--space-1));
+  transform: translateX(-50%);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
  * System messages (a connector limit, a refused lock, the presentation note): one
  * plate under the header, never inside the canvas gesture area.
  */

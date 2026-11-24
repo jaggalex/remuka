@@ -11,6 +11,7 @@
  */
 import type { ConnectorEnd, ConnectorSide, Rect, Vec2, Widget } from "@remo/model";
 import { hasLegacyConnectorShape, rigidWaypoints, routingOf } from "@remo/model";
+import { anchorPoint, boxOf, facingSide, outlineAnchor, sideNormal } from "./anchor";
 
 export interface Segment {
   from: Vec2;
@@ -23,44 +24,6 @@ export interface ConnectorPath {
   points: Vec2[];
   /** Control points when the line is curved, so the painter can draw it as a curve. */
   curve?: { from: Vec2; c1: Vec2; c2: Vec2; to: Vec2 };
-}
-
-export function boxOf(widget: Widget): Rect {
-  return {
-    x: widget.x - widget.width / 2,
-    y: widget.y - widget.height / 2,
-    width: widget.width,
-    height: widget.height,
-  };
-}
-
-/** Unit vector pointing out of the given side. */
-export function sideNormal(side: ConnectorSide): Vec2 {
-  switch (side) {
-    case "left":
-      return { x: -1, y: 0 };
-    case "right":
-      return { x: 1, y: 0 };
-    case "top":
-      return { x: 0, y: -1 };
-    case "bottom":
-      return { x: 0, y: 1 };
-  }
-}
-
-/** Side of `box` that faces `towards`. */
-export function facingSide(box: Rect, towards: Vec2): ConnectorSide {
-  const centerX = box.x + box.width / 2;
-  const centerY = box.y + box.height / 2;
-  const dx = towards.x - centerX;
-  const dy = towards.y - centerY;
-
-  // Compare against the box's aspect so a wide note does not answer "left" for a
-  // point that is almost directly below it.
-  const scaleX = dx / Math.max(box.width / 2, 1);
-  const scaleY = dy / Math.max(box.height / 2, 1);
-  if (Math.abs(scaleX) >= Math.abs(scaleY)) return scaleX >= 0 ? "right" : "left";
-  return scaleY >= 0 ? "bottom" : "top";
 }
 
 /** Ports in the order a tie between two equally near sides is broken (ADR-137). */
@@ -108,43 +71,6 @@ export function resolvedEndSide(
   const offset = end?.offset;
   if (offset !== 0 && offset !== 1) return side;
   return nearestSideMidpoint(box, anchorPoint(box, side, offset));
-}
-
-/** Point on `side` of `box`, `offset` along it (0.5 is the middle). */
-export function anchorPoint(box: Rect, side: ConnectorSide, offset = 0.5): Vec2 {
-  const t = Math.min(1, Math.max(0, offset));
-  switch (side) {
-    case "left":
-      return { x: box.x, y: box.y + t * box.height };
-    case "right":
-      return { x: box.x + box.width, y: box.y + t * box.height };
-    case "top":
-      return { x: box.x + t * box.width, y: box.y };
-    case "bottom":
-      return { x: box.x + t * box.width, y: box.y + box.height };
-  }
-}
-
-/**
- * Point where the line from `from` to `to` leaves `box`.
- *
- * Used when an end has no explicit side: clipping to the box (rather than starting
- * at the centre) keeps arrow heads and line caps off the object they belong to.
- */
-export function edgePoint(box: Rect, towards: Vec2): Vec2 {
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const dx = towards.x - cx;
-  const dy = towards.y - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy };
-
-  const halfWidth = box.width / 2;
-  const halfHeight = box.height / 2;
-  const scale = Math.min(
-    dx === 0 ? Infinity : Math.abs(halfWidth / dx),
-    dy === 0 ? Infinity : Math.abs(halfHeight / dy),
-  );
-  return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
 /** How an elbow leaves an object; settings can tune both numbers. */
@@ -282,8 +208,8 @@ export function connectorPath(
     toBox,
     facingSide(toBox, { x: fromWidget.x, y: fromWidget.y }),
   );
-  const from = anchorPoint(fromBox, fromSide);
-  const to = anchorPoint(toBox, toSide);
+  const from = outlineAnchor(fromBox, fromSide, fromWidget.shapeKind);
+  const to = outlineAnchor(toBox, toSide, toWidget.shapeKind);
 
   // Records made before ADR-077 keep their old geometry for one release: their
   // `bend`/`elbowFlip`/`curve` fields are not user state any more, but silently

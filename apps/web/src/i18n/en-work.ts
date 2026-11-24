@@ -5,6 +5,13 @@
  * `keyof typeof en` in i18n.tsx remains the single type (ADR-093).
  */
 export const enWork = {
+  "shape.kind": "Kind",
+  "shape.kindTitle": "Shape kind",
+  "shape.kindMixed": "Mixed",
+  "shape.corners": "Corners",
+  "shape.sharp": "Sharp",
+  "shape.rounded": "Rounded",
+  "shape.cornersRectangleOnly": "Rectangles only",
   "sync.connecting": "Connecting",
   "sync.saved": "All saved",
   "sync.pending": "Saving…",

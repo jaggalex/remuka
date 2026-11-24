@@ -46,7 +46,7 @@ pnpm baselines
 | `rich-blocks.png` | Headings, three list levels, a checklist, a link and inline code on a text block and a note |
 | `rich-blocks-dark.png` | The same block text in the dark theme: the paper note keeps its ink |
 | `elevation.png` | A shape on the "Cardboard" level: a hard ink shadow offset by six board units, no blur (ADR-267) |
-| `elevation-dark.png` | The same shape in the dark theme, where "Cardboard" is painted as "Floating" until the dark theme gets its own cardboard |
+| `shapes.png` | Five kinds on one board with their kind switch open: a rounded rectangle, a rectangle, an ellipse, a diamond and a triangle, and connectors that meet the drawn outlines (ADR-271, T17) || `elevation-dark.png` | The same shape in the dark theme, where "Cardboard" is painted as "Floating" until the dark theme gets its own cardboard |
 
 The automatic gate **compares** every screen with its PNG in one Linux browser (ADR-222).
 A pixel counts as different when it differs by more than about 8 grey levels (threshold

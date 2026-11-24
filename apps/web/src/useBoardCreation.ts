@@ -169,17 +169,20 @@ export function useBoardCreation({
   );
 
   const addShape = useCallback(
-    (kind: ShapeKind) => {
+    (kind: ShapeKind, box?: { x: number; y: number; width: number; height: number }) => {
       const id = newId("shape");
-      createShape(board, id, kind, nextSpot(), {
+      const at = box
+        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        : nextSpot();
+      createShape(board, id, kind, at, {
         fillColor: settings.shapes.fill,
         strokeColor: settings.shapes.stroke,
         strokeWidth: settings.shapes.strokeWidth,
-      });
+      }, box ? { width: box.width, height: box.height } : undefined);
       setSelectedIds([id]);
       return id;
     },
-    [board, nextSpot],
+    [board, nextSpot, setSelectedIds, settings.shapes.fill, settings.shapes.stroke, settings.shapes.strokeWidth],
   );
 
   return {

@@ -162,6 +162,7 @@ export function BoardApp() {
     addTextAndEdit,
     addShapeAndEdit,
     rail,
+    shapeTool,
     editWidget,
     claimBoard,
     menu,
@@ -446,6 +447,7 @@ export function BoardApp() {
           hintAllowed={hintAllowed}
           settings={settings}
           readOnly={writeBlocked}
+          shapeTool={shapeTool}
         />
         <CanvasChrome
           follow={follow}

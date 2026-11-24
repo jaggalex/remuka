@@ -400,7 +400,7 @@ export function useBoardAppState() {
     setEditingId,
   });
 
-  const { rail, run: runTool } = useBoardTools({
+  const { rail, run: runTool, cancelArmed, drawShape } = useBoardTools({
     widgets,
     selectedIds,
     kanbanStates,
@@ -481,6 +481,8 @@ export function useBoardAppState() {
     board,
     writeBlocked,
     onTool: runTool,
+    armedShape: rail.armedShape,
+    onCancelTool: cancelArmed,
     onTone: applyTone,
     onLineBlock: applyLineBlock,
     onAgentUndo: roomAgent.undoAgentDraft,
@@ -499,6 +501,9 @@ export function useBoardAppState() {
     forceRender,
     pasteSelection,
   });
+
+  /** The armed shape tool as the canvas sees it (ADR-271). */
+  const shapeTool = rail.armedShape ? { kind: rail.armedShape, onDraw: drawShape } : null;
 
   /** Take an unprotected room: the first signed-in visitor becomes its owner. */
   const claimBoard = useCallback(async () => {
@@ -667,6 +672,7 @@ export function useBoardAppState() {
     addTextAndEdit,
     addShapeAndEdit,
     rail,
+    shapeTool,
     editWidget,
     claimBoard,
     menu,

@@ -25,6 +25,12 @@ import { HelpLink } from "../help/HelpLink";
 import { TextFormatBar } from "./TextFormatBar";
 import { LinkWindow } from "./LinkWindow";
 import {
+  SHAPE_KIND_LABEL,
+  ShapeCorners,
+  ShapeKindGrid,
+  shapeSelection,
+} from "./ShapeKindPicker";
+import {
   applyEditorHref,
   commonBlock,
   editorFormat,
@@ -46,7 +52,7 @@ import {
 
 export type { StickyBarActions, StickyBarTarget };
 
-type PopoverName = "colour" | "align" | "more" | "link" | null;
+type PopoverName = "kind" | "colour" | "align" | "more" | "link" | null;
 
 const NO_FORMAT: EditorFormat = { block: null, href: null, code: false };
 
@@ -180,6 +186,7 @@ export function StickyPanel({
   const shapePreset = shape
     ? SHAPE_PRESETS.find((preset) => shapePresetSelected(preset, target))
     : undefined;
+  const kind = shape ? shapeSelection([target.shapeKind ?? "rectangle"]) : null;
   // The sample is named by the same role list the window draws, so White, Black and
   // "None" read as words on the bar too (ADR-140).
   const colourRole: NamedColorRole = shape ? "fill" : text ? "text" : "note";
@@ -298,6 +305,47 @@ export function StickyPanel({
 
   return (
     <ObjectBar ref={ref} placement={target.placement} label={t("sticky.properties")}>
+      {shape && kind && (
+        <>
+          <span className="sb-anchor">
+            <Button
+              variant="ghost"
+              size="compact"
+              className="sb-kind"
+              iconEnd="chevron-down"
+              aria-label={`${t("shape.kind")}: ${t(SHAPE_KIND_LABEL[kind.kind ?? "rectangle"])}`}
+              aria-haspopup="dialog"
+              aria-expanded={open === "kind"}
+              selected={open === "kind"}
+              onClick={() => setOpen(open === "kind" ? null : "kind")}
+            >
+              {t("shape.kind")}
+            </Button>
+            {open === "kind" && (
+              <PanelWindow>
+                <Popover title={t("shape.kindTitle")} width={240} onClose={() => setOpen(null)}>
+                  <ShapeKindGrid
+                    value={kind.kind}
+                    ariaLabel={t("shape.kindTitle")}
+                    onPick={(next) => {
+                      actions.setShapeKind(next);
+                      setOpen(null);
+                    }}
+                  />
+                </Popover>
+              </PanelWindow>
+            )}
+          </span>
+          <ShapeCorners
+            rounded={kind.rounded}
+            disabled={!kind.canRound}
+            onChange={(rounded) =>
+              actions.setShapeKind(rounded ? "round_rectangle" : "rectangle")
+            }
+          />
+          <span className="sb-divider" aria-hidden="true" />
+        </>
+      )}
       <span className="sb-anchor">
         <Button
           variant="ghost"

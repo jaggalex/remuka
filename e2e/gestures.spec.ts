@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, freshBoard, openBoard, register, seedConnector, seedNote, seedObject } from "./helpers";
+import { addSticky, createShape, freshBoard, openBoard, register, seedConnector, seedNote, seedObject } from "./helpers";
 
 /**
  * The pointer state machine in a real browser (ADR-059).
@@ -223,9 +223,7 @@ test("a shape resizes like a note, its text reflows and one undo puts it back (A
   page,
 }) => {
   await freshBoard(page, "gesture-shape-resize");
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   const before = await shape(page);
   const view = await geometry(page);
@@ -633,9 +631,7 @@ test("Alt resizes around the centre (ADR-212)", async ({ page }) => {
  */
 test("a shape grows down for its text (ADR-214)", async ({ page }) => {
   await freshBoard(page, "gesture-shape-grow");
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   // A tolerant read: the probe is refreshed on every render, and a poll must not fail
   // because it looked during a re-render.

@@ -10,8 +10,8 @@ import {
   type ContinuePreview,
 } from "./canvasGeometry";
 import {
-  anchorPoint,
   boxOf,
+  outlineAnchor,
   CARD_RADIUS,
   cardDropSlot,
   connectorHandles,
@@ -489,7 +489,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   if (connectDraft) {
     const source = widgetById(connectDraft.fromId);
     if (source) {
-      const start = anchorPoint(boxOf(source), connectDraft.fromSide);
+      const start = outlineAnchor(boxOf(source), connectDraft.fromSide, source.shapeKind);
       const end = connectDraft.targetPoint ?? { x: connectDraft.x, y: connectDraft.y };
       ctx.strokeStyle = palette.accent;
       ctx.lineWidth = 2 / camera.zoom;
@@ -661,7 +661,7 @@ function drawContinuePreview(
 ): void {
   const { source, direction, decision, freeCenter } = preview;
   const palette = theme.palette;
-  const from = anchorPoint(boxOf(source), sideOfDirection(direction));
+  const from = outlineAnchor(boxOf(source), sideOfDirection(direction), source.shapeKind);
 
   ctx.save();
   ctx.strokeStyle = palette.accent;
@@ -671,7 +671,7 @@ function drawContinuePreview(
   if (decision.kind === "connect" || decision.kind === "duplicate") {
     const target = boxOf(decision.target);
     if (decision.kind === "connect") {
-      const to = anchorPoint(target, decision.endSide);
+      const to = outlineAnchor(target, decision.endSide, decision.target.shapeKind);
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
@@ -687,7 +687,7 @@ function drawContinuePreview(
     );
   } else if (freeCenter) {
     const ghost = { ...source, x: freeCenter.x, y: freeCenter.y };
-    const to = anchorPoint(boxOf(ghost), oppositeSide(sideOfDirection(direction)));
+    const to = outlineAnchor(boxOf(ghost), oppositeSide(sideOfDirection(direction)), ghost.shapeKind);
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);

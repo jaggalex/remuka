@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import {
+  createShape,
   ensureProperties,
   freshBoard,
   openBoardMenu,
@@ -38,9 +39,7 @@ test("the cardboard level is saved, reaches the second participant and lands in 
   browser,
 }) => {
   const account = await freshBoard(page, "cardboard", { template: "empty" });
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Ellipse", exact: true }).click();
+  await createShape(page, "Ellipse");
   const shape = (await widgets(page)).find((widget) => widget.type === "shape")!;
   expect(shape, "the ellipse was created").toBeTruthy();
 

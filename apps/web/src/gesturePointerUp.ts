@@ -11,9 +11,22 @@ import { axisDropSlot, cardDropSlot, boxOf, cellAt, facingSide, pickInRect, plac
 import type { ConnectorPatch } from "@remo/doc";
 
 export function pointerUp(env: GestureEnv) {
-  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setDragGhostIds, setDragIds, setDragPreview, setGuides, setHoverCell, setMarquee, setTableHover, setTableRefused, settings, widgetById, widgets } = env;
+  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setDragGhostIds, setDragIds, setDragPreview, setGuides, setHoverCell, setMarquee, setShapeDraft, setTableHover, setTableRefused, settings, shapeTool, widgetById, widgets } = env;
   const drag = dragRef.current;
   dragRef.current = null;
+
+  if (drag?.mode === "shape") {
+    setShapeDraft(null);
+    if (!shapeTool) return;
+    // A click creates the default at the centre; a drag creates the box that was
+    // previewed. Both go through the same command (ADR-271, ADR-119).
+    const box =
+      drag.moved && drag.rect && drag.rect.width >= 1 && drag.rect.height >= 1
+        ? drag.rect
+        : null;
+    shapeTool.onDraw(drag.kind, box);
+    return;
+  }
 
   if (drag?.mode === "connector") {
     const patch = previewLive.current.get(drag.id);

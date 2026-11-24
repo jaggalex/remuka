@@ -1,4 +1,4 @@
-import type { LineFormat, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
+import type { LineFormat, ShapeKind, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
 
 /** One line format of the object, ready for the bar (ADR-252 §2.2). */
 export type TextLineBlock = NonNullable<LineFormat["block"]>;
@@ -30,6 +30,8 @@ export interface StickyBarTarget {
   strokeWidth?: number;
   /** Shape outline dash; unused by notes. */
   strokeStyle?: "normal" | "dashed" | "dotted";
+  /** A shape's kind; absent for notes and text. */
+  shapeKind?: ShapeKind;
   size: StickySize;
   /** Explicit text size, or null for Auto. */
   fontSize: number | null;
@@ -58,6 +60,8 @@ export interface StickyBarActions {
   setStroke: (color: string | null) => void;
   setStrokeWidth: (width: number) => void;
   setStrokeStyle: (style: "normal" | "dashed") => void;
+  /** Switch a shape's kind, keeping its text, size, style and connectors (ADR-271). */
+  setShapeKind: (kind: ShapeKind) => void;
   setSize: (size: StickySize) => void;
   setFont: (size: number | null) => void;
   toggleMark: (mark: keyof TextMarks) => void;

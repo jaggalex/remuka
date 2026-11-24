@@ -14,6 +14,8 @@ An object has a type, a position, and a size. The type defines whether it can be
 
 **Size.** A sticky note, text, shape and frame resize with the corner handles. In a sticky note and a shape the text fits the new box instead of being stretched, while an explicitly set text size is kept; in a frame the contents keep their size and position, and membership is re-evaluated by the object's centre. The size and the membership change in one undo step.
 
+**Shapes.** Five kinds: a rectangle, a rounded rectangle, an ellipse, a diamond, a triangle. The **Shape** tool or the `R`/`O` key arms a shape: drag across the board to draw it at the size you want, `Shift` makes a square or a circle, `Alt` grows it from the press point. Change the kind of a finished shape on its bar (**Kind ▾**); **Sharp** and **Rounded** switch the rectangle. Text, colour, size and connectors stay, and one undo restores the previous kind. A connector meets the drawn outline, not the corner of its box.
+
 **Colour.** An object has several roles — sheet or fill, border, text, line and connector label — and all take values from one palette: seven tones at three levels plus named White, Black and Transparent. A fill with no colour is called **Transparent**, while a border or a line is **None**. Change a colour with the sample on the object bar, the palette in the rail or keys 1–7; details are in [/guide/concepts/colors](/guide/concepts/colors).
 
 ## Example

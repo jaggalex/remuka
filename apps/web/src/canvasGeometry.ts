@@ -1,8 +1,8 @@
 import {
-  anchorPoint,
   boxOf,
   cellAt,
   layoutTable,
+  outlineAnchor,
   pick,
   placementAt,
   sideNormal,
@@ -186,7 +186,7 @@ export function anchorsOf(
   const box = boxOf(widget);
   const sides: ConnectorSide[] = ["top", "right", "bottom", "left"];
   return sides.map((side) => {
-    const point = anchorPoint(box, side);
+    const point = outlineAnchor(box, side, widget.shapeKind);
     const normal = sideNormal(side);
     return { side, x: point.x + normal.x * gap, y: point.y + normal.y * gap };
   });
@@ -625,7 +625,7 @@ export function anchorSlotDecision(
     }
   }
 
-  const from = anchorPoint(boxOf(source), sideOfDirection(direction));
+  const from = outlineAnchor(boxOf(source), sideOfDirection(direction), source.shapeKind);
   return { kind: "connect", target: best, endSide: nearestAnchor(best, from).side };
 }
 

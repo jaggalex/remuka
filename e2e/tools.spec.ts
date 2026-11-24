@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, freshBoard } from "./helpers";
+import { addSticky, createShape, freshBoard } from "./helpers";
 
 /**
  * The tool rail (ADR-119): creation left, description in the top bar.
@@ -41,6 +41,8 @@ test("the rail creates every object type and the top bar only describes the boar
   await page.locator(".inline-editor").fill("Rail text");
   await page.keyboard.press("Escape");
   await page.keyboard.press("r");
+  // The first press arms the tool; the second is the "make one now" half of ADR-119.
+  await page.keyboard.press("r");
   await page.keyboard.press("f");
   expect(await types()).toContain("text");
   expect(await types()).toContain("shape");
@@ -80,8 +82,7 @@ test("the rail's colour and shape flyouts create the chosen sample", async ({ pa
   await expect.poll(fills).toHaveLength(1);
   expect((await fills())[0]).toMatch(/^#/);
 
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Ellipse" }).click();
+  await createShape(page, "Ellipse");
   const kinds = await page.evaluate(() =>
     (window as unknown as { __remo: { widgets: Array<{ type: string; shapeKind?: string }> } })
       .__remo.widgets.filter((widget) => widget.type === "shape")

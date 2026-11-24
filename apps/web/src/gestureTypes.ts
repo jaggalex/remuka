@@ -1,6 +1,6 @@
 import type { AlignmentGuide, Camera, KanbanLayout } from "@remo/canvas";
 import type { ConnectorPatch, NoteDirection, WidgetPosition, WidgetRect } from "@remo/doc";
-import type { ConnectorSide, Rect, Widget } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 
 /**
@@ -76,6 +76,11 @@ export interface GestureDeps {
   onCreateConnected: (id: string, direction: NoteDirection) => void;
   onCursor: (cursor: { x: number; y: number } | null) => void;
   /**
+   * The armed shape tool (ADR-271): a drag on the canvas draws it at size, a click
+   * without a drag creates the default shape at the centre.
+   */
+  shapeTool?: ShapeTool | null;
+  /**
    * The viewer may read but not write (viewer role or a public link).
    *
    * Selection, pan and the marquee still work — reading a board means being able to
@@ -94,6 +99,13 @@ export interface ConnectDraft {
   targetPoint?: { x: number; y: number };
 }
 
+/** The armed shape tool and the one call that turns a gesture into a document command. */
+export interface ShapeTool {
+  kind: ShapeKind;
+  /** `null` means the click created the default at the centre (ADR-119). */
+  onDraw: (kind: ShapeKind, box: Rect | null) => void;
+}
+
 export interface Gestures {
   cursor: { x: number; y: number } | null;
   dragPreview: { cardId: string; x: number; y: number } | null;
@@ -104,6 +116,8 @@ export interface Gestures {
   /** The pointer is over a header, which never takes objects. */
   tableRefused: boolean;
   marquee: Rect | null;
+  /** The shape being drawn, in board units: the overlay draws its dashed outline and size. */
+  shapeDraft: { rect: Rect; kind: ShapeKind } | null;
   preview: ReadonlyMap<string, Partial<Widget>>;
   dragIds: string[];
   dragGhostIds: string[];

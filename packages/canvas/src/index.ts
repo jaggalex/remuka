@@ -1,4 +1,5 @@
 export * from "./camera";
+export * from "./anchor";
 export * from "./cardSheet";
 export * from "./elevation";
 export * from "./frameLabel";

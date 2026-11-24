@@ -5,7 +5,7 @@ import { connectorPath, isVisible, labelPoint, paintOrder, unionBox, visibleWorl
 import type { AlignmentGuide, Camera, ConnectorHandle, ConnectorPath, SnapTarget } from "@remo/canvas";
 import type { WidgetPosition } from "@remo/doc";
 import { canConnect } from "@remo/model";
-import type { ConnectorSide, Rect, Widget } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, Widget } from "@remo/model";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DragState =
@@ -75,6 +75,17 @@ type DragState =
     }
   | { mode: "connect"; fromId: string; fromSide: ConnectorSide }
   | {
+      /** A drag on the canvas with the shape tool armed (ADR-271). */
+      mode: "shape";
+      kind: ShapeKind;
+      start: { x: number; y: number };
+      startScreen: { x: number; y: number };
+      /** Past the click threshold: the release creates a box instead of a default. */
+      moved: boolean;
+      /** The box as last previewed, so the release commits exactly what was seen. */
+      rect?: Rect;
+    }
+  | {
       mode: "reattach";
       id: string;
       end: "start" | "end";
@@ -134,6 +145,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
+    shapeTool = null,
     readOnly = false,
   } = deps;
 
@@ -175,6 +187,8 @@ export function useGestureEnv(deps: GestureDeps) {
   } | null>(null);
   const [tableRefused, setTableRefused] = useState(false);
   const [marquee, setMarquee] = useState<Rect | null>(null);
+  /** The shape the pointer is drawing right now (ADR-271); the overlay paints it. */
+  const [shapeDraft, setShapeDraft] = useState<{ rect: Rect; kind: ShapeKind } | null>(null);
   /**
    * The gesture in flight, as patches on stored widgets (ADR-051).
    *
@@ -466,6 +480,15 @@ export function useGestureEnv(deps: GestureDeps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [connectPending]);
+
+  // Escape disarms the tool, so its absence is the cancel: the draft and the gesture
+  // go, and the release has nothing to commit (ADR-271).
+  const shapeArmed = shapeTool !== null;
+  useEffect(() => {
+    if (shapeArmed) return;
+    if (dragRef.current?.mode === "shape") dragRef.current = null;
+    setShapeDraft(null);
+  }, [shapeArmed]);
   return {
     camera,
     viewport,
@@ -496,6 +519,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
+    shapeTool,
     readOnly,
     dragRef,
     cardPreviewRef,
@@ -515,6 +539,8 @@ export function useGestureEnv(deps: GestureDeps) {
     setTableRefused,
     marquee,
     setMarquee,
+    shapeDraft,
+    setShapeDraft,
     preview,
     setPreview,
     previewLive,

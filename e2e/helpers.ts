@@ -292,6 +292,32 @@ export async function addSticky(page: Page): Promise<string> {
   return id;
 }
 
+/**
+ * Choose a shape kind in the rail and create the default one with a click (ADR-271).
+ *
+ * Choosing a kind now arms the tool instead of creating at once, so the scenario clicks
+ * the canvas without travelling; that is the "default shape" path of ADR-119.
+ */
+export async function createShape(
+  page: Page,
+  name = "Rectangle",
+): Promise<string> {
+  const before = await objectCount(page, "shape");
+  const rail = page.getByRole("toolbar", { name: "Tools" });
+  await rail.getByRole("button", { name: "Shape variants" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+  const canvas = page.locator(".layer.overlay");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("the canvas is not visible");
+  // Off-centre: an empty room shows its start card in the middle, and that card owns
+  // the click. The default shape still lands at the view's centre (ADR-119).
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.75);
+  await expect.poll(() => objectCount(page, "shape")).toBe(before + 1);
+  return page.evaluate(
+    () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds[0]!,
+  );
+}
+
 export async function enableLink(page: Page, boardId: string): Promise<void> {
   const response = await page.request.put(`/api/boards/${boardId}/link`, {
     data: { enabled: true },

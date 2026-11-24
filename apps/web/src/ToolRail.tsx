@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ShapeKind } from "@remo/model";
-import { Button, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
+import { IconButton, Popover, Separator, Tooltip } from "@remo/ui";
 import type { IconName } from "@remo/ui";
 import { useI18n, type TranslationKey } from "./i18n";
 import { COLOR_WINDOW_WIDTH, ColorSwatch } from "./object-panel/ColorWindow";
@@ -9,6 +9,7 @@ import {
   type NamedFillChoice,
   type NoteFillChoice,
 } from "./object-panel/palette";
+import { ShapeKindList } from "./object-panel/ShapeKindPicker";
 import { HelpLink } from "./help/HelpLink";
 
 /** A rail tool. Select is not a creation tool; it only drops the selection. */
@@ -61,6 +62,8 @@ export function ToolRail({
   canAddCard,
   noteColors,
   noteExtras,
+  armedShape,
+  onShapeSeries,
 }: {
   writeBlocked: boolean;
   /** Why creation is off (view-only or the offline queue): the tooltip says it. */
@@ -87,6 +90,10 @@ export function ToolRail({
   noteColors: readonly NoteFillChoice[];
   /** The named chips beside the grid — White and Black (ADR-140). */
   noteExtras: readonly NamedFillChoice[];
+  /** The shape waiting for a drag on the canvas (ADR-271). */
+  armedShape: ShapeKind | null;
+  /** A double-click on the tool keeps it armed for a series until Escape. */
+  onShapeSeries: (kind: ShapeKind) => void;
 }) {
   const { t } = useI18n();
   const rail = useRef<HTMLDivElement | null>(null);
@@ -125,6 +132,7 @@ export function ToolRail({
     reason?: string;
     disabled?: boolean;
     expanded?: boolean;
+    onDoubleClick?: () => void;
     onClick: () => void;
   }) => {
     const disabled = Boolean(options.disabled);
@@ -149,6 +157,7 @@ export function ToolRail({
           disabled={disabled}
           selected={options.expanded}
           onClick={options.onClick}
+          onDoubleClick={options.onDoubleClick}
         />
       </Tooltip>
     );
@@ -161,7 +170,7 @@ export function ToolRail({
           icon: "cursor",
           label: "tool.select",
           shortcut: "V",
-          expanded: true,
+          expanded: armedShape === null,
           onClick: onSelect,
         })}
 
@@ -236,7 +245,9 @@ export function ToolRail({
             label: "tool.shape",
             shortcut: "R",
             disabled: writeBlocked,
-            onClick: () => onShape("rectangle"),
+            expanded: armedShape !== null,
+            onClick: () => onShape(armedShape ?? "rectangle"),
+            onDoubleClick: () => onShapeSeries(armedShape ?? "rectangle"),
           })}
           <Disclosure
             label={t("tool.shapeVariants")}
@@ -245,36 +256,12 @@ export function ToolRail({
             onClick={() => onFlyout(flyout === "shape" ? null : "shape")}
           />
           {flyout === "shape" && (
-            <Popover title={t("tool.shape")} width={232} side="right" onClose={() => onFlyout(null)}>
-              <div className="tool-flyout-shapes" role="group" aria-label={t("tool.shapeVariants")}>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeRectangle")}
-                  onClick={() => onShape("rectangle")}
-                >
-                  <span className="tool-shape-rect" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeEllipse")}
-                  onClick={() => onShape("ellipse")}
-                >
-                  <span className="tool-shape-ellipse" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeDiamond")}
-                  onClick={() => onShape("diamond")}
-                >
-                  <span className="tool-shape-diamond" aria-hidden="true" />
-                </Button>
-              </div>
+            <Popover title={t("tool.shape")} width={252} side="right" onClose={() => onFlyout(null)}>
+              <ShapeKindList
+                value={armedShape}
+                ariaLabel={t("tool.shapeVariants")}
+                onPick={onShape}
+              />
             </Popover>
           )}
         </div>
