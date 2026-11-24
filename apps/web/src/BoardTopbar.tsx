@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MutableRefObject } from "react";
 import type { Presence, SaveState } from "@remo/doc";
-import { Button, ConfirmDialog, Icon, IconButton, Menu, Popover, Tooltip } from "@remo/ui";
+import { BrandMark, Button, ConfirmDialog, Icon, IconButton, Menu, Popover, Tooltip } from "@remo/ui";
 import type { SessionUser } from "./api";
 import type { FollowState } from "./follow";
 import { formatRemaining, TEMPLATE_KEYS, type TemplateKey } from "@remo/model";
@@ -288,7 +288,7 @@ export function BoardTopbar(props: BoardTopbarProps) {
           aria-expanded={menu === "account"}
           onClick={() => setMenu(menu === "account" ? null : "account")}
         >
-          <img src="/remuka-mark.svg" alt="" />
+          <BrandMark size={24} />
         </button>
 
         <div className="topbar-left">

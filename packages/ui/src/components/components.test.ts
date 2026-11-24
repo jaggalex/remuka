@@ -47,6 +47,25 @@ describe("components render with the strings contract", () => {
     expect(render(el).length).toBeGreaterThan(20);
   });
 
+  it("draws the one brand mark with role fills and no filter (ADR-272)", () => {
+    const html = render(h(UI.BrandMark, { size: 24 }));
+    expect(html).toContain('viewBox="0 0 200 200"');
+    expect(html).toContain('width="24"');
+    expect(html).toContain("var(--brand-mark-circle)");
+    expect(html).toContain("var(--brand-mark-square)");
+    expect(html).toContain("var(--brand-mark-ink)");
+    expect(html.match(/<(?:circle|rect|path) /g)).toHaveLength(3);
+    expect(html).not.toContain("filter");
+    expect(html).toContain('aria-hidden="true"');
+  });
+
+  it("sets the wordmark at the landing ratio beside the mark (spec §3.8)", () => {
+    const html = render(h(UI.BrandMark, { size: 30, wordmark: "Ремука" }));
+    expect(html).toContain("rm-brand-word");
+    expect(html).toContain("Ремука");
+    expect(html).toContain("--rm-brand-size:30px");
+  });
+
   it("puts the role source next to the name (П7)", () => {
     expect(render(h(UI.AccessRow, { name: "Oleg", role: "editor", source: "Through team PM", locked: true }))).toContain("Through team PM");
   });

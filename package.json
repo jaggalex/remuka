@@ -9,6 +9,7 @@
   },
   "scripts": {
     "templates": "node scripts/author-templates.mjs && node scripts/sync-templates.mjs",
+    "brand:build": "node scripts/brand-build.mjs",
     "mcp": "node scripts/mcp-server.mjs",
     "demo:seed": "node scripts/demo-seed.mjs",
     "stage:seed": "node scripts/stage-seed.mjs",
@@ -53,8 +54,8 @@
     "sync:smoke": "pnpm --filter @remo/sync smoke",
     "dev:web": "pnpm templates && pnpm --filter @remo/web dev",
     "dev:lan": "pnpm templates && pnpm --filter @remo/web dev --host",
-    "dev": "pnpm templates && pnpm --filter @remo/web dev",
-    "build": "pnpm templates && pnpm --filter @remo/web build",
+    "dev": "pnpm brand:build && pnpm templates && pnpm --filter @remo/web dev",
+    "build": "pnpm brand:build && pnpm templates && pnpm --filter @remo/web build",
     "typecheck": "pnpm templates && node scripts/docs-build.mjs --check && pnpm --filter @remo/web exec tsc --noEmit && pnpm --filter @remo/ui typecheck",
     "lint": "biome lint apps packages scripts e2e --reporter=summary",
     "lint:strict": "biome lint apps packages scripts e2e --error-on-warnings",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Icon, IconButton, Input, Popover, Select } from "@remo/ui";
+import { BrandMark, Button, Icon, IconButton, Input, Popover, Select } from "@remo/ui";
 import { type TemplateKey } from "@remo/model";
 import { api, type OrgSummary, type SessionUser } from "./api";
 import {
@@ -334,7 +334,7 @@ export function WorkspaceHome({
       <header className="home-topbar">
         <div className="home-brand">
           <span className="home-mark" aria-hidden="true">
-            <img src="/remo-logo.svg" alt="" />
+            <BrandMark size={30} />
           </span>
           <b>{t("boards.title")}</b>
         </div>

@@ -530,14 +530,6 @@ button.peer:disabled {
   margin-top: var(--space-3);
 }
 
-[data-theme="dark"] .topbar-mark img {
-  filter: brightness(0) invert(1);
-}
-
-[data-theme="dark"] .help-brand img {
-  filter: brightness(0) invert(1);
-}
-
 .agent-error-actions {
   display: flex;
   flex-wrap: wrap;

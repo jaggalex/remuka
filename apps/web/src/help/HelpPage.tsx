@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { brandName } from "@remo/brand";
+import { BrandMark } from "@remo/ui";
 import { useI18n, type Lang } from "../i18n";
 import { ThemeSwitch } from "../ThemeSwitch";
 import { ConsentLink } from "../ConsentProvider";
@@ -90,7 +91,7 @@ export function HelpPage() {
     <div className="help-page">
       <header className="help-topbar">
         <a className="help-brand" href="/" aria-label={brandName({ locale: lang, productName })}>
-          <img src="/remuka-mark.svg" alt="" />
+          <BrandMark size={28} />
         </a>
         <a className="help-back" href="/">{t("help.back")}</a>
         <ThemeSwitch />

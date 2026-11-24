@@ -1,4 +1,5 @@
 export * from "./basics";
+export * from "./BrandMark";
 export * from "./fields";
 export * from "./display";
 export * from "./overlays";

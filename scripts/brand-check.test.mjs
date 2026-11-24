@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { scanBrand, surfaceFiles } from "./brand-check.mjs";
+import { scanBrand, scanLogo, surfaceFiles } from "./brand-check.mjs";
+import { brandModule, readMark, SMILE_LIGHT } from "./brand-source.mjs";
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), "brand-check-"));
@@ -202,5 +203,80 @@ describe("brand check", () => {
       "apps/sync/mail.mjs": 'const host = BRAND.domains.app;\n',
     });
     expect(findings(root)).toEqual([]);
+  });
+});
+
+describe("brand mark", () => {
+  const light = readMark();
+  const dark = readMark("dark");
+  const png = Buffer.alloc(24);
+  png.write("\x89PNG\r\n\x1a\n", 0, "binary");
+  png.write("IHDR", 12, "ascii");
+  png.writeUInt32BE(180, 16);
+  png.writeUInt32BE(180, 20);
+
+  const base = () => ({
+    "docs/design/brand/remuka-mark.svg": light,
+    "docs/design/brand/remuka-mark-dark.svg": dark,
+    "docs/design/brand/apple-touch-icon.png": png,
+    "remo-logo.svg": light,
+    "apps/web/public/remo-logo.svg": light,
+    "apps/web/public/remuka-mark.svg": light,
+    "apps/web/public/remuka-mark-dark.svg": dark,
+    "apps/web/public/apple-touch-icon.png": png,
+    "packages/ui/src/brand/brandMark.generated.ts": brandModule(light),
+  });
+
+  it("passes when every served copy is the source drawing", () => {
+    expect(scanLogo(tree(base()))).toEqual([]);
+  });
+
+  it("fails a served copy that differs from the source", () => {
+    const root = tree({
+      ...base(),
+      "apps/web/public/remuka-mark.svg": light.replace(SMILE_LIGHT, "#1E2A44"),
+    });
+    expect(scanLogo(root).join("\n")).toContain(
+      "apps/web/public/remuka-mark.svg: differs from docs/design/brand/remuka-mark.svg",
+    );
+  });
+
+  it("fails a new SVG that brings the old ink or an Inkscape header back", () => {
+    const oldInk = tree({
+      ...base(),
+      "docs/logo-old.svg": `<svg><path d="M30.02,106 H169.98" fill="#1E2A44"/></svg>`,
+    });
+    expect(scanLogo(oldInk)).toEqual([
+      "docs/logo-old.svg: the old #1E2A44 mark is back — use docs/design/brand/remuka-mark.svg (ADR-272)",
+    ]);
+
+    const inkscape = tree({
+      ...base(),
+      "docs/logo-edit.svg": `<svg inkscape:version="1.4"><path d="M30.02,106 H169.98"/></svg>`,
+    });
+    expect(scanLogo(inkscape)).toEqual([
+      "docs/logo-edit.svg: an Inkscape-edited mark — build from docs/design/brand/remuka-mark.svg (ADR-272)",
+    ]);
+  });
+
+  it("fails a stale generated module and an apple icon that is not 180×180", () => {
+    const root = tree({
+      ...base(),
+      "packages/ui/src/brand/brandMark.generated.ts": "// hand edit\n",
+    });
+    expect(scanLogo(root)).toEqual([
+      "packages/ui/src/brand/brandMark.generated.ts: differs from docs/design/brand/remuka-mark.svg — run `pnpm brand:build`",
+    ]);
+
+    const small = Buffer.alloc(24);
+    small.write("\x89PNG\r\n\x1a\n", 0, "binary");
+    small.write("IHDR", 12, "ascii");
+    small.writeUInt32BE(96, 16);
+    small.writeUInt32BE(96, 20);
+    const icon = tree({
+      ...base(),
+      "docs/design/brand/apple-touch-icon.png": small,
+    });
+    expect(scanLogo(icon).join("\n")).toContain("expected 180×180, got 96×96");
   });
 });

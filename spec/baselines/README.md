@@ -26,6 +26,10 @@ pnpm baselines
 | `topbar-people.png` | The people group: faces, roles, followers and watching guests (ADR-266 §4) |
 | `topbar-account.png` | The account menu: name and role source, all rooms, theme, language, help |
 | `topbar-dark.png` | The same header in the dark theme with a menu open |
+| `brand-sign-in.png` | The sign-in dialog: the landing mark and «Ремука» wordmark above the form (ADR-272) |
+| `brand-home.png` | The organisation home header: mark 30 px beside «Rooms» |
+| `brand-help.png` | The help header: mark, «Вернуться к комнате», theme and language |
+| `brand-help-dark.png` | The same help header in the dark theme: the smile becomes paper, the circle and square do not change |
 | `rail.png` | The tool rail: two panels — tools with the pressed Select, history below |
 | `rail-dark.png` | The same rail in the dark theme |
 | `canvas-bottom.png` | The bottom edge: zoom with fit, and the one-time hint in its own slot |

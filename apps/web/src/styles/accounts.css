@@ -8,6 +8,13 @@
   gap: var(--space-2);
 }
 
+/* The mark and the word above the form, as on the landing (ADR-272 §3.8). */
+.auth-brand {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--space-2);
+}
+
 .auth-hint {
   margin: 0;
   font: var(--type-caption);

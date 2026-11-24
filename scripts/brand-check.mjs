@@ -27,6 +27,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { brandModule, SERVED_MARKS } from "./brand-source.mjs";
 
 const ROOT =
   typeof import.meta.dirname === "string"
@@ -584,13 +585,116 @@ export function scanBrand(root = ROOT, { today = new Date() } = {}) {
   return { problems: unique, allowed, files: files.length, tracked: tracked.length };
 }
 
-function printJson(result) {
+/* --------------------------------------------------------------- mark ---- */
+
+const MARK_SOURCE = "docs/design/brand/remuka-mark.svg";
+const MARK_SOURCE_DARK = "docs/design/brand/remuka-mark-dark.svg";
+const APPLE_SOURCE = "docs/design/brand/apple-touch-icon.png";
+const GENERATED_MODULE = "packages/ui/src/brand/brandMark.generated.ts";
+/** The drawing's smile and its old single-colour ancestor. */
+const MARK_GEOMETRY = /M30\.02,106\s+H169\.98/;
+const OLD_MARK_INK = /#1e2a44/i;
+const INKSCAPE = /inkscape:|sodipodi:/i;
+
+function pngSize(bytes) {
+  return bytes.length >= 24 && bytes.toString("ascii", 1, 4) === "PNG"
+    ? { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+    : null;
+}
+
+function sameFile(root, path, expected, problems) {
+  const full = join(root, path);
+  if (!existsSync(full)) {
+    problems.push(`${path}: missing — run \`pnpm brand:build\` (ADR-272)`);
+    return;
+  }
+  if (!readFileSync(full).equals(Buffer.isBuffer(expected) ? expected : Buffer.from(expected))) {
+    problems.push(`${path}: differs from ${MARK_SOURCE} — run \`pnpm brand:build\``);
+  }
+}
+
+/**
+ * Every served or generated copy equals the owner's drawing, and no tracked SVG brings
+ * back the old single-colour mark or an Inkscape edit (ADR-272).
+ *
+ * `docs-site/` and `legal-site/` are generated and may be absent on a clean checkout; when
+ * they exist, they are read too, because a cached guide page is still a surface a person sees.
+ */
+export function scanLogo(root = ROOT) {
+  const problems = [];
+  if (!existsSync(join(root, MARK_SOURCE)) || !existsSync(join(root, MARK_SOURCE_DARK))) {
+    return [`docs/design/brand: the source mark is missing (ADR-272)`];
+  }
+  const light = readFileSync(join(root, MARK_SOURCE));
+  const dark = readFileSync(join(root, MARK_SOURCE_DARK));
+
+  for (const [path, theme] of SERVED_MARKS) {
+    sameFile(root, path, theme === "dark" ? dark : light, problems);
+  }
+  sameFile(root, GENERATED_MODULE, brandModule(light.toString("utf8")), problems);
+
+  const apple = join(root, APPLE_SOURCE);
+  if (!existsSync(apple)) {
+    problems.push(`${APPLE_SOURCE}: missing — run \`pnpm brand:build\``);
+  } else {
+    const bytes = readFileSync(apple);
+    const size = pngSize(bytes);
+    if (size?.width !== 180 || size?.height !== 180) {
+      problems.push(`${APPLE_SOURCE}: expected 180×180, got ${size ? `${size.width}×${size.height}` : "not a PNG"}`);
+    }
+    sameFile(root, "apps/web/public/apple-touch-icon.png", bytes, problems);
+    for (const output of ["docs-site/assets/apple-touch-icon.png", "legal-site/eu/assets/apple-touch-icon.png"]) {
+      if (existsSync(join(root, output))) sameFile(root, output, bytes, problems);
+    }
+  }
+
+  // Generated site copies: the guide and every legal zone, when they have been built.
+  const generated = [
+    ["docs-site/assets/remuka-mark.svg", light],
+    ["docs-site/assets/remuka-mark-dark.svg", dark],
+  ];
+  const legal = join(root, "legal-site");
+  if (existsSync(legal)) {
+    for (const zone of readdirSync(legal)) {
+      if (!statSync(join(legal, zone)).isDirectory()) continue;
+      generated.push([`legal-site/${zone}/assets/remuka-mark.svg`, light]);
+      generated.push([`legal-site/${zone}/assets/remuka-mark-dark.svg`, dark]);
+    }
+  }
+  for (const [path, expected] of generated) {
+    if (existsSync(join(root, path))) sameFile(root, path, expected, problems);
+  }
+
+  // The old mark may not return through a new SVG: its geometry with the old ink or an
+  // Inkscape header is exactly the drift this task removes.
+  for (const path of trackedFiles(root)) {
+    if (!/\.svg$/i.test(path) || path === MARK_SOURCE || path === MARK_SOURCE_DARK) continue;
+    let text;
+    try {
+      text = readFileSync(join(root, path), "utf8");
+    } catch {
+      continue;
+    }
+    if (!MARK_GEOMETRY.test(text)) continue;
+    if (OLD_MARK_INK.test(text)) {
+      problems.push(`${path}: the old #1E2A44 mark is back — use ${MARK_SOURCE} (ADR-272)`);
+    }
+    if (INKSCAPE.test(text)) {
+      problems.push(`${path}: an Inkscape-edited mark — build from ${MARK_SOURCE} (ADR-272)`);
+    }
+  }
+
+  return problems;
+}
+
+function printJson(result, markProblems) {
   process.stdout.write(
     `${JSON.stringify(
       {
         files: result.files,
         allowed: result.allowed,
         problems: result.problems,
+        markProblems,
       },
       null,
       2,
@@ -601,26 +705,31 @@ function printJson(result) {
 function main(argv) {
   const json = argv.includes("--json");
   const result = scanBrand();
+  const markProblems = scanLogo();
   if (json) {
-    printJson(result);
-  } else if (result.problems.length) {
-    const touched = new Set(result.problems.map((problem) => problem.file)).size;
-    console.error(
-      `Brand check failed: ${result.problems.length} old-name or old-address finding(s) in ${touched} file(s).`,
-    );
-    for (const problem of result.problems) {
-      console.error(`${problem.file}:${problem.line}: «${problem.term}» — ${problem.why}`);
-    }
-    console.error(
-      "Code identifiers stay `remo` (ADR-254 §2); the allowed shapes are listed in scripts/brand-check.mjs.",
-    );
+    printJson(result, markProblems);
   } else {
-    console.log(
-      `Brand check ok: ${result.files} user-facing file(s), no old name or old address, ` +
-        `${result.allowed} identifier use(s) allowed.`,
-    );
+    if (result.problems.length) {
+      const touched = new Set(result.problems.map((problem) => problem.file)).size;
+      console.error(
+        `Brand check failed: ${result.problems.length} old-name or old-address finding(s) in ${touched} file(s).`,
+      );
+      for (const problem of result.problems) {
+        console.error(`${problem.file}:${problem.line}: «${problem.term}» — ${problem.why}`);
+      }
+      console.error(
+        "Code identifiers stay `remo` (ADR-254 §2); the allowed shapes are listed in scripts/brand-check.mjs.",
+      );
+    }
+    for (const problem of markProblems) console.error(`Mark check failed: ${problem}`);
+    if (!result.problems.length && !markProblems.length) {
+      console.log(
+        `Brand check ok: ${result.files} user-facing file(s), no old name or old address, ` +
+          `${result.allowed} identifier use(s) allowed; every copy matches the source mark.`,
+      );
+    }
   }
-  if (result.problems.length) process.exit(1);
+  if (result.problems.length || markProblems.length) process.exit(1);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -19,6 +19,11 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "n
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  APPLE_TOUCH,
+  inlineMark,
+  readMark,
+} from "./brand-source.mjs";
+import {
   directories,
   exists,
   headingProblems,
@@ -158,12 +163,10 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
   }</figure>`;
 };
 
-// The product mark: the same file as the favicon, inlined so it follows the theme.
-const LOGO = readFileSync(join(ROOT, "remo-logo.svg"), "utf8");
-const LOGO_INLINE = LOGO.replace('role="img" aria-label="REMO"', 'aria-hidden="true"').replace(
-  /#1E2A44/g,
-  "currentColor",
-);
+// The product mark: the owner's drawing, inlined so the smile follows the theme token.
+const MARK_LIGHT = readMark();
+const MARK_DARK = readMark("dark");
+const LOGO_INLINE = inlineMark(MARK_LIGHT);
 const problems = [];
 const fail = (message) => problems.push(message);
 
@@ -480,7 +483,9 @@ function renderPage(page, locale) {
 <meta name="description" content="${escapeHtml(page.meta.summary[locale])}">
 <link rel="canonical" href="${PUBLIC_GUIDE}/${locale}/${page.section}/${page.slug}.html">
 <meta name="theme-color" content="#fcfbfa">
-<link rel="icon" href="/guide/assets/remo-logo.svg" type="image/svg+xml">
+<link rel="icon" href="/guide/assets/remuka-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/guide/assets/remuka-mark-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/guide/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/guide/assets/tokens.css">
 <link rel="stylesheet" href="/guide/assets/guide.css">
 </head>
@@ -706,7 +711,11 @@ files.set("assets/theme.js", readFileSync(join(GUIDE, "theme", "theme.js"), "utf
 files.set("assets/tabs.js", readFileSync(join(GUIDE, "theme", "tabs.js"), "utf8"));
 files.set("assets/copy.js", readFileSync(join(GUIDE, "theme", "copy.js"), "utf8"));
 files.set("assets/map.js", readFileSync(join(GUIDE, "theme", "map.js"), "utf8"));
-files.set("assets/remo-logo.svg", LOGO);
+// The old asset path stays for cached pages and serves the same new mark (ADR-272).
+files.set("assets/remo-logo.svg", MARK_LIGHT);
+files.set("assets/remuka-mark.svg", MARK_LIGHT);
+files.set("assets/remuka-mark-dark.svg", MARK_DARK);
+files.set("assets/apple-touch-icon.png", readFileSync(APPLE_TOUCH));
 for (const name of readdirSync(join(GUIDE, "assets"))) {
   const path = join(GUIDE, "assets", name);
   if (!statSync(path).isFile()) continue;

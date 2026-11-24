@@ -11363,3 +11363,29 @@ explicit black — the very case `spec/ink-on-ground.md` §2.3 names.
   grid entry.
 - T20's acceptance "an explicit black in the dark theme has a halo and the window warns"
   is reachable from the interface, not only from a hand-written document.
+
+## ADR-282: The dark theme is a night desk — brand entities keep their colours
+
+**Status:** accepted (2026-11-24). Spec: `spec/dark-theme.md`. Mockups: wave 8 (`App-Dark-Room`,
+`App-Dark-Screens`). Builds on ADR-265, ADR-270, ADR-272, ADR-273 (T20 closed). Amends the dark
+values in `tokens.json`.
+
+**Context.** The dark theme switched the character off: the call to action turned near-white,
+the chosen marker grey, the agent's violet near-white, hard shadows none, and the selected button
+would put light text on a yellow marker once the marker is restored.
+
+**Decision.**
+- Night instead of paper: canvas `#1e2136`, chrome in dark cardboard (`#23263b` / `#2c2f45`,
+  dialogs `#262a40`); what is outlined with ink by day is outlined with muted paper `#d9d2c0` at
+  night; hard shadows become near-black `#06070d` with the same offsets.
+- Brand entities never change colour by theme: coral `#ff8a57` is the main action, yellow
+  `#f2b94a` is the chosen state, violet is the agent (`#c69bff` line, `#dcc2ff` text,
+  16 % fill at night), presence colours stay. The theme changes only ground, text and outlines.
+- Text on a coloured fill is always ink `#1e2136`; a new `text-on-chosen` token fixes the selected
+  button. `ui:check` forbids `text-primary` on `accent-cta`, `accent-chosen` and `agent`.
+- Canvas content is not recoloured; its ink follows its ground (ADR-273). The logo smile is paper.
+- Contrast pairs for both themes are added to `tokens-lib.mjs`; dark baselines cover the main
+  surfaces. Every artboard of waves 0–7 is translated by tokens, without separate mockups.
+
+**Consequences.** Task T26. Dark-theme screenshots in reports become part of every later task.
+

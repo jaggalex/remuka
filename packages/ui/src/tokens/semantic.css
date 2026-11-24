@@ -12,6 +12,8 @@
   --sticker-shade: var(--alpha-umber-7);
   --sticker-ink: var(--neutral-900);
   --sticker-cast: var(--alpha-umber-60);
+  --brand-mark-circle: var(--orange-300);
+  --brand-mark-square: var(--blue-300);
   --type-display: 800 28px/32px var(--font-sans);
   --type-title: 800 22px/28px var(--font-sans);
   --type-path: 400 18px/24px var(--font-sans);

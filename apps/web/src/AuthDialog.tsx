@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Dialog, Input, Link, Tabs } from "@remo/ui";
+import { BrandMark, Button, Dialog, Input, Link, Tabs } from "@remo/ui";
+import { brandName } from "@remo/brand";
 import { api, type SessionUser } from "./api";
 import { ApiError } from "./apiCall";
 import { authCapabilities, type AuthCapabilities } from "./apiMail";
@@ -31,7 +32,7 @@ export function AuthDialog({
   /** A result from the reset form, shown above the fields. */
   notice?: string | null;
 }) {
-  const { t, legal, refreshLegal } = useI18n();
+  const { t, legal, refreshLegal, lang, productName } = useI18n();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -197,6 +198,9 @@ export function AuthDialog({
       size="sm"
       onClose={onClose}
     >
+      <div className="auth-brand">
+        <BrandMark size={30} wordmark={brandName({ locale: lang, productName })} />
+      </div>
       <form className="dialog-stack" onSubmit={submit}>
         {challenge ? (
           <>

@@ -39,6 +39,7 @@ import {
   recordedHash,
   validateLegalIndex,
 } from "../packages/legal/src/index.mjs";
+import { APPLE_TOUCH, readMark } from "./brand-source.mjs";
 import { markdown } from "./docs-core.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -154,7 +155,9 @@ function renderPage({ entry, revisions, version, current, siblings }) {
 <title>${escapeHtml(title)} — ${escapeHtml(BRAND.name[locale] ?? BRAND.name.en)}</title>
 <meta name="description" content="${escapeHtml(title)}">
 <link rel="canonical" href="${escapeHtml(canonical)}">
-${isDraft ? '<meta name="robots" content="noindex">\n' : ""}<link rel="icon" href="/legal/assets/remo-logo.svg" type="image/svg+xml">
+${isDraft ? '<meta name="robots" content="noindex">\n' : ""}<link rel="icon" href="/legal/assets/remuka-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/legal/assets/remuka-mark-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/legal/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/legal/assets/tokens.css">
 <link rel="stylesheet" href="/legal/assets/legal.css">
 </head>
@@ -338,11 +341,16 @@ export function scanLegal(root = ROOT) {
     .map((name) => readFileSync(join(ROOT, "packages/ui/src/tokens", name), "utf8"))
     .join("\n");
   const stylesheet = readFileSync(join(ROOT, "guide/theme/legal.css"), "utf8");
-  const logo = readFileSync(join(ROOT, "remo-logo.svg"));
+  const markLight = readMark();
+  const markDark = readMark("dark");
   for (const zone of new Set(documents.map(({ entry }) => entry.zone))) {
     files.set(`${zone}/assets/tokens.css`, tokens);
     files.set(`${zone}/assets/legal.css`, stylesheet);
-    files.set(`${zone}/assets/remo-logo.svg`, logo);
+    // The old cached path keeps working and serves the same new mark (ADR-272).
+    files.set(`${zone}/assets/remo-logo.svg`, markLight);
+    files.set(`${zone}/assets/remuka-mark.svg`, markLight);
+    files.set(`${zone}/assets/remuka-mark-dark.svg`, markDark);
+    files.set(`${zone}/assets/apple-touch-icon.png`, readFileSync(APPLE_TOUCH));
   }
 
   return result;

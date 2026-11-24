@@ -50,11 +50,6 @@
 }
 
 /* The logo itself, not a badge around it (ADR-181): same mark as the home page. */
-.topbar-mark img {
-  width: 26px;
-  height: 26px;
-}
-
 /* The organisation path is part of the room's menu button, not a second control. */
 .topbar-path {
   min-width: 0;

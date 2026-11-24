@@ -535,3 +535,11 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
    must stay at contrast from the first frame, and a browser accessibility scan reads the
    dialog while it is still falling. Reduced motion zeroes the duration. */
 @keyframes rm-dialog-drop { 0% { transform: translateY(-18px) rotate(-1deg); } 70% { transform: translateY(3px) rotate(0.3deg); } 100% { transform: none; } }
+
+/* ---------- Brand mark ---------- */
+/* The mark's fills are roles (ADR-272): the smile is `brand-mark-ink`, so the theme
+   changes it and no filter ever touches the picture. The wordmark is the same ratio as
+   the landing header: 21 px at a 30 px mark, one space between. */
+.rm-brand { display: inline-flex; align-items: center; gap: calc(var(--space-3) - var(--space-1) / 2); }
+.rm-brand-mark { display: block; flex: none; }
+.rm-brand-word { font-family: var(--font-sans); font-size: calc(var(--rm-brand-size) * 0.7); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: inherit; white-space: nowrap; }

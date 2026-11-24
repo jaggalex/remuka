@@ -7,6 +7,7 @@ import {
   applyDefaultTableLayout,
   ensureProperties,
   freshBoard,
+  goAllRooms,
   openAccount,
   openAgentMenu,
   openBoard,
@@ -21,6 +22,7 @@ import {
   seedObject,
   seedStableNote,
   selectKanbanCard,
+  setAccountTheme,
   watchSave,
 } from "./helpers";
 
@@ -656,6 +658,34 @@ test("the header stays on one row and its menus fit the viewport", async ({ page
 });
 
 /**
+ * The brand sign on every surface a new person meets (ADR-272, spec §3.8).
+ *
+ * The landing's coral circle and blue square are the product's; the smile is graphite on
+ * paper and paper in the dark theme. The captures are the artefact: a second picture or
+ * an inverted one shows here.
+ */
+test("the room header, home, help and sign-in carry the same mark in both themes", async ({
+  page,
+}) => {
+  await page.goto("/?lang=en");
+  await page.locator(".home-empty").getByRole("button", { name: "Sign in", exact: true }).click();
+  await capture(page, page.locator(".rm-dialog"), "brand-sign-in");
+  await page.keyboard.press("Escape");
+
+  const account = await freshBoard(page, "visual-brand");
+  await goAllRooms(page);
+  await capture(page, page.locator(".home-topbar"), "brand-home");
+
+  await page.goto("/help/en");
+  await capture(page, page.locator(".help-topbar"), "brand-help");
+
+  await openBoard(page, account.boardId, { lang: "en" });
+  await setAccountTheme(page, "dark");
+  await page.goto("/help/en");
+  await capture(page, page.locator(".help-topbar"), "brand-help-dark");
+});
+
+/**
  * A kanban room and the file its export makes (ADR-267 §2.1).
  *
  * The screen and the picture share one painter, so the two baselines are a pair: column
@@ -814,6 +844,9 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
 
+  // The pointer last clicked a dialog button where the bar now stands; park it so a
+  // hover state cannot become part of the picture.
+  await page.mouse.move(0, 0);
   await calmMotion(page);
   await capture(page, page.locator(".app"), "agent-plan-tidy");
   await loudMotion(page);

@@ -11,7 +11,7 @@ export const THEMES = ["light", "dark"];
 /** Name prefixes per layer: the layer is visible in the name (ТЗ §4). */
 export const LAYER_PREFIXES = {
   primitive: ["neutral", "accent", "danger", "success", "warning", "orange", "violet", "blue", "pink", "green", "yellow", "ochre", "paper", "alpha", "elev", "space", "radius", "z", "dur", "ease", "font"],
-  semantic: ["bg", "text", "border", "accent", "danger", "success", "warning", "state", "selection", "presence", "sticker", "shadow", "type", "agent", "canvas"],
+  semantic: ["bg", "text", "border", "accent", "danger", "success", "warning", "state", "selection", "presence", "sticker", "shadow", "type", "agent", "canvas", "brand"],
   component: ["control", "dialog", "panel", "topbar", "toolbar", "inspector", "icon", "label", "handle", "pin", "grid"],
 };
 
@@ -132,6 +132,9 @@ export const PAIRS = [
   ["text-on-accent", "accent", 4.5], ["text-on-accent", "accent-hover", 4.5], ["text-on-cta", "accent-cta", 4.5], ["text-primary", "accent-chosen", 4.5], ["text-on-cta", "accent-cta-hover", 4.5], ["text-primary", "bg-dialog", 4.5], ["text-secondary", "bg-dialog", 4.5], ["text-on-danger", "danger", 4.5], ["text-on-danger", "danger-hover", 4.5], ["text-inverse", "bg-inverse", 4.5],
   ["border-strong", "bg-panel", 3], ["border-strong", "bg-raised", 3], ["border-focus", "bg-panel", 3], ["border-focus", "bg-canvas", 3], ["border-focus", "bg-raised", 3],
   ["selection-stroke", "bg-canvas", 3], ["accent", "bg-panel", 3],
+  // The mark's smile on both themes' paper (ADR-272): the owner chose graphite over ink
+  // because it still clears 8:1 on the light ground.
+  ...["bg-panel", "bg-raised", "bg-canvas", "bg-app"].map((g) => ["brand-mark-ink", g, 8]),
   ...[1, 2, 3, 4, 5, 6].map((i) => ["text-on-presence", `presence-${i}`, 4.5]),
   ...[1, 2, 3, 4, 5, 6].map((i) => [`presence-${i}`, "bg-canvas", 3]),
   ...STICKERS.map((c) => ["sticker-ink", `sticker-${c}`, 6.8]),
