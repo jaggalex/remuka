@@ -134,9 +134,27 @@ describe("board projection", () => {
 
     const { widgets } = projectBoard(doc);
     expect(widgets.map((row) => row.id)).toEqual(["w1", "w2"]);
-    expect(widgets[0]).toMatchObject({ type: "sticky_note", fillColor: "yellow" });
-    expect(widgets[0]).not.toHaveProperty("rotation");
+    expect(widgets[0]).toMatchObject({ type: "sticky_note", fillColor: "yellow", rotation: 0 });
     expect(widgets[1]).toMatchObject({ parentId: "k1", title: "one" });
+  });
+
+  it("writes the real rotation angle into the existing column (ADR-271)", () => {
+    const doc = boardDoc({
+      widgets: [
+        {
+          id: "w1",
+          type: "shape",
+          parentId: null,
+          x: 10,
+          y: 20,
+          width: 161,
+          height: 184,
+          rotation: -12,
+        },
+      ],
+    });
+    const { widgets } = projectBoard(doc);
+    expect(widgets[0]).toMatchObject({ id: "w1", rotation: -12 });
   });
 
   it("keeps the kanban matrix: columns, swimlanes and card placement", () => {

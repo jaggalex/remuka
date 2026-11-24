@@ -1,0 +1,26 @@
+{
+  "id": "objects.rotate",
+  "type": "how-to",
+  "title": {
+    "ru": "Повернуть объект",
+    "en": "Rotate an object"
+  },
+  "summary": {
+    "ru": "Ручка поворота, шаг 15° и общий центр для нескольких объектов.",
+    "en": "The rotation handle, a 15° step and one common centre for several objects."
+  },
+  "related": [
+    "objects.shapes",
+    "connectors.create",
+    "text.format"
+  ],
+  "verifiedAgainst": "2026-11-24",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:1ffa0acd6b6d57803e806fda2079e82c5bfcf8ebe5c85e1971b53d36f9c31581",
+      "targetHash": "sha256:6334e93985aaae1f3e987407b42abc3982c32368b300be7eeab8769d8af4611f"
+    }
+  }
+}

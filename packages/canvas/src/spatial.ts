@@ -1,4 +1,4 @@
-import type { Widget } from "@remo/model";
+import { rotatedBounds, type Widget } from "@remo/model";
 
 /**
  * A uniform grid over widget bounding boxes (ADR-176, review P6).
@@ -28,12 +28,10 @@ export interface SpatialRect {
 }
 
 function boxOf(widget: Widget): { left: number; top: number; right: number; bottom: number } {
-  return {
-    left: widget.x - widget.width / 2,
-    top: widget.y - widget.height / 2,
-    right: widget.x + widget.width / 2,
-    bottom: widget.y + widget.height / 2,
-  };
+  // The index must hold the painted outline: a turned note reaches past its stored
+  // box, and a query on that unreachable part would miss it (ADR-271, T18).
+  const box = rotatedBounds(widget);
+  return { left: box.x, top: box.y, right: box.x + box.width, bottom: box.y + box.height };
 }
 
 function key(cx: number, cy: number): string {

@@ -8,7 +8,8 @@
  * design system. The preflight never uses the development database (ADR-136).
  *
  * `brand` sits next to `state` and `ui rules`: they are cheap text gates that fail before a
- * compiler or a browser does (ADR-254). `consent` is the same kind of gate: it reads the code
+ * compiler or a browser does (ADR-254). `links` is one of them: the guide's address comes
+ * from the installation, never from the build (ADR-284). `consent` is the same kind of gate: it reads the code
  * and the browser-storage registry together (ADR-255). `legal` checks the registry of legal
  * documents: a published revision may not change or still carry placeholders (ADR-256).
  *
@@ -44,6 +45,7 @@ steps.push(
   { name: "file sizes", cmd: pnpm, args: ["size:check"] },
   { name: "state", cmd: "node", args: ["scripts/state-report.mjs"] },
   { name: "brand", cmd: "node", args: ["scripts/brand-check.mjs"] },
+  { name: "links", cmd: "node", args: ["scripts/links-check.mjs"] },
   { name: "consent", cmd: "node", args: ["scripts/consent-check.mjs"] },
   { name: "legal", cmd: "node", args: ["scripts/legal-build.mjs", "--check"] },
   { name: "ui rules", cmd: "node", args: ["scripts/ui-rules-check.mjs"] },

@@ -16,6 +16,8 @@ An object has a type, a position, and a size. The type defines whether it can be
 
 **Shapes.** Five kinds: a rectangle, a rounded rectangle, an ellipse, a diamond, a triangle. The **Shape** tool or the `R`/`O` key arms a shape: drag across the board to draw it at the size you want, `Shift` makes a square or a circle, `Alt` grows it from the press point. Change the kind of a finished shape on its bar (**Kind ▾**); **Sharp** and **Rounded** switch the rectangle. Text, colour, size and connectors stay, and one undo restores the previous kind. A connector meets the drawn outline, not the corner of its box.
 
+**Rotation.** A shape, sticky note, free text, image and frame turn with the handle above the top side; text, fill and connectors turn with the object. `Shift` rounds the angle to 15°, without it the angle softly snaps to 0/90/180/270 within 3°; `⌘⇧←` and `⌘⇧→` turn by 15°, and the object menu has **Rotate 90°** and **Reset rotation**. Several objects turn about their common centre. When a turned shape is resized, the opposite corner stays put and connectors stay on the outline. Kanban, tables, connectors and cards do not turn; connector labels stay horizontal. In detail — [/help/en/objects.rotate](/help/en/objects.rotate).
+
 **Colour.** An object has several roles — sheet or fill, border, text, line and connector label — and all take values from one palette: seven tones at three levels plus named White, Black and Transparent. A fill with no colour is called **Transparent**, while a border or a line is **None**. Change a colour with the sample on the object bar, the palette in the rail or keys 1–7; details are in [/guide/concepts/colors](/guide/concepts/colors).
 
 ## Example

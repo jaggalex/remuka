@@ -1,5 +1,4 @@
 import {
-  boxOf,
   connectorPath,
   DEFAULT_PALETTE,
   groundOfWidget,
@@ -7,6 +6,9 @@ import {
   labelPoint,
   pathPolyline,
   unionBox,
+  widgetAnchor,
+  widgetSideNormal,
+  worldToScreen,
   noteFontSizeFor,
   textCapFor,
   textFloorFor,
@@ -14,7 +16,9 @@ import {
 } from "@remo/canvas";
 import {
   inkFor,
+  isRotatable,
   kindOf,
+  rotatedBounds,
   routingOf,
   stickyFill,
   type ShapeKind,
@@ -31,7 +35,7 @@ import type { NoteDirection } from "@remo/doc";
 import { GATHERABLE_TYPES } from "@remo/doc";
 import type { BoardSettings } from "./settings";
 import type { ImageBarTarget } from "./object-panel/ImagePanel";
-import { COMPACT_BAR_ROOM, barTop } from "./canvasGeometry";
+import { BAR_ROOM, COMPACT_BAR_ROOM, barTop } from "./canvasGeometry";
 import { DEFAULT_FILL } from "./objectDefaults";
 
 /**
@@ -83,17 +87,13 @@ const LINE_BAR_LABEL_HALF = 270;
 /** Screen box of a widget, centre-anchored like the canvas is. */
 function screenBox(widget: Widget, frame: Frame) {
   const { camera, viewport } = frame;
+  // The described rectangle, so a bar clears a turned object at every angle.
+  const box = rotatedBounds(widget);
   return {
-    left:
-      (widget.x - camera.x) * camera.zoom +
-      viewport.width / 2 -
-      (widget.width * camera.zoom) / 2,
-    top:
-      (widget.y - camera.y) * camera.zoom +
-      viewport.height / 2 -
-      (widget.height * camera.zoom) / 2,
-    width: widget.width * camera.zoom,
-    height: widget.height * camera.zoom,
+    left: (box.x - camera.x) * camera.zoom + viewport.width / 2,
+    top: (box.y - camera.y) * camera.zoom + viewport.height / 2,
+    width: box.width * camera.zoom,
+    height: box.height * camera.zoom,
   };
 }
 
@@ -122,15 +122,32 @@ export interface EdgeContinueTarget {
 export const EDGE_CONTINUE_OFFSET = 30;
 
 export function edgeContinueTargets(widget: Widget, frame: Frame): EdgeContinueTarget[] {
-  const box = screenBox(widget, frame);
   const half = 22;
   const gap = EDGE_CONTINUE_OFFSET;
-  return [
-    { direction: "left", left: box.left - half - gap, top: box.top + box.height / 2 - half },
-    { direction: "right", left: box.left + box.width - half + gap, top: box.top + box.height / 2 - half },
-    { direction: "up", left: box.left + box.width / 2 - half, top: box.top - half - gap },
-    { direction: "down", left: box.left + box.width / 2 - half, top: box.top + box.height - half + gap },
-  ];
+  const viewport = { x: 0, y: 0, width: frame.viewport.width, height: frame.viewport.height };
+  const sides = [
+    { direction: "left", side: "left" },
+    { direction: "right", side: "right" },
+    { direction: "up", side: "top" },
+    { direction: "down", side: "bottom" },
+  ] as const;
+  // The quiet "+" sits outside the painted side, so on a turned object it turns with it.
+  return sides.map(({ direction, side }) => {
+    const point = widgetAnchor(widget, side);
+    const normal = widgetSideNormal(widget, side);
+    // The rotation handle sits between the top edge and the quiet "+" (T18). The top
+    // "+" steps out to keep its 44 px hit area from covering the round handle; the
+    // other three stay where they were, and all four ports still exist (ADR-195).
+    // `gap` and the extra room are screen pixels, as the buttons are: convert them
+    // into board units for the one conversion that puts them on the canvas.
+    const reach =
+      (direction === "up" && isRotatable(widget) ? gap + 24 : gap) / frame.camera.zoom;
+    const screen = worldToScreen(frame.camera, viewport, {
+      x: point.x + normal.x * reach,
+      y: point.y + normal.y * reach,
+    });
+    return { direction, left: screen.x - half, top: screen.y - half };
+  });
 }
 
 /** The note/shape bar: colour, text and size controls for the object itself. */
@@ -252,7 +269,7 @@ export function arrangeBarTarget(args: {
   // A group alone has nothing to arrange; a pair of lines has a shared colour.
   if (units.size < 2 && !allConnectors) return null;
 
-  const boxes = selected.map((widget) => boxOf(widget));
+  const boxes = selected.map((widget) => rotatedBounds(widget));
   const box = unionBox(boxes);
   if (!box) return null;
 
@@ -272,6 +289,9 @@ export function arrangeBarTarget(args: {
     : [];
 
   const barWidth = shapeKinds.length ? ARRANGE_BAR_WIDTH_SHAPES : ARRANGE_BAR_WIDTH;
+  // A selection that can turn carries the round handle above its top side; the bar
+  // steps up to leave it clickable (ADR-271, T18).
+  const room = selected.some(isRotatable) ? BAR_ROOM : COMPACT_BAR_ROOM;
   return {
     units: units.size,
     objects: selected.length,
@@ -290,7 +310,7 @@ export function arrangeBarTarget(args: {
           frame.viewport.width - barWidth - 8,
         ),
       ),
-      top: barTop({ top, height }, frame.viewport, COMPACT_BAR_ROOM),
+      top: barTop({ top, height }, frame.viewport, room),
     },
   };
 }

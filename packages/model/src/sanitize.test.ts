@@ -57,19 +57,48 @@ describe("readWidget (ADR-171)", () => {
     expect(repaired?.tagIds).toEqual(["t1"]);
   });
 
-  it("drops the fields the model no longer has, even when they look valid (ADR-209)", () => {
+  it("drops the field the model no longer has, even when it looks valid (ADR-209)", () => {
     const repaired = readWidget(
       {
         ...note,
-        rotation: 0.5,
         style: { ...note.style, fontFamily: "Georgia, serif" },
       },
       "n1",
     );
-    expect(repaired).not.toHaveProperty("rotation");
     expect(repaired?.style).not.toHaveProperty("fontFamily");
     // The rest of the style is untouched, and the widget is not copied without a reason.
     expect(repaired?.style?.fillColor).toBe("#ffd02f");
+  });
+
+  it("reads a rotation normalised into (−180, 180] on a kind that turns (ADR-271)", () => {
+    const turned = { ...note, rotation: 270 };
+    expect(readWidget(turned, "n1")?.rotation).toBe(-90);
+    expect(readWidget({ ...note, rotation: -180 }, "n1")?.rotation).toBe(180);
+    expect(readWidget({ ...note, rotation: 540 }, "n1")?.rotation).toBe(180);
+    // An angle of zero is a value, not a missing field.
+    expect(readWidget({ ...note, rotation: 0 }, "n1")).toHaveProperty("rotation", 0);
+    // A wrong shape is a repair, not data to keep.
+    expect(readWidget({ ...note, rotation: "90" }, "n1")).not.toHaveProperty("rotation");
+  });
+
+  it("ignores a rotation on a kind that does not turn (ADR-271)", () => {
+    const shape = { ...note, type: "shape" as const };
+    expect(readWidget({ ...shape, rotation: -12 }, "n1")?.rotation).toBe(-12);
+    for (const type of ["kanban", "card", "connector", "timer"] as const) {
+      expect(readWidget({ ...note, type, rotation: 12 }, "n1")).not.toHaveProperty("rotation");
+    }
+    // A table is a frame, but its grid is axis-aligned: the angle is dropped.
+    const table = {
+      ...note,
+      type: "frame" as const,
+      layout: {
+        kind: "table" as const,
+        columns: [{ id: "c1", title: "A" }],
+        rows: [{ id: "r1", title: "1" }],
+      },
+      rotation: 12,
+    };
+    expect(readWidget(table, "n1")).not.toHaveProperty("rotation");
   });
 
   it("never lets an unsafe link through, whoever wrote it", () => {

@@ -4,6 +4,7 @@ import {
   groundOf,
   ink as inkOn,
   inkFor,
+  rotationOf,
   TONE_LEVELS,
   timerPhase,
   timerRemainingMs,
@@ -328,6 +329,16 @@ function paintWidget(
   const editing = options.editingId === widget.id;
   const theme = options.theme ?? DEFAULT_THEME;
   const palette = theme.palette;
+
+  // The whole object turns about its centre, chrome included (ADR-271, T18): its fill,
+  // its text, its frame label and the selection outline painted below. Nothing inside
+  // is re-laid out; a turned square is the same square, drawn at an angle.
+  const angle = rotationOf(widget);
+  if (angle !== 0) {
+    ctx.translate(widget.x, widget.y);
+    ctx.rotate((angle * Math.PI) / 180);
+    ctx.translate(-widget.x, -widget.y);
+  }
 
   switch (widget.type) {
     case "timer": {

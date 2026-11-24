@@ -15,6 +15,7 @@ import {
 import {
   ink,
   paintOrder,
+  rotatedBounds,
   type KanbanState,
   type Rect,
   type Widget,
@@ -294,10 +295,18 @@ export function scopeBounds(
   const pad = 24;
   for (const widget of widgets) {
     const placement = placementOfCard(layouts, widget.id);
-    const x = placement ? placement.x - placement.width / 2 : widget.x - widget.width / 2;
-    const y = placement ? placement.y - placement.height / 2 : widget.y - widget.height / 2;
-    const width = placement ? placement.width : widget.width;
-    const height = placement ? placement.height : widget.height;
+    const box = placement
+      ? {
+          x: placement.x - placement.width / 2,
+          y: placement.y - placement.height / 2,
+          width: placement.width,
+          height: placement.height,
+        }
+      : rotatedBounds(widget);
+    const x = box.x;
+    const y = box.y;
+    const width = box.width;
+    const height = box.height;
     if (widget.type === "frame" && widget.layout?.kind === "table") {
       // The grid can be wider or taller than the frame's plate (manual axes, cells
       // that grew around their objects), so the picture must cover the grid too.

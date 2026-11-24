@@ -11389,3 +11389,121 @@ would put light text on a yellow marker once the marker is restored.
 
 **Consequences.** Task T26. Dark-theme screenshots in reports become part of every later task.
 
+
+## ADR-283: Rotation lives in one geometry function, and every reader calls it
+
+**Status:** accepted (2026-11-24). Spec: `spec/canvas-character.md` §2, §2.2. Task T18.
+Makes ADR-271's rotation paragraph buildable; keeps ADR-209 retired and ADR-213 (labels stay
+horizontal) in force.
+
+**Context.** ADR-271 brought `Widget.rotation` back and listed the places that must honour it;
+ADR-209 had removed the field precisely because a value nothing reads is a promise the product
+cannot keep. The risk now is the opposite one: painting a turned object while hit-testing,
+selection handles, resize, connectors, culling, export and the projection each do their own
+trigonometry, and a turn looks right until somebody clicks the empty corner of its bounding box.
+
+**Decision.**
+- `Widget.rotation` is degrees, absent = 0, normalised into (−180, 180]. It is honoured by a
+  shape, a sticky note, free text, an image and a frame; a table section is a frame but stays
+  straight, and kanban, cards, connectors and timers ignore the field on read.
+- One geometry module, `@remo/model/src/rotation.ts`: normalisation, corners, the described
+  rectangle, point-in-object, marquee overlap, right-angle magnet, 15° step, the shared centre
+  and `turnedPlacements`. Hit-testing, marquee, the spatial index, culling, camera fit,
+  export bounds, alignment and the rotation gesture read these functions; nothing recomputes a
+  turned corner.
+- **Anchors are local.** A connector resolves its side in the object's own axes
+  (`facingSideOf`) and then puts the anchor on the painted outline (`widgetAnchor`), with the
+  stub leaving along the painted normal. A line to a turned note therefore touches the contour
+  at every angle and rebuilds from the gesture preview.
+- **The selection frame turns with the object.** A single turned object gets its handles in its
+  own axes; a block keeps the axis-aligned frame around its members. Turning a frame carries its
+  contents by the same angle about the same centre, and resetting it puts them back (a frame is a
+  container, ADR-110). The round handle is a 10 px
+  circle with an ink edge on a 14 px stem above the top side. The top quiet "+" (ADR-195) steps
+  24 px further out for a kind that turns, so its 44 px target no longer covers the handle, and
+  the arrange bar leaves the same room above a multi-selection; all four ports remain. A resize of a turned object works
+  in its own axes with the opposite local corner fixed; Shift keeps the proportion exactly as
+  before. The common centre is the centre of the selection's painted boxes.
+- **Modifiers.** Shift rounds the turn to 15°; without it a final angle within 3° of
+  0/90/180/270 lands on it. `⌘⇧←`/`⌘⇧→` turn by 15°, and the command registry gains
+  "Rotate 90°" and "Reset rotation" for the object menu and the future palette. One gesture is
+  one document transaction and one undo step.
+- **Server.** `board.item.create`/`update` accept `rotation`, normalise it and store it only on
+  a kind that turns; `apps/sync/project.mjs` writes the real value into the existing
+  `widgets.rotation` column, and the read API returns it. No schema change.
+- **Compatibility.** The model reader keeps the field (it was the only entry in the removed-field
+  list), and every command merges into the current record, so a patch to another field does not
+  lose the angle. A pre-T18 browser build that rewrites the whole widget record from its own
+  sanitised copy still drops the field; such a client paints the object unrotated, which ADR-271
+  accepts for one release and the changelog states.
+- **No motion.** The handle and the angle plate are painted, not animated; `data-motion="calm"`
+  and reduced motion therefore have nothing to suppress. The plate names the angle with a real
+  minus sign, and the cursor is the served circular-arrow asset.
+- Connector labels stay horizontal (ADR-213): a label is a plate on the line, not a part of the
+  object that turns.
+- The `object.rotated` metric is defined by ADR-266 §9, but the client sender arrives with T11.
+  No catalog row and no dead call is added here; the number can be counted once a sender exists.
+
+**Consequences.** One angle, one answer for every reader. Unit tests pin normalisation, the
+described rectangle, hit/marquee behaviour, connector anchors and the shared centre; the browser
+scenario covers the handle, Shift, the keyboard, the editor, a second participant, export and the
+old-document path; `ScalePerf` carries 500 turned objects in the same frame budget.
+
+## ADR-284: The guide's address comes from the installation, not from the build
+
+**Status:** accepted (2026-11-24). Spec: `spec/cloud-zones.md` §5, `spec/stage.md` §3,
+`spec/rebrand.md` §5. Fixes the stage's «Отказ от ответственности» leading to the
+production guide.
+
+**Context.** The interface links into the product guide from two places — the account menu
+(«Документация») and the checkout's «Оферта» next to the terms checkbox — and the in-app
+help page «О Ремуке: версия и лицензия» does the same from its Markdown. Every one of them
+built the address from `BRAND.domains.docs`, so every installation of one build pointed at
+`docs.remuka.com`: a stand (`app.stage.remuka.ru`), whose own guide lives on
+`docs.stage.remuka.ru`, sent its people to production, and a self-host sent them to
+somebody else's documentation. `REMO_DOCS_ORIGIN` was already in `deploy/*.example` and in
+the stand runbook, but nothing read it: the variable was documentation of an intention.
+
+**Decision.**
+- **One source.** `apps/sync/docs-origin.mjs` reads `REMO_DOCS_ORIGIN` once at start;
+  `GET /api/config` publishes it as `docs: { origin: string | null }`. The field is always
+  present — `null` means this installation has no guide — in the same way `compliance` and
+  `legal` are always present (ADR-255 §3, ADR-256 §4).
+- **Validation.** The value must be an absolute `https` origin with no path, query,
+  fragment, credentials or trailing `/` (the trailing `/` is accepted and normalised). Only
+  an origin is accepted because the client appends a guide path; a path would silently
+  become `/guide/guide/...`. A malformed value **stops the start**, like a mistyped
+  `REMO_COMPLIANCE_ZONE` and unlike an optional link: a silent `null` would also be the
+  legitimate self-host default, so a typo would look exactly like a deliberate choice and
+  remove every guide link without a trace.
+- **Defaults by zone.** Unset `REMO_DOCS_ORIGIN`: `eu` → `https://docs.remuka.com`,
+  `ru` → `https://docs.remuka.ru`, `none` → `null`. The zone names the guide of *our* cloud;
+  a self-host without a zone gets no link rather than another installation's guide. An
+  explicit `REMO_DOCS_ORIGIN` wins over the zone, which is how the stand and a self-host
+  with its own portal set theirs.
+- **The client reads the config.** `readDocsOrigin` (`apps/web/src/docsLinks.ts`) validates
+  the untrusted JSON field with the same rule, and `docsHref(origin, path)` is the only way
+  a guide link is built. `I18nProvider` carries the answer; `AccountMenu`, `BillingPanel`
+  and the help render read it from there. No component names `BRAND.domains.docs`.
+- **No guide, no link.** With `origin: null` the sentence stays and the anchor goes: the
+  checkout shows «Принимаю условия оферты» without «Оферта», and the account menu hides the
+  «Документация» row (a `hideWhenUnavailable` command) instead of offering a dead one.
+- **The in-app help uses a token.** `content/help` writes `{{docs}}/guide/<lang>/…`; the
+  build keeps the token (`scripts/docs-build.mjs` restores it from markdown-it's
+  percent-encoded href), `withDocsOrigin` substitutes the origin at render time and unwraps
+  the anchor when there is none. The token is the only placeholder the help has.
+- **A gate for the future.** `scripts/links-check.mjs` (`pnpm links:check`, a step of
+  `pnpm verify`) fails when `apps/web/src/**` or `content/help/**` names
+  `docs.remuka.com`/`docs.remuka.ru`. It is a separate gate from `brand-check`: that one
+  guards the old name and the old hosts (ADR-254), this one guards an address that must be
+  configuration. `packages/brand` (where the cloud's hosts live and the zone defaults read
+  them), `content/legal/**` (a published revision is never rewritten, ADR-256), tests and
+  generated output are allowed.
+- **No schema change.** `GET /config` gains one field; nothing is stored.
+
+**Consequences.** The stage and any self-host now lead to their own guide or to no link.
+The zone defaults keep the two cloud installations working without a new variable in their
+environments; the stand keeps `REMO_DOCS_ORIGIN=https://docs.stage.remuka.ru` and it is now
+the address the browser uses. The legal texts in `content/legal/**` still name
+`docs.remuka.com` and `docs.remuka.ru` in prose: they are published revisions and bind the
+cloud, so they are deliberately out of scope until a new revision is published.

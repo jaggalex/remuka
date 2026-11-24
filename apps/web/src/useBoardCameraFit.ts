@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { boxOf, fitToBounds, unionBox, visibleWorldRect, zoomAt, type Camera } from "@remo/canvas";
-import type { Widget } from "@remo/model";
+import { fitToBounds, unionBox, visibleWorldRect, zoomAt, type Camera } from "@remo/canvas";
+import { rotatedBounds, type Widget } from "@remo/model";
 
 /**
  * The camera fit and the two HUD zoom buttons.
@@ -37,7 +37,7 @@ export function useBoardCameraFit({
     const boxes = ids
       .map((id) => widgetById(id))
       .filter((widget): widget is Widget => Boolean(widget))
-      .map((widget) => boxOf(widget));
+      .map((widget) => rotatedBounds(widget));
     const target = unionBox(boxes);
     if (target) setCamera(fitToBounds(target, { x: 0, y: 0, ...viewport }));
   }, [setCamera, selectedIds, viewport, widgetById, widgets]);
@@ -58,7 +58,7 @@ export function useBoardCameraFit({
   );
 
   const inView = (content: Widget[]) => {
-    const box = unionBox(content.map((widget) => boxOf(widget)));
+    const box = unionBox(content.map((widget) => rotatedBounds(widget)));
     if (!box) return false;
     const view = visibleWorldRect(camera, viewport);
     return (

@@ -12,11 +12,11 @@
 
 ## Документация
 
-Полное руководство по продукту: [docs.remuka.com/guide/ru/overview/index.html](https://docs.remuka.com/guide/ru/overview/index.html).
+Полное руководство по продукту — [на портале документации]({{docs}}/guide/ru/overview/index.html).
 
 ## Ответственность
 
-Версия открытая и может содержать ошибки; она предоставляется «как есть». Условия — [Отказ от ответственности](https://docs.remuka.com/guide/ru/support/disclaimer.html).
+Версия открытая и может содержать ошибки; она предоставляется «как есть». Условия — [Отказ от ответственности]({{docs}}/guide/ru/support/disclaimer.html).
 
 ## Что это значит на практике
 

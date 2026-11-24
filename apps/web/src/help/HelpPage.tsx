@@ -7,6 +7,7 @@ import { ConsentLink } from "../ConsentProvider";
 import { SupportEntryButton } from "../SupportPanel";
 import { ABOUT, aboutLabel } from "../about";
 import generated from "./generated.json";
+import { withDocsOrigin } from "./helpDocs";
 import type { HelpLocale, HelpTopicId } from "./topics.generated";
 import { HELP_TOPIC_IDS } from "./topics.generated";
 import "./help.css";
@@ -47,7 +48,7 @@ function parsePath(): { lang: HelpLocale; topicId: HelpTopicId | null } {
  * generated at build time and bundled: no network request, no service.
  */
 export function HelpPage() {
-  const { t, setLang, productName } = useI18n();
+  const { t, setLang, productName, docsOrigin } = useI18n();
   const initial = parsePath();
   const [lang, setDocumentLang] = useState<HelpLocale>(initial.lang);
   const [topicId, setTopicId] = useState<HelpTopicId | null>(initial.topicId);
@@ -70,6 +71,9 @@ export function HelpPage() {
 
   const topic = topicId ? data.topics.find((candidate) => candidate.id === topicId) : undefined;
   const html = topic?.html[lang] ?? topic?.html.ru;
+  // The guide's host arrives from `/config`, never from the build (ADR-284); without a
+  // guide the link stays as its own words.
+  const body = useMemo(() => (html ? withDocsOrigin(html, docsOrigin) : null), [html, docsOrigin]);
   const status = topic?.translationStatus ?? "current";
 
   const results = useMemo(() => {
@@ -128,8 +132,8 @@ export function HelpPage() {
             )}
             <h1>{topic.title[lang]}</h1>
             <p className="help-summary">{topic.summary[lang]}</p>
-            {html ? (
-              <div className="help-body" dangerouslySetInnerHTML={{ __html: html }} />
+            {body ? (
+              <div className="help-body" dangerouslySetInnerHTML={{ __html: body }} />
             ) : (
               <p className="help-notice" role="alert">{t("help.topicNotFound")}</p>
             )}

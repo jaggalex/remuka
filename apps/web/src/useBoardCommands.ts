@@ -27,6 +27,7 @@ import {
   noteMarksOf,
   pasteFragment,
   reattachConnectorEnd,
+  rotateWidgets,
   setConnectorProps,
   setConnectorRouting,
   setFillColor,
@@ -68,6 +69,7 @@ import {
   type TextDeltaOp,
   type ConnectorSide,
   type TextMarks,
+  type TurnOptions,
   type Widget,
 } from "@remo/model";
 import type { ArrangeBarActions } from "./ArrangeBar";
@@ -308,6 +310,15 @@ export function useBoardCommands(deps: BoardCommandDeps) {
   const resizeSelection = useCallback(
     (rects: WidgetRect[], scale?: { from: Rect; kx: number; ky: number }) =>
       transformSelection(board, rects, scale),
+    [board],
+  );
+
+  /**
+   * Commit a turn: the model's placements, one transaction in the document (ADR-271).
+   */
+  const rotateSelection = useCallback(
+    (ids: readonly string[], delta: number, options?: TurnOptions) =>
+      rotateWidgets(board, ids, delta, options),
     [board],
   );
 
@@ -704,6 +715,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     patchConnector,
     selectionLocked,
     resizeSelection,
+    rotateSelection,
     onMoveCard,
     onAddCard,
     onAddColumn,

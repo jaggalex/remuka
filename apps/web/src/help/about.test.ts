@@ -34,4 +34,12 @@ describe("the About page", () => {
     expect(about?.html.en).toContain("Remuka");
     expect(about?.html.en).toContain("formerly remo");
   });
+
+  it("names the guide with the token instead of a host (ADR-284)", () => {
+    // The host belongs to the installation; the browser substitutes `docs.origin`.
+    for (const locale of ["ru", "en"]) {
+      expect(about?.html[locale], locale).toContain('href="{{docs}}/guide/');
+      expect(about?.html[locale], locale).not.toContain("docs.remuka.");
+    }
+  });
 });

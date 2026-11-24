@@ -10,8 +10,16 @@
  * and so is the anchor model: a side plus a position along it (ADR-029).
  */
 import type { ConnectorEnd, ConnectorSide, Rect, Vec2, Widget } from "@remo/model";
-import { hasLegacyConnectorShape, rigidWaypoints, routingOf } from "@remo/model";
-import { anchorPoint, boxOf, facingSide, outlineAnchor, sideNormal } from "./anchor";
+import { hasLegacyConnectorShape, rigidWaypoints, rotationOf, routingOf } from "@remo/model";
+import {
+  anchorPoint,
+  boxOf,
+  facingSideOf,
+  localBoxOf,
+  sideNormal,
+  widgetAnchor,
+  widgetSideNormal,
+} from "./anchor";
 
 export interface Segment {
   from: Vec2;
@@ -151,10 +159,15 @@ export function elbowPoints(
   bend = 0.5,
   /** Which corner an elbow turns on when the sides are on different axes. */
   flip = false,
+  /**
+   * Outward directions of the two sides, for turned endpoints (ADR-271). Absent is the
+   * side's own normal, which is what every straight object uses.
+   */
+  normals: { from?: Vec2; to?: Vec2 } = {},
 ): Vec2[] {
   const stub = stubFor(Math.hypot(to.x - from.x, to.y - from.y), stubOptions);
-  const fromStub = add(from, scale(sideNormal(fromSide), stub));
-  const toStub = add(to, scale(sideNormal(toSide), stub));
+  const fromStub = add(from, scale(normals.from ?? sideNormal(fromSide), stub));
+  const toStub = add(to, scale(normals.to ?? sideNormal(toSide), stub));
   const fromHorizontal = fromSide === "left" || fromSide === "right";
   const toHorizontal = toSide === "left" || toSide === "right";
 
@@ -194,22 +207,32 @@ export function connectorPath(
 
   const fromBox = boxOf(fromWidget);
   const toBox = boxOf(toWidget);
+  // A corner end (ADR-137) is a point of the object's own box, so it resolves in the
+  // object's axes; a turned object then puts the side's anchor on the painted edge.
+  const fromLocal = rotationOf(fromWidget) === 0 ? fromBox : localBoxOf(fromWidget);
+  const toLocal = rotationOf(toWidget) === 0 ? toBox : localBoxOf(toWidget);
 
   // An explicit side wins; otherwise the side facing the other end is the anchor,
   // which is exactly what "draw a line to that object" means. A stored corner from
   // the eight-port world resolves to its nearest side (ADR-137).
   const fromSide = resolvedEndSide(
     connector.start,
-    fromBox,
-    facingSide(fromBox, { x: toWidget.x, y: toWidget.y }),
+    fromLocal,
+    facingSideOf(fromWidget, { x: toWidget.x, y: toWidget.y }),
   );
   const toSide = resolvedEndSide(
     connector.end,
-    toBox,
-    facingSide(toBox, { x: fromWidget.x, y: fromWidget.y }),
+    toLocal,
+    facingSideOf(toWidget, { x: fromWidget.x, y: fromWidget.y }),
   );
-  const from = outlineAnchor(fromBox, fromSide, fromWidget.shapeKind);
-  const to = outlineAnchor(toBox, toSide, toWidget.shapeKind);
+  const from = widgetAnchor(fromWidget, fromSide);
+  const to = widgetAnchor(toWidget, toSide);
+  // Stubs leave along the *painted* side, so a line to a turned note does not slide
+  // out at an angle of its own.
+  const normals = {
+    from: widgetSideNormal(fromWidget, fromSide),
+    to: widgetSideNormal(toWidget, toSide),
+  };
 
   // Records made before ADR-077 keep their old geometry for one release: their
   // `bend`/`elbowFlip`/`curve` fields are not user state any more, but silently
@@ -218,15 +241,24 @@ export function connectorPath(
     const shape = connector.connectorShape ?? "elbowed";
     if (shape === "elbowed") {
       return {
-        points: elbowPoints(from, fromSide, to, toSide, stubOptions, connector.bend, connector.elbowFlip),
+        points: elbowPoints(
+          from,
+          fromSide,
+          to,
+          toSide,
+          stubOptions,
+          connector.bend,
+          connector.elbowFlip,
+          normals,
+        ),
       };
     }
     if (shape === "curved") {
       const natural = Math.max(60, Math.hypot(to.x - from.x, to.y - from.y) * 0.42);
       const out = connector.curve?.from ?? natural;
       const into = connector.curve?.to ?? natural;
-      const c1 = add(from, scale(sideNormal(fromSide), out));
-      const c2 = add(to, scale(sideNormal(toSide), into));
+      const c1 = add(from, scale(normals.from, out));
+      const c2 = add(to, scale(normals.to, into));
       return {
         points: [from, c1, c2, to],
         curve: { from, c1, c2, to },
@@ -244,17 +276,19 @@ export function connectorPath(
 
   if (routing === "elbow") {
     if (!waypoints.length) {
-      return { points: elbowPoints(from, fromSide, to, toSide, stubOptions) };
+      return { points: elbowPoints(from, fromSide, to, toSide, stubOptions, 0.5, false, normals) };
     }
-    return { points: elbowThrough(from, fromSide, to, toSide, waypoints, stubOptions) };
+    return {
+      points: elbowThrough(from, to, waypoints, stubOptions, normals),
+    };
   }
 
   if (!waypoints.length) {
     // Curved without waypoints: a cubic leaving each side perpendicular, which is
     // the shape the source product draws.
     const natural = Math.max(60, Math.hypot(to.x - from.x, to.y - from.y) * 0.42);
-    const c1 = add(from, scale(sideNormal(fromSide), natural));
-    const c2 = add(to, scale(sideNormal(toSide), natural));
+    const c1 = add(from, scale(normals.from, natural));
+    const c2 = add(to, scale(normals.to, natural));
     return {
       points: [from, c1, c2, to],
       curve: { from, c1, c2, to },
@@ -277,18 +311,17 @@ export function connectorPath(
  */
 function elbowThrough(
   from: Vec2,
-  fromSide: ConnectorSide,
   to: Vec2,
-  toSide: ConnectorSide,
   waypoints: Vec2[],
   stubOptions: StubOptions,
+  normals: { from: Vec2; to: Vec2 },
 ): Vec2[] {
   const stub = stubFor(Math.hypot(to.x - from.x, to.y - from.y), stubOptions);
   const chain = [
     from,
-    add(from, scale(sideNormal(fromSide), stub)),
+    add(from, scale(normals.from, stub)),
     ...waypoints,
-    add(to, scale(sideNormal(toSide), stub)),
+    add(to, scale(normals.to, stub)),
     to,
   ];
   const out: Vec2[] = [chain[0]!];

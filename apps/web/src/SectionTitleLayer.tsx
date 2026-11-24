@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { patchWidget, type BoardDocument } from "@remo/doc";
 import { FRAME_LABEL, type Camera, type CanvasPalette } from "@remo/canvas";
-import { ink as inkOn } from "@remo/model";
+import { ink as inkOn, rotatedBounds, rotationOf } from "@remo/model";
 import type { Widget } from "@remo/model";
 import { Icon, Menu, type MenuItem } from "@remo/ui";
 import { useI18n } from "./i18n";
@@ -103,9 +103,15 @@ export function SectionTitleLayer({
     <>
       <div className="section-titles" aria-hidden="false">
         {frames.map((frame) => {
-          const left = (frame.x - frame.width / 2 - camera.x) * camera.zoom + viewport.width / 2;
-          const top = (frame.y - frame.height / 2 - camera.y) * camera.zoom + viewport.height / 2;
-          const right = left + frame.width * camera.zoom;
+          // The strip is the frame's own plate in screen space, so a turned frame turns
+          // it about the frame's centre (ADR-271, T18).
+          const angle = rotationOf(frame);
+          const box = rotatedBounds(frame);
+          const left = (box.x - camera.x) * camera.zoom + viewport.width / 2;
+          const top = (box.y - camera.y) * camera.zoom + viewport.height / 2;
+          const right = left + box.width * camera.zoom;
+          const centreX = (frame.x - camera.x) * camera.zoom + viewport.width / 2;
+          const centreY = (frame.y - camera.y) * camera.zoom + viewport.height / 2;
           if (right < 0 || left > viewport.width) return null;
           const selected = selectedIds.length === 1 && selectedIds[0] === frame.id;
           const table = frame.layout?.kind === "table" && frame.layout.active !== false;
@@ -115,13 +121,20 @@ export function SectionTitleLayer({
           // the name in the export, and this invisible button gives it focus and a field.
           const labelHeight = FRAME_LABEL.height * camera.zoom;
           const labelTop = top - (FRAME_LABEL.height - FRAME_LABEL.gap) * camera.zoom;
+          const turnedStyle = angle
+            ? {
+                left: 0,
+                top: 0,
+                transformOrigin: "0 0",
+                transform: `translate(${centreX}px, ${centreY}px) rotate(${angle}deg) translate(${((-frame.width / 2) * camera.zoom).toFixed(2)}px, ${((-frame.height / 2 - (FRAME_LABEL.height - FRAME_LABEL.gap)) * camera.zoom).toFixed(2)}px)`,
+              }
+            : { left, top: labelTop };
           return (
             <div
               key={frame.id}
               className={`section-title-strip${selected ? " is-selected" : ""}`}
               style={{
-                left,
-                top: labelTop,
+                ...turnedStyle,
                 height: Math.max(labelHeight, 20),
                 // The placeholder sits above the frame, on the canvas ground (ADR-273).
                 ["--ink" as string]: inkOn(palette.canvas, "muted"),

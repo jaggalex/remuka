@@ -133,6 +133,12 @@ they are. These keys differ:
 | `REMO_PULSE_PEERS` | `https://app.remuka.ru` | unset — the Russian installation never initiates |
 | `REMO_PRODUCT_NAME` | unset | unset |
 
+`REMO_DOCS_ORIGIN` is read by the sync service (`apps/sync/docs-origin.mjs`) and published
+in `GET /api/config` as `docs.origin`; the interface and the in-app help build every guide
+link from that answer (ADR-284). Unset, the zone picks the guide — `eu` the `.com`, `ru` the
+`.ru`; an installation with no zone gets no guide link at all. A malformed address stops
+the service instead of silently removing the links.
+
 While the EU application still answers on the apex, `REMO_APP_ORIGIN_ALIASES` also holds
 `https://remuka.com`: open tabs and bookmarks there must work until the move. The canonical
 address in mail and new links is always `REMO_APP_ORIGIN`.
@@ -172,7 +178,12 @@ ADR-260).
 
 The server has no `pnpm` and no checkout. The scripts live in the release image at
 `/app/scripts`, and `remo cli` runs one of them in a throw-away container of the current
-release, with the installation's own `production.env` and a read-only mount of `shared/`:
+release, with the installation's own `production.env` and a read-only mount of `shared/`.
+The controller takes the instance from its own directory — `/srv/stage-ru/remo` always
+means the stage, never whatever `REMO_ROOT` happens to be in the shell. A controller
+installed outside an instance directory can still set `REMO_ROOT` explicitly; do not use
+that as a habit, because running one instance's controller against another opens the wrong
+database.
 
 ```sh
 # The payment connections, their health and their keys.

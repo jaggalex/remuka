@@ -11,6 +11,7 @@ import { UiStringsProvider, type UiCountKey, type UiKey, type UiStrings } from "
 import { brandName } from "@remo/brand";
 import { call } from "./apiCall";
 import { NO_COMPLIANCE, readCompliance, type ComplianceInfo } from "./compliance";
+import { readDocsOrigin } from "./docsLinks";
 import { readLegalConfig, type LegalDocumentConfig } from "./legal/legalConfig";
 import type { MoveInfo } from "./moveBanner";
 
@@ -329,6 +330,11 @@ interface I18nValue {
   compliance: ComplianceInfo;
   /** The legal documents of this installation's zone from `/config`. */
   legal: readonly LegalDocumentConfig[];
+  /**
+   * The guide this installation links to, or `null` when it has none (ADR-284).
+   * Every guide link is built from it with `docsHref`; nothing names a host.
+   */
+  docsOrigin: string | null;
   /** Re-read the registry after the server refused a stale acceptance (§4). */
   refreshLegal: () => Promise<readonly LegalDocumentConfig[]>;
   t: (key: Key, vars?: Record<string, string | number>) => string;
@@ -361,6 +367,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // The registry of the installation, not of the reader: a form cannot invent a document
   // and a link cannot point at another zone (§2, §4).
   const [legal, setLegal] = useState<readonly LegalDocumentConfig[]>([]);
+  // The guide belongs to the installation too: `/config` names it, and an absent answer
+  // means no guide at all, never the cloud's (ADR-284).
+  const [docsOrigin, setDocsOrigin] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -369,6 +378,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       move?: MoveInfo | null;
       compliance?: unknown;
       legal?: unknown;
+      docs?: unknown;
       stage?: unknown;
     }>("/config")
       .then((config) => {
@@ -378,6 +388,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         setMove(config.move ?? null);
         setCompliance(readCompliance(config.compliance));
         setLegal(readLegalConfig(config.legal));
+        setDocsOrigin(readDocsOrigin(config.docs));
       })
       .catch(() => {
         // A missing config route is not an error: the brand name is the default.
@@ -433,6 +444,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       move,
       compliance,
       legal,
+      docsOrigin,
       refreshLegal,
       t: (key, vars) =>
         interpolate(STRINGS[lang][key], {
@@ -458,7 +470,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         locale: lang === "ru" ? "ru-RU" : "en-US",
       },
     }),
-    [lang, setLang, productName, stage, move, compliance, legal, refreshLegal],
+    [lang, setLang, productName, stage, move, compliance, legal, docsOrigin, refreshLegal],
   );
 
   return (
@@ -482,4 +494,14 @@ export function useI18n(): I18nValue {
  */
 export function useCompliance(): ComplianceInfo {
   return useI18n().compliance;
+}
+
+/**
+ * The guide of this installation, or `null` (ADR-284).
+ *
+ * A component that links into the guide builds the address with `docsHref(docsOrigin, path)`
+ * and renders the link only when that answers a string.
+ */
+export function useDocsOrigin(): string | null {
+  return useI18n().docsOrigin;
 }

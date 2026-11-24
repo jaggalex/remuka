@@ -1,4 +1,4 @@
-import type { Rect, Widget } from "@remo/model";
+import { localPointOf, rotationOf, type Rect, type Widget } from "@remo/model";
 import { drawInkPlate, PLATE, plateFont, plateWidth } from "./inkPlate";
 import type { CanvasPalette } from "./palette";
 
@@ -55,12 +55,18 @@ export function frameLabelAt(
     const widget = widgets[index]!;
     const text = frameLabelText(widget);
     if (!text) continue;
-    const rect = frameLabelRect(widget, frameLabelWidth(measure, text));
+    // The plate is painted turned with its frame, so it is tested in the frame's axes
+    // (ADR-271, T18).
+    const turned = rotationOf(widget) !== 0;
+    const local = turned ? localPointOf(widget, point) : point;
+    const rect = turned
+      ? frameLabelRect({ ...widget, x: 0, y: 0, rotation: 0 }, frameLabelWidth(measure, text))
+      : frameLabelRect(widget, frameLabelWidth(measure, text));
     if (
-      point.x >= rect.x &&
-      point.x <= rect.x + rect.width &&
-      point.y >= rect.y &&
-      point.y <= rect.y + rect.height
+      local.x >= rect.x &&
+      local.x <= rect.x + rect.width &&
+      local.y >= rect.y &&
+      local.y <= rect.y + rect.height
     ) {
       return widget;
     }

@@ -809,18 +809,17 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     x: geometry.rect.left + geometry.rect.width / 2 + (world.x - geometry.camera.x) * geometry.camera.zoom,
     y: geometry.rect.top + geometry.rect.height / 2 + (world.y - geometry.camera.y) * geometry.camera.zoom,
   });
-  const widgets = await page.evaluate(() => window.__remo.widgets);
-  // Bottom-up: the arrange bar opens above the selection, so clicking downwards would
-  // let the bar cover the next note.
-  const ordered = [...widgets].sort((a, b) => b.y - a.y);
-  const first = toClient({ x: ordered[0].x, y: ordered[0].y });
-  await page.mouse.click(first.x, first.y);
-  await page.keyboard.down("Shift");
-  for (const widget of ordered.slice(1)) {
-    const point = toClient({ x: widget.x, y: widget.y });
-    await page.mouse.click(point.x, point.y);
-  }
-  await page.keyboard.up("Shift");
+  // One marquee from the empty margin around the fitted content: no bar exists before
+  // the selection, so nothing can cover the press, and the notes are all inside.
+  const start = { x: geometry.rect.left + 6, y: geometry.rect.top + 6 };
+  const end = {
+    x: geometry.rect.left + geometry.rect.width - 6,
+    y: geometry.rect.top + geometry.rect.height - 6,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.up();
   await expect
     .poll(() => page.evaluate(() => window.__remo.selectedIds.length))
     .toBe(5);
@@ -1889,4 +1888,58 @@ test("ink: a frame, a table, stickies and a caption are the same in the export",
   await page.getByRole("button", { name: "Fit", exact: true }).click();
   await capture(page, page.locator(".app"), "ink-objects-dark");
   await exportRoom(page, testInfo, "ink-objects-export-dark");
+});
+
+/**
+ * Rotation: the canvas and its PNG/PDF picture (ADR-271, T18).
+ *
+ * One shape and one sticky, both turned −12°, joined by a line. The export is the same
+ * painter, so the two files must show the same angle; the connector meets the turned
+ * outline rather than the corner of the described box.
+ */
+test("rotation: the canvas and its export draw the same turned objects", async ({
+  page,
+}, testInfo) => {
+  const account = await freshBoard(page, "visual-rotation", { template: "empty" });
+  const shapeId = await seedObject(page, account.boardId, {
+    type: "shape",
+    x: -160,
+    y: 0,
+    width: 200,
+    height: 120,
+    content: "Проверка",
+    rotation: -12,
+  });
+  // A fixed id: the sticky's paper tilt is a hash of it, and this picture is compared
+  // byte for byte (ADR-265 §3.2).
+  const noteId = await seedStableNote(page, {
+    id: "rotation-idea",
+    x: 160,
+    y: 0,
+    width: 160,
+    height: 180,
+    text: "Идея",
+    rotation: -12,
+  });
+  await seedConnector(page, account.boardId, shapeId, noteId);
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await calmMotion(page);
+  // Nothing selected: the reference is the content, not the handles.
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([]);
+
+  await capture(page, page.locator(".app"), "rotation");
+  await exportRoom(page, testInfo, "rotation-export");
 });

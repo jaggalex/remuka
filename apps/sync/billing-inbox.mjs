@@ -133,93 +133,104 @@ export async function applyPaymentEvent({
   if (!chain) throw codedError("PAYMENT_NOT_FOUND", "the event names no known payment");
 
   const orgId = chain.org_id ?? null;
+  // Without an organisation there is no tenant to settle in; retrying cannot invent one.
+  if (!orgId) throw codedError("PAYMENT_NOT_FOUND", "the event's payment has no organisation");
   const transition = paymentTransition(chain.payment_status, next);
   if (transition === "repeat") return { applied: false, reason: "ALREADY_APPLIED", orgId };
   if (transition === "stale") return { applied: false, reason: "STALE", orgId };
 
-  if (next === "canceled") {
-    const canceled = await store.cancelPayment({
-      paymentId: chain.payment_id,
-      failureCode: payment.failureCode ?? null,
-    });
-    if (!canceled) return { applied: false, reason: "STALE", orgId };
-    log.log?.(`[billing] inbox: payment ${short(chain.payment_id)} canceled`);
-    return { applied: true, reason: null, orgId };
-  }
+  // Every tenant table the settlement touches — invoices, payments, subscriptions, the
+  // ledger — is under row-level security, and this drain runs without a request. Reading
+  // the invoice outside `withTenant` returned null on a production role and the event was
+  // retried as `INVOICE_NOT_FOUND`; the org is known from the chain, so the consequence
+  // runs in its context (ADR-178).
+  const applyToOrganisation = async () => {
+    if (next === "canceled") {
+      const canceled = await store.cancelPayment({
+        paymentId: chain.payment_id,
+        failureCode: payment.failureCode ?? null,
+      });
+      if (!canceled) return { applied: false, reason: "STALE", orgId };
+      log.log?.(`[billing] inbox: payment ${short(chain.payment_id)} canceled`);
+      return { applied: true, reason: null, orgId };
+    }
 
-  const invoice = await store.billingInvoiceGlobal(chain.invoice_id);
-  if (!invoice) throw codedError("INVOICE_NOT_FOUND", "the payment has no invoice");
-  if (invoice.status === "void") {
-    return { applied: false, reason: "INVOICE_VOID", orgId };
-  }
-  if (invoice.status === "paid" && chain.payment_status === "succeeded") {
-    // Another event (the reconciliation, a repeated delivery with a new key) already
-    // settled this payment. Money is a fact; a second letter or ledger row is not.
-    return { applied: false, reason: "ALREADY_APPLIED", orgId };
-  }
-  // The provider's sum is the fact; the invoice's is the promise. Settling a 1 ₽ payment
-  // against a 290 ₽ invoice would grant a period that nobody paid for, so the mismatch
-  // is retried (and finally buried) instead of guessed around.
-  if (
-    Number.isFinite(payment.amount) &&
-    payment.amount > 0 &&
-    payment.amount !== Number(invoice.total)
-  ) {
-    throw codedError("AMOUNT_MISMATCH", "the provider's amount differs from the invoice");
-  }
-  if (
-    typeof payment.currency === "string" &&
-    payment.currency !== "" &&
-    payment.currency.toUpperCase() !== String(invoice.currency).toUpperCase()
-  ) {
-    throw codedError("CURRENCY_MISMATCH", "the provider's currency differs from the invoice");
-  }
+    const invoice = await store.billingInvoiceGlobal(chain.invoice_id);
+    if (!invoice) throw codedError("INVOICE_NOT_FOUND", "the payment has no invoice");
+    if (invoice.status === "void") {
+      return { applied: false, reason: "INVOICE_VOID", orgId };
+    }
+    if (invoice.status === "paid" && chain.payment_status === "succeeded") {
+      // Another event (the reconciliation, a repeated delivery with a new key) already
+      // settled this payment. Money is a fact; a second letter or ledger row is not.
+      return { applied: false, reason: "ALREADY_APPLIED", orgId };
+    }
+    // The provider's sum is the fact; the invoice's is the promise. Settling a 1 ₽ payment
+    // against a 290 ₽ invoice would grant a period that nobody paid for, so the mismatch
+    // is retried (and finally buried) instead of guessed around.
+    if (
+      Number.isFinite(payment.amount) &&
+      payment.amount > 0 &&
+      payment.amount !== Number(invoice.total)
+    ) {
+      throw codedError("AMOUNT_MISMATCH", "the provider's amount differs from the invoice");
+    }
+    if (
+      typeof payment.currency === "string" &&
+      payment.currency !== "" &&
+      payment.currency.toUpperCase() !== String(invoice.currency).toUpperCase()
+    ) {
+      throw codedError("CURRENCY_MISMATCH", "the provider's currency differs from the invoice");
+    }
 
-  // The saved method belongs to the first successful payment of a subscription (§4) and
-  // is stored before the settlement, so a failed settlement retries the same event rather
-  // than leaving a paid invoice with an autopay promise and no card.
-  if (typeof store.connectionById === "function") {
-    const connection = await store.connectionById(chain.connection_id);
-    if (connection) {
-      try {
-        await applyProviderEvent({
-          store,
-          connection,
-          event,
-          log,
-          ...(kek ? { kek } : {}),
-        });
-      } catch (error) {
-        log.error?.(
-          `[billing] inbox: the method of payment ${short(chain.payment_id)} was not saved (${error?.code ?? "ERROR"})`,
-        );
+    // The saved method belongs to the first successful payment of a subscription (§4) and
+    // is stored before the settlement, so a failed settlement retries the same event rather
+    // than leaving a paid invoice with an autopay promise and no card.
+    if (typeof store.connectionById === "function") {
+      const connection = await store.connectionById(chain.connection_id);
+      if (connection) {
+        try {
+          await applyProviderEvent({
+            store,
+            connection,
+            event,
+            log,
+            ...(kek ? { kek } : {}),
+          });
+        } catch (error) {
+          log.error?.(
+            `[billing] inbox: the method of payment ${short(chain.payment_id)} was not saved (${error?.code ?? "ERROR"})`,
+          );
+        }
       }
     }
-  }
 
-  const settled = await settleInvoice({
-    store,
-    invoice,
-    connectionId: chain.connection_id,
-    providerPaymentId: payment.providerPaymentId ?? null,
-    paymentId: chain.payment_id,
-  });
+    const settled = await settleInvoice({
+      store,
+      invoice,
+      connectionId: chain.connection_id,
+      providerPaymentId: payment.providerPaymentId ?? null,
+      paymentId: chain.payment_id,
+    });
 
-  if (notify) {
-    try {
-      await notify("payment_succeeded", {
-        orgId,
-        invoice: settled.invoice,
-        subscription: settled.subscription,
-      });
-    } catch (error) {
-      // The money is stored; a letter that failed must not make the provider repeat an
-      // event whose ledger consequences are already applied.
-      log.error?.(`[billing] inbox: payment_succeeded letter failed (${error?.code ?? "ERROR"})`);
+    if (notify) {
+      try {
+        await notify("payment_succeeded", {
+          orgId,
+          invoice: settled.invoice,
+          subscription: settled.subscription,
+        });
+      } catch (error) {
+        // The money is stored; a letter that failed must not make the provider repeat an
+        // event whose ledger consequences are already applied.
+        log.error?.(`[billing] inbox: payment_succeeded letter failed (${error?.code ?? "ERROR"})`);
+      }
     }
-  }
-  log.log?.(`[billing] inbox: payment ${short(chain.payment_id)} succeeded`);
-  return { applied: true, reason: null, orgId };
+    log.log?.(`[billing] inbox: payment ${short(chain.payment_id)} succeeded`);
+    return { applied: true, reason: null, orgId };
+  };
+  if (typeof store.withTenant !== "function") return applyToOrganisation();
+  return store.withTenant(orgId, applyToOrganisation);
 }
 
 export function createBillingInbox({

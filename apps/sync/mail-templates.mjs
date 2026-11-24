@@ -657,15 +657,24 @@ function operatorAction(lang, values) {
  * An installation that runs under its own name (`REMO_PRODUCT_NAME`) gets only that name:
  * the brand and its cloud addresses belong to somebody else's service (ADR-254 §4.2, §7).
  */
-function signatureFor(lang, { product, ownProduct }) {
+function signatureFor(lang, { product, ownProduct, support }) {
   const name = escapeHtml(product);
   if (ownProduct) return { text: name, html: name };
   const site = lang === "ru" ? BRAND.domains.siteRu : BRAND.domains.site;
   const href = escapeHtml(`https://${site}`);
-  const support = escapeHtml(`support@${BRAND.domains.site}`);
+  // The mailbox belongs to the installation, not to the reader's language: an English
+  // letter from the Russian installation is answered by support@remuka.ru. `undefined`
+  // keeps the historical per-language default for a direct `render` call; `null` means
+  // "this installation has no mailbox" (self-host without REMO_CONTACT_SUPPORT) and the
+  // line is left out instead of printing somebody else's address.
+  const address =
+    support === undefined ? `support@${lang === "ru" ? BRAND.domains.siteRu : BRAND.domains.site}` : support;
+  const siteHtml = `<a href="${href}" style="color:#57534e;">${escapeHtml(site)}</a>`;
+  if (!address) return { text: `${product} · https://${site}`, html: `${name} · ${siteHtml}` };
+  const mail = escapeHtml(address);
   return {
-    text: `${product} · https://${site} · support@${BRAND.domains.site}`,
-    html: `${name} · <a href="${href}" style="color:#57534e;">${escapeHtml(site)}</a> · <a href="mailto:${support}" style="color:#57534e;">${support}</a>`,
+    text: `${product} · https://${site} · ${address}`,
+    html: `${name} · ${siteHtml} · <a href="mailto:${mail}" style="color:#57534e;">${mail}</a>`,
   };
 }
 
@@ -696,7 +705,7 @@ const RENDERERS = {
  * @param {Record<string, unknown>} params
  * @returns {{ subject: string, text: string, html: string }}
  */
-export function render(template, locale, params = {}, { stage = false } = {}) {
+export function render(template, locale, params = {}, { stage = false, support } = {}) {
   if (!MAIL_TEMPLATES.includes(template)) {
     throw templateError("UNKNOWN_TEMPLATE");
   }
@@ -710,7 +719,11 @@ export function render(template, locale, params = {}, { stage = false } = {}) {
   const explicitProduct = param(values, "product", { required: false });
   const product = explicitProduct ?? brandName({ locale: lang });
   const mail = RENDERERS[template](lang, { ...values, product, ownProduct: Boolean(explicitProduct) });
-  const signature = signatureFor(lang, { product, ownProduct: Boolean(explicitProduct) });
+  const signature = signatureFor(lang, {
+    product,
+    ownProduct: Boolean(explicitProduct),
+    support,
+  });
   return {
     // The stand's mark belongs to the one renderer, not to twenty-two templates
     // (`spec/stage.md` §5): a template cannot forget it and cannot spell it differently.

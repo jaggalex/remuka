@@ -159,6 +159,32 @@ describe("only forward (§5)", () => {
     expect(outcome).toMatchObject({ applied: false, reason: "ALREADY_APPLIED" });
   });
 
+  it("settles inside the payment's tenant, where row-level security can see the invoice", async () => {
+    // The drain runs without a request. On a production role the invoice read outside
+    // `withTenant` returned null and every delivery retried as INVOICE_NOT_FOUND.
+    let tenant = null;
+    let invoiceReadInTenant = null;
+    const store = {
+      paymentChainFor: async () => ({ ...CHAIN }),
+      withTenant: async (orgId, fn) => {
+        tenant = orgId;
+        try {
+          return await fn();
+        } finally {
+          tenant = null;
+        }
+      },
+      billingInvoiceGlobal: async () => {
+        invoiceReadInTenant = tenant;
+        return null;
+      },
+    };
+    await expect(
+      applyPaymentEvent({ store, connectionId: "conn-1", event: event(), log: silent }),
+    ).rejects.toMatchObject({ code: "INVOICE_NOT_FOUND" });
+    expect(invoiceReadInTenant).toBe("org-1");
+  });
+
   it("refuses a provider sum that is not the invoice total", async () => {
     const store = {
       paymentChainFor: async () => ({ ...CHAIN }),

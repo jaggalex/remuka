@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { pick, placementAt, screenToWorld, textHitAt, type Camera, type KanbanLayout } from "@remo/canvas";
+import { connectorPath, pick, placementAt, screenToWorld, textHitAt, type Camera, type KanbanLayout } from "@remo/canvas";
 import { DEFAULT_STICKY_SIZE, createWidget, setWidgetText, type BoardDocument, type LineFormatInput, type Presence } from "@remo/doc";
 import type { TextDeltaOp, Widget } from "@remo/model";
 
@@ -36,6 +36,8 @@ export interface SeedNoteInput {
   text?: string;
   parentId?: string | null;
   style?: { fontSize?: number; fillColor?: string };
+  /** Degrees, so a baseline can pin a turned note with a stable id (T18). */
+  rotation?: number;
 }
 
 export function useCanvasProbe({
@@ -50,6 +52,7 @@ export function useCanvasProbe({
   widgets,
   textOf,
   isCardOfKanban,
+  preview,
   boardRef,
   paintStats,
   cursors,
@@ -66,6 +69,8 @@ export function useCanvasProbe({
   widgets: Widget[];
   textOf: (id: string) => string;
   isCardOfKanban: (widget: Widget) => boolean;
+  /** The gesture in flight, so a line can be read while an endpoint turns (T18). */
+  preview: ReadonlyMap<string, Partial<Widget>>;
   boardRef: React.RefObject<HTMLCanvasElement | null>;
   paintStats: React.RefObject<Record<string, unknown>>;
   /** Where each peer's cursor is painted now, in board units (ADR-265). */
@@ -124,6 +129,9 @@ export function useCanvasProbe({
         y: w.y,
         width: w.width,
         height: w.height,
+        // The angle, so a browser scenario can assert a turn without reaching into Yjs
+        // (ADR-271, T18).
+        rotation: w.rotation ?? 0,
         style: w.style ? { ...w.style } : null,
         title: w.title ?? null,
         shapeKind: w.shapeKind ?? null,
@@ -183,8 +191,26 @@ export function useCanvasProbe({
           width: input.width ?? DEFAULT_STICKY_SIZE.width,
           height: input.height ?? DEFAULT_STICKY_SIZE.height,
           ...(input.style ? { style: input.style } : {}),
+          ...(input.rotation ? { rotation: input.rotation } : {}),
         });
         if (input.text) setWidgetText(board, input.id, input.text);
+      },
+      /**
+       * The drawn path of a connector, with the gesture in flight applied (T18).
+       *
+       * A browser scenario reads it while the round handle is held to prove the line
+       * follows the turn before the drop, not after it.
+       */
+      connectorPath(id: string) {
+        const widget = widgets.find((entry) => entry.id === id);
+        if (!widget || widget.type !== "connector") return null;
+        const resolve = (itemId: string) => {
+          const found = widgets.find((entry) => entry.id === itemId);
+          if (!found) return undefined;
+          const patch = preview.get(itemId);
+          return patch ? { ...found, ...patch } : found;
+        };
+        return connectorPath(widget, resolve)?.points ?? null;
       },
       /** Mirrors the handlers: client coords → what would be hit. */
       probe(clientX: number, clientY: number) {
@@ -224,6 +250,7 @@ export function useCanvasProbe({
     isCardOfKanban,
     layouts,
     presence,
+    preview,
     selectedIds,
     textOf,
     viewport,

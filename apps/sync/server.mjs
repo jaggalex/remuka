@@ -59,6 +59,7 @@ import { buildInfo } from "./build-info.mjs";
 import { productName, productNameOverride, warnDeprecatedProductName } from "./product-name.mjs";
 import { resolveMove, warnMove } from "./move.mjs";
 import { resolveCompliance, warnCompliance } from "./compliance.mjs";
+import { resolveDocsOrigin } from "./docs-origin.mjs";
 import { createLegalRuntime } from "./legal.mjs";
 import { handlePublicRoutes } from "./public-api.mjs";
 import { isStage } from "./stage.mjs";
@@ -103,6 +104,11 @@ const MOVE = resolveMove();
  * `REMO_COMPLIANCE_ZONE` stops the start instead of quietly serving the wrong rules.
  */
 const COMPLIANCE = resolveCompliance();
+/**
+ * The guide this installation links to (ADR-284). Resolved once, so a malformed
+ * `REMO_DOCS_ORIGIN` stops the start instead of quietly removing every guide link.
+ */
+const DOCS_ORIGIN = resolveDocsOrigin();
 
 await mkdir(DATA_DIR, { recursive: true });
 
@@ -626,7 +632,7 @@ async function routeRequest(request, response, url) {
   }
 
   // Public branding and the health probe; neither needs a session (ADR-254 §3).
-  const publicRoutes = { request, response, url, store, build: BUILD, productName: PRODUCT_NAME, productNameOverride: PRODUCT_NAME_OVERRIDE, move: MOVE, compliance: COMPLIANCE, legal: legal.config, stage: isStage() };
+  const publicRoutes = { request, response, url, store, build: BUILD, productName: PRODUCT_NAME, productNameOverride: PRODUCT_NAME_OVERRIDE, move: MOVE, compliance: COMPLIANCE, legal: legal.config, docsOrigin: DOCS_ORIGIN, stage: isStage() };
   if (await handlePublicRoutes(publicRoutes)) return;
 
   if (url.pathname === "/metrics") {

@@ -182,6 +182,16 @@ export interface Widget extends Rect {
   shapeKind?: ShapeKind;
 
   /**
+   * Clockwise rotation of the whole object, in degrees (ADR-271, T18).
+   *
+   * Absent is 0. The value is read normalised into (−180, 180] and only a shape, a
+   * sticky note, free text, an image or a frame honours it; a table section is a
+   * frame but stays straight, and every other kind ignores the field. The pivot is
+   * the object's centre — the one point a rotation never moves.
+   */
+  rotation?: number;
+
+  /**
    * The stored picture of an `image` object (ADR-249, §3.2).
    *
    * Flat in the widget like every other field: there is no `props` container, and the

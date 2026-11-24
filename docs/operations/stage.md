@@ -213,6 +213,11 @@ banner, `noindex`, the `[Стенд]` / `[Stage]` mail subject, the export water
 allow-list, the refusal of live payments and the `stage:*` commands. `/api/health` then
 answers `"stage": true`; on production the field is absent (`spec/stage.md` §5).
 
+`REMO_DOCS_ORIGIN` on a stand is part of that isolation, not a note: sync reads it and
+publishes it in `GET /api/config` as `docs.origin`, and «Документация», «Оферта» and the
+help's «О Ремуке» lead to the stand's own guide (ADR-284). Without the variable the zone
+answer would send the stand's people to the production guide.
+
 The rest of the stand-only keys belong in the same file. They are secrets or instance
 addresses and follow the same rule: mode `600`, never in Git.
 

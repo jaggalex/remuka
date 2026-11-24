@@ -396,7 +396,10 @@ export const CHROME_COMMANDS: readonly ChromeCommand[] = [
     synonyms: { ru: ["документация", "руководство"], en: ["documentation", "manual"] },
     intent: "account",
     surfaces: ["header", "palette"],
-    available: () => true,
+    // A self-host without a guide has nowhere to send the person, so the row is absent
+    // rather than a disabled one with an explanation (ADR-284).
+    hideWhenUnavailable: true,
+    available: allow("docs", "account.docsUnavailable"),
     run: (ctx) => ctx.run("account.docs"),
   },
   {

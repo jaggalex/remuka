@@ -62,6 +62,62 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
   await expect(page.locator(".canvas-notice")).toContainText("restored from the backup");
 });
 
+test("a room backup restores the rotation angle (T18)", async ({ page }) => {
+  const account = await register(page, "export-rotation");
+  await openBoard(page, account.boardId, { template: "empty" });
+  const id = await seedObject(page, account.boardId, {
+    type: "sticky_note",
+    x: 0,
+    y: 0,
+    width: 160,
+    height: 180,
+    content: "Идея",
+    rotation: -12,
+  });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (widgetId) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; rotation: number }> } }).__remo.widgets.find(
+            (widget) => widget.id === widgetId,
+          )?.rotation ?? null,
+        id,
+      ),
+    )
+    .toBe(-12);
+
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: "Export…" }).click();
+  const dialog = page.locator(".export-dialog");
+  await dialog.getByRole("radio", { name: /Room backup/ }).click();
+  const [backup] = await Promise.all([
+    page.waitForEvent("download"),
+    dialog.getByRole("button", { name: "Export", exact: true }).click(),
+  ]);
+  const contents = await readFile(await backup.path());
+  await dialog.locator(".export-import input[type=file]").setInputFiles({
+    name: backup.suggestedFilename(),
+    mimeType: "application/json",
+    buffer: contents,
+  });
+  await page.getByRole("button", { name: "Replace the room" }).click();
+  await expect(page.locator(".canvas-notice")).toContainText("restored from the backup");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (widgetId) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; rotation: number }> } }).__remo.widgets.find(
+            (widget) => widget.id === widgetId,
+          )?.rotation ?? null,
+        id,
+      ),
+    )
+    .toBe(-12);
+});
+
 test("exports a selection with the line between the selected objects", async ({ page }) => {
   const account = await register(page, "export-selection-line");
   const left = await seedNote(page, account.boardId, { x: -150, y: 0 });

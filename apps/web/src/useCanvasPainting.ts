@@ -10,7 +10,7 @@ import {
   type OverlayPaintInput,
 } from "./painters";
 import { canvasPaletteFromTokens } from "./canvasPalette";
-import { connectorResolver, type ContinuePreview } from "./canvasGeometry";
+import { connectorResolver, previewResolver, type ContinuePreview } from "./canvasGeometry";
 import { useProposalLayout } from "./proposalStore";
 import { imageFieldsOf, imageVariantFallbacks, imageVariantForWidget } from "@remo/canvas";
 import { boardImageCache } from "./imageCache";
@@ -98,6 +98,7 @@ export function useCanvasPainting({
     dragPreview,
     guides,
     marquee,
+    rotationDraft,
   } = gestures;
 
   // Cards resolve their box through the kanban placement (ADR-113), so a connector
@@ -105,6 +106,19 @@ export function useCanvasPainting({
   const resolveConnector = useMemo(
     () => connectorResolver(widgets, layouts),
     [widgets, layouts],
+  );
+
+  /**
+   * The resolver the painter uses: the document plus the gesture in flight.
+   *
+   * A connector is derived from its ends, so a line to a note being carried or turned
+   * has to read the same preview the note itself is painted from. Without this the
+   * line would stay behind until the drop, and a turn would look like the line
+   * detaching from the object (ADR-271, T18).
+   */
+  const resolveLive = useMemo(
+    () => previewResolver(resolveConnector, preview),
+    [preview, resolveConnector],
   );
 
   // A plan under review is painted over the room (ADR-188).
@@ -238,7 +252,7 @@ export function useCanvasPainting({
       dragIds,
       dragGhostIds,
       draggedCardId,
-      resolve: resolveConnector,
+      resolve: resolveLive,
       isCardOfKanban,
       theme: paintTheme,
       editingId,
@@ -267,7 +281,7 @@ export function useCanvasPainting({
     selectedIds,
     settings,
     viewport,
-    resolveConnector,
+    resolveLive,
     widgets,
     isCardOfKanban,
     imageOf,
@@ -327,12 +341,13 @@ export function useCanvasPainting({
       guides,
       marquee,
       presence,
-      resolve: resolveConnector,
+      resolve: resolveLive,
       theme: paintTheme,
       focusedWaypoint,
       proposal,
       presenting,
       continuePreview,
+      rotationDraft,
       image: imageOf,
       imageUnavailable: imageIsUnavailable,
       cursorAt: (peer) => cursorMotion.current.view(peer.sessionKey, started, reduced),
@@ -359,10 +374,11 @@ export function useCanvasPainting({
     proposal,
     presenting,
     continuePreview,
+    rotationDraft,
     selectedIds,
     settings,
     viewport,
-    resolveConnector,
+    resolveLive,
     widgets,
     isCardOfKanban,
     imageOf,

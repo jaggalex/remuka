@@ -15,6 +15,7 @@ import {
   cardFillFor,
   inkFor,
   kindOf,
+  rotationOf,
   stickyFill,
   type TextDeltaOp,
   type TextRun,
@@ -170,5 +171,8 @@ export function editorTargetFor({
     ).color,
     // The editor takes the shape of what it edits: a card is a sheet with CARD_RADIUS (ADR-234).
     radius: isCard ? CARD_RADIUS : widget.type === "sticky_note" ? 3 : 2,
+    // The editor covers the painted text, and a turned object's text is turned, so the
+    // DOM layer takes the same angle about the same centre (ADR-271, T18).
+    ...(rotationOf(widget) !== 0 ? { rotation: rotationOf(widget) } : {}),
   };
 }

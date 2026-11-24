@@ -226,7 +226,7 @@ async getBoard(boardId) {
 
 async listWidgets(boardId, { type, q, limit = 200 } = {}) {
   const { rows } = await this.pool.query(
-    `select id, type, parent_id, x, y, width, height, title, content, props, updated_at
+    `select id, type, parent_id, x, y, width, height, title, content, rotation, props, updated_at
        from widgets
       where board_id = $1
         and ($2::text is null or type = $2)

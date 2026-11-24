@@ -70,15 +70,17 @@ async function enableAgents(page: Page, orgId: string, boardId: string): Promise
 async function selectAll(page: Page): Promise<void> {
   const rows = await widgets(page);
   expect(rows.length).toBeGreaterThan(0);
-  const current = await geometry(page);
-  const first = toClient(current, { x: rows[0].x, y: rows[0].y });
-  await page.mouse.click(first.x, first.y);
-  await page.keyboard.down("Shift");
-  for (const row of rows.slice(1)) {
-    const point = toClient(current, { x: row.x, y: row.y });
-    await page.mouse.click(point.x, point.y);
-  }
-  await page.keyboard.up("Shift");
+  // One marquee from the empty margin of the fitted view: before the first selection
+  // there is no arrange bar, so nothing can cover the press (the bar and the rotation
+  // handle live above a selection once it exists).
+  const canvas = (await page.locator(".layer.overlay").boundingBox())!;
+  // Clear of the rail on the left and the header on top.
+  await page.mouse.move(canvas.x + 100, canvas.y + 140);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 100, canvas.y + canvas.height - 100, {
+    steps: 12,
+  });
+  await page.mouse.up();
   await expect
     .poll(() =>
       page.evaluate(

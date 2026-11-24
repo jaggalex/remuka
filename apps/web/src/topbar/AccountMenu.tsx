@@ -5,7 +5,7 @@ import { api, ApiError, type SessionUser } from "../api";
 import { authCapabilities, resendVerification } from "../apiMail";
 import { useSupportSurface } from "../SupportPanel";
 import { useI18n, type Lang } from "../i18n";
-import { BRAND } from "@remo/brand";
+import { docsHref } from "../docsLinks";
 import { useConsent } from "../ConsentProvider";
 import { aboutLabel } from "../about";
 import { useMenuFocus } from "../useMenuFocus";
@@ -90,7 +90,7 @@ export function AccountMenu({
   onDeleteScheduled?: (schedule: DeletionSchedule) => void;
   onDeleteCancelled?: () => void;
 }) {
-  const { t, productName } = useI18n();
+  const { t, productName, docsOrigin } = useI18n();
   const { openSettings: openCookieSettings } = useConsent();
   const anchor = useMenuFocus(open, true, ".rm-popover input");
   const [nameDraft, setNameDraft] = useState(name);
@@ -194,12 +194,11 @@ export function AccountMenu({
     "account.cookies": () => openCookieSettings(),
     "account.documents": () =>
       window.location.assign(`${window.location.pathname}?legal=documents`),
-    "account.docs": () =>
-      window.open(
-        `https://${BRAND.domains.docs}/guide/${lang}/overview/index.html`,
-        "_blank",
-        "noopener",
-      ),
+    "account.docs": () => {
+      // The guide belongs to the installation; without one the row is hidden (ADR-284).
+      const href = docsHref(docsOrigin, `/guide/${lang}/overview/index.html`);
+      if (href) window.open(href, "_blank", "noopener");
+    },
     "account.delete": () => setDeleteOpen(true),
     "account.signOut": onSignOut,
     "account.signIn": onSignIn,
@@ -207,7 +206,7 @@ export function AccountMenu({
     "header.comments": () => onComments?.(),
   };
   const ctx: ChromeContext = {
-    can: { signedIn, support: support.available, agents: agentAvailable },
+    can: { signedIn, support: support.available, agents: agentAvailable, docs: docsOrigin !== null },
     run: (id) => {
       const action = actions[id];
       if (!action) return;

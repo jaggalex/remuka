@@ -164,6 +164,10 @@ ADR-182, тонкие серые контуры фреймов, серая пл�
 6. Фигуры: пять видов, смена вида, «Острые / Скруглённые», рисование протягиванием (§2.2).
    — **сделано: T17** (`ToolRail`, `useBoardTools`, планки `StickyPanel`/`ArrangeBar`,
    `setShapeKind`, `connectors.ts`).
+7. Поворот объектов (§2.2, ADR-271).
+   — **сделано: T18** (`Widget.rotation`, `rotation.ts` в модели, `rotateWidgets` в
+   `@remo/doc`, `rotationGeometry.ts`, ручка и плашка угла в `painters.ts`, проекция
+   `apps/sync/project.mjs`).
 
 ## 5. Приёмка
 

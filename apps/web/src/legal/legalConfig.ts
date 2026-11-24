@@ -87,6 +87,20 @@ export function readLegalConfig(value: unknown): LegalDocumentConfig[] {
   return result;
 }
 
+/**
+ * The offer a payer accepts: the installation's own document first.
+ *
+ * The zone names it differently — `offer` in the Russian installation, `terms` in the
+ * European one — so the screen asks for either and never builds the address from the
+ * guide. The guide is only the fallback for an installation that publishes no offer yet.
+ */
+export function offerDocumentUrl(
+  documents: readonly LegalDocumentConfig[],
+): string | null {
+  const offer = documents.find((document) => document.doc === "offer" || document.doc === "terms");
+  return offer?.url ?? null;
+}
+
 /** The documents the registration form must show as checkboxes (§2, §3). */
 export function signupLegalDocuments(
   documents: readonly LegalDocumentConfig[],

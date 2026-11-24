@@ -11,6 +11,7 @@ import {
   copySlot,
   freeConnectedCenter,
   bendAxis,
+  previewResolver,
   cornerAt,
   cornerPoints,
   directionOfSide,
@@ -550,5 +551,40 @@ describe("resize modifiers (ADR-212)", () => {
       { ratio: 2 },
     );
     expect(free.width / free.height).toBeCloseTo(2, 6);
+  });
+});
+
+describe("the gesture preview reaches a connector (T18 acceptance 4)", () => {
+  it("returns the stored object when nothing is in flight", () => {
+    const note: Widget = {
+      id: "a",
+      type: "sticky_note",
+      parentId: null,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    };
+    const resolve = (id: string) => (id === "a" ? note : undefined);
+    expect(previewResolver(resolve, new Map())).toBe(resolve);
+    expect(previewResolver(resolve, new Map())("a")).toBe(note);
+  });
+
+  it("adds the patch of the object being turned", () => {
+    const note: Widget = {
+      id: "a",
+      type: "sticky_note",
+      parentId: null,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    };
+    const resolve = (id: string) => (id === "a" ? note : undefined);
+    const live = previewResolver(resolve, new Map([["a", { rotation: 45 }]]));
+    expect(live("a")?.rotation).toBe(45);
+    expect(live("missing")).toBeUndefined();
+    // The stored object is untouched: a preview is a patch, not a document write.
+    expect(note.rotation).toBeUndefined();
   });
 });

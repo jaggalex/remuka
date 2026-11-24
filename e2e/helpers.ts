@@ -445,6 +445,7 @@ export async function seedStableNote(
     text?: string;
     parentId?: string;
     style?: { fontSize?: number };
+    rotation?: number;
   },
 ): Promise<string> {
   await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));

@@ -177,6 +177,7 @@ export function BoardApp() {
     patchConnector,
     selectionLocked,
     resizeSelection,
+    rotateSelection,
     onMoveCard,
     onAddCard,
     onAddColumn,
@@ -418,6 +419,7 @@ export function BoardApp() {
           onNotice={showNotice}
           onMoveMany={moveMany} onMoveToCell={moveToCell}
           onResizeMany={resizeSelection}
+          onRotateMany={rotateSelection}
           onMoveCard={onMoveCard}
           onAddCard={onAddCard}
           onAddColumn={onAddColumn}

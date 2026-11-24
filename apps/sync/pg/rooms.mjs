@@ -548,7 +548,7 @@ async upsertWidgets(client, boardId, rows) {
         row.content,
         row.fillColor,
         row.cardTheme,
-        0,
+        row.rotation ?? 0,
         row.props ? JSON.stringify(row.props) : null,
       ],
     );

@@ -369,12 +369,18 @@ test("a shape-only selection changes every kind; a mixed one hides the item", as
   // The sticky joins the selection: no single type to change, so the item is hidden.
   const noteAt = await page.evaluate(
     (id) =>
-      (window as unknown as { __remo: { widgets: Array<{ id: string; x: number; y: number }> } }).__remo.widgets.find(
+      (window as unknown as { __remo: { widgets: Array<{ id: string; x: number; y: number; width: number; height: number }> } }).__remo.widgets.find(
         (widget) => widget.id === id,
       ),
     note,
   );
-  const notePoint = toClient(await view(page), { x: noteAt!.x, y: noteAt!.y });
+  // Near the note's bottom-right corner: the arrange bar of the two selected shapes
+  // sits above the block and may cover the note's middle (T18 moves it up for the
+  // rotation handle), but the note itself is still a plain click target.
+  const notePoint = toClient(await view(page), {
+    x: noteAt!.x + noteAt!.width / 2 - 8,
+    y: noteAt!.y + noteAt!.height / 2 - 8,
+  });
   await page.keyboard.down("Shift");
   await page.mouse.click(notePoint.x, notePoint.y);
   await page.keyboard.up("Shift");

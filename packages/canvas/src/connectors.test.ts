@@ -15,7 +15,7 @@ import {
   insetPath,
   roundedArrowHead,
 } from "./connectors";
-import { anchorPoint, boxOf, facingSide, outlineAnchor } from "./anchor";
+import { anchorPoint, boxOf, facingSide, facingSideOf, outlineAnchor, widgetAnchor } from "./anchor";
 
 const note = (id: string, x: number, y: number, width = 100, height = 100): Widget => ({
   id,
@@ -45,6 +45,33 @@ const widgets = new Map([
   ["b", note("b", 400, 0)],
 ]);
 const resolve = (id: string) => widgets.get(id);
+
+describe("connectors on a turned object (ADR-271, T18)", () => {
+  it("puts the anchor on the painted side", () => {
+    const turned = { ...note("a", 0, 0), rotation: 90 };
+    expect(widgetAnchor(turned, "top").x).toBeCloseTo(50);
+    expect(widgetAnchor(turned, "top").y).toBeCloseTo(0);
+    // The side facing a point to the right is the object's own top, turned into view.
+    expect(facingSideOf(turned, { x: 300, y: 0 })).toBe("top");
+  });
+
+  it("ends the line on the turned contour and follows the angle", () => {
+    const target = { ...note("b", 400, 0), rotation: 45 };
+    const map = new Map([
+      ["a", note("a", 0, 0)],
+      ["b", target],
+    ]);
+    const line = connector({ item: "a", side: "right" }, { item: "b" });
+    const path = connectorPath(line, (id) => map.get(id))!;
+    const end = path.points[path.points.length - 1]!;
+    const side = facingSideOf(target, { x: 0, y: 0 });
+    const anchor = widgetAnchor(target, side);
+    expect(end.x).toBeCloseTo(anchor.x);
+    expect(end.y).toBeCloseTo(anchor.y);
+    // The corner of the described box is not where the line stops.
+    expect(Math.hypot(end.x - (400 + 50), end.y - (0 + 50))).toBeGreaterThan(5);
+  });
+});
 
 describe("connector anchors", () => {
   it("names the side that faces the other object", () => {
@@ -570,5 +597,21 @@ describe("an arrow head meets its line cleanly (ADR-187)", () => {
   it("trims each end of the drawn path by its own amount", () => {
     const drawn = insetPath({ points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }, 0, 10);
     expect(drawn.points).toEqual([{ x: 0, y: 0 }, { x: 90, y: 0 }]);
+  });
+});
+
+describe("a line follows the gesture in flight (T18 acceptance 4)", () => {
+  it("reads the preview of its endpoint, so a turn rebuilds it before the drop", () => {
+    const from = note("a", 0, 0);
+    const to = note("b", 400, 0);
+    const line = connector({ item: "a" }, { item: "b" });
+    const straight = connectorPath(line, (id) => (id === "a" ? from : to))!;
+    const turned = connectorPath(line, (id) =>
+      id === "a" ? { ...from, rotation: 45 } : to,
+    )!;
+    expect(turned.points[0]).not.toEqual(straight.points[0]);
+    // The end on the untouched object stays where it was.
+    const last = (path: typeof straight) => path.points[path.points.length - 1]!;
+    expect(last(turned)).toEqual(last(straight));
   });
 });

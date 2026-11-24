@@ -88,6 +88,8 @@ describe("the command list", () => {
       "copyStyle",
       "pasteStyle",
       "clearContent",
+      "rotate90",
+      "resetRotation",
       "info",
       "front",
       "forward",
@@ -287,6 +289,7 @@ describe("the chrome registry", () => {
       signedIn: true,
       support: true,
       templates: true,
+      docs: true,
     },
     run: vi.fn(),
   };
@@ -358,6 +361,14 @@ describe("the chrome registry", () => {
     expect(trash).toBeUndefined();
     const app = room.find((command) => command.id === "room.apps");
     expect(app).toBeUndefined();
+  });
+
+  it("offers the guide's row only when the installation has a guide (ADR-284)", () => {
+    const ids = (can: ChromeContext["can"]) =>
+      menuCommands(["account"], { can, run: vi.fn() }).map((command) => command.id);
+    expect(ids({ docs: true })).toContain("account.docs");
+    // `docs.origin: null` is a self-host without documentation: no row, not a dead one.
+    expect(ids({})).not.toContain("account.docs");
   });
 });
 

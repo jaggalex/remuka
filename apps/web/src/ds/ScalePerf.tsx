@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_FONT_FAMILY, boxOf, drawWidget, visibleWorldRect } from "@remo/canvas";
-import type { Widget } from "@remo/model";
+import { DEFAULT_FONT_FAMILY, drawWidget, visibleWorldRect } from "@remo/canvas";
+import { rotatedBounds, type Widget } from "@remo/model";
 import { canvasPaletteFromTokens } from "../canvasPalette";
 import { DEFAULT_INK } from "../objectDefaults";
 
@@ -34,7 +34,13 @@ function scene(): Widget[] {
       height: note ? 38 : 30,
       ...(note
         ? { content: `Note ${index % 100}`, style: { fillColor: "yellow" } }
-        : { shapeKind: "round_rectangle", style: { fillColor: "blue" } }),
+        : {
+            shapeKind: "round_rectangle",
+            style: { fillColor: "blue" },
+            // Every fifth shape is turned: the same scene carries 500 rotated objects,
+            // so the budget covers their hit boxes, culling and paint (T18 acceptance 11).
+            ...(index % 5 === 0 ? { rotation: 6 + (index % 60) } : {}),
+          }),
     } as Widget);
   }
   for (let index = 0; index < CONNECTORS; index += 1) {
@@ -65,6 +71,7 @@ export function ScalePerf() {
     worst: number;
     objects: number;
     visible: number;
+    rotated: number;
   } | null>(null);
 
   useEffect(() => {
@@ -73,6 +80,9 @@ export function ScalePerf() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const widgets = scene();
+    const rotated = widgets.filter(
+      (widget) => typeof widget.rotation === "number" && widget.rotation !== 0,
+    ).length;
     // A connector asks for its two endpoints every frame; a linear `find` over the
     // 10 000-object scene would measure the harness, not the painter.
     const byId = new Map(widgets.map((widget) => [widget.id, widget]));
@@ -112,7 +122,7 @@ export function ScalePerf() {
       ctx.translate(-camera.x, -camera.y);
       let painted = 0;
       for (const widget of widgets) {
-        const box = boxOf(widget);
+        const box = rotatedBounds(widget);
         if (
           box.x > visible.x + visible.width ||
           box.x + box.width < visible.x ||
@@ -144,6 +154,7 @@ export function ScalePerf() {
           worst: Math.round(worst * 10) / 10,
           objects: TOTAL,
           visible,
+          rotated,
         };
         (window as unknown as Record<string, unknown>).__scalePerf = measured;
         setResult(measured);

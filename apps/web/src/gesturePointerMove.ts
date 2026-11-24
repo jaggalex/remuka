@@ -4,6 +4,7 @@ import {
   inTableCell,
   nearestAnchor,
   placedWidget,
+  resizeMembersOf,
   resizedBox,
   tableDropAt,
   tableDropOffset,
@@ -12,9 +13,18 @@ import {
 import type { GestureEnv } from "./gestureEnv";
 import { bendStep, curveStep, flipStep, moveStep } from "./gestureSteps";
 import { drawnShapeBox, isShapeDrag } from "./shapeDraw";
+import { angleAt, rotationFrame, rotationHandleAt, resizedTurnedBox } from "./rotationGeometry";
 import type { ConnectDraft } from "./gestureTypes";
 import { axisDropSlot, cellAt, cellGuides, closestOnPath, connectorPath, minScale, pick, rectFrom, scaleBoxes, snapResize, type ResizeEdges } from "@remo/canvas";
-import type { Widget } from "@remo/model";
+import {
+  isRotatable,
+  minimumSizeOf,
+  normalizeDegrees,
+  scalesInBlock,
+  turnedPlacements,
+  turnDelta,
+  type Widget,
+} from "@remo/model";
 
 /**
    * Boxes a dragged object can line up with.
@@ -25,13 +35,24 @@ import type { Widget } from "@remo/model";
    * matrix, not chosen by dragging a widget.
    */
 export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
-  const { alignmentTargets, anchorNear, anchorPressRef, applyPreview, camera, cardPreviewRef, connectDraftRef, connectPendingRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onCamera, publishCursor, setConnectDraft, setCursor, setDragPreview, setGuides, setHoverAnchor, setHoverCell, setHoverId, setMarquee, setResizeLimit, setShapeDraft, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets } = env;
+  const { alignmentTargets, anchorNear, anchorPressRef, applyPreview, camera, cardPreviewRef, connectDraftRef, connectPendingRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onCamera, publishCursor, selectedIds, setConnectDraft, setCursor, setDragPreview, setGuides, setHoverAnchor, setHoverCell, setHoverId, setMarquee, setResizeLimit, setRotationDraft, setRotationHover, setShapeDraft, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets } = env;
   const drag = dragRef.current;
   setCursor({ x: event.clientX, y: event.clientY });
   const world = toWorld(event);
   publishCursor(world);
 
   if (!drag) {
+    // The round handle is chrome above the object: hovering it asks for the rotation
+    // cursor, and the gesture machine must not also see the object beneath it.
+    const members = resizeMembersOf(widgets, selectedIds, isCardOfKanban);
+    const frame = members.some(scalesInBlock) ? rotationFrame(members) : null;
+    setRotationHover(
+      Boolean(
+        frame &&
+          members.some(isRotatable) &&
+          rotationHandleAt(frame, world, camera.zoom),
+      ),
+    );
     const pending = connectPendingRef.current;
     if (pending) {
       const target = connectTargetAt(world, layouts, widgets, isCardOfKanban, 160 / camera.zoom);
@@ -83,6 +104,33 @@ export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanva
       fromCenter: event.altKey,
     });
     setShapeDraft({ kind: drag.kind, rect: drag.rect });
+    return;
+  }
+
+  if (drag.mode === "rotate") {
+    // One delta for the whole gesture. Shift is the 15° step; without it the magnet
+    // lands an object within 3° of 0/90/180/270 (T18 acceptance 1).
+    const raw = normalizeDegrees(angleAt(drag.centre, world) - drag.start);
+    const options = drag.shift ? { step: 15 } : { magnet: true };
+    const delta = turnDelta(raw, options);
+    drag.delta = delta;
+    const placements = turnedPlacements(drag.members, drag.centre, delta, options);
+    applyPreview(
+      new Map(
+        placements.map((placement) => [
+          placement.id,
+          {
+            x: placement.x,
+            y: placement.y,
+            rotation: placement.rotation,
+          },
+        ]),
+      ),
+    );
+    // The plate names the angle the person is making: the object's own angle for one,
+    // the gesture's turn for a block.
+    const angle = placements.length === 1 ? placements[0]!.rotation : delta;
+    setRotationDraft({ angle, x: world.x, y: world.y });
     return;
   }
 
@@ -168,6 +216,32 @@ export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanva
     // per kind and stops the block instead of squeezing one member.
     const items = drag.members;
     if (!items.length) return;
+
+    // A single turned object changes size in its own axes: the opposite corner stays
+    // where the person sees it (ADR-271, T18). Guides are board-axis lines, so they are
+    // off for this gesture; the magnet would fight the local axes.
+    if (drag.turned) {
+      const widget = drag.turned;
+      const min = minimumSizeOf(widget.type);
+      const ratio = event.shiftKey && widget.height > 0 ? widget.width / widget.height : undefined;
+      const target = resizedTurnedBox(widget, drag.corner, world, min.width, min.height, {
+        ratio,
+        fromCenter: event.altKey,
+        aspectLocked: drag.aspectLocked,
+      });
+      setGuides([]);
+      setResizeLimit(
+        target.width <= min.width + 0.01 || target.height <= min.height + 0.01
+          ? { width: target.width, height: target.height }
+          : null,
+      );
+      applyPreview(
+        new Map([
+          [widget.id, { x: target.x, y: target.y, width: target.width, height: target.height }],
+        ]),
+      );
+      return;
+    }
 
     // Shift keeps the proportion, Alt anchors the centre (ADR-212). Either one also
     // turns snapping off for the gesture: a ratio and a glued edge are different

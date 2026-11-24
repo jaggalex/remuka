@@ -15,7 +15,9 @@ import type {
   BoardDocument,
   ConnectorPatch,
   NoteDirection,
-  Presence, WidgetRect,
+  Presence,
+  WidgetPosition,
+  WidgetRect,
 } from "@remo/doc";
 import { GatherPreview } from "./GatherPreview";
 import { useViewportSize } from "./useViewportSize";
@@ -26,6 +28,7 @@ import {
   type TextDeltaOp,
   type TextMarks,
   type Rect,
+  type TurnOptions,
   type Widget,
 } from "@remo/model";
 import { InlineEditor } from "./InlineEditor";
@@ -53,6 +56,7 @@ import { ImageIntake } from "./ImageUploads";
 import { ImageLightbox } from "./ImageLightbox";
 import { ImagePanel } from "./object-panel/ImagePanel";
 import { isEditable } from "./editable";
+import { canvasCursor } from "./cursorIcons";
 
 export { isEditable };
 import { contextTargetAt, type ContextTarget } from "./canvasTargets";
@@ -67,12 +71,6 @@ import { dispatchClearFormatting } from "./textFormatEvents";
 import type { BoardSettings } from "./settings";
 /** Background grid style. A view preference, not a document property. */
 export type GridStyle = "off" | "lines" | "dots";
-
-export interface WidgetPosition {
-  id: string;
-  x: number;
-  y: number;
-}
 
 interface Props {
   /** Board name from the document, exposed to the dev probe. */
@@ -100,6 +98,8 @@ interface Props {
   onMoveToCell: (frameId: string, rowId: string, columnId: string, ids: string[], offset: { x: number; y: number }) => void;
   /** Commit a resize gesture: one transaction, one undo step. */
   onResizeMany: (rects: WidgetRect[], scale?: { from: Rect; kx: number; ky: number }) => void;
+  /** Commit a turn gesture: one transaction for the whole selection (ADR-271). */
+  onRotateMany: (ids: readonly string[], delta: number, options?: TurnOptions) => void;
   onMoveCard: (kanbanId: string, cardId: string, columnId: string, swimlaneId: string, beforeCardId: string | null) => void;
   onAddCard: (kanbanId: string, columnId: string, swimlaneId: string) => void;
   onAddColumn: (kanbanId: string) => void;
@@ -213,6 +213,7 @@ export function BoardCanvas({
   onNotice,
   onMoveMany, onMoveToCell,
   onResizeMany,
+  onRotateMany,
   onMoveCard,
   onAddCard,
   onAddColumn,
@@ -328,6 +329,20 @@ export function BoardCanvas({
     [board, widgets],
   );
 
+  /** Pointer client coordinates to board units, for the gesture machine and the menu. */
+  const toWorld = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (!rect) return { x: 0, y: 0 };
+      return screenToWorld(
+        camera,
+        { x: 0, y: 0, width: rect.width, height: rect.height },
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      );
+    },
+    [camera],
+  );
+
   const gestures = useGestures({
     // Columns and lanes are carried by their titles (ADR-244); the move is one command.
     onMoveKanbanAxis: (kanbanId, kind, id, index) =>
@@ -340,15 +355,7 @@ export function BoardCanvas({
     layouts,
     selectedIds,
     isCardOfKanban,
-    toWorld: (event) => {
-      const rect = boardRef.current?.getBoundingClientRect();
-      if (!rect) return { x: 0, y: 0 };
-      return screenToWorld(
-        camera,
-        { x: 0, y: 0, width: rect.width, height: rect.height },
-        { x: event.clientX - rect.left, y: event.clientY - rect.top },
-      );
-    },
+    toWorld,
     boardRef,
     worldToScreenPoint: (point) => {
       const rect = boardRef.current?.getBoundingClientRect();
@@ -362,6 +369,7 @@ export function BoardCanvas({
     onMoveMany,
     onMoveToCell,
     onResizeMany,
+    onRotateMany,
     onMoveCard,
     onAddCard,
     onConnect,
@@ -384,6 +392,7 @@ export function BoardCanvas({
     connectDraft,
     hoverAnchor,
     resizeLimit,
+    rotationHover,
     resolve: widgetById,
     clearHover,
     onPointerDown,
@@ -430,21 +439,12 @@ export function BoardCanvas({
     widgets,
     textOf,
     isCardOfKanban,
+    preview: gestures.preview,
     boardRef,
     paintStats, cursors: cursorView,
     setDelta: onSetText,
     setLineFormat: (id, line, format) => setLineFormat(board, id, line, format),
   });
-
-  const toWorld = (event: { clientX: number; clientY: number }) => {
-    const rect = boardRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    return screenToWorld(
-      camera,
-      { x: 0, y: 0, width: rect.width, height: rect.height },
-      { x: event.clientX - rect.left, y: event.clientY - rect.top },
-    );
-  };
 
   /**
    * Resolve a right-click to the smallest actionable thing under the cursor:
@@ -574,7 +574,7 @@ export function BoardCanvas({
       <canvas
         ref={overlayRef}
         className="layer overlay"
-        style={hoverAnchor ? { cursor: "crosshair" } : kanbanCursor ? { cursor: kanbanCursor } : undefined}
+        style={canvasCursor({ rotationHover, hoverAnchor: Boolean(hoverAnchor), kanban: kanbanCursor })}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

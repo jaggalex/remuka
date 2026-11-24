@@ -1,9 +1,10 @@
 /**
  * The two facts anyone may read before a session exists.
  *
- * `/config` tells the browser which name this installation answers to and which compliance
- * zone it runs in; `/health` tells a load balancer whether the store is up and which build
- * answered. Both are branding or operations, never tenant data (ADR-254 §3, ADR-089).
+ * `/config` tells the browser which name this installation answers to, which compliance
+ * zone it runs in and which guide it links to; `/health` tells a load balancer whether the
+ * store is up and which build answered. Both are branding or operations, never tenant
+ * data (ADR-254 §3, ADR-284, ADR-089).
  */
 export async function handlePublicRoutes({
   request,
@@ -16,6 +17,7 @@ export async function handlePublicRoutes({
   move,
   compliance,
   legal,
+  docsOrigin,
   stage,
 }) {
   if (url.pathname === "/config" && request.method === "GET") {
@@ -25,10 +27,14 @@ export async function handlePublicRoutes({
     // nothing, so the safe `none` zone is what a missing argument means (ADR-255 §3,
     // ADR-256 §4). Both links are always present as a key, `null` meaning there is
     // nothing to link; `legal.documents` is empty when this installation has no zone.
+    // `docs.origin` is the guide every link in the interface is built from (ADR-284):
+    // `null` is an installation without a guide, and such a client shows plain text
+    // instead of a link, so a missing argument is the same honest absence.
     const body = {
       productName: productNameOverride ?? null,
       compliance: compliance ?? { zone: "none", policyUrl: null, personalDataConsentUrl: null },
       legal: legal ?? { documents: [] },
+      docs: { origin: docsOrigin ?? null },
     };
     if (move && move.to && move.at) {
       body.move = { to: move.to, at: move.at };

@@ -33,6 +33,38 @@ const kanbanState = {
   headerHeight: 110,
 };
 
+describe("hit testing a turned object (ADR-271, T18)", () => {
+  it("takes the painted outline, not the corner of its described rectangle", () => {
+    const turned = widget("turned", "sticky_note", {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 45,
+    });
+    // A diamond 45°: the axis-aligned corner is empty board.
+    expect(containsPoint(turned, { x: 0, y: 0 })).toBe(true);
+    expect(containsPoint(turned, { x: 0, y: -50 })).toBe(true);
+    expect(containsPoint(turned, { x: 65, y: -65 })).toBe(false);
+    expect(pick([turned], { x: 65, y: -65 }, () => false)).toBeNull();
+    expect(pick([turned], { x: 0, y: -45 }, () => false)?.id).toBe("turned");
+  });
+
+  it("lets a marquee through the empty corner of the described rectangle", () => {
+    const turned = widget("turned", "sticky_note", {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 45,
+    });
+    const corner = { x: 62, y: -70, width: 8, height: 8 };
+    expect(intersectsRect(turned, corner)).toBe(false);
+    expect(pickInRect([turned], corner, () => false)).toEqual([]);
+    expect(pickInRect([turned], { x: -10, y: -10, width: 20, height: 20 }, () => false)).toHaveLength(1);
+  });
+});
+
 describe("hit testing", () => {
   it("finds the topmost widget under a point, by paint order", () => {
     const widgets = [

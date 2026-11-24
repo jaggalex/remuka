@@ -252,13 +252,27 @@ describe("render", () => {
   it("signs every letter with the brand and its addresses", () => {
     const en = render("verify_email", "en", CASES.verify_email);
     const ru = render("verify_email", "ru", CASES.verify_email);
-    for (const mail of [en, ru]) {
-      expect(mail.text).toContain("support@remuka.com");
-    }
+    // The mailbox follows the language only when no zone was passed: the Russian letter
+    // no longer prints support@remuka.com.
+    expect(en.text).toContain("support@remuka.com");
+    expect(ru.text).toContain("support@remuka.ru");
     expect(en.text).toContain("https://remuka.com");
     expect(en.html).toContain('href="https://remuka.com"');
     expect(ru.text).toContain("https://remuka.ru");
     expect(ru.html).toContain('href="https://remuka.ru"');
+  });
+
+  it("takes the mailbox from the installation's zone and omits it when there is none", () => {
+    const ruZoneEnglish = render("verify_email", "en", CASES.verify_email, {
+      support: "support@remuka.ru",
+    });
+    expect(ruZoneEnglish.text).toContain("support@remuka.ru");
+    expect(ruZoneEnglish.text).not.toContain("support@remuka.com");
+
+    const selfHost = render("verify_email", "en", CASES.verify_email, { support: null });
+    expect(selfHost.text).not.toContain("mailto:");
+    expect(selfHost.text).not.toContain("support@");
+    expect(selfHost.text).toContain("https://remuka.com");
   });
 
   it("localises the invitation target kind", () => {

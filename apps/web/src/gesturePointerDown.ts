@@ -1,8 +1,22 @@
-import { ANCHOR_GAP, HANDLE_GAP, anchorsOf, portsAreEdgePlus, bendAxis, connectTargetAt, cornerAt, nearestAnchor, placedWidget, resizeMembersOf } from "./canvasGeometry";
+import { ANCHOR_GAP, HANDLE_GAP, anchorsOf, portsAreEdgePlus, bendAxis, connectTargetAt, nearestAnchor, placedWidget, resizeMembersOf } from "./canvasGeometry";
+import {
+  angleAt,
+  frameCornerAt,
+  rotationFrame,
+  rotationHandleAt,
+  rotationMembers,
+} from "./rotationGeometry";
 import type { GestureEnv } from "./gestureEnv";
 import type { ConnectDraft } from "./gestureTypes";
-import { boxOf, connectorHandles, connectorPath, facingSide, frameLabelAt, frameLabelFont, labelPoint, layerKey, layoutTable, pick, pickConnector, placementAt, plusHit, resolvedEndSide, tableHitAt, textCapFor, textHitAt, unionBox, kanbanTitleAt } from "@remo/canvas";
-import { canConnect, expandGroups, kindOf, minimumSizeOf, scalesInBlock } from "@remo/model";
+import { boxOf, connectorHandles, connectorPath, facingSideOf, frameLabelAt, frameLabelFont, labelPoint, layerKey, layoutTable, localBoxOf, pick, pickConnector, placementAt, plusHit, resolvedEndSide, tableHitAt, textCapFor, textHitAt, kanbanTitleAt } from "@remo/canvas";
+import {
+  canConnect,
+  expandGroups,
+  kindOf,
+  minimumSizeOf,
+  rotationOf,
+  scalesInBlock,
+} from "@remo/model";
 import type { ConnectorSide } from "@remo/model";
 import { capture } from "./gestureEnv";
 import {
@@ -13,8 +27,9 @@ import {
 import { measureText } from "./KanbanTitleEditor";
 
 export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
-  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setTableHover, setTableRefused, settings, shapeTool, toWorld, widgetById, widgets, worldToScreenPoint } = env;
+  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setRotationHover, setTableHover, setTableRefused, settings, shapeTool, toWorld, widgetById, widgets, worldToScreenPoint } = env;
   const world = toWorld(event);
+  setRotationHover(false);
 
   // The armed shape tool owns the canvas: a press starts a draw, and the release
   // either commits the box or, if the pointer never travelled, the default shape
@@ -36,16 +51,46 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
   // while Alt anywhere else still pans. One object or a block — the handle sits on the
   // union box and the gesture scales every member that can scale (ADR-211).
   const resizeMembers = resizeMembersOf(widgets, selectedIds, isCardOfKanban);
-  if (!readOnly && event.button === 0 && resizeMembers.some(scalesInBlock)) {
-    const box = unionBox(resizeMembers.map(boxOf));
-    const hit = box ? cornerAt(box, world, 10 / camera.zoom, HANDLE_GAP / camera.zoom) : null;
-    if (box && hit) {
+  const resizeFrame =
+    !readOnly && event.button === 0 && resizeMembers.some(scalesInBlock)
+      ? rotationFrame(resizeMembers)
+      : null;
+  // The round handle sits above the frame and is tried before the corners: it is a
+  // separate affordance with its own gesture (ADR-271, T18).
+  if (resizeFrame) {
+    const turnableMembers = rotationMembers(resizeMembers, widgets);
+    if (turnableMembers.length && rotationHandleAt(resizeFrame, world, camera.zoom)) {
+      dragRef.current = {
+        mode: "rotate",
+        members: turnableMembers,
+        centre: resizeFrame.centre,
+        start: angleAt(resizeFrame.centre, world),
+        delta: 0,
+        shift: event.shiftKey,
+      };
+      capture(event);
+      return;
+    }
+  }
+  if (resizeFrame) {
+    const hit = frameCornerAt(
+      resizeFrame,
+      world,
+      10 / camera.zoom,
+      HANDLE_GAP / camera.zoom,
+    );
+    if (hit) {
       dragRef.current = {
         mode: "resize",
         id: resizeMembers[0]!.id,
         ids: resizeMembers.map((widget) => widget.id),
         corner: hit,
-        origin: box,
+        origin: resizeFrame.box,
+        // A single turned object keeps the corner opposite the handle in its own axes
+        // (ADR-271, T18); a block still scales in board axes.
+        ...(resizeMembers.length === 1 && rotationOf(resizeMembers[0]!) !== 0
+          ? { turned: resizeMembers[0]! }
+          : {}),
         // A single picture keeps its shape whatever the modifiers say (ADR-249).
         aspectLocked:
           resizeMembers.length === 1 && kindOf(resizeMembers[0]!.type).aspectLocked === true,
@@ -198,8 +243,8 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
           const otherBox = boxOf(otherWidget);
           const otherSide = resolvedEndSide(
             other,
-            otherBox,
-            facingSide(otherBox, { x: soleLine.x, y: soleLine.y }),
+            rotationOf(otherWidget) === 0 ? otherBox : localBoxOf(otherWidget),
+            facingSideOf(otherWidget, { x: soleLine.x, y: soleLine.y }),
           );
           dragRef.current = {
             mode: "reattach",

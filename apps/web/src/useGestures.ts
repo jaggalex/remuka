@@ -26,6 +26,8 @@ export function useGestures(deps: GestureDeps): Gestures {
     tableRefused: env.tableRefused,
     marquee: env.marquee,
     shapeDraft: env.shapeDraft,
+    rotationDraft: env.rotationDraft,
+    rotationHover: env.rotationHover,
     preview: env.preview,
     dragIds: env.dragIds,
     dragGhostIds: env.dragGhostIds,

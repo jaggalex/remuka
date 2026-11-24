@@ -1,6 +1,6 @@
 import type { AlignmentGuide, Camera, KanbanLayout } from "@remo/canvas";
 import type { ConnectorPatch, NoteDirection, WidgetPosition, WidgetRect } from "@remo/doc";
-import type { ConnectorSide, Rect, ShapeKind, Widget } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, TurnOptions, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 
 /**
@@ -28,6 +28,11 @@ export interface GestureDeps {
   onMoveMany: (positions: WidgetPosition[]) => void;
   /** Commit a resize gesture: one object or a block, one transaction, one undo. */
   onResizeMany: (rects: WidgetRect[], scale?: { from: Rect; kx: number; ky: number }) => void;
+  /**
+   * Commit a turn: one transaction for the whole gesture (ADR-271, T18). The geometry
+   * is the model's `turnedPlacements`, so the preview and the write agree.
+   */
+  onRotateMany: (ids: readonly string[], delta: number, options?: TurnOptions) => void;
   /** Move a kanban column or lane to an index among the others (ADR-244). */
   onMoveKanbanAxis: (kanbanId: string, kind: "column" | "lane", id: string, index: number) => void;
   /** Drop a card in a cell, before `beforeCardId` or at the end (null). */
@@ -118,6 +123,10 @@ export interface Gestures {
   marquee: Rect | null;
   /** The shape being drawn, in board units: the overlay draws its dashed outline and size. */
   shapeDraft: { rect: Rect; kind: ShapeKind } | null;
+  /** The angle plate during a turn: the angle and the world point it points at. */
+  rotationDraft: { angle: number; x: number; y: number } | null;
+  /** The pointer is over the round handle: the overlay asks for the rotation cursor. */
+  rotationHover: boolean;
   preview: ReadonlyMap<string, Partial<Widget>>;
   dragIds: string[];
   dragGhostIds: string[];

@@ -3,15 +3,12 @@ import {
   HANDLE_GAP,
   anchorsOf,
   portsAreEdgePlus,
-  cornerPoints,
   placedWidget,
   placementOfCard,
   sideOfDirection,
   type ContinuePreview,
 } from "./canvasGeometry";
 import {
-  boxOf,
-  outlineAnchor,
   CARD_RADIUS,
   cardDropSlot,
   connectorHandles,
@@ -29,9 +26,9 @@ import {
   labelPoint,
   lockBadgeRect,
   paintOrder,
+  widgetAnchor,
   roundRect,
   translateLayout,
-  unionBox,
   visibleWorldRect,
   type Camera,
   type KanbanLayout,
@@ -44,10 +41,19 @@ import {
   canConnect,
   cardFillFor,
   ink,
+  inkFor,
+  isRotatable,
+  rotatedBounds,
   scalesInBlock,
   soleSelectedGroup,
   type Widget,
 } from "@remo/model";
+import {
+  frameCorners,
+  rotationFrame,
+  rotationHandle,
+  ROTATE_RADIUS,
+} from "./rotationGeometry";
 import type { Presence } from "@remo/doc";
 import { resizeMembersOf } from "./canvasGeometry";
 import type { BoardSettings } from "./settings";
@@ -263,18 +269,7 @@ export function paintBoardLayer(input: BoardPaintInput): void {
     // the object came from.
     const widget = widgets.find((candidate) => candidate.id === id);
     if (!widget || isCardOfKanban(widget)) continue;
-    drawDragOrigin(
-      ctx,
-      {
-        x: widget.x - widget.width / 2,
-        y: widget.y - widget.height / 2,
-        width: widget.width,
-        height: widget.height,
-      },
-      camera.zoom,
-      0,
-      palette,
-    );
+    drawDragOrigin(ctx, rotatedBounds(widget), camera.zoom, 0, palette);
   }
 
   if (draggedCardId) {
@@ -375,6 +370,8 @@ export interface OverlayPaintInput {
   presenting?: boolean;
   /** The edge "+" preview, painted until the click (ADR-195). */
   continuePreview?: ContinuePreview | null;
+  /** The angle plate while the round handle is held (ADR-271, T18). */
+  rotationDraft?: { angle: number; x: number; y: number } | null;
   /** Decoded pictures, for the ghost of a dragged or copied object (ADR-249). */
   image?: (widget: Widget) => ImageBitmap | null;
   imageUnavailable?: (widget: Widget) => boolean;
@@ -407,6 +404,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
     proposal,
     presenting,
     continuePreview,
+    rotationDraft,
   } = input;
   const palette = theme.palette;
   const visible = visibleWorldRect(camera, viewport);
@@ -450,7 +448,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
       if (!isVisible(placed, visible)) continue;
       drawLockBadge(
         ctx,
-        lockBadgeRect(boxOf(placed), camera.zoom),
+        lockBadgeRect(rotatedBounds(placed), camera.zoom),
         withAlpha(ink(palette.canvas, "icon"), 0.75),
       );
     }
@@ -489,7 +487,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   if (connectDraft) {
     const source = widgetById(connectDraft.fromId);
     if (source) {
-      const start = outlineAnchor(boxOf(source), connectDraft.fromSide, source.shapeKind);
+      const start = widgetAnchor(source, connectDraft.fromSide);
       const end = connectDraft.targetPoint ?? { x: connectDraft.x, y: connectDraft.y };
       ctx.strokeStyle = palette.accent;
       ctx.lineWidth = 2 / camera.zoom;
@@ -539,20 +537,42 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
     }
   }
 
-  // Resize handles: one object or a block, on the union box (ADR-211).
+  // Resize and rotation handles: one object or a block, on the painted frame
+  // (ADR-211, ADR-271). A turned object's frame has its axes rotated with it.
   const single = selectedIds.length === 1 ? widgetById(selectedIds[0]!) : undefined;
-  const resizeMembers = resizeMembersOf(widgets, selectedIds, isCardOfKanban);
-  const box =
-    !editingId && resizeMembers.some(scalesInBlock)
-      ? unionBox(resizeMembers.map(boxOf))
-      : null;
-  if (box) {
+  // The frame follows the gesture: a note being turned takes its handles with it.
+  const resizeMembers = resizeMembersOf(widgets, selectedIds, isCardOfKanban).map(
+    (widget) => widgetById(widget.id) ?? widget,
+  );
+  const frame =
+    !editingId && resizeMembers.some(scalesInBlock) ? rotationFrame(resizeMembers) : null;
+  if (frame) {
     // The mockup's handles: white 9 px squares with an ink edge and a 2 px radius
     // (ADR-267). Screen-sized, so they are converted to board units by the zoom.
     const size = 9 / camera.zoom;
     const radius = 2 / camera.zoom;
-    for (const corner of cornerPoints(box, HANDLE_GAP / camera.zoom)) {
+    for (const corner of frameCorners(frame, HANDLE_GAP / camera.zoom)) {
       roundRect(ctx, corner.x - size / 2, corner.y - size / 2, size, size, radius);
+      ctx.fillStyle = palette.objectPaper;
+      ctx.fill();
+      ctx.strokeStyle = palette.objectInk;
+      ctx.lineWidth = 1.5 / camera.zoom;
+      ctx.stroke();
+    }
+
+    // The round rotation handle: a 14 px stem and a white 10 px circle with an ink
+    // edge. It turns with the object, so it always sits over the top side the person
+    // sees (ADR-271, T18).
+    if (resizeMembers.some(isRotatable)) {
+      const handle = rotationHandle(frame, camera.zoom);
+      ctx.strokeStyle = palette.objectInk;
+      ctx.lineWidth = 1.5 / camera.zoom;
+      ctx.beginPath();
+      ctx.moveTo(handle.stemFrom.x, handle.stemFrom.y);
+      ctx.lineTo(handle.stemTo.x, handle.stemTo.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(handle.point.x, handle.point.y, ROTATE_RADIUS / camera.zoom, 0, Math.PI * 2);
       ctx.fillStyle = palette.objectPaper;
       ctx.fill();
       ctx.strokeStyle = palette.objectInk;
@@ -623,6 +643,27 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
     }
   }
 
+  if (rotationDraft) {
+    // The angle the gesture is making: one chip, a minus sign as a person writes it.
+    const text = `${Math.round(rotationDraft.angle)}°`.replace("-", "−");
+    const size = 13 / camera.zoom;
+    ctx.font = `600 ${size}px ${theme.fontFamily}`;
+    const width = ctx.measureText(text).width + 16 / camera.zoom;
+    const height = 26 / camera.zoom;
+    const left = rotationDraft.x + 18 / camera.zoom;
+    const top = rotationDraft.y - height - 12 / camera.zoom;
+    roundRect(ctx, left, top, width, height, 8 / camera.zoom);
+    ctx.fillStyle = palette.paper;
+    ctx.fill();
+    ctx.strokeStyle = palette.objectInk;
+    ctx.lineWidth = 1.5 / camera.zoom;
+    ctx.stroke();
+    ctx.fillStyle = inkFor(palette.paper).color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, left + width / 2, top + height / 2);
+  }
+
   if (marquee) {
     ctx.fillStyle = palette.selectionFill;
     ctx.strokeStyle = palette.selectionStroke;
@@ -661,7 +702,7 @@ function drawContinuePreview(
 ): void {
   const { source, direction, decision, freeCenter } = preview;
   const palette = theme.palette;
-  const from = outlineAnchor(boxOf(source), sideOfDirection(direction), source.shapeKind);
+  const from = widgetAnchor(source, sideOfDirection(direction));
 
   ctx.save();
   ctx.strokeStyle = palette.accent;
@@ -669,9 +710,9 @@ function drawContinuePreview(
   ctx.setLineDash([6 / zoom, 4 / zoom]);
 
   if (decision.kind === "connect" || decision.kind === "duplicate") {
-    const target = boxOf(decision.target);
+    const target = rotatedBounds(decision.target);
     if (decision.kind === "connect") {
-      const to = outlineAnchor(target, decision.endSide, decision.target.shapeKind);
+      const to = widgetAnchor(decision.target, decision.endSide);
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
@@ -687,7 +728,7 @@ function drawContinuePreview(
     );
   } else if (freeCenter) {
     const ghost = { ...source, x: freeCenter.x, y: freeCenter.y };
-    const to = outlineAnchor(boxOf(ghost), oppositeSide(sideOfDirection(direction)), ghost.shapeKind);
+    const to = widgetAnchor(ghost, oppositeSide(sideOfDirection(direction)));
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);

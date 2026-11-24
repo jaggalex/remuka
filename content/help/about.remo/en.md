@@ -12,11 +12,11 @@ Public repository: [github.com/jaggalex/remuka](https://github.com/jaggalex/remu
 
 ## Documentation
 
-The full product guide: [docs.remuka.com/guide/en/overview/index.html](https://docs.remuka.com/guide/en/overview/index.html).
+The full product guide is [on the documentation portal]({{docs}}/guide/en/overview/index.html).
 
 ## Responsibility
 
-This version is open and may contain bugs; it is provided "as is". The terms are in the [Disclaimer](https://docs.remuka.com/guide/en/support/disclaimer.html).
+This version is open and may contain bugs; it is provided "as is". The terms are in the [Disclaimer]({{docs}}/guide/en/support/disclaimer.html).
 
 ## What it means in practice
 

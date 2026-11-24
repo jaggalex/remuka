@@ -1,29 +1,30 @@
 import type { Vec2, Widget } from "@remo/model";
 import { connectorPath, distanceToPath, pathPolyline } from "./connectors";
-import { layerKey, nestingDepth } from "@remo/model";
+import {
+  layerKey,
+  nestingDepth,
+  rotatedContains,
+  rotatedOverlapsRect,
+} from "@remo/model";
 import { spatialIndex } from "./spatial";
 
+/**
+ * Whether the point is on the painted object.
+ *
+ * A turned object is tested in its own axes: un-rotate the point about its centre and
+ * use the same box test as before (ADR-271, T18). The corner of the axis-aligned
+ * rectangle is empty board and must not take a click.
+ */
 export function containsPoint(widget: Widget, point: Vec2): boolean {
-  return (
-    point.x >= widget.x - widget.width / 2 &&
-    point.x <= widget.x + widget.width / 2 &&
-    point.y >= widget.y - widget.height / 2 &&
-    point.y <= widget.y + widget.height / 2
-  );
+  return rotatedContains(widget, point);
 }
 
+/** Whether a marquee touches the painted outline, not its described rectangle. */
 export function intersectsRect(
   widget: Widget,
   rect: { x: number; y: number; width: number; height: number },
 ): boolean {
-  const left = widget.x - widget.width / 2;
-  const top = widget.y - widget.height / 2;
-  return (
-    left < rect.x + rect.width &&
-    left + widget.width > rect.x &&
-    top < rect.y + rect.height &&
-    top + widget.height > rect.y
-  );
+  return rotatedOverlapsRect(widget, rect);
 }
 
 /**

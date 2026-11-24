@@ -4,13 +4,15 @@ import {
   deleteWidgets,
   groupWidgets,
   reorderWidgets,
+  rotateWidgets,
   setLocked,
+  setWidgetRotation,
   styleSnapshotOf,
   ungroupWidgets,
   type BoardDocument,
   type StyleSnapshot,
 } from "@remo/doc";
-import { canUnlock, kindOf, lockAuthorName, type Widget } from "@remo/model";
+import { canUnlock, isRotatable, kindOf, lockAuthorName, type Widget } from "@remo/model";
 import type { IconName } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 import { CHROME_COMMANDS } from "./commandsChrome";
@@ -114,7 +116,9 @@ export type ChromeAbility =
   | "apps"
   | "signedIn"
   | "support"
-  | "templates";
+  | "templates"
+  /** The installation has a guide of its own (`/config` `docs.origin`, ADR-284). */
+  | "docs";
 
 /**
  * The chrome command's world: flags it may read and the one way to run a command.
@@ -210,6 +214,16 @@ function foreignLock(ctx: CommandContext): Widget | null {
 
 const hasStyleClipboard = (ctx: CommandContext): boolean => ctx.styleClipboard.get() != null;
 
+/** At least one selected object is a kind whose angle means something (ADR-271). */
+function hasRotatable(ctx: CommandContext): boolean {
+  return selectedWidgets(ctx).some((widget) => isRotatable(widget) && !widget.locked);
+}
+
+/** At least one selected object is actually turned, so a reset would do something. */
+function hasTurned(ctx: CommandContext): boolean {
+  return selectedWidgets(ctx).some((widget) => isRotatable(widget) && !widget.locked && (widget.rotation ?? 0) !== 0);
+}
+
 /* --------------------------------------------------------------- commands --- */
 
 export const COMMANDS: readonly Command[] = [
@@ -284,6 +298,36 @@ export const COMMANDS: readonly Command[] = [
     surfaces: ["menu"],
     enabled: hasSelection,
     run: (ctx) => clearContent(ctx.board, ctx.ids),
+  },
+  {
+    id: "rotate90",
+    label: () => "menu.rotate90",
+    surfaces: ["menu", "panel", "palette"],
+    enabled: hasRotatable,
+    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, 90),
+  },
+  {
+    id: "resetRotation",
+    label: () => "menu.resetRotation",
+    surfaces: ["menu", "panel", "palette"],
+    enabled: hasTurned,
+    run: (ctx) => setWidgetRotation(ctx.board, ctx.ids, 0),
+  },
+  {
+    id: "rotateLeft15",
+    label: () => "menu.rotateLeft15",
+    shortcut: { key: "arrowleft", mod: true, shift: true },
+    surfaces: [],
+    enabled: hasRotatable,
+    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, -15),
+  },
+  {
+    id: "rotateRight15",
+    label: () => "menu.rotateRight15",
+    shortcut: { key: "arrowright", mod: true, shift: true },
+    surfaces: [],
+    enabled: hasRotatable,
+    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, 15),
   },
   {
     id: "info",

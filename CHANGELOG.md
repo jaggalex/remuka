@@ -8,6 +8,19 @@ behind each step, is maintained in the product guide:
 
 ## [Unreleased]
 
+**Objects turn (ADR-271, ADR-283).** A shape, sticky note, free text, image and frame can be
+turned with the round handle above the selection: `Shift` rounds to 15°, without it the angle
+snaps to a right angle within 3°, `⌘⇧←`/`⌘⇧→` turn by 15°, and the object menu has "Rotate 90°"
+and "Reset rotation". Several objects turn about one common centre. Hit-testing, the marquee,
+the selection frame, resizing in the object's own axes, connector anchors, alignment, the text
+editor, presentation, PNG/PDF export and backup all follow the angle; kanban, tables, cards and
+connectors stay straight, and connector labels stay horizontal.
+
+A client built before this change shows such an object unrotated; if it rewrites the whole
+object record, the angle is lost for everyone. An up-to-date client keeps the field when it
+patches another property, and the server's command API merges instead of replacing. Acceptable
+for one release (ADR-271).
+
 **Ink knows its paper (ADR-273, ADR-281).** The colour of anything lying on a surface — text,
 counters, grid lines, icons, "+", placeholders, the caret — is now derived from that surface
 instead of the theme. A room therefore reads in both themes: switching to dark recolours the

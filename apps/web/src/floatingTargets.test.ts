@@ -155,7 +155,19 @@ describe("the arrange bar", () => {
     expect(target.canArrange).toBe(true);
     // A note selection's bar is 740 px wide; the 800 px frame still centres it.
     expect(target.placement.left).toBe(400 - 370);
-    expect(target.placement.top).toBe(250 - COMPACT_BAR_ROOM);
+    // A selection that can turn leaves room for the round handle above its top side.
+    expect(target.placement.top).toBe(250 - BAR_ROOM);
+    // A kind that never turns keeps the compact room.
+    const boards = [
+      { ...note("k", -150, 0), type: "kanban" as const, width: 600, height: 400 },
+      { ...note("k2", 150, 0), type: "kanban" as const, width: 600, height: 400 },
+    ];
+    const compact = arrangeBarTarget({
+      selectedIds: ["k", "k2"],
+      frame,
+      resolve: resolveWith(boards),
+    })!;
+    expect(compact.placement.top).toBe(100 - COMPACT_BAR_ROOM);
   });
 
   it("names the selection by type, the biggest group first", () => {

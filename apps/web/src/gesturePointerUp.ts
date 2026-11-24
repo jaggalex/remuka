@@ -7,11 +7,11 @@ import {
 } from "./canvasGeometry";
 import type { NoteDirection } from "@remo/doc";
 import type { GestureEnv } from "./gestureEnv";
-import { axisDropSlot, cardDropSlot, boxOf, cellAt, facingSide, pickInRect, placementsInRect } from "@remo/canvas";
+import { axisDropSlot, cardDropSlot, cellAt, facingSideOf, pickInRect, placementsInRect } from "@remo/canvas";
 import type { ConnectorPatch } from "@remo/doc";
 
 export function pointerUp(env: GestureEnv) {
-  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setDragGhostIds, setDragIds, setDragPreview, setGuides, setHoverCell, setMarquee, setShapeDraft, setTableHover, setTableRefused, settings, shapeTool, widgetById, widgets } = env;
+  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onRotateMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setDragGhostIds, setDragIds, setDragPreview, setGuides, setHoverCell, setMarquee, setRotationDraft, setShapeDraft, setTableHover, setTableRefused, settings, shapeTool, widgetById, widgets } = env;
   const drag = dragRef.current;
   dragRef.current = null;
 
@@ -25,6 +25,21 @@ export function pointerUp(env: GestureEnv) {
         ? drag.rect
         : null;
     shapeTool.onDraw(drag.kind, box);
+    return;
+  }
+
+  if (drag?.mode === "rotate") {
+    setRotationDraft(null);
+    clearPreview();
+    // The command recomputes the same placements from the same delta and options, so
+    // one gesture is one transaction and one undo step (ADR-271, T18).
+    if (drag.delta !== 0) {
+      onRotateMany(
+        drag.members.map((widget) => widget.id),
+        drag.delta,
+        drag.shift ? { step: 15 } : { magnet: true },
+      );
+    }
     return;
   }
 
@@ -99,11 +114,12 @@ export function pointerUp(env: GestureEnv) {
     const target = draft ? connectTargetAt(draft, layouts, widgets, isCardOfKanban, 160 / camera.zoom) : null;
     if (target && target.id !== drag.fromId) {
       const source = widgetById(drag.fromId);
+      const placed = placedWidget(target, layouts);
       const endSide =
         draft?.targetSide ??
         (source
-          ? facingSide(boxOf(placedWidget(target, layouts)), { x: source.x, y: source.y })
-          : facingSide(boxOf(placedWidget(target, layouts)), { x: draft?.x ?? 0, y: draft?.y ?? 0 }));
+          ? facingSideOf(placed, { x: source.x, y: source.y })
+          : facingSideOf(placed, { x: draft?.x ?? 0, y: draft?.y ?? 0 }));
       onConnect(drag.fromId, target.id, {
         startSide: drag.fromSide,
         endSide,

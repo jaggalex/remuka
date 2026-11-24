@@ -6,12 +6,31 @@
  * empty corner of its bounding box (ADR-271). Painters, ports and connectors call these
  * functions and nothing else, so a line and the dot it was pulled from agree.
  */
-import type { ConnectorSide, Rect, ShapeKind, Vec2, Widget } from "@remo/model";
+import {
+  localPointOf,
+  rotateVector,
+  rotationOf,
+  type ConnectorSide,
+  type Rect,
+  type ShapeKind,
+  type Vec2,
+  type Widget,
+} from "@remo/model";
 
 export function boxOf(widget: Widget): Rect {
   return {
     x: widget.x - widget.width / 2,
     y: widget.y - widget.height / 2,
+    width: widget.width,
+    height: widget.height,
+  };
+}
+
+/** The object's own rectangle in its own axes, centred on the origin. */
+export function localBoxOf(widget: Widget): Rect {
+  return {
+    x: -widget.width / 2,
+    y: -widget.height / 2,
     width: widget.width,
     height: widget.height,
   };
@@ -89,6 +108,37 @@ export function outlineAnchor(
  * Used when an end has no explicit side: clipping to the box (rather than starting
  * at the centre) keeps arrow heads and line caps off the object they belong to.
  */
+/**
+ * Anchor of an object on its painted outline, its own angle included (ADR-271, T18).
+ *
+ * The local anchor is the point the side gives in the object's own axes; the turn puts
+ * it where the painter draws the edge. A straight object is the old answer exactly.
+ */
+export function widgetAnchor(widget: Widget, side: ConnectorSide): Vec2 {
+  const angle = rotationOf(widget);
+  if (angle === 0) return outlineAnchor(boxOf(widget), side, widget.shapeKind);
+  const local = outlineAnchor(localBoxOf(widget), side, widget.shapeKind);
+  const turned = rotateVector(local, angle);
+  return { x: widget.x + turned.x, y: widget.y + turned.y };
+}
+
+/** Outward normal of a side in the object's own axes, turned into the world. */
+export function widgetSideNormal(widget: Widget, side: ConnectorSide): Vec2 {
+  return rotateVector(sideNormal(side), rotationOf(widget));
+}
+
+/**
+ * The side of a turned object that faces a world point.
+ *
+ * Read in the object's axes, so "the side facing the other end" means the side the
+ * person sees, not the side of the object's unrotated memory.
+ */
+export function facingSideOf(widget: Widget, towards: Vec2): ConnectorSide {
+  const angle = rotationOf(widget);
+  if (angle === 0) return facingSide(boxOf(widget), towards);
+  return facingSide(localBoxOf(widget), localPointOf(widget, towards));
+}
+
 export function edgePoint(box: Rect, towards: Vec2): Vec2 {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;

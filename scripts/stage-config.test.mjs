@@ -169,6 +169,21 @@ describe("the server's operator command bridge", () => {
     expect(CONTROLLER).toContain("Usage: remo cli SCRIPT");
   });
 
+  it("takes the instance from the controller's own directory", () => {
+    // Without this, `/srv/stage-ru/remo` read `/srv/remo/current`: the stage controller
+    // opened the production release and, with a working script, would have written to the
+    // production database.
+    expect(CONTROLLER).toContain('dirname -- "${BASH_SOURCE[0]}"');
+    expect(CONTROLLER).toMatch(/ROOT=\$\{REMO_ROOT:-\$script_dir\}/);
+  });
+
+  it("accepts the script name without .mjs and refuses a path", () => {
+    // `billing-prices` used to reach Node as `/app/scripts/billing-prices`, which is not a
+    // module; the documented `remo cli billing-prices seed …` must work as written.
+    expect(CONTROLLER).toMatch(/\*\)\s*script="\$script\.mjs"/);
+    expect(CONTROLLER).toMatch(/SCRIPT must be a file in scripts/);
+  });
+
   it("documents the host command without pnpm", () => {
     expect(CLOUD).toContain("remo cli billing-providers list");
     expect(CLOUD).toContain("/shared/yookassa-test.json");

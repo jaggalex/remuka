@@ -39,5 +39,6 @@
   "section.table": "capabilities/frames-kanban",
   "text.format": "how-to/format-text",
   "room.panel": "concepts/board-chrome",
-  "account.support": "how-to/contact-support"
+  "account.support": "how-to/contact-support",
+  "objects.rotate": "capabilities/canvas"
 }

@@ -43,6 +43,7 @@ export * from "./tags";
 export * from "./links";
 export * from "./presentation";
 export * from "./styles";
+export * from "./rotation";
 export * from "./agentPlan";
 export * from "./images";
 

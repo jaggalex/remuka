@@ -43,8 +43,8 @@
 
 | Команда | `input` |
 |---|---|
-| `board.item.create` | `{type: "sticky_note"\|"text"\|"shape"\|"frame", x, y, width?, height?, content?, name?, style?}` |
-| `board.item.update` | `{id, patch: {x?, y?, width?, height?, title?, content?, name?, style?, locked?}}` |
+| `board.item.create` | `{type: "sticky_note"\|"text"\|"shape"\|"frame", x, y, width?, height?, content?, name?, style?, rotation?}` |
+| `board.item.update` | `{id, patch: {x?, y?, width?, height?, title?, content?, name?, style?, locked?, rotation?}}` |
 | `board.item.delete` | `{id}` |
 | `board.text.set` | `{id, text}` |
 | `board.connector.create` | `{from, to, routing?, arrow?, waypoints?, style?, id?}` |
@@ -52,7 +52,7 @@
 | `board.image.create` | `{fileId, x, y, width, height, naturalWidth, naturalHeight, dominantColor?, alt?, parentId?}` |
 | `board.image.replace` | `{widgetId, fileId}` — новый файл за тем же объектом; ширина сохраняется, высота следует новым пропорциям |
 
-`name` — необязательная подпись до 120 символов; пустая строка убирает её, уникальность не проверяется. Все перечисленные команды требуют capability `board.edit`. `ifVersion` сверяется с текущей версией документа:
+`rotation` — угол в градусах, по часовой стрелке, приводится к (−180, 180]; его учитывают фигура, стикер, текст, изображение и фрейм, у остальных объектов значение игнорируется. `GET /boards/:id/widgets` отдаёт `rotation` каждого объекта. `name` — необязательная подпись до 120 символов; пустая строка убирает её, уникальность не проверяется. Все перечисленные команды требуют capability `board.edit`. `ifVersion` сверяется с текущей версией документа:
 несовпадение — `409 STALE`. Правка или удаление заблокированного объекта отклоняется с
 `OBJECT_LOCKED`; `locked: false` принимается только от автора или носителя `board.manage`,
 иначе — `LOCKED_BY_OTHER`.

@@ -10,7 +10,8 @@ import {
   Table,
   type TableColumn,
 } from "@remo/ui";
-import { BRAND } from "@remo/brand";
+import { docsHref } from "./docsLinks";
+import { offerDocumentUrl } from "./legal/legalConfig";
 import {
   billingApi,
   formatMoney,
@@ -123,7 +124,7 @@ export function BillingPanel({
   /** The route answered `404`: billing is off on this installation (or the org is gone). */
   onUnavailable: () => void;
 }) {
-  const { t, lang } = useI18n();
+  const { t, lang, docsOrigin, legal } = useI18n();
   const [data, setData] = useState<OrgBilling | null>(initial);
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
@@ -358,7 +359,11 @@ export function BillingPanel({
     ? (invoices?.find((invoice) => invoice.id === checkout.invoiceId)?.number ??
       checkout.invoiceId)
     : null;
-  const termsHref = `https://${BRAND.domains.docs}/guide/${lang}/support/disclaimer.html`;
+  // The offer of this installation first (`/config` → `legal.documents`), the guide's
+  // disclaimer only as a fallback; without either the sentence has no dead anchor
+  // (ADR-284, ADR-256 §4).
+  const termsHref =
+    offerDocumentUrl(legal) ?? docsHref(docsOrigin, `/guide/${lang}/support/disclaimer.html`);
   const invoiceColumns: TableColumn<Invoice>[] = [
     {
       key: "number",
@@ -667,10 +672,15 @@ export function BillingPanel({
                 onChange={(event) => setTerms(event.target.checked)}
                 label={
                   <>
-                    {t("billing.terms")}{" "}
-                    <Link href={termsHref} target="_blank" rel="noreferrer">
-                      {t("billing.termsLink")}
-                    </Link>
+                    {t("billing.terms")}
+                    {termsHref && (
+                      <>
+                        {" "}
+                        <Link href={termsHref} target="_blank" rel="noreferrer">
+                          {t("billing.termsLink")}
+                        </Link>
+                      </>
+                    )}
                   </>
                 }
               />

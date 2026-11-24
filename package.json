@@ -93,6 +93,7 @@
     "size:check": "node scripts/file-size-check.mjs",
     "ui:check": "node scripts/ui-rules-check.mjs",
     "brand:check": "node scripts/brand-check.mjs",
+    "links:check": "node scripts/links-check.mjs",
     "consent:check": "node scripts/consent-check.mjs",
     "legal:build": "node scripts/legal-build.mjs",
     "legal:check": "node scripts/legal-build.mjs --check",
