@@ -40,6 +40,7 @@
   "section.table": "capabilities/frames-kanban",
   "text.format": "how-to/format-text",
   "room.panel": "concepts/board-chrome",
+  "room.tools": "capabilities/canvas",
   "account.support": "how-to/contact-support",
   "objects.rotate": "capabilities/canvas",
   "interface.motion": "concepts/board-chrome",

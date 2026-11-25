@@ -1,16 +1,9 @@
-import { Button, IconButton, Menu, Popover, Segmented } from "@remo/ui";
+import { Button, IconButton, Popover, Segmented } from "@remo/ui";
 import { LINE_PRESETS, type ConnectorRouting, type LinePreset } from "@remo/model";
 import { usePopover } from "./usePopover";
-import { useMenuFocus } from "./useMenuFocus";
 import { useI18n } from "./i18n";
-import { HelpLink } from "./help/HelpLink";
 import { ObjectBar } from "./object-panel/ObjectBar";
-import {
-  ColorGridSection,
-  ColorRule,
-  ColorWindow,
-  InkWarning,
-} from "./object-panel/ColorWindow";
+import { ColorGridSection, ColorRule, ColorWindow, InkWarning } from "./object-panel/ColorWindow";
 import { autoInk, colorName } from "./object-panel/colorWindowData";
 import { PanelWindow } from "./object-panel/PanelWindow";
 
@@ -55,9 +48,11 @@ export interface ConnectorBarActions {
    */
   applyPreset: (preset: LinePreset) => void;
   remove: () => void;
+  /** «⋯»: the one properties panel (T8). */
+  openProperties: () => void;
 }
 
-type Open = "type" | "colour" | "more" | null;
+type Open = "type" | "colour" | "width" | "dash" | "ends" | null;
 
 const ROUTINGS = [
   { value: "straight", label: "line.straight" },
@@ -78,12 +73,12 @@ const WIDTHS = [
 ] as const;
 
 /**
- * The connector toolbar (ADR-120, ADR-127).
+ * The connector bar (ADR-120, ADR-266 §10a).
  *
- * One sample of the line itself │ ends │ label │ More. The sample is the line's own colour,
- * width, dash and arrow head; pressing it opens the one colour window, where the five line
- * presets, the colour, width and dash live. Form, ends and the label stay on the bar: they
- * are not colour, and the mockup keeps them there too.
+ * Seven elements, in the table's order: type, width, dash, ends, colour, label, «⋯».
+ * The sample is the line's own colour; a line has no fill, so its one colour window
+ * keeps the presets and the ink. Label size, swap ends and the label's own colour moved
+ * to the properties panel, where a rarer setting belongs.
  */
 export function ConnectorBar({
   target,
@@ -95,9 +90,8 @@ export function ConnectorBar({
   /** Opens the label editor; editing is the canvas's business, not a doc command. */
   onEditLabel: () => void;
 }) {
-  const { t, count } = useI18n();
+  const { t } = useI18n();
   const { open, setOpen, ref } = usePopover<Open>(target?.id);
-  const moreRef = useMenuFocus(open, "more");
 
   if (!target) return null;
 
@@ -110,6 +104,8 @@ export function ConnectorBar({
   const colourLabel = `${t("line.colour")}: ${t(
     colorName(target.strokeColor, { role: "stroke" }).key,
   )}`;
+  const endsLabel =
+    target.arrow === "both" ? "↔" : target.arrow === "start" ? "←" : target.arrow === "end" ? "→" : "—";
 
   return (
     <ObjectBar
@@ -120,10 +116,10 @@ export function ConnectorBar({
     >
       <span className="sb-anchor">
         <Button
-          variant="secondary"
+          variant="ghost"
           size="compact"
           iconEnd="chevron-down"
-          aria-label={t("line.type")}
+          aria-label={`${t("line.type")}: ${t(routing.label)}`}
           title={t("line.type")}
           aria-expanded={open === "type"}
           onClick={() => setOpen(open === "type" ? null : "type")}
@@ -147,7 +143,121 @@ export function ConnectorBar({
         )}
       </span>
 
-      <span className="sb-divider" aria-hidden="true" />
+      <span className="sb-anchor">
+        <Button
+          variant="ghost"
+          size="compact"
+          aria-label={`${t("line.widthLabel")}: ${target.strokeWidth}`}
+          aria-expanded={open === "width"}
+          onClick={() => setOpen(open === "width" ? null : "width")}
+        >
+          {target.strokeWidth} px
+        </Button>
+        {open === "width" && (
+          <PanelWindow>
+            <Popover title={t("line.widthLabel")} width={172} onClose={() => setOpen(null)}>
+              <div className="sb-size-row" role="group" aria-label={t("line.widthLabel")}>
+                {WIDTHS.map((entry) => (
+                  <Button
+                    key={entry.value}
+                    variant="ghost"
+                    size="compact"
+                    aria-label={`${t(entry.label)} ${entry.value}`}
+                    selected={target.strokeWidth === entry.value}
+                    onClick={() => {
+                      actions.setWidth(entry.value);
+                      setOpen(null);
+                    }}
+                  >
+                    {entry.value} px
+                  </Button>
+                ))}
+              </div>
+            </Popover>
+          </PanelWindow>
+        )}
+      </span>
+
+      <span className="sb-anchor">
+        <Button
+          variant="ghost"
+          size="compact"
+          aria-label={`${t("line.dash")}: ${t(DASHES.find((entry) => entry.value === target.strokeStyle)?.label ?? DASHES[0].label)}`}
+          aria-expanded={open === "dash"}
+          onClick={() => setOpen(open === "dash" ? null : "dash")}
+        >
+          <span className={`sb-dash ${target.strokeStyle}`} aria-hidden="true" />
+        </Button>
+        {open === "dash" && (
+          <PanelWindow>
+            <Popover title={t("line.dash")} width={220} onClose={() => setOpen(null)}>
+              <div className="sb-size-row" role="group" aria-label={t("line.dash")}>
+                {DASHES.map((entry) => (
+                  <Button
+                    key={entry.value}
+                    variant="ghost"
+                    size="compact"
+                    aria-label={t(entry.label)}
+                    selected={target.strokeStyle === entry.value}
+                    onClick={() => {
+                      actions.setDash(entry.value);
+                      setOpen(null);
+                    }}
+                  >
+                    <span className={`sb-dash ${entry.value}`} aria-hidden="true" />
+                  </Button>
+                ))}
+              </div>
+            </Popover>
+          </PanelWindow>
+        )}
+      </span>
+
+      <span className="sb-anchor">
+        <Button
+          variant="ghost"
+          size="compact"
+          aria-label={t("line.ends")}
+          aria-expanded={open === "ends"}
+          onClick={() => setOpen(open === "ends" ? null : "ends")}
+        >
+          {endsLabel}
+        </Button>
+        {open === "ends" && (
+          <PanelWindow>
+            <Popover title={t("line.ends")} width={220} onClose={() => setOpen(null)}>
+              <div className="sb-size-row" role="group" aria-label={t("line.ends")}>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  aria-label={t("line.start")}
+                  selected={startOn}
+                  onClick={() => setArrow(!startOn, endOn)}
+                >
+                  <StartEndGlyph at="start" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  aria-label={t("line.swap")}
+                  onClick={actions.swapEnds}
+                >
+                  <SwapGlyph />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  aria-label={t("line.end")}
+                  selected={endOn}
+                  onClick={() => setArrow(startOn, !endOn)}
+                >
+                  <StartEndGlyph at="end" />
+                </Button>
+              </div>
+            </Popover>
+          </PanelWindow>
+        )}
+      </span>
 
       <span className="sb-anchor">
         <Button
@@ -183,9 +293,7 @@ export function ConnectorBar({
                       key={entry.id}
                       variant="ghost"
                       size="compact"
-                      className={
-                        entry.id === preset?.id ? "cw-preset is-selected" : "cw-preset"
-                      }
+                      className={entry.id === preset?.id ? "cw-preset is-selected" : "cw-preset"}
                       aria-label={name}
                       selected={entry.id === preset?.id}
                       title={name}
@@ -208,32 +316,7 @@ export function ConnectorBar({
               onAuto={() => actions.setColor(null)}
               onPick={actions.setColor}
               showKeys
-            >
-              <div className="cw-row">
-                <Segmented
-                  label={t("line.widthLabel")}
-                  value={String(target.strokeWidth)}
-                  options={WIDTHS.map((entry) => ({
-                    value: String(entry.value),
-                    label: String(entry.value),
-                    ariaLabel: `${t(entry.label)} ${entry.value}`,
-                  }))}
-                  onChange={(value) => actions.setWidth(Number(value))}
-                />
-                <Segmented
-                  label={t("line.dash")}
-                  value={target.strokeStyle}
-                  options={DASHES.map((entry) => ({
-                    value: entry.value,
-                    label: <span className={`sb-dash ${entry.value}`} aria-hidden="true" />,
-                    ariaLabel: t(entry.label),
-                  }))}
-                  onChange={(value) =>
-                    actions.setDash(value as "normal" | "dashed" | "dotted")
-                  }
-                />
-              </div>
-            </ColorGridSection>
+            />
             <InkWarning
               value={target.strokeColorStored}
               ground={target.ground}
@@ -258,43 +341,6 @@ export function ConnectorBar({
         )}
       </span>
 
-      <span className="sb-divider" aria-hidden="true" />
-
-      <span className="sb-role" role="group" aria-label={t("line.ends")}>
-        <span className="sb-role-label">{t("line.ends")}</span>
-        <Button
-          variant="ghost"
-          size="compact"
-          aria-label={t("line.start")}
-          title={t("line.start")}
-          selected={startOn}
-          onClick={() => setArrow(!startOn, endOn)}
-        >
-          <StartEndGlyph at="start" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="compact"
-          aria-label={t("line.swap")}
-          title={t("line.swap")}
-          onClick={actions.swapEnds}
-        >
-          <SwapGlyph />
-        </Button>
-        <Button
-          variant="ghost"
-          size="compact"
-          aria-label={t("line.end")}
-          title={t("line.end")}
-          selected={endOn}
-          onClick={() => setArrow(startOn, !endOn)}
-        >
-          <StartEndGlyph at="end" />
-        </Button>
-      </span>
-
-      <span className="sb-divider" aria-hidden="true" />
-
       <Button
         variant="ghost"
         size="compact"
@@ -306,69 +352,13 @@ export function ConnectorBar({
         Aa
       </Button>
 
-      {target.hasLabel && (
-        <div className="sb-group sb-font" role="group" aria-label={t("line.labelSize")}>
-          <Button
-            variant="ghost"
-            size="compact"
-            aria-label={t("line.labelDefault")}
-            title={t("line.labelDefault")}
-            selected={target.fontSize == null}
-            onClick={() => actions.setFont(null)}
-          >
-            {target.fontSize ?? t("sticky.auto")}
-          </Button>
-          <IconButton
-            icon="minus"
-            size="compact"
-            label={t("sticky.smaller")}
-            onClick={() => actions.setFont(Math.max(6, (target.fontSize ?? 13) - 1))}
-          />
-          <IconButton
-            icon="plus"
-            size="compact"
-            label={t("sticky.bigger")}
-            onClick={() => actions.setFont(Math.min(96, (target.fontSize ?? 13) + 1))}
-          />
-        </div>
-      )}
-
-      <span className="sb-divider" aria-hidden="true" />
-
-      <HelpLink topicId="connectors.waypoints" className="sb-help" />
-
-      {/* Delete lives here and nowhere else on the bar, after a separator (ADR-120). */}
-      <span className="sb-more" ref={moreRef}>
-        <IconButton
-          icon="more"
-          size="compact"
-          label={t("line.more")}
-          aria-expanded={open === "more"}
-          selected={open === "more"}
-          onClick={() => setOpen(open === "more" ? null : "more")}
-        />
-        {open === "more" && (
-          <PanelWindow>
-            <Menu
-              label={t("line.more")}
-              onClose={() => setOpen(null)}
-              items={[
-                { separator: true },
-                {
-                  label: t("menu.delete"),
-                  icon: "trash",
-                  hint: count("objects", 1),
-                  danger: true,
-                  onSelect: () => {
-                    actions.remove();
-                    setOpen(null);
-                  },
-                },
-              ]}
-            />
-          </PanelWindow>
-        )}
-      </span>
+      <IconButton
+        icon="more"
+        size="compact"
+        label={t("line.more")}
+        aria-haspopup="dialog"
+        onClick={actions.openProperties}
+      />
     </ObjectBar>
   );
 }
@@ -421,7 +411,8 @@ function LineChip({ preset }: { preset: LinePreset }) {
 /** The bar's sample: the line as it is painted, head included. */
 function LineSample({ target }: { target: ConnectorBarTarget }) {
   const width = Math.min(target.strokeWidth, 4);
-  const dash = target.strokeStyle === "normal" ? undefined : target.strokeStyle === "dashed" ? "4 3" : "1 3";
+  const dash =
+    target.strokeStyle === "normal" ? undefined : target.strokeStyle === "dashed" ? "4 3" : "1 3";
   const start = target.arrow === "start" || target.arrow === "both";
   const end = target.arrow === "end" || target.arrow === "both";
   return (

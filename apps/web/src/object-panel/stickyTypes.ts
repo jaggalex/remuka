@@ -88,4 +88,12 @@ export interface StickyBarActions {
   applyShapePreset: (preset: ShapePreset) => void;
   /** Delete from "More" — the same path as the Delete key, confirmation included. */
   remove: () => void;
+  /** Join the two selected objects; the same command the header and the keys run. */
+  connect: () => void;
+  /** Two connectable objects are selected right now. */
+  canConnect: boolean;
+  /** Open the inline editor on the selected object. */
+  edit: () => void;
+  /** «⋯»: the one properties panel, not a second menu (ADR-266 §5, §10a). */
+  openProperties: () => void;
 }

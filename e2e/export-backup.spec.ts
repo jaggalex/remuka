@@ -25,7 +25,7 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
   await addComment(page, "Reviewed before export");
   await page.getByRole("button", { name: "Resolve", exact: true }).click();
   await expect(page.locator(".comments-list li")).toHaveCount(0);
-  await page.locator(".comments-panel header button").click();
+  await page.locator(".comments-panel").getByRole("button", { name: "Close" }).click();
 
   // A real download, not a mocked canvas: the browser renderer is part of the product.
   await openBoardMenu(page);
@@ -179,7 +179,7 @@ test("exports a PNG with comment pins and the legend", async ({ page }) => {
   await addSticky(page);
   await openComments(page);
   await addComment(page, "Please review this");
-  await page.locator(".comments-panel header button").click();
+  await page.locator(".comments-panel").getByRole("button", { name: "Close" }).click();
 
   await openBoardMenu(page);
   await page.getByRole("menuitem", { name: "Export…" }).click();

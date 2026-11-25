@@ -11750,3 +11750,159 @@ until T15 rebuilds the account screen's "Look" section around the same field.
 scalars; a separate hints service would put a personal learning record on the server for no
 product reason. Hiding the header with `display: none` would reflow the canvas mid-gesture,
 which is the opposite of calm; `opacity` plus `pointer-events` changes nothing about layout.
+
+## ADR-290: The support-agent UI is specified by wave-9 mockups in the product repository
+
+**Status:** proposed (2026-11-25). UI supplement: [spec/support-agent-ui.md](spec/support-agent-ui.md).
+Extends ADR-288 (§10 UI-01 of `spec/support-agent.md` required approved mockups before
+implementation) and applies ADR-286 and ADR-287 to the external `remo-support-agent` service.
+
+**Context.** ADR-288 defines four operator pages and customer-facing feedback in the Chatwoot
+widget but leaves their look, texts and states open. The service repository does not exist
+yet, and developer agents cannot open the design canvas by URL.
+
+**Decision.**
+
+1. **Six artboards, wave 9 of the canvas.** `Support-Access` (sign-in, missing role, expired
+   session, a page closed to the role), `Support-Widget` (answer with sources, resolution
+   survey, partial/no reasons, resolved with native CSAT, immediate handoff, no source, English),
+   `Support-Quality`, `Support-Usage`, `Support-Knowledge` and `Support-Settings` with their
+   loading, empty, error, stale, dialog and conflict states, light and dark, at 1440 and 390 px.
+2. **The product repository is the interim home.** Sources go to `docs/design/mockups/Support-*.dc.html`,
+   states to `scripts/mockups/states.json`; reference PNGs are generated locally as for all other
+   artboards. When the service repository is created, the files listed in §0 of the supplement
+   are copied there with the product commit they came from; the originals stay here.
+3. **The operator panel has the Remuka character at console density.** Paper and ink, 1.5 px
+   borders, hard shadows on primary cards, 14 px text, the night-board dark theme. Colours and
+   sizes come from a vendored, commit-pinned copy of `@remo/ui` tokens; no new hex values.
+4. **The widget mockup fixes texts and scenarios, not Chatwoot's chrome.** Bubbles, option
+   buttons and CSAT stay native. Greeting, signature, survey, reasons and handoff texts are
+   RU/EN keys in the published agent configuration; handoff hours come from the installation
+   schedule. The customer never sees why a handoff happened; the private note says it.
+5. **Roles are visible in the UI and enforced by the server.** Operators get quality, knowledge
+   (read) and the pause switch; analysts get aggregates and costs without individual
+   conversations or top runs; administrators get everything in their installation.
+6. **Work is split into tasks S-UI1…S-UI6**, one per artboard, mapped to stages S2–S6 of
+   ADR-288. Each task lists its reference PNGs and is accepted side by side with the mockup.
+
+**Consequences.** The service can start S1 with agreed screens and texts. The widget has no
+persistent "talk to a person" button (owner's decision of 2026-11-24): the greeting tells the
+customer to type "human", the resolution survey has a fourth option, and a keyword rule
+hands off without a model call, so it works when the agent is paused or out of budget. The
+native CSAT is configured in the inbox: 1–5 stars, one bilingual message, not sent to
+conversations labelled `spam` or `internal`; S1 confirms the pinned version supports it. Mockup numbers are examples; the formulas of ADR-288 decide
+the values. Only the widget and the quality page have English reference images; other pages
+are checked in English by scenario A30.
+
+**Alternatives considered.** A neutral admin look would have needed a second design language
+for one team; a custom widget replacing Chatwoot's would duplicate the conversation store that
+ADR-288 keeps in Chatwoot. Waiting for the service repository would have left S1 without
+approved mockups, which §10 UI-01 requires before implementation.
+
+## ADR-291: Support-panel staff sign in through Authelia on the support host
+
+**Status:** accepted by the owner (2026-11-24). Specification: [spec/support-idp.md](spec/support-idp.md).
+Resolves the identity-provider prerequisite that ADR-288 left open; the panel side is task
+S-UI1 of [spec/support-agent-ui.md](spec/support-agent-ui.md).
+
+**Context.** The `/agent/` panel requires OIDC with role groups and a second factor
+(ADR-288, `spec/support-agent.md` §2). No identity provider existed. The panel has a handful
+of staff users per installation, the support host has a tight memory budget (OPS-03), and
+staff accounts of the RU and EU zones must not be stored in one foreign service.
+
+**Decision.**
+
+1. **One Authelia per support host**, pinned by image digest, served under the existing
+   host as `https://support.<domain>/auth` (no new subdomain). Users and groups live in a
+   file with argon2id hashes; second-factor devices in an encrypted SQLite volume.
+2. **A second factor for every panel role**, TOTP or WebAuthn; no self-registration and no
+   e-mail password reset. Staff are added, changed and removed by the host administrator
+   following the runbook; removal is completed by revoking panel sessions with an audited
+   agent command.
+3. **Groups are named per installation** (`support-<installation>-admin|operator|analyst`).
+   The group-to-role mapping is installation bootstrap configuration; a valid login without
+   a group of this installation gets 403 `no_role`.
+4. **The panel is a plain OIDC relying party**: authorization code with PKCE S256, state and
+   nonce, issuer/audience/signature/expiry checks, server-side session (30 min idle, 8 h
+   absolute). Nothing in the panel is Authelia-specific.
+5. **Chatwoot keeps its own agent accounts.** Authelia protects only the agent panel; the
+   widget, Chatwoot and the agent's replies keep working when Authelia is down.
+
+**Consequences.** One more small container, a users file and three secrets to back up per
+support host. Authelia's OIDC provider role is an open beta, although the protocol
+implementation is OpenID-certified; upgrades go through stage with the I1–I9 checks and the
+release notes, never blindly. Staff lists of separate hosts are maintained separately.
+
+**Alternatives considered.** Keycloak is mature but does not fit the memory budget; Zitadel
+is lighter than Keycloak but still a second database-backed service for a few users. A cloud
+provider would move RU staff identities abroad. Signing in with Remuka product accounts
+would couple the external service to the product, which ADR-288 avoids. Because the panel
+uses standard OIDC only, any of these can replace Authelia later without code changes.
+
+## ADR-292: One rail, one object bar and one side panel — the T8 character pass
+
+**Status:** accepted (2026-11-24, owner). Task T8. Implements ADR-266 §5 and §10a; applies
+ADR-286 to the room screen; extends ADR-050 (one command list), ADR-119 (the rail) and
+ADR-123 (browser settings).
+
+**Context.** The rail had two pill panels, a yellow round selection and a second history
+pill; the object bars had grown into small toolbars (a note had twelve controls and no
+`⋯`), the inspector and comments could both be open, and the command search could not find
+"edit text". The mockups `App-ToolsBars` and `App-Panels` fix a different screen: seven
+tools plus «More» in one 16 px panel, a bar of no more than seven buttons (a shape eight,
+because its lift is in the bar), `⋯` opening one properties panel, and comments as a panel
+of two tabs.
+
+**Decision.**
+- **Rail.** `ToolRail.tsx` is one paper panel of radius 16 with 44 px tools of radius 10:
+  select, note, shape, text, connector, frame, picture, «More», then undo and redo under a
+  hairline. The chosen tool is `accent-chosen` with an ink outline, not a circle. A tool
+  with variants opens its samples from the corner marker, or by clicking the armed shape;
+  the choice of note fill, shape kind and connector routing is remembered in this browser
+  (`toolDefaults.ts`, keys `remo.tool.sticky|shape|connector`, registered in ADR-255's
+  storage registry).
+- **«More» is the registry.** Card, table, kanban, comment and templates are chrome
+  commands with `intent: "canvas"` in `commandsChrome.ts`; the rail renders those ids and
+  `⌘K` runs the same ids through `chromeSurfaces`. Table creation reuses `setSectionView`;
+  kanban creation goes through one new document command `createKanban`, which writes the
+  widget and its matrix through the existing `writeKanbanState` (ADR-053).
+- **Object bars.** The note bar is colour, text size, bold, checklist, link, connect and
+  `⋯`; the shape bar adds fill, border, width, kind and lift (eight); the connector bar is
+  type, width, dash, ends, colour, label and `⋯`; the text editor's bar is bold, italic,
+  strike, bulleted list, checklist, link and `⋯`; the multi-selection bar is the count,
+  colour, align, tidy, group and `⋯`. Everything rarer lives in the properties panel. The
+  heading, numbered list, code, underline, indent and clear-format controls of the text
+  editor are in that panel and write through the editor's existing DOM events (ADR-252), so
+  the caret is not lost.
+- **One side panel.** `useBoardAppState` owns the coordination: opening properties,
+  comments or the agent closes the other two; `⋯` opens properties; `Esc` closes the open
+  panel unless the editor, a field, a menu or a dialog owns the key.
+- **The properties panel** is a 340 px sheet on the room's edge: the type (or the person's
+  name) as its title, the colour grid, **Text** with Auto/A−/A+ and alignment, a local
+  **More settings** disclosure with the former inspector controls, and a danger zone with
+  Delete and "can be undone with ⌘Z". The local disclosure and danger section are replaced
+  by `Disclosure`/`DangerZone` in T11.
+- **Comments** are two tabs, "Open · N" and "Resolved · N"; a thread is a paper card with
+  the author-coloured avatar, a reply field with `@`, and a green **Resolve**. A pin opens
+  the panel on its thread; the empty state names both ways a new thread can arrive.
+- **`editText`** is a command (menu, panel, palette) with one new field on
+  `CommandContext`; the bars and the context menu dispatch it instead of calling the
+  editor directly. It is the only object command added.
+- **Owner's T9 corrections, done here:** primitive `radius-menu` 16 replaces the menu
+  radius; the room path keeps spaces around «/»; offline is the yellow §3 plate; «Run» is
+  an outlined secondary pill. The menu keeps the full registry (the owner's second
+  decision), with `editText` added to the twenty-two rows.
+
+**Consequences.** The tool rail, the bars and the panel are one screen that matches the
+artboards; the search, the menus and the bars share the same command ids. Old e2e scenarios
+that reached a bar control now find the same label in the properties panel (the text
+format ones) and the card/comment tools under «More». New browsers store three preference
+keys; the consent registry and its counts are updated with them. Visual baselines of the
+rail, the panel, the topbar menus and every room screen change and are re-recorded.
+
+**Alternatives considered.** Keeping two rail panels would preserve the old look the owner
+returned; keeping the long bars would keep every control one click away but repeat the
+"toolbar inside a toolbar" the mockups reject. A second properties dialog for text formats
+would put the caret's controls outside the text; the panel uses the same editor events
+instead. Creating a kanban in the client would duplicate the matrix writer that templates,
+clipboard and loading already share.

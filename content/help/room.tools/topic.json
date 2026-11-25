@@ -1,0 +1,26 @@
+{
+  "id": "room.tools",
+  "type": "reference",
+  "title": {
+    "ru": "Тулбар и планки",
+    "en": "Toolbar and object bars"
+  },
+  "summary": {
+    "ru": "Семь инструментов и «Ещё», варианты на активном инструменте и планка выделения не больше семи кнопок.",
+    "en": "Seven tools and More, variants on the active tool, and a selection bar of no more than seven buttons."
+  },
+  "related": [
+    "room.panel",
+    "room.colours",
+    "text.format"
+  ],
+  "verifiedAgainst": "2026-11-24",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:fd7746a37a1435ffc20c03b9cc56162d9480ec80ae03f604edc5ff66412a99a1",
+      "targetHash": "sha256:40f8a72a948d3d4ac7cd55da1b02d6ac56cd6ca6827b173d98d197f9aa2303b1"
+    }
+  }
+}

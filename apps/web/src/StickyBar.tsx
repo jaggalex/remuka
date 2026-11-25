@@ -4,15 +4,16 @@ import {
   type StickyBarActions,
   type StickyBarTarget,
 } from "./object-panel/StickyPanel";
+import { TextBar } from "./TextBar";
 
 export type { StickyBarActions, StickyBarTarget };
 
 /**
  * The note bar's entry point.
  *
- * The behaviour moved to `object-panel/StickyPanel.tsx` when the object panels were
- * split into a shared frame and per-object content (ADR-124). This file keeps the name
- * and the props the canvas already uses, so the split changes no caller.
+ * Two compositions, one owner: while the text is open for typing the bar is the text
+ * format row (T8), otherwise it is the object bar. `StickyPanel` holds the object half;
+ * `TextBar` the editor half; both use the same frame and the same «⋯» destination.
  */
 export function StickyBar({
   target,
@@ -29,6 +30,15 @@ export function StickyBar({
   /** While typing, "Clear formatting" strips the selection instead of the note. */
   clearSelection: () => void;
 }) {
+  if (editing && target) {
+    return (
+      <TextBar
+        placement={target.placement}
+        formatSelection={formatSelection}
+        onMore={actions.openProperties}
+      />
+    );
+  }
   return (
     <StickyPanel
       target={target}

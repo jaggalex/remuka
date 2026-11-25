@@ -17,18 +17,16 @@ test("a comment thread survives a reload, has a pin, and resolve hides it", asyn
   await page.getByRole("button", { name: "Resolve" }).click();
   await expect(page.locator(".comments-list li")).toHaveCount(0);
   await expect(page.locator(".comment-pin")).toHaveCount(0);
-  // The DS switch hides its native input; a person clicks the label, and so does the test.
-  await page.locator(".comments-toggle").click();
-  await expect(page.getByRole("switch", { name: "Show resolved" })).toBeChecked();
+  // T8: resolved threads are a tab, not a reveal switch.
+  await page.getByRole("tab", { name: "Resolved · 1" }).click();
   await expect(page.locator(".comments-list li")).toHaveCount(1);
   await expect(page.locator(".comment-pin")).toHaveCount(1);
 
   await page.reload();
   await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
-  // The resolved thread is still there, just hidden until asked for — pin included.
+  // The resolved thread is still there, just on its own tab — pin included.
   await openComments(page);
-  await page.locator(".comments-toggle").click();
-  await expect(page.getByRole("switch", { name: "Show resolved" })).toBeChecked();
+  await page.getByRole("tab", { name: "Resolved · 1" }).click();
   await expect(page.locator(".comment-pin")).toHaveCount(1);
   await page.locator(".comment-pin").click();
   await expect(page.locator(".comments-thread")).toContainText("A reply");

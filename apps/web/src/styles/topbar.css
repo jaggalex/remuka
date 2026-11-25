@@ -142,9 +142,14 @@
   white-space: nowrap;
 }
 
+/* Offline is a plate, not a line of text: yellow paper with an ink outline (T9, §3). */
 .save-state.is-offline .save-state-text {
-  background: var(--warning-soft);
+  padding: 0 var(--space-2);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--warning-plate);
   color: var(--text-primary);
+  font-weight: 600;
 }
 
 .save-state.is-blocked .save-state-text {
@@ -353,6 +358,18 @@
   background: var(--accent);
 }
 
+/* «Run» is a secondary outline pill, as the mockup draws the header's one menu action. */
+.run-trigger {
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-bar);
+}
+
+.run-trigger:hover {
+  background: var(--bg-hover);
+}
+
 .run-trigger.is-live {
   background: var(--accent-soft);
   color: var(--text-accent);
@@ -482,11 +499,12 @@
 }
 
 /*
- * Creation rail (ADR-119): the only place a new object starts.
+ * Creation rail (ADR-119, ADR-286): one paper panel, radius 16, padding 8.
  *
- * Two floating panels — tools, then history — 12 px off the canvas edge, like the
- * mockup. The rail overlays the canvas instead of taking a strip of it: a bordered
- * column of icons on the edge read as part of the frame, not as a control surface.
+ * Seven tools and «More», then undo and redo under a hairline. The selected tool is a
+ * 44 px square with a 10 px radius on the marker-yellow `accent-chosen` and an ink
+ * outline — the mockup's chosen state, not a pill. The panel overlays the canvas instead
+ * of taking a strip of it.
  */
 .tool-rail {
   position: absolute;
@@ -494,14 +512,12 @@
      floating panel is never painted under an object's counter or a comment pin. */
   z-index: var(--z-bar);
   left: var(--space-3);
-  top: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
   width: var(--toolbar-width);
-  /* No `overflow`: the flyout is a child and must be able to leave the panel. The two
-     panels take 482 px, which fits every height the brief names (700–900). */
 }
 
 .tool-rail-panel {
@@ -509,22 +525,22 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  padding: var(--space-2);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
   background: var(--bg-panel);
   box-shadow: var(--shadow-bar);
 }
 
 /* The design-system IconButton paints hover, active, focus and disabled; the rail only
-   gives it the 40 px square the mockup uses. */
+   gives it the 44 px square with the mockup's 10 px radius. */
 .tool-rail .tool-rail-button {
-  width: var(--space-10);
-  height: var(--space-10);
-  border-radius: var(--radius-pill);
+  width: var(--space-11);
+  height: var(--space-11);
+  border-radius: var(--radius-md);
 }
 
-/* Hairline between the groups the mockup separates: selection │ creation │ discussion. */
+/* Hairline between tools and history: one panel, not a second pill. */
 .tool-rail-panel .rm-sep {
   width: var(--space-9);
   margin: var(--space-1) 0;
@@ -538,7 +554,7 @@
 
 /*
  * The corner marker of a tool with variants (Р2): a 6 px wedge in the bottom-right of
- * the 40 px button. It owns a 20 px hit area in the corner and never covers the glyph,
+ * the 44 px button. It owns a 20 px hit area in the corner and never covers the glyph,
  * so clicking the icon still creates at once.
  */
 .tool-rail-caret {
@@ -592,6 +608,50 @@
   left: calc(100% + var(--space-3));
   top: calc(-1 * var(--space-1));
   z-index: var(--z-popover);
+}
+
+/* The connector flyout: three silhouettes in one row, like the shape row (T8). */
+.tool-flyout-connector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* «More»: the five creation commands of the registry, with 16 px icons. */
+.tool-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-more-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-default);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-more-item:hover:not(:disabled),
+.tool-more-item:focus-visible {
+  background: var(--bg-hover);
+}
+
+.tool-more-item:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.tool-more-item svg {
+  flex: none;
+  color: var(--text-secondary);
 }
 
 /* The rail's flyout is the window's fill grid: named swatches in a column, then seven

@@ -315,19 +315,29 @@ test("the bar switches the kind of every selected shape and keeps text, size and
     expect(next.style).toEqual(before.style);
   }
 
-  // Sharp / Rounded toggles the two rectangle kinds; an ellipse cannot take it.
-  await bar.getByRole("button", { name: "Rounded", exact: true }).click();
+  // Sharp / Rounded toggles the two rectangle kinds; both live in the kind window,
+  // because the bar itself is capped at eight elements (T8).
+  await bar.getByRole("button", { name: /Kind: / }).click();
+  const kindWindow = page.getByRole("dialog", { name: "Shape kind" });
+  await kindWindow.getByRole("button", { name: "Rounded", exact: true }).click();
   await expect
     .poll(async () => (await shapes(page)).find((entry) => entry.id === left)?.shapeKind)
     .toBe("round_rectangle");
-  await bar.getByRole("button", { name: "Sharp", exact: true }).click();
+  await bar.getByRole("button", { name: /Kind: / }).click();
+  await page
+    .getByRole("dialog", { name: "Shape kind" })
+    .getByRole("button", { name: "Sharp", exact: true })
+    .click();
   await expect
     .poll(async () => (await shapes(page)).find((entry) => entry.id === left)?.shapeKind)
     .toBe("rectangle");
 
-  await bar.getByRole("button", { name: /Kind: Rectangle/ }).click();
+  await bar.getByRole("button", { name: /Kind: / }).click();
   await page.getByRole("button", { name: "Ellipse", exact: true }).click();
-  const rounded = bar.getByRole("button", { name: /Rounded/ });
+  await bar.getByRole("button", { name: /Kind: / }).click();
+  const rounded = page
+    .getByRole("dialog", { name: "Shape kind" })
+    .getByRole("button", { name: /^Rounded\./ });
   await expect(rounded).toBeDisabled();
   await expect(rounded).toHaveAttribute("aria-label", /Rectangles only/);
 });

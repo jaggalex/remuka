@@ -24,7 +24,9 @@ A sticky note has no transparency: its sheet is the object.
 
 ## Where to change a colour
 
-- **A new sticky note.** The caret beside the Sticky note tool in the rail opens the palette: 14 fills plus White and Black. Yellow is marked as the default.
+- **A new sticky note.** The caret beside the Sticky note tool opens the palette: 14 fills plus White and Black. The chosen colour stays for the next note; yellow is marked until you choose.
+- **A new kind.** The Shape tool's marker remembers the shape kind and the Connector tool's the line type; the next object is created the same way.
+- **The properties panel.** A selected sticky note, shape or text shows the same grid at the top of the panel: one click paints, a ring marks the current one.
 - **A sticky note.** Click the sample on the object bar to open **Sheet colour** and **Text**.
 - **A shape.** The sample opens presets, **Fill**, **Border** and **Text**.
 - **Text.** On a sticky note or a shape the **Text** role offers **Auto, Dark, Black, White**; on free text it offers **Auto, Black, White**.

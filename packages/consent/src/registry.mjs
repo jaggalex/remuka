@@ -232,6 +232,39 @@ export const STORAGE_REGISTRY = Object.freeze(
       lifetime: "until cleared",
     },
     {
+      name: "remo.tool.sticky",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Цвет, выбранный для следующего стикера в этом браузере",
+        en: "The colour chosen for the next sticky note in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.tool.shape",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Вид фигуры, выбранный для следующей фигуры в этом браузере",
+        en: "The shape kind chosen for the next shape in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.tool.connector",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Тип связи, выбранный для следующей связи в этом браузере",
+        en: "The connector type chosen for the next connector in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
       name: "remo.commands.recent",
       kind: "localStorage",
       category: "preferences",

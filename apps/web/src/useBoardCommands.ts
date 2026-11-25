@@ -89,6 +89,7 @@ import { hoveredPoint, startImageUploads } from "./imageIntake";
 import { canEditNow } from "./accessSnapshot";
 import { isGroupable, selectionHasGroup, type CommandContext } from "./commands";
 import { useBoardCreation } from "./useBoardCreation";
+import { rememberRouting } from "./toolDefaults";
 import type { BoardSettings } from "./settings";
 import { DEFAULT_FILL } from "./objectDefaults";
 import { useTextFormatCommands } from "./useTextFormatCommands";
@@ -132,8 +133,11 @@ export interface BoardCommandDeps {
   refuseUnlock: (authorName: string) => void;
   /** Open the tidy dialog; the app owns the dialog, the preview and the plan. */
   onTidy: (ids: readonly string[]) => void;
-  /** Gather a compatible selection into one section (ADR-198). */
-  onGather: (ids: readonly string[]) => void;
+  /** Words a new section needs (its title, the table's placeholder axes). */
+  t: (key: import("./i18n").TranslationKey, vars?: Record<string, string | number>) => string;
+  lang: "en" | "ru";
+  /** Open the one side panel on the selection's properties (T8). */
+  openProperties: () => void;
 }
 
 export function useBoardCommands(deps: BoardCommandDeps) {
@@ -156,7 +160,6 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canManage,
     refuseUnlock,
     onTidy,
-    onGather,
   } = deps;
 
   const {
@@ -170,6 +173,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canJoinSelection,
     addFrame,
     addShape,
+    addTable,
+    addKanban,
   } = useBoardCreation({
     board,
     widgets,
@@ -178,6 +183,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     settings,
     setSelectedIds,
     startEditing: setEditingId,
+    t: deps.t,
+    lang: deps.lang,
   });
 
   const textOf = useCallback((id: string) => board.textOf(id), [board]);
@@ -481,6 +488,10 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       canManage,
       refuseUnlock,
       tidy: onTidy,
+      editText: (id) => {
+        setSelectedIds([id]);
+        setEditingId(id);
+      },
     }),
     [
       actor,
@@ -495,6 +506,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       refuseUnlock,
       requestDelete,
       selectedIds,
+      setEditingId,
       widgets,
     ],
   );
@@ -549,8 +561,25 @@ export function useBoardCommands(deps: BoardCommandDeps) {
           strokeStyle: "normal",
         }),
       remove: () => requestDelete(selectedIds),
+      edit: () => {
+        const id = selectedIds[0];
+        if (id) setEditingId(id);
+      },
+      connect: connectSelection,
+      canConnect: canJoinSelection,
+      openProperties: deps.openProperties,
     }),
-    [applyLineBlock, applyLineIndent, board, requestDelete, selectedIds],
+    [
+      applyLineBlock,
+      applyLineIndent,
+      board,
+      canJoinSelection,
+      connectSelection,
+      deps.openProperties,
+      requestDelete,
+      selectedIds,
+      setEditingId,
+    ],
   );
 
   const noteMarks = useCallback((id: string) => noteMarksOf(board, id), [board]);
@@ -560,6 +589,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     () => ({
       setRouting: (routing) => {
         lastConnector.current = { ...lastConnector.current, routing };
+        rememberRouting(routing);
         setConnectorRouting(board, selectedIds, routing);
       },
       setWidth: (strokeWidth) => {
@@ -595,8 +625,9 @@ export function useBoardCommands(deps: BoardCommandDeps) {
         setConnectorProps(board, selectedIds, { ...linePresetStyle(preset), arrow: preset.arrow });
       },
       remove: () => requestDelete(selectedIds),
+      openProperties: deps.openProperties,
     }),
-    [board, selectedIds],
+    [board, deps.openProperties, selectedIds],
   );
 
   /**
@@ -637,11 +668,11 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       ungroup: () => ungroupWidgets(board, [...selectedIds]),
       remove: () => requestDelete(selectedIds),
       tidy: () => onTidy(selectedIds),
-      gather: () => onGather(selectedIds),
       canGroup: isGroupable(commandContext),
       canUngroup: selectionHasGroup(commandContext),
       selectType,
       setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
+      openProperties: deps.openProperties,
       setColour: (color) => {
         const allConnectors =
           selectedIds.length > 0 &&
@@ -658,8 +689,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       commandContext,
       distributeSelection,
       groupIds,
-      onGather,
-      onTidy,
+        onTidy,
       requestDelete,
       selectType,
       selectedIds,
@@ -730,6 +760,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canJoinSelection,
     addShape,
     addFrame,
+    addTable,
+    addKanban,
     connectSelection,
     onConnect,
     copyIds,

@@ -53,7 +53,7 @@ describe("the note bar", () => {
       marks: null,
     })!;
     expect(target.rect).toMatchObject({ left: 670, top: 250, width: 100, height: 100 });
-    expect(target.placement.left).toBe(720 - 332);
+    expect(target.placement.left).toBe(720 - 176);
     expect(target.placement.top).toBe(250 - BAR_ROOM);
   });
 
@@ -75,7 +75,7 @@ describe("the note bar", () => {
       settings: DEFAULT_SETTINGS,
       marks: null,
     })!;
-    expect(target.placement.left).toBeGreaterThanOrEqual(8);
+    expect(target.placement.left).toBeGreaterThanOrEqual(72);
     expect(target.placement.left).toBeLessThanOrEqual(narrow.viewport.width - 8);
   });
 
@@ -84,9 +84,9 @@ describe("the note bar", () => {
     const shape = note("s", 0, 0, { type: "shape", shapeKind: "rectangle" });
     const shapeBar = noteBarTarget({ widget: shape, frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     const noteBar = noteBarTarget({ widget: note("n", 0, 0), frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
-    // The shape bar has no S/M/L row, so it is narrower than the note's.
-    expect(shapeBar.placement.left).toBe(720 - 505);
-    expect(noteBar.placement.left).toBe(720 - 332);
+    // The shape bar adds fill, border, width, kind and lift, so it is wider than the note's.
+    expect(shapeBar.placement.left).toBe(720 - 226);
+    expect(noteBar.placement.left).toBe(720 - 176);
   });
 
   it("gives a free text object its own kind and its own ink", () => {
@@ -153,8 +153,8 @@ describe("the arrange bar", () => {
     })!;
     expect(target.units).toBe(2);
     expect(target.canArrange).toBe(true);
-    // A note selection's bar is 740 px wide; the 800 px frame still centres it.
-    expect(target.placement.left).toBe(400 - 370);
+    // A note selection's bar is 560 px wide; the 800 px frame still centres it.
+    expect(target.placement.left).toBe(400 - 280);
     // A selection that can turn leaves room for the round handle above its top side.
     expect(target.placement.top).toBe(250 - BAR_ROOM);
     // A kind that never turns keeps the compact room.
@@ -282,7 +282,7 @@ describe("the connector bar", () => {
       resolve: resolveWith(widgets),
     })!;
     // Path centre (720 + 200) minus half of the label-less bar.
-    expect(target.placement.left).toBe(920 - 220);
+    expect(target.placement.left).toBe(920 - 210);
     expect(target.placement.top).toBeLessThan(400);
   });
 
@@ -296,7 +296,7 @@ describe("the connector bar", () => {
     })!;
     // The label adds its size controls; its colour lives in the same window (ADR-127).
     expect(target.hasLabel).toBe(true);
-    expect(target.placement.left).toBe(920 - 270);
+    expect(target.placement.left).toBe(920 - 230);
   });
 
   it("is absent for a locked line, and for anything that is not a connector", () => {

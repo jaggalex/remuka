@@ -33,6 +33,48 @@ const signedIn: (ctx: ChromeContext) => true | { reason: TranslationKey } = (ctx
  * registry would let a menu and the search drift apart.
  */
 export const CHROME_COMMANDS: readonly ChromeCommand[] = [
+  // Canvas creation (T8 «More»): the same ids the search finds, so the rail and ⌘K
+  // cannot offer different objects. The action itself is the app's (ADR-266 §1.1).
+  {
+    id: "canvas.addCard",
+    title: "tool.card",
+    icon: "card",
+    synonyms: { ru: ["карточка", "добавить карточку", "канбан"], en: ["card", "add card", "kanban"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addCard"),
+  },
+  {
+    id: "canvas.addTable",
+    title: "tool.table",
+    icon: "table",
+    synonyms: { ru: ["таблица", "добавить таблицу", "ячейки"], en: ["table", "add table", "cells"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addTable"),
+  },
+  {
+    id: "canvas.addKanban",
+    title: "tool.kanban",
+    icon: "kanban",
+    synonyms: { ru: ["канбан", "доска", "колонки"], en: ["kanban", "board", "columns"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addKanban"),
+  },
+  {
+    id: "canvas.addComment",
+    title: "tool.comment",
+    icon: "comment",
+    synonyms: { ru: ["комментарий", "обсуждение", "булавка"], en: ["comment", "discussion", "pin"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("comment", "tool.commentHint"),
+    run: (ctx) => ctx.run("canvas.addComment"),
+  },
   // Room and its document.
   {
     id: "room.rename",

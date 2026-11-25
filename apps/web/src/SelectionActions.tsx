@@ -3,7 +3,6 @@ import type { BoardDocument } from "@remo/doc";
 import type { Widget } from "@remo/model";
 import { IconButton, Menu, Tooltip, type IconName, type MenuItem } from "@remo/ui";
 import { commandById, runCommand, type CommandContext } from "./commands";
-import { isEditable } from "./BoardCanvas";
 import { useI18n, type TranslationKey } from "./i18n";
 import { elevationMenuItems } from "./elevationMenu";
 import { useMenuFocus } from "./useMenuFocus";
@@ -92,16 +91,10 @@ export function SelectionActions({
         }
       : null;
   };
-  const editable =
-    selectedIds.length === 1 && widgets.some((w) => w.id === selectedIds[0] && isEditable(w));
   const info = run("info");
+  const editText = run("editText");
   const more: MenuItem[] = [
-    {
-      label: t("inspector.editText"),
-      hint: t("inspector.editTextTitle"),
-      disabled: !editable,
-      onSelect: () => setEditingId(selectedIds[0] ?? null),
-    },
+    ...(editText ? [{ ...editText, icon: "pencil" as const }] : []),
     {
       label: t("inspector.connect"),
       hint: canJoinSelection ? t("inspector.connectTitle") : t("inspector.connectHint"),

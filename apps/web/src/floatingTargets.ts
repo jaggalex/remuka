@@ -61,30 +61,32 @@ export interface Frame {
  * plus 147 px for seven controls and a divider; half of the new width keeps the bar
  * centred instead of hanging off the right edge (ADR-127, ADR-252 §6).
  */
-const NOTE_BAR_HALF = 332;
+const NOTE_BAR_HALF = 176;
 /**
  * The shape bar has no S/M/L row: sample, text size, marks, block formats, alignment,
  * link and More, measured at 1440: 426 + 147 px wide.
  */
-const SHAPE_BAR_HALF = 505;
+const SHAPE_BAR_HALF = 226;
 /** A free text bar is the same controls without the note sizes: 420 + 147 px wide. */
-const TEXT_BAR_HALF = 284;
+const TEXT_BAR_HALF = 176;
 /** The arrange bar names the selection, shows the shared role, Align, grouping and More. */
 /**
  * Arrange-bar widths: the toolbar grows with its content, and the placement must know
  * which one it is guessing. A shape-only selection carries the kind switch and the two
  * corner buttons; every other selection does not.
  */
-const ARRANGE_BAR_WIDTH = 740;
-const ARRANGE_BAR_WIDTH_SHAPES = 980;
+const ARRANGE_BAR_WIDTH = 560;
+const ARRANGE_BAR_WIDTH_SHAPES = 560;
 /**
  * The connector bar: line type, one colour sample, the three end controls, the label and
  * More. Measured at 1440 with English words ≈ 440 px without a label and ≈ 540 px once the
  * label size appears, so half follows the state. The exact width moves a few pixels with
  * the word lengths ("Elbow" / "Left-aligned"); centring does not need that precision.
  */
-const LINE_BAR_HALF = 220;
-const LINE_BAR_LABEL_HALF = 270;
+const LINE_BAR_HALF = 210;
+const LINE_BAR_LABEL_HALF = 230;
+/** The rail's left edge plus its gap: `--toolbar-width` 60 + 12. A bar never covers it. */
+const BAR_LEFT_MIN = 72;
 
 /** Screen box of a widget, centre-anchored like the canvas is. */
 function screenBox(widget: Widget, frame: Frame) {
@@ -176,7 +178,7 @@ export function noteBarTarget(args: {
         : NOTE_BAR_HALF;
   const placement = {
     left: Math.max(
-      8,
+      BAR_LEFT_MIN,
       Math.min(
         screen.left + screen.width / 2 - half,
         frame.viewport.width - half * 2 - 8,
@@ -308,7 +310,7 @@ export function arrangeBarTarget(args: {
     colour: commonColour(selected),
     placement: {
       left: Math.max(
-        8,
+        BAR_LEFT_MIN,
         Math.min(
           left + width / 2 - barWidth / 2,
           frame.viewport.width - barWidth - 8,
@@ -398,7 +400,7 @@ export function connectorBarTarget(args: {
   return {
     id: widget.id,
     placement: {
-      left: Math.max(8, Math.min(centre - half, viewport.width - half * 2 - 8)),
+      left: Math.max(BAR_LEFT_MIN, Math.min(centre - half, viewport.width - half * 2 - 8)),
       top: barTop({ top, height: bottom - top }, viewport, COMPACT_BAR_ROOM),
     },
     routing: routingOf(widget),
@@ -436,7 +438,7 @@ export function imageBarTarget(args: {
     rect: screen,
     placement: {
       left: Math.max(
-        8,
+        BAR_LEFT_MIN,
         Math.min(
           screen.left + screen.width / 2 - IMAGE_BAR_HALF,
           frame.viewport.width - IMAGE_BAR_HALF * 2 - 8,

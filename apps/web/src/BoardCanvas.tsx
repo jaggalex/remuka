@@ -20,6 +20,7 @@ import type {
   WidgetRect,
 } from "@remo/doc";
 import { GatherPreview } from "./GatherPreview";
+import { useGatherPreview } from "./gatherPreviewStore";
 import { useViewportSize } from "./useViewportSize";
 import {
   type Tag,
@@ -532,8 +533,7 @@ export function BoardCanvas({
   const selectedKanbanId = selectedIds.find((id) => kanbanStates[id]);
   const selectedKanban = selectedKanbanId ? kanbanStates[selectedKanbanId] : undefined;
   const edgeSource = selectedIds.length === 1 ? widgetById(selectedIds[0]!) : undefined;
-  // "Gather into section" pointed at: the outline of the section it would create.
-  const [gatherPreview, setGatherPreview] = useState(false);
+  const gatherPreview = useGatherPreview();
   const edgeBusy =
     gestures.dragIds.length > 0 || (edgeSource ? gestures.preview.has(edgeSource.id) : false);
 
@@ -767,7 +767,7 @@ export function BoardCanvas({
       />
       <ArrangeBar
         target={presenting ? null : arrangeBar}
-        actions={{ ...arrangeActions, previewGather: setGatherPreview }}
+        actions={arrangeActions}
       />
       <GatherPreview
         on={gatherPreview}

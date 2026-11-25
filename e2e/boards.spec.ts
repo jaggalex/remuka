@@ -9,6 +9,7 @@ import {
   openAccount,
   openBoard,
   openBoardMenu,
+  openFold,
   register,
   objectCount,
 } from "./helpers";
@@ -60,6 +61,7 @@ test("copies a deep link to the selected object", async ({ page, context }) => {
 
   // ADR-197: the inspector starts closed; open it to reach the deep-link action.
   await ensureProperties(page);
+  await openFold(page, "More settings");
   await page.getByRole("button", { name: "Copy link" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain(`room=${account.boardId}`);

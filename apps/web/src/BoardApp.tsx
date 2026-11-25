@@ -1,5 +1,5 @@
 import { setAllowBringEveryone, setWidgetPositions } from "@remo/doc";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { currentRoom } from "./identity";
 import { saveSettings } from "./settings";
 import { BoardCanvas } from "./BoardCanvas";
@@ -17,6 +17,12 @@ import { MoveNotice } from "./MoveNotice";
 import { RoomAgentPanel } from "./RoomAgentPanel";
 import { ToolRail } from "./ToolRail";
 import { useBoardAppState } from "./useBoardAppState";
+import {
+  CHROME_COMMANDS,
+  type ChromeCommand,
+  type ChromeContext,
+} from "./commands";
+import { useChromeSurfaceRegistration } from "./chromeSurfaces";
 
 /**
  * The board screen: one tool rail, one canvas, and the overlays around it.
@@ -130,7 +136,6 @@ export function BoardApp() {
     presentOpen,
     setPresentOpen,
     commentsOpen,
-    setCommentsOpen,
     setCommentsUnread,
     reactionRequest,
     react,
@@ -151,7 +156,10 @@ export function BoardApp() {
     shareFallback,
     closeShareFallback,
     inspectorOpen,
-    toggleInspector,
+    closeProperties,
+    toggleProperties,
+    setCommentsPanel,
+    openAgentPanel,
     active,
     addTemplate,
     replaceBoard,
@@ -163,6 +171,8 @@ export function BoardApp() {
     addStickyAndEdit,
     addTextAndEdit,
     addShapeAndEdit,
+    addTable,
+    addKanban,
     rail,
     shapeTool,
     editWidget,
@@ -192,6 +202,7 @@ export function BoardApp() {
     noteMarks,
     connectorActions,
     arrangeActions,
+    gatherSelection,
     onAddWaypoint,
     onMoveWaypoint,
     onDeleteWaypoint,
@@ -208,9 +219,82 @@ export function BoardApp() {
     setAgentOpen(true);
   };
 
+  /**
+   * «More» on the rail is the command registry, not a second list (T8, ADR-266).
+   *
+   * The five creation rows are chrome commands: their ids are what ⌘K finds, their
+   * actions live here because the rail's creation paths do. `chromeSurfaces` dispatches
+   * the same ids from the search, so a row cannot exist in one surface only.
+   */
+  const canComment = Boolean(access?.capabilities.includes("board.comment"));
+  const railCtx: ChromeContext = {
+    can: {
+      create: !writeBlocked,
+      comment: canComment,
+      templates: !writeBlocked,
+    },
+    run: (id) => {
+      if (id === "canvas.addCard") rail.onCard();
+      else if (id === "canvas.addTable") addTable();
+      else if (id === "canvas.addKanban") addKanban();
+      else if (id === "canvas.addComment") rail.onComment();
+      else if (id === "room.template") setTemplateRequest((value) => value + 1);
+    },
+  };
+  useChromeSurfaceRegistration("rail", railCtx);
+  const railMore = [
+    "canvas.addCard",
+    "canvas.addTable",
+    "canvas.addKanban",
+    "canvas.addComment",
+    "room.template",
+  ]
+    .map((id) => CHROME_COMMANDS.find((command) => command.id === id))
+    .filter((command): command is ChromeCommand => Boolean(command))
+    .map((command) => {
+      const available = command.available(railCtx);
+      return {
+        id: command.id,
+        label: t(command.title),
+        icon: command.icon ?? "plus",
+        disabled: available !== true,
+        reason: available === true ? undefined : t(available.reason),
+        onSelect: () => command.run(railCtx),
+      };
+    });
+
   // §6.5: the cookie plate waits while a presentation or a followed camera owns the
   // screen. The state lives here, so the rule is a prop of the room, not a DOM guess.
   useConsentHold(presentOpen || follow.target !== null);
+
+  /**
+   * Escape closes the one side panel (ADR-266 §5) when the key belongs to the chrome:
+   * a panel, the header or the rail. On the canvas Escape is the selection's key, and
+   * in the editor it ends the edit; a menu or a dialog owns it first.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[role="dialog"], .rm-menu, .rm-popover')) return;
+      // The editor and a field handle Escape themselves; focus may already have moved
+      // to the body by the time the event reaches the document.
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest('input, textarea, select, [contenteditable="true"], .inline-editor')
+      ) {
+        return;
+      }
+      const active = document.activeElement;
+      const chrome =
+        active instanceof HTMLElement &&
+        Boolean(active.closest(".topbar, .tool-rail, .inspector, .comments-panel"));
+      if (!chrome) return;
+      if (commentsOpen) setCommentsPanel(false);
+      else if (inspectorOpen) closeProperties();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [closeProperties, commentsOpen, inspectorOpen, setCommentsPanel]);
 
   return (
     <div className={inspectorOpen ? "app" : "app no-inspector"}>
@@ -368,9 +452,11 @@ export function BoardApp() {
         setFollowOpen={setFollowOpen}
         setAgentOpen={setAgentOpen}
         {...roomAgent.barProps}
+        onOpenRoomAgent={openAgentPanel}
         onOpenAgentSettings={() => openAccount("agents")}
         setAppsOpen={setAppsOpen}
         onReact={react}
+        setCommentsOpen={setCommentsPanel}
         follow={follow}
         toggleFollow={toggleFollow}
         myFollowers={myFollowers}
@@ -383,7 +469,7 @@ export function BoardApp() {
         setAuthOpen={setAuthOpen}
         onSignOut={() => void signOutAndForgetName()}
         saveState={saveState}
-        toggleInspector={toggleInspector}
+        toggleInspector={toggleProperties}
         addTemplate={addTemplate}
         templateRequest={templateRequest}
       />
@@ -407,7 +493,7 @@ export function BoardApp() {
       />
 
       <div className="workspace">
-        <ToolRail {...rail} />
+        <ToolRail {...rail} more={railMore} />
         <BoardCanvas
           boardTitle={title}
           board={board}
@@ -429,7 +515,7 @@ export function BoardApp() {
           presentationOpen={presentOpen}
           onPresentationOpen={setPresentOpen}
           commentsOpen={commentsOpen}
-          onCommentsOpen={setCommentsOpen}
+          onCommentsOpen={setCommentsPanel}
           onCommentsUnread={setCommentsUnread}
           reactionRequest={reactionRequest}
           groupNames={groupNames}
@@ -494,7 +580,7 @@ export function BoardApp() {
         <ContextMenu state={menu} onClose={closeMenu} />
         <InfoCard state={info} onClose={closeInfo} onOpenThread={roomAgent.openFromFrame} />
       <BoardInspector
-        toggleInspector={toggleInspector}
+        toggleInspector={closeProperties}
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
         writeBlocked={writeBlocked}
@@ -511,6 +597,10 @@ export function BoardApp() {
         status={status}
         visiblePresence={visiblePresence}
         onOpenObject={openBoard}
+        stickyActions={stickyActions}
+        settings={settings}
+        editingId={editingId}
+        onGather={gatherSelection}
       />
       </div>
     </div>

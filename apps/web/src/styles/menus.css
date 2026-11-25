@@ -15,7 +15,7 @@
   background: var(--bg-raised);
   color: var(--text-primary);
   border: var(--panel-border-width) solid var(--border-ink);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-menu);
   box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
@@ -108,7 +108,7 @@
 .context-menu-grid {
   width: auto;
   padding: var(--space-3);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-menu);
 }
 
 .context-menu-grid .context-menu-title {

@@ -96,7 +96,7 @@ test("the connector tool explains itself until two objects are selected", async 
 }) => {
   await freshBoard(page, "tools-connect");
   const rail = page.getByRole("toolbar", { name: "Tools" });
-  const connector = rail.getByRole("button", { name: "Connector" });
+  const connector = rail.getByRole("button", { name: "Connector", exact: true });
   // A tool that can still explain itself is not dimmed (§10.2, Р1): it keeps the primary
   // colour and answers with a sentence, so nothing on the rail reads as broken.
   await expect(connector).toBeEnabled();
@@ -169,7 +169,7 @@ test("two selected objects become a connector from the rail", async ({ page }) =
   await page.mouse.click(second.x, second.y);
   await page.keyboard.up("Shift");
 
-  const connector = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector" });
+  const connector = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector", exact: true });
   await expect(connector).toBeEnabled();
   await connector.click();
   await expect
@@ -195,7 +195,9 @@ test("two selected objects become a connector from the rail", async ({ page }) =
 
 test("the comment tool starts the placement mode of the comments panel", async ({ page }) => {
   await freshBoard(page, "tools-comment");
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Comment" }).click();
+  // T8: the comment tool lives in «More», with card, table, kanban and templates.
+  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Comment", exact: true }).click();
   await expect(page.locator(".comment-placement")).toBeVisible();
   await expect(page.locator(".comment-placement-hint")).toContainText("Click an object");
   await page.keyboard.press("Escape");

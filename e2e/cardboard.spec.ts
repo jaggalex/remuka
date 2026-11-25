@@ -5,6 +5,7 @@ import {
   ensureProperties,
   freshBoard,
   openBoardMenu,
+  openFold,
   register,
 } from "./helpers";
 
@@ -27,6 +28,7 @@ const widgets = (page: Page) =>
 /** The line is added from the product's own shadow menu, not written into the document. */
 async function chooseCardboard(page: Page): Promise<void> {
   await ensureProperties(page);
+  await openFold(page, "More settings");
   const inspector = page.locator("aside.inspector");
   await inspector.getByRole("button", { name: "More actions", exact: true }).click();
   const menu = page.getByRole("menu", { name: "More actions" });

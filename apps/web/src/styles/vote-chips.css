@@ -309,49 +309,92 @@ button.peer:disabled {
   gap: var(--space-2);
 }
 
+/* The comments panel is the same 360 px sheet as the properties panel, attached to
+   the room's right edge (ADR-286, T8). One panel at a time is the app's rule. */
 .comments-panel {
   position: fixed;
-  top: calc(var(--topbar-height) + var(--space-6));
-  right: 12px;
-  bottom: 12px;
+  top: var(--topbar-height);
+  right: 0;
+  bottom: 0;
   z-index: var(--z-bar);
-  width: min(380px, calc(100vw - 24px));
+  width: min(360px, 100vw);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-4);
-  overflow-y: auto;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  padding: var(--space-4) 0 var(--space-4);
+  border-left: var(--panel-border-width) solid var(--border-ink);
   background: var(--bg-panel);
-  box-shadow: var(--shadow-pop);
+  animation: comments-in var(--dur-2) var(--ease) both;
 }
 
-.comments-panel header,
-.comments-actions,
-.comments-thread-head,
-.comment-meta,
-.comment-reply {
+@keyframes comments-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comments-panel { animation: none; }
+}
+
+.comments-panel header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.comments-panel header,
-.comments-thread-head {
   justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
 }
 
-.comments-actions {
-  flex-wrap: wrap;
+.comments-title {
+  margin: 0;
+  font: var(--type-title);
+  color: var(--text-primary);
 }
 
-.comments-toggle {
-  display: inline-flex;
+.comments-head-actions {
+  display: flex;
   align-items: center;
   gap: var(--space-1);
-  font: var(--type-caption);
-  color: var(--text-muted);
+}
+
+.comments-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+.comments-tab {
+  min-height: var(--control-compact);
+  padding: 0 var(--space-3);
+  border: var(--panel-border-width) solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-label);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comments-tab.is-selected {
+  background: var(--accent-chosen);
+  border-color: var(--border-ink);
+  color: var(--text-primary);
+}
+
+.comments-tab:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.comments-note {
+  padding: 0 var(--space-4);
+}
+
+.comments-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-4);
 }
 
 .comments-list {
@@ -360,60 +403,117 @@ button.peer:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-}
-
-.comments-list button {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-primary);
-  font: var(--type-caption);
-  text-align: left;
-  cursor: pointer;
-}
-
-.comments-list button:hover,
-.comments-list button.active {
-  background: var(--bg-hover);
-  border-color: var(--border-subtle);
+  gap: var(--space-3);
 }
 
 .comments-thread {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+.comments-thread.is-active {
+  box-shadow: var(--shadow-bar);
+}
+
+.comments-about {
+  font: var(--type-caption);
+  color: var(--text-secondary);
 }
 
 .comment-message {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  background: var(--bg-app);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.comment-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  color: var(--text-on-accent);
+  font: var(--type-caption);
+  font-weight: 600;
+}
+
+.comment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .comment-meta {
-  justify-content: space-between;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font: var(--type-caption);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
-.comment-message p {
-  margin: var(--space-1) 0;
+.comment-meta b {
+  color: var(--text-primary);
+}
+
+.comment-body p {
+  margin: 0;
   font: var(--type-body);
+  color: var(--text-primary);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-reply {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .comment-reply .rm-field {
   flex: 1;
   min-width: 0;
+}
+
+.comment-reply textarea {
+  min-height: var(--control-default);
+}
+
+/* «Решено» is the mockup's green cardboard button, the one action of a thread. */
+.comment-resolve {
+  background: var(--success-chosen);
+  border-color: var(--border-ink);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-bar);
+}
+
+.comment-resolve:hover {
+  background: var(--success-chosen);
+  filter: brightness(1.04);
+}
+
+.comments-empty {
+  margin: var(--space-5) var(--space-1);
+  color: var(--text-secondary);
+  font: var(--type-body);
+}
+
+.comments-offline {
+  margin: 0 var(--space-4);
+  padding: var(--space-2);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: var(--type-caption);
 }
 
 .reactions-layer {
@@ -506,15 +606,6 @@ button.peer:disabled {
   font: var(--type-caption);
   font-weight: 600;
   text-align: center;
-}
-
-.comments-offline {
-  margin: 0;
-  padding: var(--space-2);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: var(--type-caption);
 }
 
 .card-filter {

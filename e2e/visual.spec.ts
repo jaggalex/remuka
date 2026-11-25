@@ -382,6 +382,7 @@ test("the properties panel describes one subject (ADR-236)", async ({ page }) =>
   await page.goto(url.toString());
   await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   if (!(await panel.isVisible())) await ensureProperties(page);
+  await openFold(page, "More settings");
   await expect(panel.locator(".kanban-state")).toBeVisible();
   await expect(panel.locator(".counts, .card-filter")).toHaveCount(0);
   await capture(page, panel, "panel-kanban");
@@ -441,6 +442,7 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
         // The resting selection tool is the one pressed control on the rail.
         selected: icon.getAttribute("aria-pressed") === "true",
         colour: getComputedStyle(icon).color,
+        background: getComputedStyle(icon).backgroundColor,
       }));
       const hintElement = document.querySelector<HTMLElement>(".canvas-hint");
       return {
@@ -457,6 +459,12 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
           .filter((entry) => !entry.disabled && !entry.selected)
           .map((entry) => entry.colour),
         selected: colours.filter((entry) => entry.selected).map((entry) => entry.colour),
+        selectedBackground: colours
+          .filter((entry) => entry.selected)
+          .map((entry) => entry.background),
+        toolBackground: colours
+          .filter((entry) => !entry.disabled && !entry.selected)
+          .map((entry) => entry.background),
         stops: colours.filter((entry) => entry.disabled).map((entry) => entry.colour),
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
@@ -478,19 +486,22 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
 
   await page.setViewportSize({ width: 1440, height: 900 });
   const state = await frame();
-  // One panel of tools, one of history; a hairline is not a panel.
-  expect(state.panels).toBe(2);
-  // ADR-181: chrome is outlined, not lifted — the rail carries a hairline instead of a shadow.
+  // One rail panel: history sits under a hairline inside it (T8, ADR-286).
+  expect(state.panels).toBe(1);
+  // The mockup's ink border and 16 px radius, not the old hairline pill. Chromium
+  // reports the snapped used width of the 1.5 px token as 1 px.
   expect(state.railBorder).toBe("1px");
-  expect(state.railRadius).not.toBe("0px");
+  expect(state.railRadius).toBe("16px");
   // Р1: one colour for every tool that works; the muted token only for real stops.
   // Access arrives after the first paint, so a tool can be dimmed for a frame and
   // transition into its colour; the rail settles on one colour for all of them.
   await expect
     .poll(async () => new Set((await frame()).tools).size, { timeout: 10_000 })
     .toBe(1);
-  expect(new Set(state.selected).size, "the pressed tool paints the accent").toBe(1);
-  expect(state.selected[0]).not.toBe(state.tools[0]);
+  expect(new Set(state.selected).size, "one pressed tool").toBe(1);
+  // The marker chip is the accent chosen; the glyph stays ink, so the background is
+  // what tells the pressed tool apart (ADR-265 §3.7, ADR-286).
+  expect(state.selectedBackground[0]).not.toBe(state.toolBackground[0]);
   expect(state.stops.length, "history is the only stop on a fresh board").toBeGreaterThan(0);
   const muted = await page.evaluate(
     () => getComputedStyle(document.querySelector(".tool-rail .rm-btn:disabled")!).color,
@@ -498,7 +509,7 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
   expect(state.stops.every((colour) => colour === muted)).toBe(true);
   // A tool that can explain itself is not dimmed: the connector has no selection here.
   await expect(
-    page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector" }),
+    page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector", exact: true }),
   ).toBeEnabled();
 
   await capture(page, page.locator(".tool-rail"), "rail");
@@ -567,6 +578,11 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
   await expect(chips.first()).toHaveClass(/compact/);
   await expect(chips.first().getByRole("button")).toHaveCount(1);
   await expect(chips.first().getByRole("button", { name: /Vote for/ })).toBeVisible();
+  // A resize may refit once more or not, depending on timing; one explicit fit makes the
+  // overview frame the room at this width on every run.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await page.waitForTimeout(250);
   await capture(page, page.locator(".canvas-wrap"), "vote-chips-overview", [voteClock]);
 
   // The counter on the object (§10.3): the same corner on every object, and two of the
@@ -914,6 +930,7 @@ test("the section panel shows the table and its axes", async ({ page }) => {
     .toEqual([frameId]);
 
   await ensureProperties(page);
+  await openFold(page, "More settings");
   const panel = page.locator(".section-panel");
   await expect(panel).toBeVisible();
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
@@ -1196,6 +1213,7 @@ test("cardboard casts a hard shadow in light and falls back to floating in dark"
   await expect(page.locator(".inline-editor")).toHaveCount(0);
 
   await ensureProperties(page);
+  await openFold(page, "More settings");
   const more = page.locator("aside.inspector").getByRole("button", { name: "More actions", exact: true });
   await more.click();
   await page.getByRole("menu", { name: "More actions" })
@@ -1210,6 +1228,10 @@ test("cardboard casts a hard shadow in light and falls back to floating in dark"
   await openAccount(page);
   await page.getByRole("button", { name: "Dark", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  // Close the account menu: its handle carries a per-run account suffix, and the
+  // screenshot is about the canvas, not about that random string.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".rm-popover")).toHaveCount(0);
   await calmMotion(page);
   await capture(page, page.locator(".canvas-wrap"), "elevation-dark");
 });
@@ -1867,8 +1889,16 @@ test("ink: a frame, a table, stickies and a caption are the same in the export",
   // The panel is not part of the picture: hide it, then fit the whole board.
   await page.getByRole("button", { name: "Hide the panel", exact: true }).click();
   await expect(page.locator(".app")).toHaveClass(/no-inspector/);
-  // Nothing selected, so Fit frames the room and not one object.
-  await page.keyboard.press("Escape");
+  // Nothing selected, so Fit frames the room and not one object. A table cell may own
+  // the first Escape (ADR-204); repeat until the object selection is empty.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(80);
+    const left = await page.evaluate(
+      () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds.length,
+    );
+    if (left === 0) break;
+  }
   await expect
     .poll(() =>
       page.evaluate(

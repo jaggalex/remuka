@@ -7,11 +7,10 @@ import { commentsApi, type CommentAnchor, type CommentMessage, type CommentThrea
 import { currentRoom } from "./identity";
 import { threadInFrame } from "./commentScope";
 import { CommentPlacementLayer } from "./CommentPlacementLayer";
-import { Button, ConfirmDialog as UiConfirmDialog, Dialog, IconButton, Switch, Textarea } from "@remo/ui";
+import { Button, ConfirmDialog as UiConfirmDialog, Dialog, IconButton, Textarea } from "@remo/ui";
 import { formatMoment } from "./format";
 import { deletedUserName } from "./deletedUser";
 import { useI18n } from "./i18n";
-import { HelpLink } from "./help/HelpLink";
 
 /**
  * Discussion beside the board (ADR-104/105).
@@ -79,11 +78,12 @@ export function CommentsPanel({
     onUnread(unread);
   }, [onUnread, unread]);
 
-  const visibleThreads = threads.filter(
-    (thread) =>
-      (showResolved || !thread.resolvedAt) &&
-      threadInFrame(thread, presentingFrameId, widgets),
+  const inFrame = threads.filter((thread) =>
+    threadInFrame(thread, presentingFrameId, widgets),
   );
+  const openThreads = inFrame.filter((thread) => !thread.resolvedAt);
+  const resolvedThreads = inFrame.filter((thread) => Boolean(thread.resolvedAt));
+  const visibleThreads = showResolved ? resolvedThreads : openThreads;
 
   const load = useCallback(async () => {
     try {
@@ -302,105 +302,148 @@ export function CommentsPanel({
       )}
 
       {open && (
-        <aside className="comments-panel" aria-label={t("comments.title")}>
+        <aside
+          className="comments-panel"
+          aria-label={t("comments.title")}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              onOpen(false);
+            }
+          }}
+        >
           <header>
-            <b>
-              {t("comments.title")} <HelpLink topicId="comments.thread" />
-            </b>
-            <IconButton icon="close" size="compact" label={t("comments.close")} onClick={() => onOpen(false)} />
+            <h2 className="comments-title">{t("comments.title")}</h2>
+            <div className="comments-head-actions">
+              <Button
+                size="compact"
+                variant="secondary"
+                disabled={!canComment || !online || busy}
+                onClick={startPlacing}
+              >
+                {t("comments.new")}
+              </Button>
+              <IconButton
+                icon="close"
+                size="compact"
+                label={t("comments.close")}
+                onClick={() => onOpen(false)}
+              />
+            </div>
           </header>
-          <div className="comments-actions">
-            <Button size="compact" disabled={!canComment || !online || busy} onClick={startPlacing}>
-              {t("comments.new")}
-            </Button>
-            <Switch
-              className="comments-toggle"
-              label={t("comments.showResolved")}
-              checked={showResolved}
-              onChange={(event) => setShowResolved(event.target.checked)}
-            />
+
+          <div className="comments-tabs" role="tablist" aria-label={t("comments.title")}>
+            <button
+              type="button"
+              role="tab"
+              className={showResolved ? "comments-tab" : "comments-tab is-selected"}
+              aria-selected={!showResolved}
+              onClick={() => setShowResolved(false)}
+            >
+              {t("comments.tabOpen", { count: openThreads.length })}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={showResolved ? "comments-tab is-selected" : "comments-tab"}
+              aria-selected={showResolved}
+              onClick={() => setShowResolved(true)}
+            >
+              {t("comments.tabResolved", { count: resolvedThreads.length })}
+            </button>
           </div>
-          {presentingFrameId && <p className="muted">{t("comments.slide")}</p>}
+
+          {presentingFrameId && <p className="muted comments-note">{t("comments.slide")}</p>}
           {!online && <p className="comments-offline">{t("comments.offline")}</p>}
           {error && <p className="auth-error">{error}</p>}
-          <ul className="comments-list">
-            {visibleThreads.map((thread) => (
-              <li key={thread.id}>
-                <button
-                  type="button"
-                  className={`comments-list-item${thread.id === active ? " active" : ""}`}
-                  onClick={() => openThread(thread)}
-                >
-                  <b>{anchorLabel(thread)}</b>
-                  <span className="muted">
-                    {thread.resolvedAt ? t("comments.resolved") : t("comments.open")}
-                    {thread.unread ? ` · ${t("comments.unread", { count: thread.unread })}` : ""}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {!visibleThreads.length && <p className="muted">{t("comments.empty")}</p>}
-          {activeThread && (
-            <section className="comments-thread">
-              <div className="comments-thread-head">
-                <span>{anchorLabel(activeThread)}</span>
-                <Button
-                  size="compact"
-                  disabled={!canComment || !online || busy}
-                  onClick={() =>
-                    void run(() =>
-                      commentsApi.resolve(boardId, activeThread.id, !activeThread.resolvedAt),
-                    )
-                  }
-                >
-                  {activeThread.resolvedAt ? t("comments.reopen") : t("comments.resolve")}
-                </Button>
-              </div>
-              {activeThread.comments.map((comment) => (
-                <article key={comment.id} className="comment-message">
-                  <div className="comment-meta">
-                    <b>{deletedUserName(comment.authorName, t("user.deleted"))}</b>
-                    {comment.authorHandle && (
-                      <span className="muted"> @{comment.authorHandle}</span>
-                    )}
-                    <span>{formatMoment(comment.createdAt, lang)}</span>
-                    {comment.editedAt && <span>{t("comments.edited")}</span>}
-                  </div>
-                  <p>{comment.deletedAt ? t("comments.deleted") : comment.body}</p>
-                  {!comment.deletedAt &&
-                    (comment.authorId === meId || canManage) && (
-                      <Button variant="ghost" size="compact"
-                        disabled={busy}
-                        onClick={() => remove(comment)}>
-                        {t("comments.delete")}
-                      </Button>
-                    )}
-                </article>
-              ))}
-              {canComment && !activeThread.resolvedAt && (
-                <div className="comment-reply">
-                  <Textarea
-                    value={reply}
-                    maxLength={4000}
-                    aria-label={t("comments.replyPlaceholder")}
-                    placeholder={
-                      online ? t("comments.replyPlaceholder") : t("comments.replyOffline")
-                    }
-                    onChange={(event) => setReply(event.target.value)}
-                  />
-                  <Button
-                    variant="primary"
-                    size="compact"
-                    disabled={busy || !online || !reply.trim()}
-                    onClick={sendReply}
+
+          <div className="comments-body">
+            <ul className="comments-list">
+              {visibleThreads.map((thread) => (
+                <li key={thread.id}>
+                  <article
+                    className={`comments-thread${thread.id === active ? " is-active" : ""}`}
+                    onClick={() => openThread(thread)}
                   >
-                    {t("comments.send")}
-                  </Button>
-                </div>
-              )}
-            </section>
-          )}
+                    <span className="comments-about">
+                      {t("comments.about", { anchor: anchorLabel(thread) })}
+                    </span>
+                    {thread.comments.map((comment) => (
+                      <div key={comment.id} className="comment-message">
+                        <span
+                          className="comment-avatar"
+                          style={{ background: colorForAccount(comment.authorId) }}
+                          aria-hidden="true"
+                        >
+                          {(comment.authorName || "?").trim().charAt(0).toLocaleUpperCase()}
+                        </span>
+                        <div className="comment-body">
+                          <span className="comment-meta">
+                            <b>{deletedUserName(comment.authorName, t("user.deleted"))}</b>
+                            <span>{formatMoment(comment.createdAt, lang)}</span>
+                            {comment.editedAt && <span>{t("comments.edited")}</span>}
+                          </span>
+                          <p>{comment.deletedAt ? t("comments.deleted") : comment.body}</p>
+                          {!comment.deletedAt && (comment.authorId === meId || canManage) && (
+                            <Button
+                              variant="ghost"
+                              size="compact"
+                              disabled={busy}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                remove(comment);
+                              }}
+                            >
+                              {t("comments.delete")}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {!thread.resolvedAt && (
+                      <div className="comment-reply">
+                        <Textarea
+                          value={active === thread.id ? reply : ""}
+                          maxLength={4000}
+                          aria-label={t("comments.replyPlaceholder")}
+                          placeholder={online ? t("comments.replyHint") : t("comments.replyOffline")}
+                          onFocus={() => setActive(thread.id)}
+                          onChange={(event) => {
+                            setActive(thread.id);
+                            setReply(event.target.value);
+                          }}
+                        />
+                        <Button
+                          variant="secondary"
+                          size="compact"
+                          className="comment-resolve"
+                          disabled={!canComment || !online || busy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void run(() => commentsApi.resolve(boardId, thread.id, true));
+                          }}
+                        >
+                          {t("comments.resolve")}
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="compact"
+                          disabled={busy || !online || !reply.trim() || active !== thread.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            sendReply();
+                          }}
+                        >
+                          {t("comments.send")}
+                        </Button>
+                      </div>
+                    )}
+                  </article>
+                </li>
+              ))}
+            </ul>
+            {!visibleThreads.length && <p className="comments-empty">{t("comments.emptyClosed")}</p>}
+          </div>
         </aside>
       )}
     </>

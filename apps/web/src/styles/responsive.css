@@ -67,8 +67,15 @@
   :root {
     --inspector-width: 0px;
   }
+  /* Below 900 the panel is the whole room's width, over the canvas, not a 340 px column.
+     Closing it is the same cross; `.app.no-inspector` still hides it. */
   .inspector {
-    display: none;
+    position: fixed;
+    inset: var(--topbar-height) 0 0;
+    width: 100%;
+    height: auto;
+    z-index: var(--z-popover);
+    border-left: 0;
   }
   /* The inspector is gone, so the board is wider: the hint keeps clear of the zoom bar
      with the same reserve rather than a second rule. */

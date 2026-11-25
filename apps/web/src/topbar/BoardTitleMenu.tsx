@@ -85,7 +85,7 @@ export function BoardTitleMenu({
       >
         {path && (
           <span className="topbar-path" aria-hidden="true">
-            {path} <span className="topbar-path-slash">/</span>
+            {path} <span className="topbar-path-slash">/</span>{" "}
           </span>
         )}
         {shown}

@@ -33,6 +33,7 @@ export const enChrome = {
   "search.oneObject": "Select one object",
   "search.copyStyleFirst": "Copy a style first",
   "search.notRotatable": "These objects do not turn",
+  "search.notEditable": "This object has no text to edit",
   "search.needTurned": "Nothing is turned",
   "search.nothingLocked": "Nothing is locked",
   "search.needTwo": "Select two objects",

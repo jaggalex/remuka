@@ -3,6 +3,7 @@ import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
 import { paintOrder, type Widget, type WidgetType } from "@remo/model";
 import {
   CHROME_COMMANDS,
+  COMMANDS,
   chromeCommandsFor,
   commandById,
   commandForShortcut,
@@ -81,6 +82,7 @@ describe("the command list", () => {
     const ids = commandsFor("menu", contextFor(board)).map((command) => command.id);
     expect(ids).toEqual([
       "colour",
+      "editText",
       "copy",
       "paste",
       "cut",
@@ -302,8 +304,13 @@ describe("the chrome registry", () => {
       expect(command.title, command.id).toBeTruthy();
       expect(command.synonyms.ru.length, `${command.id} ru`).toBeGreaterThan(0);
       expect(command.synonyms.en.length, `${command.id} en`).toBeGreaterThan(0);
-      expect(command.surfaces, command.id).toContain("header");
-      expect(command.surfaces, command.id).toContain("palette");
+      // Canvas creation rows live in the rail and the search, not in a header menu.
+      if (command.intent === "canvas") {
+        expect(command.surfaces, command.id).toEqual(["palette"]);
+      } else {
+        expect(command.surfaces, command.id).toContain("header");
+        expect(command.surfaces, command.id).toContain("palette");
+      }
     }
   });
 
@@ -386,5 +393,50 @@ describe("grouping", () => {
     expect(groupId).toBeTruthy();
     expect(selected).toHaveBeenCalledWith(["w0", "w1"]);
     expect(selectionHasGroup(contextFor(board))).toBe(true);
+  });
+});
+
+describe("edit text is a registry command (T8)", () => {
+  it("is offered for one editable object, in the menu, the panel and the search", () => {
+    const board = boardWith(["sticky_note"]);
+    const edit = vi.fn();
+    const ctx = { ...contextFor(board, ["w0"]), editText: edit };
+    const command = commandById("editText")!;
+    expect(command.surfaces).toEqual(expect.arrayContaining(["menu", "panel", "palette"]));
+    expect(command.enabled(ctx)).toBe(true);
+    command.run?.(ctx);
+    expect(edit).toHaveBeenCalledWith("w0");
+  });
+
+  it("is not offered for a multi-selection or a locked object", () => {
+    const board = boardWith(["sticky_note", "sticky_note"]);
+    const command = commandById("editText")!;
+    expect(command.enabled(contextFor(board))).toBe(false);
+    const locked = boardWith(["sticky_note"]);
+    createWidget(locked, {
+      id: "locked",
+      type: "sticky_note",
+      parentId: null,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      locked: true,
+    });
+    locked.widgets.delete("w0");
+    expect(command.enabled(contextFor(locked, ["locked"]))).toBe(false);
+  });
+
+  it("keeps every menu-surface command in the canvas menu", () => {
+    const board = boardWith(["sticky_note", "shape"]);
+    const ctx = contextFor(board);
+    const menuIds = commandsFor("menu", ctx).map((command) => command.id);
+    // The owner's rule: the menu is the full registry, not a shortened list (T8).
+    expect(menuIds).toEqual(
+      COMMANDS.filter((command) => command.surfaces.includes("menu")).map(
+        (command) => command.id,
+      ),
+    );
+    expect(menuIds).toContain("editText");
   });
 });

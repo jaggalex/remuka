@@ -58,6 +58,8 @@ export interface CommandContext {
   refuseUnlock: (authorName: string) => void;
   /** Open the tidy preview for these ids; the app owns the dialog and the plan. */
   tidy?: (ids: readonly string[]) => void;
+  /** Open the inline editor for one object; editing is the canvas's business. */
+  editText?: (id: string) => void;
 }
 
 /** A key combination, in the shape the keydown handler can match. */
@@ -149,7 +151,11 @@ export type ChromeAbility =
   /** The installation has a guide of its own (`/config` `docs.origin`, ADR-284). */
   | "docs"
   /** This is a room screen: the command search exists here (T7). */
-  | "search";
+  | "search"
+  /** The person may create objects on the canvas (T8 «More»). */
+  | "create"
+  /** The person may take part in comments (T8 «More»). */
+  | "comment";
 
 /**
  * The chrome command's world: flags it may read and the one way to run a command.
@@ -303,6 +309,10 @@ const CHROME_GROUP: Record<string, string> = {
   "room.template": "add",
   "room.apps": "add",
   "room.replace": "danger",
+  "canvas.addCard": "create",
+  "canvas.addTable": "create",
+  "canvas.addKanban": "create",
+  "canvas.addComment": "create",
   "room.trash": "danger",
   "run.timer": "session",
   "run.vote": "session",
@@ -341,7 +351,7 @@ const GROUP_ORDER: Record<CommandIntent, readonly string[]> = {
   agent: ["main"],
   room: ["main", "document", "add", "danger"],
   account: ["main", "view", "people", "help", "session", "danger"],
-  canvas: ["main"],
+  canvas: ["create"],
   help: ["main"],
 };
 

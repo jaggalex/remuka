@@ -28,6 +28,7 @@ import { useBoardNavigation } from "./useBoardNavigation";
 import { useNewObjectEditing } from "./useNewObjectEditing";
 import { useBoardHistory } from "./useBoardHistory";
 import { useBoardTools } from "./useBoardTools";
+import { rememberedRouting } from "./toolDefaults";
 import { useBoardChrome } from "./useBoardChrome";
 import { useSharedTimer } from "./useSharedTimer";
 import { cameraStore } from "./cameraStore";
@@ -181,6 +182,7 @@ export function useBoardAppState() {
    */
   const lastConnector = useRef<ConnectorOptions>({
     shape: DEFAULT_SETTINGS.connectors.shape,
+    routing: rememberedRouting() ?? undefined,
     arrow: DEFAULT_SETTINGS.connectors.arrow,
     strokeColor: DEFAULT_SETTINGS.connectors.colour,
     strokeStyle: DEFAULT_SETTINGS.connectors.dash,
@@ -192,7 +194,9 @@ export function useBoardAppState() {
    */
   useEffect(() => {
     lastConnector.current = {
+      ...lastConnector.current,
       shape: settings.connectors.shape,
+      routing: rememberedRouting() ?? lastConnector.current.routing,
       arrow: settings.connectors.arrow,
       strokeColor: settings.connectors.colour,
       strokeStyle: settings.connectors.dash,
@@ -200,6 +204,8 @@ export function useBoardAppState() {
     };
   }, [settings.connectors]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Set once `useBoardChrome` is read: bars can ask for the properties panel earlier. */
+  const openPropertiesRef = useRef<() => void>(() => {});
 
   const {
     follow,
@@ -288,8 +294,42 @@ export function useBoardAppState() {
     shareFallback,
     closeShareFallback,
     inspectorOpen,
-    toggleInspector, openInspector,
+    toggleInspector, openInspector, closeInspector,
   } = useBoardChrome({ board, t });
+
+  /**
+   * One side panel at a time (ADR-266 §5, T8): properties and comments share the right
+   * edge; the agent panel is the third. Opening one closes the other two. The functions
+   * live here because the header, the bars and the canvas all ask the same question.
+   */
+  const openProperties = useCallback(() => {
+    setCommentsOpen(false);
+    roomAgent.panelProps.onClose();
+    openInspector();
+  }, [openInspector, roomAgent.panelProps, setCommentsOpen]);
+  openPropertiesRef.current = openProperties;
+  const closeProperties = useCallback(() => {
+    closeInspector();
+  }, [closeInspector]);
+  const toggleProperties = useCallback(() => {
+    if (inspectorOpen) closeInspector();
+    else openProperties();
+  }, [closeInspector, inspectorOpen, openProperties]);
+  const setCommentsPanel = useCallback(
+    (value: boolean) => {
+      if (value) {
+        closeInspector();
+        roomAgent.panelProps.onClose();
+      }
+      setCommentsOpen(value);
+    },
+    [closeInspector, roomAgent.panelProps, setCommentsOpen],
+  );
+  const openAgentPanel = useCallback(() => {
+    closeInspector();
+    setCommentsOpen(false);
+    roomAgent.openPanel();
+  }, [closeInspector, roomAgent.openPanel, setCommentsOpen]);
 
   const { active, addTemplate, replaceBoard } = useBoardTemplates({
     board,
@@ -346,7 +386,10 @@ export function useBoardAppState() {
     canManage,
     refuseUnlock: (authorName) =>
       showNotice(t("lock.refused", { name: authorName || t("lock.authorUnknown") })),
-    onTidy: tidy.start, onGather: gatherSelection,
+    onTidy: tidy.start,
+    t,
+    lang,
+    openProperties: () => openPropertiesRef.current(),
   });
 
   const {
@@ -368,6 +411,8 @@ export function useBoardAppState() {
     canJoinSelection,
     addShape,
     addFrame,
+    addTable,
+    addKanban,
     connectSelection,
     onConnect,
     copyIds,
@@ -423,6 +468,9 @@ export function useBoardAppState() {
     openComment: () => setCommentRequest((value) => value + 1),
     notify: showNotice,
     setSelectedIds,
+    setConnectorRouting: (routing) => {
+      lastConnector.current = { ...lastConnector.current, routing };
+    },
   });
 
   /** A double-click opens; closing goes through the empty-sticky rule. */
@@ -661,6 +709,11 @@ export function useBoardAppState() {
     closeShareFallback,
     inspectorOpen,
     toggleInspector,
+    openProperties,
+    closeProperties,
+    toggleProperties,
+    setCommentsPanel,
+    openAgentPanel,
     active,
     addTemplate,
     replaceBoard,
@@ -672,6 +725,8 @@ export function useBoardAppState() {
     addStickyAndEdit,
     addTextAndEdit,
     addShapeAndEdit,
+    addTable,
+    addKanban,
     rail,
     shapeTool,
     editWidget,
@@ -701,6 +756,7 @@ export function useBoardAppState() {
     noteMarks,
     connectorActions,
     arrangeActions,
+    gatherSelection,
     onAddWaypoint,
     onMoveWaypoint,
     onDeleteWaypoint,

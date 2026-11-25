@@ -13,7 +13,7 @@ With no query the search shows the five commands this browser ran last and three
 
 A grey row with a reason is a command that cannot run right now: “Select an object first”, “The editor role is required”, “Only on the Team plan”. `Enter` on it does nothing.
 
-When agents are allowed in the room, the last row is **Ask the agent: …**. It opens a task with your words; the agent does nothing without your **Apply**.
+The search also creates: **card**, **table**, **kanban**, **comment**, **templates**, and **Edit text** for a selected object. The same rows are in **More** on the tool rail; there is no second list. It opens a task with your words; the agent does nothing without your **Apply**.
 
 When nothing matches, the search says: “Nothing like that yet. Try another word — or ask the agent.”
 

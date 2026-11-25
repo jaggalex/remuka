@@ -217,7 +217,7 @@ describe("context suggestions", () => {
 
     const withSelection = buildSearchRows(objectContext(["w0"]), allAllowed);
     const selected = suggestionRows(withSelection, { hasSelection: true }).map((row) => row.id);
-    expect(selected).toEqual(["copy", "paste", "cut"]);
+    expect(selected).toEqual(["editText", "copy", "paste"]);
   });
 
   it("does not repeat a recent command and never suggests a refused one", () => {

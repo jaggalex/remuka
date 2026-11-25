@@ -196,7 +196,7 @@
 .rm-tooltip-wrap.is-open .rm-tooltip { display: inline-flex; }
 
 /* ---------- Menu ---------- */
-.rm-menu { width: 240px; padding: var(--space-2); background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); box-sizing: border-box; }
+.rm-menu { width: 240px; padding: var(--space-2); background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-menu); box-shadow: var(--shadow-pop); box-sizing: border-box; }
 .rm-menu-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: var(--control-compact); padding: 0 var(--space-3); border: 0; background: transparent; border-radius: var(--radius-pill); color: var(--text-primary); font: 400 13px/18px var(--font-sans); text-align: left; cursor: pointer; }
 .rm-menu-item:hover, .rm-menu-item:focus-visible, .rm-menu-item.is-hover { background: var(--bg-hover); outline-offset: -2px; }
 /* A hint is a second line: the item grows instead of clipping it (spec §10, Home-Menus). */
@@ -416,7 +416,7 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-pin.is-selected { box-shadow: 0 0 0 2px var(--selection-stroke); }
 
 /* ---------- Popover ---------- */
-.rm-popover { position: relative; width: 280px; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-xl); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
+.rm-popover { position: relative; width: 280px; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-menu); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
 .rm-popover-arrow { position: absolute; width: 10px; height: 10px; background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); transform: rotate(45deg); }
 .rm-popover-bottom .rm-popover-arrow { top: -6px; left: 24px; border-right: 0; border-bottom: 0; }
 .rm-popover-top .rm-popover-arrow { bottom: -6px; left: 24px; border-left: 0; border-top: 0; }

@@ -10,6 +10,7 @@ import {
   openBoard,
   openBoardMenu,
   openFacilitation,
+  openFold,
   openPeople,
   register,
   seedNote,
@@ -243,6 +244,7 @@ test("a section table has no serious accessibility violations", async ({ page })
   }, frameId);
   await page.mouse.click(point.x, point.y);
   await ensureProperties(page);
+  await openFold(page, "More settings");
   await page.locator(".section-panel").getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
   await expect(page.locator(".table-mirror table")).toHaveCount(1);
@@ -320,43 +322,38 @@ test("the text format bar and the block editor are named for assistive technolog
   await expect(heading).toHaveAttribute("aria-level", "1");
   await expect(heading).toHaveAttribute("aria-current", "true");
 
-  // One row of named toggles with aria-pressed, and the caret's format is the pressed one.
+  // T8: six controls in the bar — marks, two lists, the link — and the rest behind «⋯».
   const bar = page.getByRole("toolbar", { name: "Object properties" });
-  const format = bar.getByRole("group", { name: "Text format" });
-  await expect(format).toBeVisible();
   for (const name of [
-    /^Heading 1/,
-    /^Heading 2/,
+    /^Bold/,
+    /^Italic/,
+    /^Strikethrough/,
     /^Bulleted list/,
-    /^Numbered list/,
     /^Checklist/,
-    /^Inline code/,
     /^Link/,
   ]) {
-    await expect(format.getByRole("button", { name })).toBeVisible();
+    await expect(bar.getByRole("button", { name })).toBeVisible();
   }
-  await expect(format.getByRole("button", { name: /^Heading 1/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
 
   // Both surfaces are scanned while the editor is open; moving focus to the bar
   // closes the editor by design, so the scan comes first.
   await expectNoSerious(page, "text format bar", ".sticky-bar");
   await expectNoSerious(page, "block editor", ".inline-editor");
 
-  // A keyboard user reaches the row, and the visible focus ring is the DS one.
-  const bullet = format.getByRole("button", { name: /^Bulleted list/ });
-  await page.keyboard.press("Shift");
-  await bullet.focus();
-  await expect(bullet).toBeFocused();
-  expect(
-    await bullet.evaluate(
-      (element) =>
-        getComputedStyle(element).outlineStyle !== "none" ||
-        getComputedStyle(element).boxShadow !== "none",
-    ),
-  ).toBe(true);
+  // The rarer formats live in the one properties panel, not in a second toolbar.
+  await bar.getByRole("button", { name: "More actions" }).click();
+  await page.locator("aside.inspector details.properties-more > summary").click();
+  const panel = page.locator("aside.inspector");
+  for (const name of [
+    /^Underline/,
+    /^Heading 1/,
+    /^Heading 2/,
+    /^Numbered list/,
+    /^Inline code/,
+    /^Clear formatting/,
+  ]) {
+    await expect(panel.getByRole("button", { name })).toBeVisible();
+  }
 });
 
 test("a tooltip waits, stays under the pointer and closes on Escape (WCAG 1.4.13)", async ({ page }) => {
@@ -409,7 +406,7 @@ test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", asy
   // Icon-only controls keep a name: the mark, the discussion icon, the account face
   // and the zoom's Fit. Named buttons ("Run", "Invite", "Agent") carry their word.
   const mark = page.getByRole("button", { name: "Remuka: account and rooms", exact: true });
-  const discussion = page.getByRole("button", { name: /^Discussion/ });
+  const discussion = page.getByRole("button", { name: /^Comments/ });
   const account = page.getByRole("button", { name: /^Account and interface/ });
   const fit = page.getByRole("button", { name: "Fit", exact: true });
   for (const control of [mark, discussion, fit]) {
@@ -421,11 +418,11 @@ test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", asy
 
   // Hover shows the name; focus shows it at once.
   await discussion.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^Discussion$/ })).toBeVisible();
+  await expect(page.getByRole("tooltip").filter({ hasText: /^Comments$/ })).toBeVisible();
   await page.keyboard.press("Shift");
   await discussion.focus();
   await expect(
-    page.getByRole("tooltip").filter({ hasText: /^Discussion$/ }),
+    page.getByRole("tooltip").filter({ hasText: /^Comments$/ }),
   ).toBeVisible({ timeout: 300 });
   await expect(mark).toHaveAttribute("aria-label", "Remuka: account and rooms");
   await fit.hover();
@@ -438,6 +435,7 @@ test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", asy
 test("selection actions are one row of named icons, the rest behind More actions (ADR-237)", async ({ page }) => {
   await freshBoard(page, "a11y-selection-actions");
   await selectKanbanCard(page);
+  await openFold(page, "More settings");
   const inspector = page.locator("aside.inspector");
   const actions = inspector.getByRole("group", { name: "Selection actions" });
   for (const name of ["Copy", "Copy link", "Cut", "Duplicate", "Delete", "More actions"]) {

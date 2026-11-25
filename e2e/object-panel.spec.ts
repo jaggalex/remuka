@@ -1,6 +1,6 @@
 import { 
 expect, test, type Page } from "@playwright/test";
-import { addSticky, createShape, freshBoard, seedObject, ensureProperties } from "./helpers";
+import { addSticky, createShape, freshBoard, seedObject, ensureProperties, openFold } from "./helpers";
 
 /**
  * The object bar after S5d (ADR-119 §4.2, ADR-127).
@@ -455,7 +455,11 @@ test("a multi-selection shows the shared role, mixes with ≠ and narrows to a t
 
   const bar = page.locator(".arrange-bar");
   await expect(bar).toBeVisible();
-  await expect(bar).toContainText("3 objects · 2 sticky notes, 1 shape");
+  await expect(bar).toContainText("3 objects");
+  await expect(bar.getByRole("button", { name: /Selection by type: 3 objects/ })).toHaveAttribute(
+    "aria-label",
+    /2 sticky notes, 1 shape/,
+  );
 
   // Notes and a shape share the fill role; their values differ, so the sample says so.
   const colour = bar.getByRole("button", { name: "Fill: Mixed colours" });
@@ -493,10 +497,14 @@ test("a multi-selection shows the shared role, mixes with ≠ and narrows to a t
   // The type menu narrows the selection and "All" brings the rest back.
   await bar.getByRole("button", { name: /Selection by type/ }).click();
   await page.getByRole("menuitem", { name: "2 sticky notes" }).click();
-  await expect(bar).toContainText("2 objects · 2 sticky notes");
+  await expect(bar).toContainText("2 objects");
   await bar.getByRole("button", { name: /Selection by type/ }).click();
   await page.getByRole("menuitem", { name: "All" }).click();
-  await expect(bar).toContainText("3 objects · 2 sticky notes, 1 shape");
+  await expect(bar).toContainText("3 objects");
+  await expect(bar.getByRole("button", { name: /Selection by type: 3 objects/ })).toHaveAttribute(
+    "aria-label",
+    /2 sticky notes, 1 shape/,
+  );
 });
 
 test("a shape is lifted off the board from More actions, one level for the selection (ADR-245)", async ({
@@ -505,8 +513,10 @@ test("a shape is lifted off the board from More actions, one level for the selec
   await freshBoard(page, "object-panel-elevation", { template: "empty" });
   await createShape(page, "Rectangle");
   const shape = (await widgets(page)).find((widget) => widget.type === "shape")!;
-  // ADR-197: the inspector starts closed for a fresh person.
+  // ADR-197: the inspector starts closed for a fresh person. The selection row lives
+  // inside «More settings» since T8.
   await ensureProperties(page);
+  await openFold(page, "More settings");
 
   const more = page.locator("aside.inspector").getByRole("button", { name: "More actions", exact: true });
   const menu = page.getByRole("menu", { name: "More actions" });
@@ -532,6 +542,7 @@ test("a shape is lifted off the board from More actions, one level for the selec
 
   // A note keeps its own paper shadow: the levels are not offered for it.
   await addSticky(page);
+  await openFold(page, "More settings");
   await more.click();
   await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(0);
 });

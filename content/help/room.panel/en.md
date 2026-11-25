@@ -1,16 +1,22 @@
 ## Result
 
-The **Properties** panel on the right describes one subject: whatever is selected, or the room itself when nothing is. Open it in the room menu — **Properties** — and fold it away with the cross when you want the whole screen for the canvas.
+One panel lives on the right: the **Properties** of the selection, **Comments**, or the agent. Opening another one closes the first; `Esc` closes it. The properties panel describes one subject: the selected object, or the room itself when nothing is selected. Open it from **Properties** in the room menu or with **⋯** on an object bar.
 
 ## What the panel shows
 
 | Selected | In the panel |
 |---|---|
 | Nothing | the room's name, **In the room** — how many objects of each type — and the **Card filter** |
-| A kanban | the selection actions and **Kanban state**: columns, swimlanes and WIP limits |
-| A section, a card or another object | the selection actions and that object's fields |
+| A sticky note, a shape or text | the colour grid, **Text** (**Auto**, **A−**, **A+**, alignment), then **More settings** |
+| A kanban | **More settings** → **Kanban state**: columns, swimlanes and WIP limits |
+| A section, a card or another object | **More settings** with that object's fields |
+| Several objects | selection actions and shared properties |
 
-Selection actions are icons with tooltips; the rare ones are under **⋯ More actions**. Rare groups fold to a row with their value and a chevron: **Name and link**, **Tags**. The object ID is in **⋯ → Info**.
+**More settings** is a folding row: text colour, note size, **Pin in place**, **Edit text**, name and link, tags, selection actions. The rare actions are under **⋯ More actions**. The object ID is in **⋯ → Info**.
+
+## Danger zone
+
+At the panel's foot: **Delete** and the hint “Delete can be undone with ⌘Z”. A delete asks first when it may take connectors with it; one `⌘Z` brings the object back.
 
 ## Shadow
 
@@ -28,5 +34,6 @@ There are no **Shadow** items when the selection holds a sticky note or a card: 
 ## Limits
 
 - Replacing the room with a template is in the room menu (the arrow by its name), not in the panel.
-- One panel at a time: opening comments or the agent closes this one.
+- One panel at a time: opening comments or the agent closes this one; `Esc` closes the open one.
+- `⋯` on an object bar opens this panel, not a second menu.
 - The card filter shows only with nothing selected: after **Select cards** the found cards are selected, and the panel shows them.

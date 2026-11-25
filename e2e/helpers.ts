@@ -127,6 +127,8 @@ export async function selectKanbanCard(page: Page, cardId?: string): Promise<str
   await expect.poll(() => page.evaluate(
     () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
   )).toEqual([point.id]);
+  // T8: the card's fields live under «More settings» in the one properties panel.
+  await openFold(page, "More settings");
   return point.id;
 }
 
@@ -267,7 +269,7 @@ export async function goAllRooms(page: Page): Promise<void> {
  * count, so the locator matches the start of it.
  */
 export async function openComments(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^Discussion/ }).click();
+  await page.getByRole("button", { name: /^(?:Comments|Комментарии)/ }).click();
 }
 
 export async function startPresentation(page: Page): Promise<void> {
@@ -525,9 +527,15 @@ export async function objectCount(page: Page, type?: string): Promise<number> {
  * open row would close it, so it is opened only when closed.
  */
 export async function openFold(page: Page, name: string | RegExp): Promise<void> {
-  const fold = page.locator("aside.inspector details.inspector-fold").filter({
-    has: page.locator("summary", { hasText: name }),
-  });
+  // T8: the rare groups live inside «More settings»; open the outer row first.
+  const outer = page.locator("aside.inspector details.properties-more");
+  if ((await outer.getAttribute("open")) === null) await outer.locator("summary").first().click();
+  await expect(outer).toHaveAttribute("open", "");
+  const fold = page
+    .locator("aside.inspector details.inspector-fold")
+    .filter({ has: page.locator("summary", { hasText: name }) })
+    // An outer fold contains its children's summaries; the innermost is the target.
+    .last();
   if ((await fold.getAttribute("open")) === null) await fold.locator("summary").click();
   await expect(fold).toHaveAttribute("open", "");
 }

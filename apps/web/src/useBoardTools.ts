@@ -1,11 +1,19 @@
 import { useMemo, useState } from "react";
-import type { Rect, Widget, KanbanState, ShapeKind } from "@remo/model";
-import type { RailTool } from "./ToolRail";
+import type { ConnectorRouting, Rect, Widget, KanbanState, ShapeKind } from "@remo/model";
+import type { RailFlyout, RailTool } from "./ToolRail";
 import { cardTargetFor } from "./cardTarget";
 import { useI18n } from "./i18n";
 import { noteFillChoices, noteFillExtras } from "./object-panel/palette";
 import { requestImagePicker } from "./imageIntake";
 import { armedShapeKind, useArmedTool } from "./useArmedTool";
+import {
+  rememberedRouting,
+  rememberedShapeKind,
+  rememberedStickerFill,
+  rememberRouting,
+  rememberShapeKind,
+  rememberStickerFill,
+} from "./toolDefaults";
 
 /**
  * The rail's behaviour, in one place (ADR-119, ADR-271).
@@ -15,6 +23,10 @@ import { armedShapeKind, useArmedTool } from "./useArmedTool";
  * waits for the canvas: a drag draws it at size, a click creates the default, Escape
  * puts the rail back to Select. `useArmedTool` is the one state the rail, the keys and
  * the gesture read.
+ *
+ * The variants a person picks — note fill, shape kind, line type — are remembered in
+ * this browser through `toolDefaults`, so the next object is the same kind of object
+ * (ADR-266 §10a) without a second settings screen.
  */
 export function useBoardTools({
   widgets,
@@ -38,6 +50,7 @@ export function useBoardTools({
   openComment,
   notify,
   setSelectedIds,
+  setConnectorRouting,
 }: {
   widgets: Widget[];
   selectedIds: readonly string[];
@@ -62,10 +75,17 @@ export function useBoardTools({
   openComment: () => void;
   notify: (message: string) => void;
   setSelectedIds: (ids: string[]) => void;
+  /** Keep the line type for the next connector too (the app owns `lastConnector`). */
+  setConnectorRouting: (routing: ConnectorRouting) => void;
 }) {
   const { t } = useI18n();
-  const [flyout, setFlyout] = useState<"sticky" | "shape" | null>(null);
+  const [flyout, setFlyout] = useState<RailFlyout>(null);
   const { armed, arm, disarm, finish } = useArmedTool();
+  const [noteFill, setNoteFill] = useState(() => rememberedStickerFill());
+  const [routing, setRouting] = useState<ConnectorRouting>(
+    () => rememberedRouting() ?? "curved",
+  );
+  const [shapeKind, setShapeKind] = useState<ShapeKind>(() => rememberedShapeKind());
 
   /**
    * The fill grid of the colour window, read once: the rail is a shortcut into the same
@@ -79,6 +99,8 @@ export function useBoardTools({
 
   /** Choosing a shape — the rail button, the flyout or a key — arms it (ADR-271). */
   const armShape = (kind: ShapeKind, series = false) => {
+    rememberShapeKind(kind);
+    setShapeKind(kind);
     arm("shape", kind, series);
     setFlyout(null);
   };
@@ -90,6 +112,20 @@ export function useBoardTools({
     finish();
   };
 
+  const pickSticky = (fill?: string) => {
+    if (fill) {
+      rememberStickerFill(fill);
+      setNoteFill(fill);
+    }
+    createSticky(fill ?? noteFill);
+  };
+
+  const pickRouting = (next: ConnectorRouting) => {
+    rememberRouting(next);
+    setRouting(next);
+    setConnectorRouting(next);
+  };
+
   const run = (tool: RailTool, fill?: string) => {
     switch (tool) {
       case "select":
@@ -97,7 +133,7 @@ export function useBoardTools({
         setSelectedIds([]);
         break;
       case "sticky":
-        createSticky(fill);
+        pickSticky(fill);
         setFlyout(null);
         break;
       case "sticky-stack":
@@ -155,6 +191,7 @@ export function useBoardTools({
     onShape: (kind: ShapeKind) => armShape(kind),
     onShapeSeries: (kind: ShapeKind) => armShape(kind, true),
     armedShape: armedShapeKind(armed),
+    defaultShape: shapeKind,
     onConnector: () => run("connector"),
     onFrame: () => run("frame"),
     onCard: () => run("card"),
@@ -167,6 +204,9 @@ export function useBoardTools({
     canAddCard,
     noteColors,
     noteExtras,
+    noteFill,
+    connectorRouting: routing,
+    onRouting: pickRouting,
   };
 
   return { rail, run, cancelArmed, drawShape };

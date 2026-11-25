@@ -164,6 +164,8 @@ test("the arrow keys and Enter pick a colour from the grid", async ({ page }) =>
   await expect(grid).toHaveCount(0);
   await expect(page.locator(":focus")).toHaveAccessibleName("Цвет");
   await page.keyboard.press("ArrowDown");
+  await expect(page.locator(":focus")).toHaveAccessibleName("Изменить текст");
+  await page.keyboard.press("ArrowDown");
   await expect(page.locator(":focus")).toHaveAccessibleName("Очистить содержимое");
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);

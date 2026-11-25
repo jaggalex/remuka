@@ -36,8 +36,10 @@
   --text-on-danger: var(--neutral-950);
   --state-success: var(--success-300);
   --success-soft: var(--alpha-success-light-18);
+  --success-chosen: var(--neutral-800);
   --state-warning: var(--warning-300);
   --warning-soft: var(--alpha-warning-light-18);
+  --warning-plate: var(--alpha-warning-light-18);
   --state-info: var(--neutral-300);
   --selection-fill: var(--alpha-accent-light-8);
   --selection-stroke: var(--neutral-50);

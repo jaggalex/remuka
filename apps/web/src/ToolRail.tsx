@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { ShapeKind } from "@remo/model";
-import { IconButton, Popover, Separator, Tooltip } from "@remo/ui";
+import type { ConnectorRouting, ShapeKind } from "@remo/model";
+import { Icon, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
 import type { IconName } from "@remo/ui";
 import { useI18n, type TranslationKey } from "./i18n";
 import { useChromeQuiet } from "./quietChrome";
@@ -28,17 +28,35 @@ export type RailTool =
   | "comment"
   | "sticky-stack";
 
+/** The flyout a tool (or "More") opens, one at a time. */
+export type RailFlyout = "sticky" | "shape" | "connector" | "more" | null;
+
+/** One row of «Ещё», already resolved from the command registry by the caller. */
+export interface RailMoreItem {
+  id: string;
+  label: string;
+  icon: IconName;
+  disabled?: boolean;
+  reason?: string;
+  onSelect: () => void;
+}
+
+const ROUTINGS: ReadonlyArray<{ value: ConnectorRouting; key: TranslationKey; icon: IconName }> = [
+  { value: "curved", key: "line.curved", icon: "connector-curved" },
+  { value: "straight", key: "line.straight", icon: "connector-straight" },
+  { value: "elbow", key: "line.elbowed", icon: "connector-elbow" },
+];
+
 /**
- * The one place objects are created (ADR-119).
+ * The one place objects are created (ADR-119, ADR-266 §10a).
  *
- * The rail holds creation, selection and history; the top bar describes the board. A
- * tool with variants carries a corner marker that opens a flyout of samples (note
- * colours, shape silhouettes); a direct tool creates at once and the rail returns to
- * Select, because there is no placement mode — the canvas keeps its current gesture model.
+ * Seven tools — select, note, shape, text, connector, frame, picture — and «More» for
+ * the rest. A tool with variants opens its samples on the tool itself: the marker in
+ * the corner, or a click on the tool while it is the active one. The choice is
+ * remembered for the next object by `toolDefaults`; this file only shows it.
  *
- * Every button is a design-system `IconButton` in one panel, and history is a second
- * panel: the rail is a surface of its own, not a strip of icons on the canvas edge
- * (ADR-119).
+ * History is in the same paper panel under the hairline, not a second pill: the rail is
+ * one control surface, as the mockup draws it (ADR-286).
  */
 export function ToolRail({
   writeBlocked,
@@ -63,15 +81,20 @@ export function ToolRail({
   canAddCard,
   noteColors,
   noteExtras,
+  noteFill,
   armedShape,
+  defaultShape,
   onShapeSeries,
+  connectorRouting,
+  onRouting,
+  more,
 }: {
   writeBlocked: boolean;
   /** Why creation is off (view-only or the offline queue): the tooltip says it. */
   blockedHint: string;
   canComment: boolean;
-  flyout: "sticky" | "shape" | null;
-  onFlyout: (next: "sticky" | "shape" | null) => void;
+  flyout: RailFlyout;
+  onFlyout: (next: RailFlyout) => void;
   onSelect: () => void;
   onSticky: (fill?: string) => void;
   onText: () => void;
@@ -91,10 +114,19 @@ export function ToolRail({
   noteColors: readonly NoteFillChoice[];
   /** The named chips beside the grid — White and Black (ADR-140). */
   noteExtras: readonly NamedFillChoice[];
+  /** The fill the next note takes; it is what the flyout rings (ADR-266 §10a). */
+  noteFill: string;
   /** The shape waiting for a drag on the canvas (ADR-271). */
   armedShape: ShapeKind | null;
+  /** The kind a click arms: the last one chosen in this browser (ADR-266 §10a). */
+  defaultShape: ShapeKind;
   /** A double-click on the tool keeps it armed for a series until Escape. */
   onShapeSeries: (kind: ShapeKind) => void;
+  /** The line type the next connector takes, and the one the flyout rings. */
+  connectorRouting: ConnectorRouting;
+  onRouting: (routing: ConnectorRouting) => void;
+  /** «More»: the same commands the search finds (T7, T8). */
+  more: readonly RailMoreItem[];
 }) {
   const { t } = useI18n();
   const quiet = useChromeQuiet();
@@ -165,6 +197,11 @@ export function ToolRail({
     );
   };
 
+  const pickShape = (kind: ShapeKind) => {
+    onShape(kind);
+    onFlyout(null);
+  };
+
   return (
     <div
       className={quiet ? "tool-rail is-quiet" : "tool-rail"}
@@ -177,11 +214,9 @@ export function ToolRail({
           icon: "cursor",
           label: "tool.select",
           shortcut: "V",
-          expanded: armedShape === null,
+          expanded: armedShape === null && flyout === null,
           onClick: onSelect,
         })}
-
-        <Separator />
 
         <div className="tool-rail-item">
           {tool({
@@ -189,9 +224,14 @@ export function ToolRail({
             label: "tool.sticky",
             shortcut: "N",
             disabled: writeBlocked,
-            onClick: () => onSticky(),
+            expanded: flyout === "sticky",
+            onClick: () => {
+              // The active tool explains its variants; a tool that is off acts at once.
+              if (flyout === "sticky") onFlyout(null);
+              else onSticky(noteFill);
+            },
           })}
-          <Disclosure
+          <ToolDisclosure
             label={t("tool.stickyColors")}
             open={flyout === "sticky"}
             disabled={writeBlocked}
@@ -199,7 +239,7 @@ export function ToolRail({
           />
           {flyout === "sticky" && (
             <Popover
-              title={t("tool.sticky")}
+              title={t("tool.stickyColors")}
               width={COLOR_WINDOW_WIDTH}
               side="right"
               onClose={() => onFlyout(null)}
@@ -212,7 +252,10 @@ export function ToolRail({
                       hex={extra.value}
                       word={t(extra.key)}
                       className="tool-extra"
-                      onClick={() => onSticky(extra.value)}
+                      onClick={() => {
+                        onSticky(extra.value);
+                        onFlyout(null);
+                      }}
                     />
                   ))}
                 </div>
@@ -224,16 +267,58 @@ export function ToolRail({
                       word={t(color.key)}
                       dataHex={color.hex}
                       className={
-                        color.hex === defaultFill ? "tool-swatch is-default" : "tool-swatch"
+                        color.hex === noteFill
+                          ? "tool-swatch is-default"
+                          : "tool-swatch"
                       }
-                      onClick={() => onSticky(color.hex)}
+                      onClick={() => {
+                        onSticky(color.hex);
+                        onFlyout(null);
+                      }}
                     />
                   ))}
                 </div>
               </div>
               <p className="tool-flyout-note">
-                {t("tool.stickyDefault")} <HelpLink topicId="room.colours" className="help-link icon-link" />
+                {noteFill === defaultFill ? t("tool.stickyDefault") : t("tool.stickyRemembered")}{" "}
+                <HelpLink topicId="room.colours" className="help-link icon-link" />
               </p>
+            </Popover>
+          )}
+        </div>
+
+        <div className="tool-rail-item">
+          {tool({
+            icon: "shape",
+            label: "tool.shape",
+            shortcut: "R",
+            disabled: writeBlocked,
+            expanded: armedShape !== null || flyout === "shape",
+            onClick: () => {
+              // An armed tool explains its five silhouettes; a fresh one arms.
+              if (armedShape !== null) onFlyout(flyout === "shape" ? null : "shape");
+              else onShape(defaultShape);
+            },
+            onDoubleClick: () => onShapeSeries(armedShape ?? defaultShape),
+          })}
+          <ToolDisclosure
+            label={t("tool.shapeVariants")}
+            open={flyout === "shape"}
+            disabled={writeBlocked}
+            onClick={() => onFlyout(flyout === "shape" ? null : "shape")}
+          />
+          {flyout === "shape" && (
+            <Popover
+              title={t("tool.shapeVariants")}
+              width={252}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <ShapeKindList
+                value={armedShape}
+                ariaLabel={t("tool.shapeVariants")}
+                onPick={pickShape}
+              />
             </Popover>
           )}
         </div>
@@ -248,48 +333,54 @@ export function ToolRail({
 
         <div className="tool-rail-item">
           {tool({
-            icon: "shape",
-            label: "tool.shape",
-            shortcut: "R",
+            icon: "connector",
+            label: "tool.connector",
+            shortcut: "L",
+            hint: canConnect ? undefined : t("tool.connectorHint"),
             disabled: writeBlocked,
-            expanded: armedShape !== null,
-            onClick: () => onShape(armedShape ?? "rectangle"),
-            onDoubleClick: () => onShapeSeries(armedShape ?? "rectangle"),
+            expanded: flyout === "connector",
+            onClick: () => {
+              if (flyout === "connector") onFlyout(null);
+              else onConnector();
+            },
           })}
-          <Disclosure
-            label={t("tool.shapeVariants")}
-            open={flyout === "shape"}
+          <ToolDisclosure
+            label={t("tool.connectorVariants")}
+            open={flyout === "connector"}
             disabled={writeBlocked}
-            onClick={() => onFlyout(flyout === "shape" ? null : "shape")}
+            onClick={() => onFlyout(flyout === "connector" ? null : "connector")}
           />
-          {flyout === "shape" && (
-            <Popover title={t("tool.shape")} width={252} side="right" onClose={() => onFlyout(null)}>
-              <ShapeKindList
-                value={armedShape}
-                ariaLabel={t("tool.shapeVariants")}
-                onPick={onShape}
-              />
+          {flyout === "connector" && (
+            <Popover
+              title={t("tool.connectorVariants")}
+              width={196}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <div
+                className="tool-flyout-connector"
+                role="group"
+                aria-label={t("tool.connectorVariants")}
+              >
+                {ROUTINGS.map((entry) => (
+                  <Tooltip key={entry.value} label={t(entry.key)} side="bottom">
+                    <IconButton
+                      icon={entry.icon}
+                      label={t(entry.key)}
+                      iconSize={20}
+                      selected={connectorRouting === entry.value}
+                      onClick={() => {
+                        onRouting(entry.value);
+                        onFlyout(null);
+                      }}
+                    />
+                  </Tooltip>
+                ))}
+              </div>
+              <p className="tool-flyout-note">{t("tool.connectorNote")}</p>
             </Popover>
           )}
         </div>
-
-        {tool({
-          icon: "image",
-          label: "tool.image",
-          shortcut: "I",
-          hint: t("tool.imageHint"),
-          disabled: writeBlocked,
-          onClick: onImage,
-        })}
-
-        {tool({
-          icon: "connector",
-          label: "tool.connector",
-          shortcut: "L",
-          hint: canConnect ? undefined : t("tool.connectorHint"),
-          disabled: writeBlocked,
-          onClick: onConnector,
-        })}
 
         {tool({
           icon: "frame",
@@ -300,28 +391,55 @@ export function ToolRail({
         })}
 
         {tool({
-          icon: "card",
-          label: "tool.card",
-          shortcut: "C",
-          hint: canAddCard ? undefined : t("tool.cardHint"),
+          icon: "image",
+          label: "tool.image",
+          shortcut: "I",
+          hint: t("tool.imageHint"),
           disabled: writeBlocked,
-          onClick: onCard,
+          onClick: onImage,
         })}
+
+        <div className="tool-rail-item">
+          {tool({
+            icon: "more",
+            label: "tool.more",
+            disabled: writeBlocked,
+            expanded: flyout === "more",
+            onClick: () => onFlyout(flyout === "more" ? null : "more"),
+          })}
+          {flyout === "more" && (
+            <Popover
+              title={t("tool.more")}
+              width={240}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <div className="tool-more-list" role="menu" aria-label={t("tool.more")}>
+                {more.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className="tool-more-item"
+                    data-command={item.id}
+                    disabled={item.disabled}
+                    title={item.disabled ? item.reason : undefined}
+                    onClick={() => {
+                      onFlyout(null);
+                      item.onSelect();
+                    }}
+                  >
+                    <Icon name={item.icon} size={16} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          )}
+        </div>
 
         <Separator />
 
-        {tool({
-          icon: "comment",
-          label: "tool.comment",
-          hint: canComment ? undefined : t("tool.commentHint"),
-          reason: writeBlocked ? undefined : t("tool.commentHint"),
-          disabled: writeBlocked || !canComment,
-          onClick: onComment,
-        })}
-      </div>
-
-      {/* History is separate on purpose: undo is not a creation tool (§10.2, Р3). */}
-      <div className="tool-rail-panel">
         <Tooltip side="right" label={t("board.undo")}>
           <IconButton
             icon="undo"
@@ -350,11 +468,11 @@ export function ToolRail({
 /**
  * The corner marker of a tool with variants.
  *
- * A 6 px corner in the bottom-right of the 40 px button, the way the mockup draws it:
- * it marks "more here" and keeps its hit area off the glyph, so the icon is never
- * covered and a click on the icon always creates (Р2).
+ * A 6 px wedge in the bottom-right of the 44 px button, the way the mockup draws it: it
+ * marks "more here" and keeps its hit area off the glyph, so the icon is never covered
+ * and a click on the icon still creates (Р2).
  */
-function Disclosure({
+function ToolDisclosure({
   label,
   open,
   disabled,

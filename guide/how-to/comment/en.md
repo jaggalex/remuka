@@ -9,11 +9,12 @@ You need to discuss an object or a point in the room without moving the conversa
 
 ## Steps
 
-1. Click the discussion icon in the header (it carries the unread count) or a pin on the canvas. Result: a panel with the thread list.
+1. Click **Comments** in the header (it carries the unread count) or a pin on the canvas. Result: a panel with the **Open · N** and **Resolved · N** tabs.
 2. Click **New comment**. If an object is selected, the thread is anchored to it; otherwise to the centre of the view.
 3. Enter the text and send it.
-4. Open a thread to read replies. **Resolve** closes it; a reply opens it again.
-5. The author may delete their own comment; a room manager may delete any.
+4. Open a thread to read replies; the **Reply… @ to mention** field answers in it.
+5. **Resolve** (the green button) closes the thread and moves it to the resolved tab; a reply opens it again.
+6. The author may delete their own comment; a room manager may delete any.
 
 ## Check
 
@@ -21,6 +22,8 @@ You need to discuss an object or a point in the room without moving the conversa
 - Deleting an object does not delete the thread.
 - The **Commenter** role writes in the discussion but does not change objects.
 - A link visitor does not see the discussion.
+- With everything closed: “Every question is closed. New ones appear here — and as a pin on the canvas.”
+- Opening comments closes the properties panel: one panel, and `Esc` closes it.
 
 ## In presentation and export
 

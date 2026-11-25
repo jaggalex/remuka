@@ -1,19 +1,13 @@
 import { Button, IconButton, Menu, Popover } from "@remo/ui";
 import type { AlignEdge, DistributeAxis } from "@remo/doc";
-import type { ShapeKind } from "@remo/model";
 import { useI18n } from "./i18n";
 import { useMenuFocus } from "./useMenuFocus";
 import { usePopover } from "./usePopover";
 import { ObjectBar } from "./object-panel/ObjectBar";
 import { ColorGridSection, ColorWindow } from "./object-panel/ColorWindow";
+import { SHAPE_KIND_LABEL, ShapeKindGrid, shapeSelection } from "./object-panel/ShapeKindPicker";
 import { colorName, isTransparent } from "./object-panel/colorWindowData";
 import { PanelWindow } from "./object-panel/PanelWindow";
-import {
-  SHAPE_KIND_LABEL,
-  ShapeCorners,
-  ShapeKindGrid,
-  shapeSelection,
-} from "./object-panel/ShapeKindPicker";
 
 export interface ArrangeBarTarget {
   /** Where the bar itself goes, already clamped to the canvas. */
@@ -29,7 +23,7 @@ export interface ArrangeBarTarget {
   /** The one colour role every selected object has, or null when they share none. */
   colour: { role: "fill" | "line"; value: string; mixed: boolean } | null;
   /** The kinds of the selected shapes; empty unless every selected object is a shape. */
-  shapeKinds: ShapeKind[];
+  shapeKinds: import("@remo/model").ShapeKind[];
   /** Two or more ordinary objects can become one section (ADR-198). */
   canGather: boolean;
 }
@@ -39,7 +33,7 @@ export interface ArrangeBarActions {
   distribute: (axis: DistributeAxis) => void;
   group: () => void;
   ungroup: () => void;
-  /** Delete from "More" — the same path as the Delete key, confirmation included. */
+  /** Delete from the properties panel — the same path as the Delete key. */
   remove: () => void;
   /** Two or more roots can become one group (the command registry's predicate). */
   canGroup: boolean;
@@ -47,16 +41,14 @@ export interface ArrangeBarActions {
   canUngroup: boolean;
   /** Open the tidy preview for the selection (ADR-143). */
   tidy: () => void;
-  /** Gather compatible objects into one section (ADR-198). */
-  gather: () => void;
-  /** Show or hide the future section's outline while the action is pointed at. */
-  previewGather?: (on: boolean) => void;
   /** Narrow the selection to one type; `null` restores the selection before narrowing. */
   selectType: (type: string | null) => void;
   /** Write the shared role to every selected object: one transaction, one undo step. */
   setColour: (color: string) => void;
   /** Switch every selected shape to one kind; one transaction, one undo step. */
-  setShapeKind: (kind: ShapeKind) => void;
+  setShapeKind: (kind: import("@remo/model").ShapeKind) => void;
+  /** «⋯»: the one properties panel (T8). */
+  openProperties: () => void;
 }
 
 const ALIGN = [
@@ -74,17 +66,13 @@ const DISTRIBUTE = [
 ] as const satisfies ReadonlyArray<{ axis: DistributeAxis; key: string }>;
 
 /**
- * The arrange bar.
+ * The multi-selection bar (ADR-120, ADR-266 §10a).
  *
- * Appears above a multi-selection: what is selected in words and by type (with a menu
- * that narrows to one type), the one colour role every selected object shares — "≠ Mixed"
- * when they disagree — the six alignments and two distributions behind one "Align"
- * popover, grouping, and "More", where Delete lives after a separator with the count
- * (ADR-120, ADR-124).
- *
- * Buttons, popover and menu come from `@remo/ui`. Icons rather than words for the eight
- * arrangements: eight labels would be wider than the selection, and the tooltips say the
- * rest (ADR-036).
+ * Six elements: what is selected, align (with distribution in its window), tidy, group,
+ * the shared colour, «⋯». The type menu stays on the summary: it narrows the selection,
+ * which is a property of what is selected rather than another action. Everything rarer
+ * — the type of every shape, gathering into a section, ungrouping, delete — is in the
+ * properties panel, so the bar stays a bar.
  */
 export function ArrangeBar({
   target,
@@ -94,14 +82,10 @@ export function ArrangeBar({
   actions: ArrangeBarActions;
 }) {
   const { t, count, typeCount } = useI18n();
-  // A different selection closes whatever was open for the previous one.
-  const { open, setOpen, ref } = usePopover<"types" | "kind" | "align" | "colour" | "more">(
+  const { open, setOpen, ref } = usePopover<"types" | "align" | "colour" | "kind">(
     target ? `${target.objects}:${target.units}` : undefined,
   );
-  // The DS menu expects something focused inside it, and focus comes back to its button
-  // on close, so Escape does not drop a keyboard user at the top of the page.
   const typesRef = useMenuFocus(open, "types");
-  const moreRef = useMenuFocus(open, "more");
 
   if (!target) return null;
 
@@ -120,15 +104,13 @@ export function ArrangeBar({
       : t(
           colorName(target.colour.value, {
             role: colourRoleKind,
-            // An absent line colour is Auto, not a custom value (ADR-273 §2.3).
             auto: colourRoleKind === "stroke" && !target.colour.value,
           }).key,
         )
     : "";
+
   const shape = target.shapeKinds.length ? shapeSelection(target.shapeKinds) : null;
-  const shapeName = shape?.kind
-    ? t(SHAPE_KIND_LABEL[shape.kind])
-    : t("shape.kindMixed");
+  const shapeName = shape?.kind ? t(SHAPE_KIND_LABEL[shape.kind]) : t("shape.kindMixed");
 
   return (
     <ObjectBar
@@ -137,7 +119,6 @@ export function ArrangeBar({
       label={t("canvas.selected", { count: target.objects })}
       className="arrange-bar"
     >
-      {/* What is selected, and a way to keep just one type of it (ADR-120 §4.2). */}
       <span className="sb-anchor" ref={typesRef}>
         <Button
           variant="ghost"
@@ -148,7 +129,7 @@ export function ArrangeBar({
           aria-expanded={open === "types"}
           onClick={() => setOpen(open === "types" ? null : "types")}
         >
-          {summary}
+          {count("objects", target.objects)}
         </Button>
         {open === "types" && (
           <PanelWindow>
@@ -178,63 +159,7 @@ export function ArrangeBar({
         )}
       </span>
 
-      {shape && (
-        <>
-          <span className="sb-anchor">
-            <Button
-              variant="ghost"
-              size="compact"
-              className="sb-kind"
-              iconEnd="chevron-down"
-              aria-label={`${t("shape.kind")}: ${shapeName}`}
-              aria-haspopup="dialog"
-              aria-expanded={open === "kind"}
-              selected={open === "kind"}
-              onClick={() => setOpen(open === "kind" ? null : "kind")}
-            >
-              {t("shape.kind")}
-            </Button>
-            {open === "kind" && (
-              <PanelWindow>
-                <Popover title={t("shape.kindTitle")} width={240} onClose={() => setOpen(null)}>
-                  <ShapeKindGrid
-                    value={shape.kind}
-                    ariaLabel={t("shape.kindTitle")}
-                    onPick={(kind) => {
-                      actions.setShapeKind(kind);
-                      setOpen(null);
-                    }}
-                  />
-                </Popover>
-              </PanelWindow>
-            )}
-          </span>
-          <ShapeCorners
-            rounded={shape.rounded}
-            disabled={!shape.canRound}
-            onChange={(rounded) =>
-              actions.setShapeKind(rounded ? "round_rectangle" : "rectangle")
-            }
-          />
-        </>
-      )}
-
-      {target.canGather && (
-        <Button
-          variant="ghost"
-          size="compact"
-          onClick={() => {
-            actions.previewGather?.(false);
-            actions.gather();
-          }}
-          onPointerEnter={() => actions.previewGather?.(true)}
-          onPointerLeave={() => actions.previewGather?.(false)}
-          onFocus={() => actions.previewGather?.(true)}
-          onBlur={() => actions.previewGather?.(false)}
-        >
-          {t("selection.gather")}
-        </Button>
-      )}
+      <span className="sb-divider" aria-hidden="true" />
 
       {target.colour && (
         <span className="sb-anchor">
@@ -286,7 +211,35 @@ export function ArrangeBar({
         </span>
       )}
 
-      <span className="sb-divider" aria-hidden="true" />
+      {shape && (
+        <span className="sb-anchor">
+          <Button
+            variant="ghost"
+            size="compact"
+            iconEnd="chevron-down"
+            aria-label={`${t("shape.kind")}: ${shapeName}`}
+            aria-expanded={open === "kind"}
+            selected={open === "kind"}
+            onClick={() => setOpen(open === "kind" ? null : "kind")}
+          >
+            {t("shape.kind")}
+          </Button>
+          {open === "kind" && (
+            <PanelWindow>
+              <Popover title={t("shape.kindTitle")} width={240} onClose={() => setOpen(null)}>
+                <ShapeKindGrid
+                  value={shape.kind}
+                  ariaLabel={t("shape.kindTitle")}
+                  onPick={(kind) => {
+                    actions.setShapeKind(kind);
+                    setOpen(null);
+                  }}
+                />
+              </Popover>
+            </PanelWindow>
+          )}
+        </span>
+      )}
 
       <span className="sb-anchor">
         <Button
@@ -303,11 +256,7 @@ export function ArrangeBar({
         </Button>
         {open === "align" && (
           <PanelWindow>
-            <Popover
-              title={t("arrange.title")}
-              width={240}
-              onClose={() => setOpen(null)}
-            >
+            <Popover title={t("arrange.title")} width={240} onClose={() => setOpen(null)}>
               <div className="arrange-grid" role="group" aria-label={t("arrange.alignment")}>
                 {ALIGN.map(({ edge, key }) => (
                   <Button
@@ -348,51 +297,23 @@ export function ArrangeBar({
         {t("tidy.action")}
       </Button>
 
-      {actions.canGroup && (
-        <Button variant="ghost" size="compact" onClick={actions.group}>
-          {t("menu.group")}
-        </Button>
-      )}
-      {actions.canUngroup && (
-        <Button variant="ghost" size="compact" onClick={actions.ungroup}>
-          {t("menu.ungroup")}
-        </Button>
-      )}
-
-      <span className="sb-divider" aria-hidden="true" />
-
-      {/* Delete lives here and nowhere else on the bar, after a separator (ADR-120). */}
-      <span className="sb-more" ref={moreRef}>
-        <IconButton
-          icon="more"
+      {(actions.canGroup || actions.canUngroup) && (
+        <Button
+          variant="ghost"
           size="compact"
-          label={t("arrange.more")}
-          aria-expanded={open === "more"}
-          selected={open === "more"}
-          onClick={() => setOpen(open === "more" ? null : "more")}
-        />
-        {open === "more" && (
-          <PanelWindow>
-            <Menu
-              label={t("arrange.more")}
-              onClose={() => setOpen(null)}
-              items={[
-                { separator: true },
-                {
-                  label: t("menu.delete"),
-                  icon: "trash",
-                  hint: count("objects", target.objects),
-                  danger: true,
-                  onSelect: () => {
-                    actions.remove();
-                    setOpen(null);
-                  },
-                },
-              ]}
-            />
-          </PanelWindow>
-        )}
-      </span>
+          onClick={actions.canUngroup ? actions.ungroup : actions.group}
+        >
+          {actions.canUngroup ? t("menu.ungroup") : t("menu.group")}
+        </Button>
+      )}
+
+      <IconButton
+        icon="more"
+        size="compact"
+        label={t("inspector.moreActions")}
+        aria-haspopup="dialog"
+        onClick={actions.openProperties}
+      />
     </ObjectBar>
   );
 }

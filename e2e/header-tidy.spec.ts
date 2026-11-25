@@ -42,7 +42,7 @@ test("the room header has at most eight controls and every menu row is a command
     /^Room menu:/,
     /^People in the room:/,
     "Run",
-    /^Discussion/,
+    /^Comments/,
     "Invite",
     /^Account and interface/,
   ]) {
@@ -78,7 +78,7 @@ test("at 390 px five controls stay and the rest move into the account menu", asy
   await expect(page.locator(".topbar-mark")).toBeHidden();
   await expect(page.getByRole("button", { name: "Run", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Invite", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Discussion/ })).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Comments/ })).toBeHidden();
   await expect(page.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
 
   await openAccount(page);

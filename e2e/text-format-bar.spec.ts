@@ -108,7 +108,6 @@ test("the bar formats the caret's line while editing and shows what is pressed",
 
   const bar = page.getByRole("toolbar", { name: "Object properties" });
   const bullet = bar.getByRole("button", { name: /^Bulleted list/ });
-  const heading = bar.getByRole("button", { name: /^Heading 2/ });
 
   // The caret is on the second line: only that line becomes a list.
   await bullet.click();
@@ -122,7 +121,12 @@ test("the bar formats the caret's line while editing and shows what is pressed",
     },
   ]);
 
-  // Another format on the same line replaces it, and the pressed state follows.
+  // T8: the bar keeps six controls; the heading lives behind «⋯», in the panel.
+  await bar.getByRole("button", { name: "More actions" }).click();
+  await page.locator("aside.inspector details.properties-more > summary").click();
+  const heading = page
+    .locator("aside.inspector")
+    .getByRole("button", { name: /^Heading 2/ });
   await heading.click();
   await expect(heading).toHaveAttribute("aria-pressed", "true");
   await expect(bullet).toHaveAttribute("aria-pressed", "false");

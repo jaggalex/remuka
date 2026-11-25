@@ -33,6 +33,7 @@ export const ruChrome = {
   "search.oneObject": "Нужен один объект",
   "search.copyStyleFirst": "Сначала скопируйте стиль",
   "search.notRotatable": "Эти объекты не поворачиваются",
+  "search.notEditable": "У этого объекта нет текста для правки",
   "search.needTurned": "Объект не повёрнут",
   "search.nothingLocked": "Закреплённых объектов нет",
   "search.needTwo": "Нужно два объекта",
