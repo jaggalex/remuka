@@ -39,6 +39,7 @@ A sticky note has no transparency: its sheet is the object, and an invisible sti
 
 - **Rail.** The caret beside the **Sticky note** tool opens the palette for a new sticky note: 14 fills (100 and 300) plus White and Black. Yellow is marked as the default.
 - **Object bar.** Click the colour sample: a sticky note offers **Sheet colour** and **Text**, a shape offers presets, **Fill**, **Border** and **Text**, text offers the **Text** role, and a connector offers **Line** and **Text** (the connector label).
+- **Context menu.** Right-click a sticky note, a shape or a connector: **Colour ▸** opens the same grid with a ring on the current value. The title of the menu names the object: "Sticky note", "3 objects", "Canvas".
 - **Selection bar.** With several objects selected, the sample shows their shared fill or line. Mixed colours means the objects disagree: pick a colour to set one for all.
 - **Colour window.** Every role lives in one window: the grid, named values, Custom colour and keys 1–7.
 

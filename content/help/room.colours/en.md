@@ -30,6 +30,7 @@ A sticky note has no transparency: its sheet is the object.
 - **Text.** On a sticky note or a shape the **Text** role offers **Auto, Dark, Black, White**; on free text it offers **Auto, Black, White**.
 - **A connector.** The sample opens **Line** (**Auto, Black, None**), and when the connector has text, also **Text** (the connector label): **Auto, Black, White**.
 - **Several objects.** On the selection bar the sample shows the shared fill or line. Mixed colours means the objects disagree.
+- **The context menu.** Right-click a sticky note, a shape or a connector to open **Colour ▸**: the same grid of seven tones, with a ring on the current value. The title names what was clicked: "Sticky note", "3 objects", "Canvas".
 - **A kanban column.** Right-click its header to open **Column colour**: 14 swatches. Cards without a colour of their own follow the column, and the header shows the tone; the stripe under the title is gone.
 - **A card.** Right-click a card to open **Card colour**: 14 fills and **Same as column**.
 

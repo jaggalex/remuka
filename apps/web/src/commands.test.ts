@@ -76,10 +76,11 @@ const key = (k: string, options: { mod?: boolean; shift?: boolean } = {}) => ({
 });
 
 describe("the command list", () => {
-  it("offers the object actions in menu order", () => {
+  it("offers the object actions in registry order", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const ids = commandsFor("menu", contextFor(board)).map((command) => command.id);
     expect(ids).toEqual([
+      "colour",
       "copy",
       "paste",
       "cut",
@@ -128,30 +129,30 @@ describe("the command list", () => {
     const lock = commandById("lock")!;
     expect(lock.label(ctx)).toBe("menu.lock");
 
-    lock.run(ctx);
+    lock.run!(ctx);
     expect(board.widgets.get("w0")!.locked).toBe(true);
 
     const after = contextFor(board);
     expect(lock.label(after)).toBe("menu.unlock");
-    lock.run(after);
+    lock.run!(after);
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
   });
 
   it("records the author and refuses another editor's unlock", () => {
     const board = boardWith(["sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
     expect(board.widgets.get("w0")!.lockedBy).toBe("user-a");
     expect(board.widgets.get("w0")!.lockedByName).toBe("Ann");
 
     const refused = vi.fn();
     const other = { ...contextFor(board), actor: { id: "user-b", name: "Bob" }, refuseUnlock: refused };
-    lock.run(other);
+    lock.run!(other);
     expect(refused).toHaveBeenCalledWith("Ann");
     expect(board.widgets.get("w0")!.locked).toBe(true);
 
     // The author may unlock it; the author fields go with the lock.
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
     expect(board.widgets.get("w0")!.lockedBy).toBeUndefined();
   });
@@ -159,23 +160,23 @@ describe("the command list", () => {
   it("lets a board manager release somebody else's lock", () => {
     const board = boardWith(["sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
 
     const manager = { ...contextFor(board), actor: { id: "user-b", name: "Bob" }, canManage: true };
-    lock.run(manager);
+    lock.run!(manager);
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
   });
 
   it("unlocks every lock the caller may release", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board, ["w0"]));
-    lock.run({ ...contextFor(board, ["w1"]), actor: { id: "user-b", name: "Bob" } });
+    lock.run!(contextFor(board, ["w0"]));
+    lock.run!({ ...contextFor(board, ["w1"]), actor: { id: "user-b", name: "Bob" } });
 
     const before = contextFor(board);
     const unlockAll = commandById("unlockAll")!;
     expect(unlockAll.enabled(before)).toBe(true);
-    unlockAll.run(before);
+    unlockAll.run!(before);
     // Only Ann's lock is gone; Bob's still belongs to Bob.
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
     expect(board.widgets.get("w1")!.lockedBy).toBe("user-b");
@@ -185,7 +186,7 @@ describe("the command list", () => {
     const board = boardWith(["sticky_note", "text"]);
     const ctx = contextFor(board);
     const cleared = vi.fn();
-    commandById("delete")!.run({ ...ctx, select: cleared });
+    commandById("delete")!.run!({ ...ctx, select: cleared });
     expect(board.widgets.size).toBe(0);
     expect(cleared).toHaveBeenCalledWith([]);
   });
@@ -196,11 +197,11 @@ describe("the command list", () => {
     const order = () => paintOrder([...board.widgets.values()]).map((widget) => widget.id);
 
     expect(order()).toEqual(["w0", "w1"]);
-    commandById("forward")!.run(ctx);
+    commandById("forward")!.run!(ctx);
     expect(order()).toEqual(["w1", "w0"]);
 
     // Already on top: another step changes nothing.
-    commandById("forward")!.run(contextFor(board, ["w0"]));
+    commandById("forward")!.run!(contextFor(board, ["w0"]));
     expect(order()).toEqual(["w1", "w0"]);
   });
 
@@ -222,16 +223,16 @@ describe("the command list", () => {
       ...board.widgets.get("w0")!,
       style: { fillColor: "#1a1a1a" },
     });
-    commandById("copyStyle")!.run(ctx(["w0"]));
+    commandById("copyStyle")!.run!(ctx(["w0"]));
     expect(commandById("pasteStyle")!.enabled(ctx(["w1"]))).toBe(true);
 
     // A locked target keeps its own fill.
-    commandById("lock")!.run(ctx(["w1"]));
-    commandById("pasteStyle")!.run(ctx(["w1"]));
+    commandById("lock")!.run!(ctx(["w1"]));
+    commandById("pasteStyle")!.run!(ctx(["w1"]));
     expect(board.widgets.get("w1")!.style?.fillColor).toBe("#ffdd33");
 
-    commandById("lock")!.run(ctx(["w1"]));
-    commandById("pasteStyle")!.run(ctx(["w1"]));
+    commandById("lock")!.run!(ctx(["w1"]));
+    commandById("pasteStyle")!.run!(ctx(["w1"]));
     expect(board.widgets.get("w1")!.style?.fillColor).toBe("#1a1a1a");
   });
 });
@@ -377,7 +378,7 @@ describe("grouping", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const ctx = contextFor(board);
     const selected = vi.fn();
-    commandById("group")!.run({ ...ctx, select: selected });
+    commandById("group")!.run!({ ...ctx, select: selected });
 
     const groupId = board.widgets.get("w0")!.groupId;
     expect(groupId).toBeTruthy();

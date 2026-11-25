@@ -667,7 +667,7 @@ export const ruCore = {
   "delete.linkConsequence": "Ссылка для всех будет выключена и перестанет открывать комнату.",
   "menu.newColumn": "Новая колонка",
   "menu.newSwimlane": "Новая дорожка",
-  "menu.canvas": "Канвас",
+  "menu.canvas": "Холст",
   "menu.copy": "Копировать",
   "menu.copyLink": "Копировать ссылку",
   "menu.cut": "Вырезать",

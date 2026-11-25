@@ -573,7 +573,7 @@ export function BoardCanvas({
       <canvas ref={boardRef} className="layer board" />
       <canvas
         ref={overlayRef}
-        className="layer overlay"
+        className="layer overlay" tabIndex={-1}
         style={canvasCursor({ rotationHover, hoverAnchor: Boolean(hoverAnchor), kanban: kanbanCursor })}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

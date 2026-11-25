@@ -5,6 +5,8 @@ import {
   groupWidgets,
   reorderWidgets,
   rotateWidgets,
+  setConnectorProps,
+  setFillColor,
   setLocked,
   setWidgetRotation,
   styleSnapshotOf,
@@ -12,10 +14,22 @@ import {
   type BoardDocument,
   type StyleSnapshot,
 } from "@remo/doc";
-import { canUnlock, isRotatable, kindOf, lockAuthorName, type Widget } from "@remo/model";
+import {
+  canUnlock,
+  FILL_LEVELS,
+  isRotatable,
+  kindOf,
+  lockAuthorName,
+  TONE_LEVELS,
+  TONES,
+  type ColorLevel,
+  type Widget,
+} from "@remo/model";
 import type { IconName } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 import { CHROME_COMMANDS } from "./commandsChrome";
+import { colorName } from "./object-panel/colorWindowData";
+import { commonColour } from "./floatingTargets";
 
 // The chrome list lives in its own module for the size ratchet; this file remains the
 // registry's public surface, so every consumer still imports one thing.
@@ -96,6 +110,42 @@ export type CommandSurface = "menu" | "panel" | "header" | "palette";
 /** What a command is for, and therefore which menu it appears in (ADR-266 §1.1). */
 export type CommandIntent = "invite" | "run" | "agent" | "room" | "account" | "canvas" | "help";
 
+/**
+ * The group a canvas menu row belongs to, in the order the mockup reads them
+ * (ADR-267 §3): what the object is for, the clipboard, its place on the board, and
+ * the one dangerous action last. A row carries its group instead of the menu holding
+ * a list of ids, so adding a command cannot land it between two unrelated groups.
+ */
+export type CommandGroup = "main" | "clipboard" | "arrange" | "danger";
+
+/** The groups in reading order; the danger group is always last (ADR-267 §3). */
+export const COMMAND_GROUPS: readonly CommandGroup[] = ["main", "clipboard", "arrange", "danger"];
+
+/** One swatch of a grid a command opens instead of acting at once. */
+export interface CommandGridChoice {
+  /** The value the command writes (a stored hex). */
+  value: string;
+  /** The colour's word — the same key the colour window uses (ADR-127). */
+  label: TranslationKey;
+}
+
+/**
+ * A submenu a menu row opens: the palette grid of ADR-267 §3.
+ *
+ * The grid is data on the command, not markup in the menu: the palette, the current
+ * value and the document write stay in the registry, so the context menu and the
+ * column menu cannot offer different swatches for the same colour.
+ */
+export interface CommandGrid {
+  title: TranslationKey;
+  choices: readonly CommandGridChoice[];
+  /** The current value as lower-case hex, or "" when the selection disagrees. */
+  current: string;
+  pick: (value: string) => void;
+  /** A named choice under the grid, e.g. "Same as the column" (ADR-267 §2.1). */
+  reset?: { label: TranslationKey; active: boolean; pick: () => void };
+}
+
 /** Words people type when they mean a command, in both interface languages. */
 export interface CommandSynonyms {
   ru: readonly string[];
@@ -155,13 +205,85 @@ export interface Command {
   id: string;
   /** i18n key, resolved by the caller (a lock reads Lock or Unlock). */
   label: (ctx: CommandContext) => string;
+  /** Which canvas-menu group the row sits in (ADR-267 §3). */
+  group: CommandGroup;
+  /** The 16 px icon of the row (ADR-265 §3.7). */
+  icon?: IconName;
+  /**
+   * The title of this command's submenu, when it opens one instead of acting.
+   *
+   * The menu's own title is about the target ("Sticky note", "3 objects") and comes from
+   * `boardMenu.ts`, because it names what was right-clicked, not what can be done.
+   */
+  menuTitle?: TranslationKey;
   /** The key combination that runs it, if any. */
   shortcut?: Shortcut;
   surfaces: readonly CommandSurface[];
   danger?: boolean;
   enabled: (ctx: CommandContext) => boolean;
-  run: (ctx: CommandContext) => void;
+  /**
+   * A grid this row opens rather than a change it makes (ADR-267 §3). A grid row has
+   * no `run`: its swatches are what write, which keeps "one descriptor, one action".
+   */
+  grid?: (ctx: CommandContext) => CommandGrid | null;
+  run?: (ctx: CommandContext) => void;
 }
+
+/** Run what a command does; a grid row has no action of its own to run. */
+export function runCommand(command: Command, ctx: CommandContext): void {
+  command.run?.(ctx);
+}
+
+/**
+ * The swatches of a palette grid, seven tones per row in the model's order (ADR-127).
+ * The object menu and the bespoke column and card menus both read this.
+ */
+export function paletteChoices(levels: readonly ColorLevel[]): CommandGridChoice[] {
+  return levels.flatMap((level) =>
+    TONES.map((tone) => {
+      const value = TONE_LEVELS[tone][level as 100 | 300 | 600];
+      return { value, label: colorName(value).key };
+    }),
+  );
+}
+
+/** The colour grid a menu row opens, built from the one model table. */
+function paletteGrid(
+  levels: readonly ColorLevel[],
+  current: string,
+  pick: (value: string) => void,
+): CommandGrid {
+  return { title: "menu.colour", choices: paletteChoices(levels), current, pick };
+}
+
+/**
+ * The key shown at the right of a menu row (ADR-267 §3).
+ *
+ * The product's help and copy already speak ⌘ on every platform, so the menu does too:
+ * a second spelling here would make the row disagree with the page it links to.
+ */
+export function shortcutLabel(shortcut: Shortcut): string {
+  const keys = typeof shortcut.key === "string" ? [shortcut.key] : shortcut.key;
+  const key = keys[0] ?? "";
+  const named: Record<string, string> = {
+    arrowleft: "←",
+    arrowright: "→",
+    arrowup: "↑",
+    arrowdown: "↓",
+    backspace: "Del",
+    delete: "Del",
+    enter: "Enter",
+    " ": "Space",
+  };
+  const name = named[key] ?? (key.length === 1 ? key.toUpperCase() : key);
+  return `${shortcut.shift ? "⇧" : ""}${shortcut.mod ? "⌘" : ""}${name}`;
+}
+
+/**
+ * "Find an action ⌘K" belongs to T7 (ADR-266 §1.2): the search surface does not exist
+ * yet, so the row stays hidden; T7 registers `search.open` and flips this constant.
+ */
+export const SEARCH_IN_CONTEXT_MENU = false;
 
 /* ------------------------------------------------------------- predicates --- */
 
@@ -228,8 +350,35 @@ function hasTurned(ctx: CommandContext): boolean {
 
 export const COMMANDS: readonly Command[] = [
   {
+    id: "colour",
+    label: () => "menu.colour",
+    group: "main",
+    icon: "palette",
+    menuTitle: "menu.colour",
+    surfaces: ["menu"],
+    enabled: (ctx) => commonColour(selectedWidgets(ctx).filter((widget) => !widget.locked)) != null,
+    grid: (ctx) => {
+      const selected = selectedWidgets(ctx).filter((widget) => !widget.locked);
+      const common = commonColour(selected);
+      if (!common) return null;
+      const current = common.mixed ? "" : common.value.toLowerCase();
+      // The same rows the colour window draws for this role: fills take 100 and 300,
+      // a line takes 600 (ADR-127). A second palette here would be a second truth.
+      if (common.role === "fill") {
+        return paletteGrid(FILL_LEVELS, current, (value) =>
+          setFillColor(ctx.board, ctx.ids, value),
+        );
+      }
+      return paletteGrid([600], current, (value) =>
+        setConnectorProps(ctx.board, ctx.ids, { strokeColor: value }),
+      );
+    },
+  },
+  {
     id: "copy",
     label: () => "menu.copy",
+    group: "clipboard",
+    icon: "copy",
     shortcut: { key: "c", mod: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -238,6 +387,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "paste",
     label: () => "menu.paste",
+    group: "clipboard",
+    icon: "plus",
     shortcut: { key: "v", mod: true, always: true },
     surfaces: ["menu", "panel"],
     enabled: () => true,
@@ -246,6 +397,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "cut",
     label: () => "menu.cut",
+    group: "clipboard",
+    icon: "cut",
     shortcut: { key: "x", mod: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -254,6 +407,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "duplicate",
     label: () => "menu.duplicate",
+    group: "clipboard",
+    icon: "duplicate",
     shortcut: { key: "d", mod: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -262,6 +417,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "copyLink",
     label: () => "menu.copyLink",
+    group: "clipboard",
+    icon: "link",
     surfaces: ["menu", "panel"],
     enabled: (ctx) => singleSelected(ctx) && Boolean(ctx.copyLink),
     run: (ctx) => {
@@ -272,6 +429,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "copyStyle",
     label: () => "menu.copyStyle",
+    group: "clipboard",
+    icon: "palette",
     surfaces: ["menu"],
     enabled: hasSelection,
     run: (ctx) => {
@@ -284,6 +443,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "pasteStyle",
     label: () => "menu.pasteStyle",
+    group: "clipboard",
+    icon: "palette",
     surfaces: ["menu"],
     enabled: (ctx) => hasSelection(ctx) && hasStyleClipboard(ctx),
     run: (ctx) => {
@@ -295,6 +456,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "clearContent",
     label: () => "menu.clearContent",
+    group: "main",
+    icon: "clear-format",
     surfaces: ["menu"],
     enabled: hasSelection,
     run: (ctx) => clearContent(ctx.board, ctx.ids),
@@ -302,6 +465,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "rotate90",
     label: () => "menu.rotate90",
+    group: "main",
+    icon: "redo",
     surfaces: ["menu", "panel", "palette"],
     enabled: hasRotatable,
     run: (ctx) => rotateWidgets(ctx.board, ctx.ids, 90),
@@ -309,6 +474,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "resetRotation",
     label: () => "menu.resetRotation",
+    group: "main",
+    icon: "undo",
     surfaces: ["menu", "panel", "palette"],
     enabled: hasTurned,
     run: (ctx) => setWidgetRotation(ctx.board, ctx.ids, 0),
@@ -316,6 +483,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "rotateLeft15",
     label: () => "menu.rotateLeft15",
+    group: "main",
+    icon: "undo",
     shortcut: { key: "arrowleft", mod: true, shift: true },
     surfaces: [],
     enabled: hasRotatable,
@@ -324,6 +493,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "rotateRight15",
     label: () => "menu.rotateRight15",
+    group: "main",
+    icon: "redo",
     shortcut: { key: "arrowright", mod: true, shift: true },
     surfaces: [],
     enabled: hasRotatable,
@@ -332,6 +503,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "info",
     label: () => "menu.info",
+    group: "main",
+    icon: "info",
     surfaces: ["menu", "panel"],
     enabled: singleSelected,
     run: (ctx) => {
@@ -342,6 +515,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "front",
     label: () => "menu.front",
+    group: "arrange",
+    icon: "layer-top",
     shortcut: { key: "]", mod: true, shift: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -350,6 +525,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "forward",
     label: () => "menu.forward",
+    group: "arrange",
+    icon: "layer-up",
     shortcut: { key: "]", mod: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -358,6 +535,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "backward",
     label: () => "menu.backward",
+    group: "arrange",
+    icon: "layer-down",
     shortcut: { key: "[", mod: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -366,6 +545,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "back",
     label: () => "menu.back",
+    group: "arrange",
+    icon: "layer-bottom",
     shortcut: { key: "[", mod: true, shift: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -374,6 +555,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "lock",
     label: (ctx) => (allLocked(ctx) ? "menu.unlock" : "menu.lock"),
+    group: "arrange",
+    icon: "lock",
     shortcut: { key: "l", mod: true, shift: true },
     surfaces: ["menu", "panel"],
     enabled: hasSelection,
@@ -397,6 +580,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "unlockAll",
     label: () => "lock.unlockAll",
+    group: "main",
+    icon: "unlock",
     surfaces: ["menu"],
     // The caller's own locks, plus everything when the caller is a board manager.
     enabled: (ctx) =>
@@ -413,6 +598,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "tidy",
     label: () => "tidy.action",
+    group: "main",
+    icon: "tidy",
     surfaces: ["menu", "panel"],
     enabled: (ctx) => hasSelection(ctx) && Boolean(ctx.tidy),
     run: (ctx) => ctx.tidy?.(ctx.ids),
@@ -420,6 +607,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "group",
     label: () => "menu.group",
+    group: "arrange",
+    icon: "group-make",
     shortcut: { key: "g", mod: true, always: true },
     surfaces: ["menu", "panel"],
     enabled: isGroupable,
@@ -437,6 +626,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "ungroup",
     label: () => "menu.ungroup",
+    group: "arrange",
+    icon: "group-break",
     shortcut: { key: "g", mod: true, shift: true, always: true },
     surfaces: ["menu", "panel"],
     enabled: selectionHasGroup,
@@ -445,6 +636,8 @@ export const COMMANDS: readonly Command[] = [
   {
     id: "delete",
     label: () => "menu.delete",
+    group: "danger",
+    icon: "trash",
     shortcut: { key: ["backspace", "delete"] },
     surfaces: ["menu", "panel"],
     danger: true,

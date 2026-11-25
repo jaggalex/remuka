@@ -24,6 +24,7 @@ export function useBoardContextMenu({
   setSelectedIds,
   menuPoint,
   t,
+  count,
   onNotice,
 }: {
   board: BoardDocument;
@@ -37,6 +38,7 @@ export function useBoardContextMenu({
   /** Where the last menu was opened, so a command that needs a point can use it. */
   menuPoint: MutableRefObject<{ x: number; y: number } | null>;
   t: (key: TranslationKey) => string;
+  count: (key: "objects", n: number) => string;
   onNotice?: (text: string) => void;
 }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -57,6 +59,7 @@ export function useBoardContextMenu({
         duplicateIds,
         pasteSelection,
         t,
+        count,
         onNotice,
       });
       if (result.select) setSelectedIds(result.select);
@@ -72,6 +75,7 @@ export function useBoardContextMenu({
       pasteSelection,
       setSelectedIds,
       t,
+      count,
       writeBlocked,
       onNotice,
     ],

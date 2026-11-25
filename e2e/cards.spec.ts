@@ -275,7 +275,9 @@ test("a column's colour comes from its menu and paints its cards", async ({ page
     };
   });
   await page.mouse.click(header.x, header.y, { button: "right" });
-  const colour = page.getByRole("group", { name: "Column colour" });
+  // The colour is a submenu of the column menu (ADR-267 §3, T6).
+  await page.getByRole("menuitem", { name: "Column colour" }).click();
+  const colour = page.getByRole("menu", { name: "Column colour" });
   await expect(colour.getByRole("menuitemradio")).toHaveCount(14);
   await colour.getByRole("menuitemradio", { name: "Deep blue" }).click();
 
@@ -295,8 +297,9 @@ test("a column's colour comes from its menu and paints its cards", async ({ page
 
   // The menu shows the colour it has now.
   await page.mouse.click(header.x, header.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Column colour" }).click();
   await expect(
-    page.getByRole("group", { name: "Column colour" }).getByRole("menuitemradio", { name: "Deep blue" }),
+    page.getByRole("menu", { name: "Column colour" }).getByRole("menuitemradio", { name: "Deep blue" }),
   ).toHaveAttribute("aria-checked", "true");
 });
 
@@ -416,7 +419,8 @@ test("a card takes its column's colour and keeps only a chosen one", async ({ pa
   // A chosen colour wins and survives a move; "Same as column" clears it again.
   const moved = (await cardOnBoard(page, backlog.cardId!))!;
   await page.mouse.click(moved.centre.x, moved.centre.y, { button: "right" });
-  const cardColour = page.getByRole("group", { name: "Card colour" });
+  await page.getByRole("menuitem", { name: "Card colour" }).click();
+  const cardColour = page.getByRole("menu", { name: "Card colour" });
   // Fourteen fills plus "Same as column".
   await expect(cardColour.getByRole("menuitemradio")).toHaveCount(15);
   await cardColour.getByRole("menuitemradio", { name: "Blue", exact: true }).click();
@@ -437,8 +441,9 @@ test("a card takes its column's colour and keeps only a chosen one", async ({ pa
 
   const afterMove = (await cardOnBoard(page, backlog.cardId!))!;
   await page.mouse.click(afterMove.centre.x, afterMove.centre.y, { button: "right" });
+  await page.getByRole("menuitem", { name: "Card colour" }).click();
   await page
-    .getByRole("group", { name: "Card colour" })
+    .getByRole("menu", { name: "Card colour" })
     .getByRole("menuitemradio", { name: "Same as column" })
     .click();
   await expect

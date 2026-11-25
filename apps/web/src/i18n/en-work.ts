@@ -5,6 +5,8 @@
  * `keyof typeof en` in i18n.tsx remains the single type (ADR-093).
  */
 export const enWork = {
+  // The canvas context menu (ADR-267).
+  "menu.colour": "Colour",
   "shape.kind": "Kind",
   "shape.kindTitle": "Shape kind",
   "shape.kindMixed": "Mixed",

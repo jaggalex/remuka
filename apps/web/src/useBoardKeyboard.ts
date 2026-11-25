@@ -7,7 +7,7 @@ import {
   tableCellSelection,
 } from "./tableCellSelection";
 import { isEditable } from "./BoardCanvas";
-import { commandForShortcut, type CommandContext } from "./commands";
+import { commandForShortcut, runCommand, type CommandContext } from "./commands";
 import type { RailTool } from "./ToolRail";
 import { openImageViewer } from "./imageViewer";
 import type { BarBlock } from "./textFormatBar";
@@ -239,7 +239,7 @@ useEffect(() => {
     const command = commandForShortcut(event, commandContext);
     if (command) {
       event.preventDefault();
-      command.run(commandContext);
+      runCommand(command, commandContext);
       return;
     }
 

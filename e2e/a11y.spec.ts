@@ -14,6 +14,7 @@ import {
   register,
   seedNote,
   seedObject,
+  seedStableNote,
   selectKanbanCard,
   zoomInTo,
 } from "./helpers";
@@ -92,6 +93,37 @@ test("the four header menus have no serious accessibility violations", async ({ 
 
   await openAccount(page);
   await expectNoSerious(page, "account menu");
+});
+
+test("the canvas context menu has no serious accessibility violations", async ({ page }) => {
+  await freshBoard(page, "a11y-context-menu");
+  await seedStableNote(page, { id: "a11y-menu-note", x: 0, y: 0, text: "Note" });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  // The note is 160 × 180 at the origin: its centre is at (80, 90) in board units.
+  const point = await page.evaluate(() => {
+    const probe = (window as unknown as {
+      __remo: { camera: { x: number; y: number; zoom: number } };
+    }).__remo;
+    const canvas = document.querySelector<HTMLCanvasElement>(".layer.overlay")!;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 + (80 - probe.camera.x) * probe.camera.zoom,
+      y: rect.top + rect.height / 2 + (90 - probe.camera.y) * probe.camera.zoom,
+    };
+  });
+  await page.mouse.click(point.x, point.y, { button: "right" });
+  const menu = page.getByRole("menu", { name: "Sticky note" });
+  await expect(menu).toBeVisible();
+  await expectNoSerious(page, "object context menu");
+  await menu.getByRole("menuitem", { name: "Colour" }).click();
+  const grid = page.getByRole("menu", { name: "Colour" });
+  await expect(grid).toBeVisible();
+  await expectNoSerious(page, "colour grid");
+  await page.keyboard.press("Escape");
+  await expect(grid).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
 test("dialogs have no serious accessibility violations", async ({ page }) => {

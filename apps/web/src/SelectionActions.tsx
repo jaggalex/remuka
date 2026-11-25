@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BoardDocument } from "@remo/doc";
 import type { Widget } from "@remo/model";
 import { IconButton, Menu, Tooltip, type IconName, type MenuItem } from "@remo/ui";
-import { commandById, type CommandContext } from "./commands";
+import { commandById, runCommand, type CommandContext } from "./commands";
 import { isEditable } from "./BoardCanvas";
 import { useI18n, type TranslationKey } from "./i18n";
 import { elevationMenuItems } from "./elevationMenu";
@@ -76,7 +76,7 @@ export function SelectionActions({
           label={label}
           disabled={!command.enabled(commandContext)}
           selected={extra?.selected}
-          onClick={() => command.run(commandContext)}
+          onClick={() => runCommand(command, commandContext)}
         />
       </Tooltip>
     );
@@ -88,7 +88,7 @@ export function SelectionActions({
       ? {
           label: t(command.label(commandContext) as TranslationKey),
           disabled: !command.enabled(commandContext),
-          onSelect: () => command.run(commandContext),
+          onSelect: () => runCommand(command, commandContext),
         }
       : null;
   };

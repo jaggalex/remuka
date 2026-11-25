@@ -49,7 +49,7 @@ import { DEFAULT_SETTINGS, loadSettings, type BoardSettings } from "./settings";
 export function useBoardAppState() {
   const board = useMemo(() => new BoardDocument(), []);
   const { widgets, kanbanStates, title, groupNames, tags, allowBringEveryone } = useBoard(board);
-  const { t, typeName, lang, setLang } = useI18n();
+  const { t, count, typeName, lang, setLang } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [focusedWaypoint, setFocusedWaypoint] = useState<{
     connectorId: string;
@@ -528,6 +528,7 @@ export function useBoardAppState() {
     setSelectedIds,
     menuPoint,
     t,
+    count,
     onNotice: showNotice,
   });
 
