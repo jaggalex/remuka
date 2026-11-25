@@ -12015,3 +12015,32 @@ enthusiast and miss adoption. A generic `feature` dimension with `chrome:<id>` v
 would give one key two meanings. Writing a metric per control would flood the catalogue
 and lose export suppression. Computing the share on read from daily rows is impossible
 without identifiers, and reading `metrics_events` from the panel is forbidden (§4.6).
+
+## ADR-295: Separate product delivery, internal working context and support service
+
+**Status:** proposed (2026-11-25, repository migration).
+
+**Context.** The product, private design process and external support service need independent
+repositories. The original working directory remains the recovery source during migration.
+
+**Decision.** Public Remuka retains source, technical contracts, test baselines, generators,
+asset sources and self-hosting documentation. Internal plans, mockup sources, review context
+and host-specific runbooks belong to remuka-internal. The separate remuka-support receives
+a versioned handoff of its specification and Support artboards. Secrets and execution artifacts
+are excluded from all three repositories. The support implementation is a subsequent task.
+
+ADR-286/287/290 are amended for repository boundaries: private mockup review remains an
+internal acceptance step; required public CI must run without private checkouts. Public
+contributors use public behavior contracts, tokens and product baselines. Technical ADR
+history remains intact; historical links may refer to documents archived in the internal
+repository. Files are transferred with source commit and SHA-256 inventory. Existing
+production deployments and remote branches are not changed by this migration.
+
+**Acceptance.** Frozen-lockfile install, full verify including browser acceptance, Docker
+builds and an isolated self-host smoke test must pass from a clean public export. Hash
+verification, standalone repository roots, secret/artifact exclusion and absence of private
+filesystem dependencies are separate gates. A prepared tree is not a passed release gate.
+
+**Consequences.** Runtime build inputs may remain under legacy spec/design paths until
+a separately tested relocation; a directory name alone does not decide publication.
+Infrastructure runbooks need sanitization before their public/internal split is accepted.

@@ -95,9 +95,8 @@ The test database is separate from development: `pnpm test:db:up`, then
 - `guide/<section>/<page>/` — the connected product guide. RU source, EN translation.
 - `docs/` — self-hosting and architecture notes.
 - `ADR.md` — the decision history.
-- `docs/design/mockups/` — the mockups (ADR-287): each artboard's source with exact styles,
-  texts and states; `index.json` maps tasks to artboards; reference PNGs are in
-  `docs/design/reference/`. A screen must match its mockup (ADR-286). Read-only for agents.
+- Internal mockups and design tasks live in `remuka-internal`; they are not inputs to public CI.
+  Public behavior contracts, design tokens and test baselines remain in this repository (ADR-295).
 
 `pnpm docs:check` and `pnpm guide:check` fail on a stale translation or a broken link.
 A page is finished only after a fresh reader has reviewed it against `guide/style.md`.
@@ -116,7 +115,7 @@ _Факты дерева, проверяются `pnpm state:check`; числа 
 
 | Факт | Значение |
 |---|---|
-| ADR | 294, последний — ADR-294 |
+| ADR | 295, последний — ADR-295 |
 | Версия схемы | 40 |
 | Браузерные сценарии | 314 в 58 файлах |
 | Темы помощи | 46 (RU + EN) |

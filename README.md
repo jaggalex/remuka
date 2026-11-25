@@ -7,7 +7,7 @@ static client over PostgreSQL.
 [![CI](https://github.com/jaggalex/remuka/actions/workflows/ci.yml/badge.svg)](https://github.com/jaggalex/remuka/actions/workflows/ci.yml)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
 
-![Remuka room](docs/screenshots/room.png)
+![Remuka room](spec/baselines/board.png)
 
 > **Status: 0.8.0 alpha.** The product is usable and self-hosted, but interfaces and
 > formats may still change. It is provided **as is**, without warranty — see the

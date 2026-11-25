@@ -82,9 +82,9 @@
 
 | Имя | Тип | Значение |
 |---|---|---|
-| `remuka.com`, `www`, `app`, `docs` | A | 87.106.94.6 |
-| `remuka.ru`, `www`, `app`, `docs` | A | 185.171.83.153 |
-| `remo.letii.ru`, `docs.remo.letii.ru` | A | 87.106.94.6 (сервер ЕС, без изменений) |
+| `remuka.com`, `www`, `app`, `docs` | A | 192.0.2.10 |
+| `remuka.ru`, `www`, `app`, `docs` | A | 192.0.2.20 |
+| `remo.letii.ru`, `docs.remo.letii.ru` | A | 192.0.2.10 (сервер ЕС, без изменений) |
 | `api.remuka.com`, `api.remuka.ru` | — | **удалить** |
 | `remuka.com`, `remuka.ru` | CAA | `0 issue "letsencrypt.org"` |
 | `mail.remuka.com` | TXT, CNAME, MX | по инструкции Resend: SPF, DKIM, return-path |
@@ -167,7 +167,7 @@
 
 | Ключ | ЕС | РФ |
 |---|---|---|
-| `REMO_DEPLOY_HOST` | `deploy@87.106.94.6` | `deploy@185.171.83.153` |
+| `REMO_DEPLOY_HOST` | `deploy@192.0.2.10` | `deploy@192.0.2.20` |
 | `REMO_APP_ORIGIN` | `https://app.remuka.com` | `https://app.remuka.ru` |
 | `REMO_DOCS_ORIGIN` | `https://docs.remuka.com` | `https://docs.remuka.ru` |
 

@@ -1,7 +1,7 @@
 # The test stand: two zones on one machine
 
 For the current two-VPS deployment, access credentials, readiness limits and the acceptance
-procedure, see [Как войти на stage и провести приёмку](stage-testing.md).
+procedure, see [Как войти на stage и провести приёмку](../../spec/stage.md#8-приёмка).
 
 The stand is where interface acceptance (`spec/ui-acceptance.md`) runs: it creates accounts,
 payments and deletions, so it must not be production. It repeats the cloud as two independent

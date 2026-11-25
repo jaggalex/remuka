@@ -9,7 +9,7 @@ are in DNS), passwords and keys stay in `/srv/remo/shared/production.env`.
 
 | | EU installation | Russian installation |
 |---|---|---|
-| Server | `87.106.94.6` | `185.171.83.153` (temporary; moving the server keeps the addresses) |
+| Server | `192.0.2.10` | `192.0.2.20` (temporary; moving the server keeps the addresses) |
 | Application | `app.remuka.com` | `app.remuka.ru` |
 | Site (apex) | `remuka.com` | `remuka.ru` |
 | Guide | `docs.remuka.com` | `docs.remuka.ru` |
@@ -61,9 +61,9 @@ carries `$request_uri` until a landing page actually replaces the application th
 
 | Name | Type | Value |
 |---|---|---|
-| `remuka.com`, `www`, `app`, `docs` | A | `87.106.94.6` |
-| `remuka.ru`, `www`, `app`, `docs` | A | `185.171.83.153` |
-| Old application and documentation hosts | A | `87.106.94.6` (EU server, unchanged) |
+| `remuka.com`, `www`, `app`, `docs` | A | `192.0.2.10` |
+| `remuka.ru`, `www`, `app`, `docs` | A | `192.0.2.20` |
+| Old application and documentation hosts | A | `192.0.2.10` (EU server, unchanged) |
 | `api.remuka.com`, `api.remuka.ru` | — | delete: a reserved address without a certificate looks broken |
 | `remuka.com`, `remuka.ru` | CAA | `0 issue "letsencrypt.org"` |
 | `mail.remuka.com` | TXT, CNAME, MX | per the mail provider: SPF, DKIM, return-path |
