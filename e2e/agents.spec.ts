@@ -111,7 +111,7 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   await expect(page.locator(".agent-file-chip")).toContainText("stories.csv");
   await expect(page.locator(".agent-file-chip")).toContainText(".csv");
 
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
 
   // Polling turns "plan ready" into the preview; nothing has touched the board yet.
   const plan = page.getByRole("dialog", { name: "Agent plan" });
@@ -194,7 +194,7 @@ test("a plan applied in one tab is not written again from a second tab", async (
   await page
     .getByLabel("What should it draw?")
     .fill("Собери US-карту для оформления заказа");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -237,7 +237,7 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
   await page
     .getByLabel("What should it draw?")
     .fill("Соедини две заметки FAKE_PLAN_CONNECTED");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -308,7 +308,7 @@ test("an out-of-bounds plan is readable but cannot be applied", async ({ page })
   await page
     .getByLabel("What should it draw?")
     .fill("Собери карту FAKE_PLAN_OUT_OF_BOUNDS");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -338,7 +338,7 @@ test("the attach field refuses a wrong type and an oversized file in words", asy
   await expect(page.locator(".agent-file [role=alert]")).toContainText(
     "Attach a .md, .txt or .csv file",
   );
-  await expect(page.getByRole("button", { name: "Ask the agent" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Ask the agent", exact: true })).toBeDisabled();
   await expect(page.locator(".agent-file-limits")).toContainText("100 000 bytes");
 
   await page.locator('.agent-file input[type="file"]').setInputFiles({

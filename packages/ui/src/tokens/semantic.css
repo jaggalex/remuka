@@ -14,7 +14,11 @@
   --sticker-cast: var(--alpha-umber-60);
   --brand-mark-circle: var(--orange-300);
   --brand-mark-square: var(--blue-300);
+  --type-page-hero: 800 56px/57px var(--font-sans);
+  --type-hero: 800 40px/42px var(--font-sans);
   --type-display: 800 28px/32px var(--font-sans);
+  --type-title-lg: 800 28px/32px var(--font-sans);
+  --type-section: 800 26px/30px var(--font-sans);
   --type-title: 800 22px/28px var(--font-sans);
   --type-path: 400 18px/24px var(--font-sans);
   --type-subtitle: 500 15px/22px var(--font-sans);

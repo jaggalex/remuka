@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Banner, Button, Dialog, Input, Select } from "@remo/ui";
+import { Banner, Button, Checkbox, Dialog, Input, Select, Switch } from "@remo/ui";
 import { api, type Grant, type OrgMember } from "./api";
 import { formatMoment } from "./format";
 import { useI18n } from "./i18n";
@@ -193,6 +193,12 @@ export function ShareDialog({
 
   // The account menu answers the same question; one sentence, one place (roleSource.ts).
   const roleLine = roleSourceLine(t, viewerRole, viewerSources);
+  // The seven-day plate is a preset of the existing expiry, not a second kind of expiry:
+  // it is ticked only when the date is that preset, and a custom date keeps the field.
+  const sevenDays = link?.expiresAt
+    ? Math.abs(new Date(link.expiresAt).getTime() - Date.now() - 7 * 24 * 60 * 60 * 1000) <
+      60 * 60 * 1000
+    : false;
   const roleOptions = (["viewer", "commenter", "editor", "coowner"] as const).map((value) => ({
     value,
     label: t(`role.${value}`),
@@ -200,8 +206,9 @@ export function ShareDialog({
 
   return (
     <Dialog
+      className="share-dialog"
       title={t("share.title")}
-      description={boardTitle}
+      description={t("share.roomLine", { room: boardTitle || t("board.untitled") })}
       help={<HelpLink topicId="access.share" />}
       size="md"
       onClose={onClose}
@@ -209,7 +216,8 @@ export function ShareDialog({
       <div className="share-body">
         {error && <Banner tone="danger">{error}</Banner>}
 
-        <section className="share-group">
+        <section className="share-group" aria-labelledby="share-invite-title">
+          <h3 id="share-invite-title" className="share-group-title">{t("share.who")}</h3>
           <form
             className="share-invite-form"
             onSubmit={(event) => {
@@ -250,32 +258,36 @@ export function ShareDialog({
           >
             <Input
               type="email"
-              label={t("share.person")}
               placeholder={t("share.emailPlaceholder")}
+              aria-label={t("share.who")}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
             <Select
-              label={t("share.role")}
+              aria-label={t("share.role")}
               options={roleOptions}
               value={role}
               onChange={(event) => setRole(event.target.value)}
             />
-            <Button type="submit" variant="primary" disabled={busy || !email.trim()}>
+            <Button type="submit" variant="primary" className="share-invite-submit" disabled={busy || !email.trim()}>
               {t("share.invite")}
             </Button>
           </form>
-          <p className="share-caption">{t("share.acceptNote")}</p>
-          {roleLine && <p className="share-caption">{roleLine}</p>}
+          <p className="share-caption">{t("share.note")}</p>
 
           {needsVerification && <EmailVerificationNeeded />}
-          {inviteSentTo && <InviteSent email={inviteSentTo} />}
+          {inviteSentTo && (
+            <>
+              <Banner tone="success">{t("share.sent")}</Banner>
+              <InviteSent email={inviteSentTo} />
+            </>
+          )}
 
           {inviteUrl && (
             <div className="share-copy">
               <Input
                 readOnly
-                label={t("share.inviteReady")}
+                aria-label={t("share.inviteReady")}
                 value={inviteUrl}
                 onFocus={(event) => event.target.select()}
               />
@@ -290,9 +302,187 @@ export function ShareDialog({
             </div>
           )}
 
+          {grants.length > 0 && (
+            <div className="share-chips" aria-label={t("share.peopleHere")}>
+              {grants.map((grant, index) => {
+                const label =
+                  grant.subject_name ??
+                  grant.subject_email ??
+                  (grant.subject_type === "user" ? t("share.person") : t(`share.${grant.subject_type}` as "share.org"));
+                return (
+                  <span className="share-chip" key={`${grant.subject_type}:${grant.subject_id}`}>
+                    <span
+                      className="share-chip-dot"
+                      aria-hidden="true"
+                      style={{ background: `var(--presence-${(index % 6) + 1})` }}
+                    >
+                      {label.slice(0, 1).toUpperCase()}
+                    </span>
+                    {grant.subject_email ?? label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {roleLine && <p className="share-caption">{roleLine}</p>}
+        </section>
+
+        {canManage && (
+          <section className="share-group share-guest" aria-labelledby="share-link-title">
+            <hr className="share-divider" />
+            <div className="share-guest-head">
+              <div className="share-guest-copy">
+                <h3 id="share-link-title" className="share-group-title">{t("share.linkTitle")}</h3>
+                <p className="share-caption">{t("share.guestNote")}</p>
+              </div>
+              <Switch
+                aria-label={t("share.linkTitle")}
+                checked={Boolean(link?.enabled)}
+                disabled={busy || !link}
+                onChange={(event) => {
+                  const enabled = event.currentTarget.checked;
+                  setConfirmDraftSharing(false);
+                  void run(() => api.setLink(boardId, { enabled, confirmDraftSharing }), setLinkError);
+                }}
+              />
+            </div>
+            {confirmDraftSharing && (
+              <>
+                <Banner tone="warning">{t("share.linkDraftWarning")}</Banner>
+                <Button
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => api.setLink(boardId, { enabled: true, confirmDraftSharing: true }),
+                      setLinkError,
+                    )
+                  }
+                >
+                  {t("share.linkConfirmDrafts")}
+                </Button>
+              </>
+            )}
+            {!link?.enabled && <p className="share-caption">{t("share.linkWarning")}</p>}
+            {!link?.enabled && <p className="share-caption">{t("share.linkReenable")}</p>}
+            {linkError && <Banner tone="danger">{linkError}</Banner>}
+
+            {link?.enabled && (
+              <>
+                <div className="share-copy">
+                  <Input
+                    readOnly
+                    aria-label={t("share.linkTitle")}
+                    value={linkUrl}
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(linkUrl);
+                      setCopied(true);
+                    }}
+                  >
+                    {copied ? t("share.copied") : t("share.copy")}
+                  </Button>
+                </div>
+
+                <div className="share-guest-options">
+                  <Checkbox
+                    label={t("share.passwordOption")}
+                    checked={Boolean(link.hasPassword) || Boolean(linkPassword)}
+                    disabled={busy}
+                    onChange={(event) => {
+                      if (event.currentTarget.checked) return;
+                      void run(() => api.setLink(boardId, { password: null }), setPasswordError);
+                    }}
+                  />
+                  <Checkbox
+                    label={t("share.expire7")}
+                    checked={sevenDays}
+                    disabled={busy}
+                    onChange={(event) => {
+                      if (event.currentTarget.checked) {
+                        const inSevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                        void run(() => api.setLink(boardId, { expiresAt: inSevenDays }), setExpiryError);
+                      } else {
+                        void run(() => api.setLink(boardId, { expiresAt: null }), setExpiryError);
+                      }
+                    }}
+                  />
+                </div>
+
+                {!link.hasPassword && (
+                  <div className="share-row">
+                    <Input
+                      type="password"
+                      value={linkPassword}
+                      autoComplete="new-password"
+                      placeholder={t("share.passwordPlaceholder")}
+                      aria-label={t("share.passwordPlaceholder")}
+                      error={passwordError ?? undefined}
+                      onChange={(event) => setLinkPassword(event.target.value)}
+                    />
+                    <Button
+                      disabled={busy || linkPassword.length < 8}
+                      onClick={() =>
+                        void run(async () => {
+                          await api.setLink(boardId, { password: linkPassword });
+                          setLinkPassword("");
+                        }, setPasswordError)
+                      }
+                    >
+                      {t("share.passwordSetAction")}
+                    </Button>
+                  </div>
+                )}
+                {link.hasPassword && passwordError && <Banner tone="danger">{passwordError}</Banner>}
+
+                <div className="share-row">
+                  <span className="share-caption">
+                    {link.expiresAt
+                      ? t("share.linkUntil", { date: formatMoment(link.expiresAt, lang) })
+                      : t("share.expiryNone")}
+                  </span>
+                  <Input
+                    type="datetime-local"
+                    value={linkExpiry}
+                    aria-label={t("share.expiry")}
+                    error={expiryError ?? undefined}
+                    onChange={(event) => setLinkExpiry(event.target.value)}
+                  />
+                  <Button
+                    disabled={busy || !linkExpiry}
+                    onClick={() =>
+                      void run(
+                        () => api.setLink(boardId, { expiresAt: new Date(linkExpiry).toISOString() }),
+                        setExpiryError,
+                      )
+                    }
+                  >
+                    {t("share.expirySetAction")}
+                  </Button>
+                  {link.expiresAt && (
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => void run(() => api.setLink(boardId, { expiresAt: null }), setExpiryError)}
+                    >
+                      {t("share.expiryRemove")}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        <section className="share-group share-people" aria-labelledby="share-people-title">
+          <h3 id="share-people-title" className="share-group-title">
+            {t("share.peopleHere")}
+          </h3>
           <ul className="share-list">
             {grants.map((grant) => (
-              <li key={`${grant.subject_type}:${grant.subject_id}`}>
+              <li key={`rights:${grant.subject_type}:${grant.subject_id}`}>
                 <span className="share-subject">
                   <span className="share-name">
                     {grant.subject_type === "user"
@@ -376,137 +566,6 @@ export function ShareDialog({
               </div>
             ) : (
               <p className="share-caption">{t("share.transferNoMembers")}</p>
-            )}
-          </section>
-        )}
-
-        {canManage && (
-          <section className="share-group" aria-labelledby="share-link-title">
-            <div className="share-row">
-              <div className="share-subject">
-                <h3 id="share-link-title" className="share-group-title">{t("share.linkTitle")}</h3>
-                <p className="share-text">
-                  {link?.enabled
-                    ? link.expired
-                      ? t("share.linkExpired")
-                      : t("share.linkOnState", {
-                          role: t(`role.${link.role}` as "role.viewer"),
-                          password: link.hasPassword ? t("share.passwordSet") : t("share.passwordNone"),
-                          expiry: link.expiresAt
-                            ? t("share.linkUntil", { date: formatMoment(link.expiresAt, lang) })
-                            : t("share.expiryNone"),
-                        })
-                    : t("share.linkOff")}
-                </p>
-              </div>
-              {/* A button, not a Switch: turning the link on may need a second, explicit
-                  confirmation that drafts become public (CONFIRM_DRAFT_SHARING). */}
-              <Button
-                disabled={busy || !link}
-                onClick={() => {
-                  const enabled = !link?.enabled;
-                  setConfirmDraftSharing(false);
-                  void run(() => api.setLink(boardId, { enabled, confirmDraftSharing }), setLinkError);
-                }}
-              >
-                {link?.enabled
-                  ? t("share.linkOffAction")
-                  : confirmDraftSharing ? t("share.linkConfirmDrafts") : t("share.linkOn")}
-              </Button>
-            </div>
-            <p className="share-caption">{t("share.linkWarning")}</p>
-            {confirmDraftSharing && <Banner tone="warning">{t("share.linkDraftWarning")}</Banner>}
-            {!link?.enabled && <p className="share-caption">{t("share.linkReenable")}</p>}
-            {linkError && <Banner tone="danger">{linkError}</Banner>}
-
-            {link?.enabled && (
-              <>
-                <div className="share-copy">
-                  <Input readOnly aria-label={t("share.linkTitle")} value={linkUrl} onFocus={(event) => event.target.select()} />
-                  <Button
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(linkUrl);
-                      setCopied(true);
-                    }}
-                  >
-                    {copied ? t("share.copied") : t("share.copy")}
-                  </Button>
-                </div>
-
-                <div className="share-row">
-                  <span className="share-text">
-                    {link.hasPassword ? t("share.passwordSet") : t("share.passwordNone")}
-                  </span>
-                  {link.hasPassword ? (
-                    <Button
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => void run(() => api.setLink(boardId, { password: null }), setPasswordError)}
-                    >
-                      {t("share.passwordRemove")}
-                    </Button>
-                  ) : (
-                    <>
-                      <Input
-                        type="password"
-                        value={linkPassword}
-                        autoComplete="new-password"
-                        placeholder={t("share.passwordPlaceholder")}
-                        aria-label={t("share.passwordPlaceholder")}
-                        error={passwordError ?? undefined}
-                        onChange={(event) => setLinkPassword(event.target.value)}
-                      />
-                      <Button
-                        disabled={busy || linkPassword.length < 8}
-                        onClick={() =>
-                          void run(async () => {
-                            await api.setLink(boardId, { password: linkPassword });
-                            setLinkPassword("");
-                          }, setPasswordError)
-                        }
-                      >
-                        {t("share.passwordSetAction")}
-                      </Button>
-                    </>
-                  )}
-                </div>
-                {link.hasPassword && passwordError && <Banner tone="danger">{passwordError}</Banner>}
-
-                <div className="share-row">
-                  <span className="share-text">
-                    {link.expiresAt
-                      ? t("share.linkUntil", { date: formatMoment(link.expiresAt, lang) })
-                      : t("share.expiryNone")}
-                  </span>
-                  <Input
-                    type="datetime-local"
-                    value={linkExpiry}
-                    aria-label={t("share.expiry")}
-                    error={expiryError ?? undefined}
-                    onChange={(event) => setLinkExpiry(event.target.value)}
-                  />
-                  <Button
-                    disabled={busy || !linkExpiry}
-                    onClick={() =>
-                      void run(
-                        () => api.setLink(boardId, { expiresAt: new Date(linkExpiry).toISOString() }),
-                        setExpiryError,
-                      )
-                    }
-                  >
-                    {t("share.expirySetAction")}
-                  </Button>
-                  {link.expiresAt && (
-                    <Button
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => void run(() => api.setLink(boardId, { expiresAt: null }), setExpiryError)}
-                    >
-                      {t("share.expiryRemove")}
-                    </Button>
-                  )}
-                </div>
-              </>
             )}
           </section>
         )}

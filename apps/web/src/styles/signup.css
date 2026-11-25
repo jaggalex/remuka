@@ -1,0 +1,270 @@
+/* ------------------------------------------------------- registration --- */
+
+/*
+ * The registration page (ADR-265 stage 3, mockup App-SignUp).
+ *
+ * A page rather than a dialog: the aside is part of the screen, and a person who is not
+ * signed in has no room behind it. The left half is the paper table with three stickers
+ * and a cursor labelled "you, in a minute"; the right half is the one form with the one
+ * coral button. The Russian and European zones are the same screen: the checkboxes come
+ * from `GET /config` (ADR-256 §3).
+ */
+.signup-screen {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.signup-aside {
+  flex: 1 1 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 360px;
+  padding: var(--space-10);
+  position: relative;
+  overflow: hidden;
+  border-right: var(--panel-border-width) solid var(--border-ink);
+  background-color: var(--bg-dialog);
+  background-image: radial-gradient(var(--bg-dot) 1.3px, transparent 1.3px);
+  background-size: 24px 24px;
+  box-sizing: border-box;
+}
+
+.signup-illustration {
+  position: relative;
+  height: 340px;
+}
+
+/* The stickers are the landing's paper: a flat sheet, no ink outline, a heavy cast
+   shadow (ADR-265 §3.2). Geometry belongs to the illustration. */
+.signup-sticker {
+  position: absolute;
+  box-sizing: content-box;
+  width: 170px;
+  padding: var(--space-4);
+  border-radius: var(--radius-xs);
+  font: var(--type-subtitle);
+  font-weight: 600;
+  box-shadow: var(--shadow-sticker);
+  transform: rotate(var(--r));
+  animation: signup-float var(--dur-float) ease-in-out infinite;
+}
+
+.signup-sticker.is-green {
+  --r: -3deg;
+  left: 6%;
+  top: 10%;
+  background: var(--sticker-green);
+}
+
+.signup-sticker.is-yellow {
+  --r: 2.5deg;
+  left: 44%;
+  top: 2%;
+  background: var(--sticker-yellow);
+}
+
+.signup-sticker.is-pink {
+  --r: -1.5deg;
+  left: 24%;
+  top: 50%;
+  width: 190px;
+  background: var(--sticker-pink);
+}
+
+@keyframes signup-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--r));
+  }
+  50% {
+    transform: translateY(-8px) rotate(var(--r));
+  }
+}
+
+.signup-cursor {
+  position: absolute;
+  left: 66%;
+  top: 62%;
+  display: flex;
+  align-items: flex-start;
+}
+
+.signup-cursor-arrow {
+  fill: var(--presence-3);
+  stroke: var(--bg-panel);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.signup-cursor-name {
+  margin: var(--space-3) 0 0 calc(var(--space-1) * -1);
+  padding: 2px var(--space-2);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  background: var(--presence-3);
+  color: var(--text-on-presence);
+  font: var(--type-caption);
+  font-weight: 600;
+}
+
+.signup-aside-foot {
+  margin: 0;
+  max-width: 420px;
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+.signup-main {
+  flex: 1 1 460px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) var(--space-6);
+  box-sizing: border-box;
+}
+
+.signup-form-wrap {
+  width: 100%;
+  max-width: 440px;
+}
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.signup-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.signup-heading h1 {
+  margin: 0;
+  font: var(--type-hero);
+  letter-spacing: -0.035em;
+}
+
+.signup-heading p {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+.signup-signin {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.signup-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.signup-field .rm-input {
+  min-height: var(--control-form);
+}
+
+.signup-field .rm-input input {
+  min-height: var(--control-form);
+  font: var(--type-subtitle);
+}
+
+.signup-hint {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+/* The dashed frame around the consents: an inactive zone, not a disabled one
+   (ADR-256 §3, mockup App-SignUp). A refusal turns it into the error frame. */
+.signup-consent {
+  padding: var(--space-3) var(--space-4);
+  border: var(--panel-border-width) dashed var(--border-dashed);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+}
+
+.signup-consent.is-error {
+  border-style: solid;
+  border-color: var(--text-danger);
+}
+
+.signup-consent .legal-consent {
+  padding: 0;
+  gap: var(--space-1);
+}
+
+.signup-consent .rm-check {
+  font: var(--type-body);
+}
+
+.signup-consent .legal-consent-note {
+  margin: 0 0 0 calc(var(--space-4) + 2px);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.signup-consent .legal-consent-error {
+  font: var(--type-body);
+  font-weight: 600;
+}
+
+.signup-submit {
+  --control-h: var(--control-cta-wide);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-cta);
+  font: var(--type-path);
+  font-weight: 600;
+}
+
+.signup-done {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-control);
+  background: var(--success-soft);
+  font: var(--type-body);
+  font-weight: 600;
+}
+
+.signup-error {
+  margin: 0;
+  font: var(--type-body);
+  font-weight: 600;
+  color: var(--text-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signup-sticker {
+    animation: none;
+  }
+}
+
+html[data-motion="calm"] .signup-sticker {
+  animation: none;
+}
+
+@media (max-width: 860px) {
+  .signup-aside {
+    padding: var(--space-6);
+  }
+
+  .signup-illustration {
+    height: 260px;
+  }
+
+  .signup-main {
+    padding: var(--space-6) var(--space-5) var(--space-8);
+  }
+
+  .signup-heading h1 {
+    font: var(--type-hero);
+  }
+}

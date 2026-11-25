@@ -203,9 +203,9 @@ export function BoardStateLayer({
   boardId,
   readOnly,
   onCreateNote,
-  onCreateShape,
-  onCreateText,
   onExample,
+  onAskAgent,
+  onInvite,
   onSignIn,
   onRetry,
   onClaim,
@@ -219,9 +219,11 @@ export function BoardStateLayer({
   boardId: string;
   readOnly: boolean;
   onCreateNote: () => void;
-  onCreateShape: () => void;
-  onCreateText: () => void;
   onExample: () => void;
+  /** Null when the room or organisation has no agent to ask. */
+  onAskAgent: (() => void) | null;
+  /** Null when the viewer may not invite anybody. */
+  onInvite: (() => void) | null;
   onSignIn: () => void;
   onRetry: () => void;
   onClaim: () => void;
@@ -233,9 +235,9 @@ export function BoardStateLayer({
         <EmptyRoomStart
           readOnly={readOnly}
           onCreateNote={onCreateNote}
-          onCreateShape={onCreateShape}
-          onCreateText={onCreateText}
           onExample={onExample}
+          onAskAgent={onAskAgent}
+          onInvite={onInvite}
         />
       )}
       {denied && (

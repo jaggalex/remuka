@@ -21,8 +21,8 @@
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:6705cd01b0ad3cda67182030f26b7fa6ff743b8337c16e6b11bbb0d768fa96f9",
-      "targetHash": "sha256:580c449694a75c255326d7b1c4773d0f132dccc17b9f0106949279093250fe9a"
+      "sourceHash": "sha256:fa52975db2e0bbb5e5efb18ff097e3cb823052d62209f4c7d84b99940a2d0a6e",
+      "targetHash": "sha256:712de65e615901e9238266a8295a8d17831f535e966fef00355eccd0bf44b071"
     }
   }
 }

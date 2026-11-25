@@ -22,6 +22,8 @@
   --text-accent: var(--accent-700);
   --text-danger: var(--danger-700);
   --text-agent: var(--violet-700);
+  --bg-dot: var(--paper-cream-200);
+  --border-dashed: var(--paper-cream-400);
   --border-subtle: var(--paper-cream-150);
   --border-strong: var(--neutral-400);
   --border-focus: var(--accent-600);

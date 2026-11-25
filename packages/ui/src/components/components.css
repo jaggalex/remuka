@@ -531,10 +531,30 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-lightbox-body { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
 .rm-lightbox-caption { margin: 0; font: var(--type-body); color: var(--text-on-scrim); opacity: 0.8; max-width: 70ch; }
 
-/* ADR-265: a dialog drops onto the table with a small bounce. It does not fade: body text
+/* ADR-265 §4.2: a dialog drops onto the table with a small bounce. It does not fade: body text
    must stay at contrast from the first frame, and a browser accessibility scan reads the
-   dialog while it is still falling. Reduced motion zeroes the duration. */
+   dialog while it is still falling. Reduced motion and "calm animations" remove the drop. */
 @keyframes rm-dialog-drop { 0% { transform: translateY(-18px) rotate(-1deg); } 70% { transform: translateY(3px) rotate(0.3deg); } 100% { transform: none; } }
+
+/* ADR-265 §4.2: a form error shakes its frame ±5 px once, for 300 ms. The class is
+   added by the screen that owns the form; calm motion removes it. */
+@keyframes rm-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.rm-shake.is-shaking { animation: rm-shake var(--dur-shake) ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-dialog,
+  .rm-command,
+  .rm-shake.is-shaking { animation: none; }
+}
+
+html[data-motion="calm"] .rm-dialog,
+html[data-motion="calm"] .rm-command,
+html[data-motion="calm"] .rm-shake.is-shaking { animation: none; }
+
 
 /* ---------- Brand mark ---------- */
 /* The mark's fills are roles (ADR-272): the smile is `brand-mark-ink`, so the theme

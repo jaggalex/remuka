@@ -15,7 +15,7 @@ Wait for the **Saved** icon — a cloud with a tick — at the top of the room; 
 
 ## Share the result
 
-1. Select **Invite**. In the **Public link** section, select **Turn on**, then copy the address.
+1. Select **Invite**. Turn on the **Guest link** and select **Copy** to take the address.
 2. Open the address in a private browser window. You’ll see the room with both notes and the line between them. Your teammate can use this link to view the work.
 
 If your teammate needs to make changes with you, [invite them as an editor](/guide/how-to/share).

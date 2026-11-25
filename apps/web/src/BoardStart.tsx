@@ -11,9 +11,9 @@ import { BoardStateLayer } from "./BoardOverlays";
 export function BoardStart({
   state,
   onCreateNote,
-  onCreateShape,
-  onCreateText,
   onExample,
+  onAskAgent,
+  onInvite,
   onSignIn,
   onRetry,
   onClaim,
@@ -29,9 +29,9 @@ export function BoardStart({
     readOnly: boolean;
   };
   onCreateNote: () => void;
-  onCreateShape: () => void;
-  onCreateText: () => void;
   onExample: () => void;
+  onAskAgent: (() => void) | null;
+  onInvite: (() => void) | null;
   onSignIn: () => void;
   onRetry: () => void;
   onClaim: () => void;
@@ -47,9 +47,9 @@ export function BoardStart({
       boardId={state.boardId}
       readOnly={state.readOnly}
       onCreateNote={onCreateNote}
-      onCreateShape={onCreateShape}
-      onCreateText={onCreateText}
       onExample={onExample}
+      onAskAgent={onAskAgent}
+      onInvite={onInvite}
       onSignIn={onSignIn}
       onRetry={onRetry}
       onClaim={onClaim}

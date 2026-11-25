@@ -43,22 +43,25 @@ export const enLegal = {
   "legal.consent.group": "Documents to accept",
   "legal.consent.requiredHint": "Tick to create an account",
   "legal.consent.draft": "Draft",
-  "legal.consent.offerBefore": "I accept the terms of the ",
-  "legal.consent.offerLink": "offer agreement",
+  "legal.consent.offerBefore": "I accept the ",
+  "legal.consent.offerLink": "user agreement (offer)",
   "legal.consent.offerAfter": ".",
-  "legal.consent.consentBefore":
-    "I give consent to the processing of my personal data (name and e-mail) under the ",
-  "legal.consent.consentLink": "Consent",
-  "legal.consent.consentMiddle": ". How we process it is described in the ",
+  "legal.consent.consentBefore": "I give ",
+  "legal.consent.consentLink": "consent to the processing of personal data",
+  "legal.consent.consentMiddle": " — name and email — under the ",
   "legal.consent.privacyLink": "Privacy Policy",
   "legal.consent.consentAfter": ".",
   "legal.consent.termsBefore": "I accept the ",
   "legal.consent.termsLink": "Terms of Service",
-  "legal.consent.termsMiddle": ". Read how we handle your data in the ",
+  "legal.consent.termsMiddle": " and the ",
   "legal.consent.termsAfter": ".",
   "legal.consent.genericBefore": "I accept the ",
-  "legal.consent.genericAfter": ".",
+  "legal.consent.genericAfter": "",
 
+  "legal.register.requiredTwo":
+    "We can't create an account without both boxes — the law asks for it.",
+  "legal.register.requiredOne":
+    "We can't create an account without this box — the law asks for it.",
   "legal.register.required": "Tick the required documents to create an account.",
   "legal.register.changed":
     "A document changed while you were filling in the form. The current revision is shown now — read it and tick it again.",

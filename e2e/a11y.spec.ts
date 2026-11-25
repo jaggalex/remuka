@@ -6,6 +6,7 @@ import {
   addSticky,
   applyDefaultTableLayout,
   freshBoard,
+  goAllRooms,
   openAccount,
   openBoard,
   openBoardMenu,
@@ -36,7 +37,10 @@ async function expectNoSerious(page: Page, screen: string, include?: string) {
     (violation) => violation.impact === "serious" || violation.impact === "critical",
   );
   expect(
-    serious.map((violation) => `${violation.id}: ${violation.help} (${violation.nodes.length})`),
+    serious.map(
+      (violation) =>
+        `${violation.id}: ${violation.help} (${violation.nodes.length}) — ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
+    ),
     `${screen} has serious accessibility violations`,
   ).toEqual([]);
 }
@@ -277,7 +281,7 @@ test("modal dialogs keep the keyboard inside and return focus", async ({ page })
       opener: () => page.getByRole("button", { name: /^Room menu:/ }),
     },
     {
-      name: "Room access",
+      name: "Invite to the room",
       open: () => page.getByRole("button", { name: "Invite", exact: true }).click(),
       opener: () => page.getByRole("button", { name: "Invite", exact: true }),
     },
@@ -469,4 +473,36 @@ test("selection actions are one row of named icons, the rest behind More actions
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds.length))
     .toBe(0);
+});
+
+/**
+ * The screens of the character wave (T10): registration, the team home, the empty room
+ * and the invite dialog (ADR-265 stage 3, ADR-286).
+ *
+ * The registration page is scanned in the ordinary installation (`none`): it has no
+ * consent boxes here, and a zone with documents adds the same @remo/ui checkboxes the
+ * legal scenarios already cover. The home is scanned after a real sign-in; the empty room
+ * and the invite dialog are the two surfaces a new person meets first.
+ */
+test("the character screens have no serious accessibility violations", async ({ page }) => {
+  await page.goto("/?signup=1&lang=en");
+  await expect(page.locator(".signup-screen")).toBeVisible();
+  await expectNoSerious(page, "sign-up screen");
+
+  const account = await freshBoard(page, "a11y-character", { template: "empty" });
+  await expect(page.locator(".empty-board")).toBeVisible();
+  await expectNoSerious(page, "empty room", ".empty-board");
+
+  await goAllRooms(page);
+  await expect(page.locator(".home-tile").first()).toBeVisible();
+  // The page rises for 450 ms (ADR-265 §4.2); scanning a mid-animation frame would read
+  // the entrance fade as low contrast, not the settled screen a person uses.
+  await expect(page.locator(".home-hero")).toHaveCSS("opacity", "1");
+  await expectNoSerious(page, "team home");
+
+  await openBoard(page, account.boardId);
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Invite to the room" });
+  await expect(dialog).toBeVisible();
+  await expectNoSerious(page, "invite dialog");
 });

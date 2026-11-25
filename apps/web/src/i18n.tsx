@@ -43,6 +43,8 @@ import { enConsent } from "./i18n/en-consent";
 import { enAccount } from "./i18n/en-account";
 import { enLegal } from "./i18n/en-legal";
 import { ruCore } from "./i18n/ru-core";
+import { ruHome } from "./i18n/ru-home";
+import { enHome } from "./i18n/en-home";
 import { ruChrome } from "./i18n/ru-chrome";
 import { ruCollab } from "./i18n/ru-collab";
 import { ruWork } from "./i18n/ru-work";
@@ -62,6 +64,7 @@ import { ruMfa } from "./i18n/ru-mfa";
 
 const en = {
   ...enCore,
+  ...enHome,
   ...enChrome,
   ...enCollab,
   ...enWork,
@@ -84,6 +87,7 @@ export type TranslationKey = Key;
 
 const ru: Record<Key, string> = {
   ...ruCore,
+  ...ruHome,
   ...ruChrome,
   ...ruCollab,
   ...ruWork,
@@ -128,7 +132,9 @@ type CountKey =
   | "dsReplies"
   | "followers"
   /** Uploads on the canvas: "3 изображения" (§9.2). */
-  | "images";
+  | "images"
+  /** Rooms on the team home: "4 комнаты" (mockup App-Home). */
+  | "rooms";
 
 const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
   en: {
@@ -149,6 +155,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     dsReplies: ["{n} reply", "{n} replies", "{n} replies"],
     followers: ["{n} follower", "{n} followers", "{n} followers"],
     images: ["{n} image", "{n} images", "{n} images"],
+    rooms: ["{n} room", "{n} rooms", "{n} rooms"],
   },
   ru: {
     objects: ["{n} объект", "{n} объекта", "{n} объектов"],
@@ -168,6 +175,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     dsReplies: ["{n} ответ", "{n} ответа", "{n} ответов"],
     followers: ["{n} подписчик", "{n} подписчика", "{n} подписчиков"],
     images: ["{n} изображение", "{n} изображения", "{n} изображений"],
+    rooms: ["{n} комната", "{n} комнаты", "{n} комнат"],
   },
 };
 

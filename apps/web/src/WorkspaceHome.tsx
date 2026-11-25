@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BrandMark, Button, Icon, IconButton, Input, Popover, Select } from "@remo/ui";
-import { type TemplateKey } from "@remo/model";
+import { BrandMark, Button, Icon, Input, Select } from "@remo/ui";
+import { brandName } from "@remo/brand";
+import type { TemplateKey } from "@remo/model";
 import { api, type OrgSummary, type SessionUser } from "./api";
 import {
   boardDirectory,
@@ -12,17 +13,17 @@ import { AuthDialog } from "./AuthDialog";
 import { BoardDeleteDialog } from "./BoardDeleteDialog";
 import { ConsentLink } from "./ConsentProvider";
 import { HomeMail, resetVerificationBanner } from "./HomeMail";
-import { HOME_EMOJI } from "./homeEmoji";
+import { HomeRooms, type HomeSort } from "./HomeRooms";
+import { HomeTemplates } from "./HomeTemplates";
+import { greetingKey } from "./homeGreeting";
 import { InviteDialog } from "./InviteDialog";
 import { NewBoardDialog } from "./NewBoardDialog";
-import { TEMPLATE_LABEL_KEY } from "./templateLabels";
 import { OrganisationDialog } from "./OrganisationDialog";
 import { SessionsDialog } from "./SessionsDialog";
 import { AccountDeletionBanner } from "./AccountDeletion";
 import type { DeletionSchedule } from "./accountDeletionApi";
 import { AccountMenu } from "./topbar/AccountMenu";
 import { InterfaceToggles } from "./topbar/InterfaceToggles";
-import { formatDate, formatDateTime } from "./format";
 import { loadIdentity, type Identity } from "./identity";
 import { clearMailParams, showForgot, type MailLinks } from "./mailLinks";
 import { useBoardAccess } from "./useBoardAccess";
@@ -31,44 +32,22 @@ import { useCursorIdentity } from "./useCursorIdentity";
 import { useI18n } from "./i18n";
 import { useTheme } from "./useTheme";
 import { useCalmMotion } from "./useMotion";
-import { HelpLink } from "./help/HelpLink";
 
-type Sort = "updated" | "created" | "name" | "author";
+type Sort = HomeSort;
 const PAGE_SIZE = 24;
-/** The authored templates that make a useful first example; the prefilled roadmap is a variant. */
-const EXAMPLES: TemplateKey[] = [
-  "user-story-map-basic",
-  "product-roadmap-basic",
-  "kanban-framework",
-];
-
 
 function readSort(value: string | null): Sort {
   return value === "created" || value === "name" || value === "author" ? value : "updated";
 }
 
-/** Page numbers with gaps keep every page reachable without a wall of buttons. */
-function pageNumbers(current: number, total: number): Array<number | null> {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
-  const pages = [...new Set([1, total, current - 1, current, current + 1])]
-    .filter((page) => page >= 1 && page <= total)
-    .sort((a, b) => a - b);
-  const out: Array<number | null> = [];
-  for (const page of pages) {
-    const previous = out[out.length - 1];
-    if (typeof previous === "number" && page - previous > 1) out.push(null);
-    out.push(page);
-  }
-  return out;
-}
-
 /**
- * The organisation home (ADR-168).
+ * The organisation home (ADR-168), rebuilt as the team home of the mockup App-Home.
  *
- * A board lives in an organisation; without a board in the address this screen is the
- * context: organisation switcher, board tiles, name search, sorting and pagination.
- * Every action is a server decision; the screen only offers what the read model says
- * the person may do.
+ * The greeting, "Now in the team", "Start from ready-made" and "Team rooms" are the four
+ * blocks of the mockup. The directory (search, sort, pages, the tile menu) is still one
+ * mechanism and still appears only when there is more than one page or a filter (ADR-197);
+ * its search lives in the header, where the mockup puts it. News is a place, not a promise:
+ * without data the block says the team is quiet, and T14 fills it.
  */
 export function WorkspaceHome({
   inviteToken,
@@ -77,7 +56,7 @@ export function WorkspaceHome({
   inviteToken: string | null;
   mail: MailLinks;
 }) {
-  const { t, lang, setLang } = useI18n();
+  const { t, lang, setLang, productName } = useI18n();
   const { theme, setTheme } = useTheme();
   const { calm, setCalm } = useCalmMotion();
   const { me, setMe, orgs, refreshOrgs, sessionReady } = useBoardAccess(null);
@@ -112,7 +91,8 @@ export function WorkspaceHome({
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** Set only when this screen asked for the deletion; the link in the letter is the rest. */
   const [deletion, setDeletion] = useState<DeletionSchedule | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
+  // `?signin=1` is the way back from the registration page (SignUpScreen).
+  const [authOpen, setAuthOpen] = useState(() => params.get("signin") === "1");
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [forgotOpen, setForgotOpen] = useState(mail.forgot && !mail.resetToken);
   const [creating, setCreating] = useState(false);
@@ -203,16 +183,14 @@ export function WorkspaceHome({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   // ADR-197: the directory appears only when there is more than one page to direct.
   const directory = total > PAGE_SIZE || Boolean(query.trim()) || trash || page > 1;
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
 
   const switchOrg = (slug: string) => {
     // A different organisation is a different context: no board, no stale filters.
     window.location.assign(`${window.location.pathname}?org=${encodeURIComponent(slug)}`);
   };
 
-  const openBoard = (boardId: string) => {
-    window.location.assign(`${window.location.pathname}?room=${encodeURIComponent(boardId)}`);
+  const openBoard = (board: { id: string }) => {
+    window.location.assign(`${window.location.pathname}?room=${encodeURIComponent(board.id)}`);
   };
 
   const openInvitationTarget = async ({ orgId, boardId }: { orgId: string; boardId: string | null }) => {
@@ -276,7 +254,7 @@ export function WorkspaceHome({
   const duplicateBoard = async (board: BoardTile) => {
     try {
       const copy = await api.duplicateBoard(board.id);
-      openBoard(copy.board.id);
+      openBoard(copy.board);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : t("home.failed"));
     }
@@ -316,50 +294,78 @@ export function WorkspaceHome({
     setAuthOpen(true);
   };
 
+  const closeAuth = () => {
+    setAuthOpen(false);
+    setAuthNotice(null);
+    const next = new URLSearchParams(window.location.search);
+    if (next.has("signin")) {
+      next.delete("signin");
+      window.history.replaceState(null, "", `${window.location.pathname}?${next.toString()}`);
+    }
+  };
+
   const mailVerified = useCallback(() => {
     setMe((current) => (current ? { ...current, emailVerified: true } : current));
   }, [setMe]);
 
-  const authorOf = (board: BoardTile) => {
-    // An empty name means the creator is a tombstone (ADR-257 §3), not an anonymous room.
-    if (!board.createdByName) return t("user.deleted");
-    return board.createdByHandle
-      ? `${board.createdByName} @${board.createdByHandle}`
-      : board.createdByName;
-  };
-
   const boardTitle = (board: BoardTile) => board.title || t("board.untitled");
+  const displayName = me?.name || identity.name;
+  const canCreate = Boolean(activeOrg?.capabilities?.includes("board.create"));
+  const greeting = t(greetingKey(new Date().getHours()));
 
   return (
     <div className="home">
       <AccountDeletionBanner schedule={deletion} onCancelled={() => setDeletion(null)} />
       <header className="home-topbar">
-        <div className="home-brand">
-          <span className="home-mark" aria-hidden="true">
-            <BrandMark size={30} />
-          </span>
-          <b>{t("boards.title")}</b>
-        </div>
+        <div className="home-topbar-inner">
+        <a className="home-brand" href="/" aria-label={t("boards.title")}>
+          <BrandMark className="home-mark" size={30} wordmark={brandName({ locale: lang, productName })} />
+        </a>
 
         <div className="home-context">
           {/* A quiet switcher, and only when there is somewhere to switch to (ADR-197). */}
-          {orgs.length > 1 && activeOrg && (
-            <>
-              <Select
-                size="compact"
-                aria-label={t("boards.org")}
-                value={activeOrg.slug}
-                options={orgs.map((org) => ({
-                  value: org.slug,
-                  label: `${org.kind === "personal" ? `${t("org.personal")} · ` : ""}${org.name}`,
-                }))}
-                onChange={(event) => switchOrg(event.currentTarget.value)}
-              />
-            </>
-          )}
+          {orgs.length > 1 && activeOrg ? (
+            <Select
+              size="compact"
+              aria-label={t("boards.org")}
+              value={activeOrg.slug}
+              options={orgs.map((org) => ({
+                value: org.slug,
+                label: `${org.kind === "personal" ? `${t("org.personal")} · ` : ""}${org.name}`,
+              }))}
+              onChange={(event) => switchOrg(event.currentTarget.value)}
+            />
+          ) : activeOrg ? (
+            <span className="home-org-chip">
+              <span className="home-org-initial" aria-hidden="true">
+                {activeOrg.name.slice(0, 1).toUpperCase()}
+              </span>
+              {activeOrg.name}
+              {activeOrg.kind === "personal" && (
+                <span className="org-badge personal">{t("org.personal")}</span>
+              )}
+            </span>
+          ) : null}
         </div>
 
-        <div className="home-account">
+        {me && activeOrg && (
+          <Input
+            type="search"
+            className="home-search"
+            aria-label={t("home.search")}
+            placeholder={t("home.searchPlaceholder")}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.currentTarget.value);
+              setPage(1);
+            }}
+          />
+        )}
+
+        <nav className="home-account" aria-label={t("boards.title")}>
+          <a className="home-help" href={`/help/${lang}`}>
+            {t("help.title")}
+          </a>
           <AccountMenu
             open={accountOpen}
             onOpen={setAccountOpen}
@@ -396,6 +402,7 @@ export function WorkspaceHome({
             onSignOut={() => void signOut()}
           />
           <InterfaceToggles theme={theme} onTheme={setTheme} />
+        </nav>
         </div>
       </header>
 
@@ -431,293 +438,86 @@ export function WorkspaceHome({
         </section>
       ) : (
         <main className="home-content">
-          <div className="home-heading">
-            <div>
+          <section className="home-hero">
+            <div className="home-hero-text">
               <h1>
-                {activeOrg.name}
-                {activeOrg.kind === "personal" && (
-                  <span className="org-badge personal">{t("org.personal")}</span>
-                )}
-                <HelpLink topicId="rooms.home" />
+                {greeting}{" "}
+                <span className="home-name">
+                  <svg
+                    className="home-marker"
+                    viewBox="0 0 300 30"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 20 C 60 6, 140 4, 296 14 L 294 26 C 170 18, 80 20, 6 28 Z" />
+                  </svg>
+                  <span className="home-name-text">{displayName}</span>
+                </span>
               </h1>
-              <p className="muted">
-                {/* A range is a page position: one page needs no counter. */}
-                {totalPages > 1 ? t("home.count", { from, to, total }) : null}
-              </p>
-              {directory ? (
-                <div className="home-views" role="group" aria-label={t("boards.title")}>
-                  <Button
-                    size="compact"
-                    variant="ghost"
-                    selected={!trash}
-                    onClick={() => {
-                      setTrash(false);
-                      setPage(1);
-                    }}
-                  >
-                    {t("home.boards")}
-                  </Button>
-                  <Button
-                    size="compact"
-                    variant="ghost"
-                    selected={trash}
-                    onClick={() => {
-                      setTrash(true);
-                      setPage(1);
-                      setQuery("");
-                    }}
-                  >
-                    {t("home.trash")}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="compact"
-                  variant="ghost"
-                  onClick={() => {
-                    setTrash(true);
-                    setPage(1);
-                    setQuery("");
-                  }}
-                >
-                  {t("home.trash")}
-                </Button>
-              )}
+              <p className="home-lead">{t("home.leadEmpty")}</p>
             </div>
-            {!trash && (
-              <Button
-                variant="primary"
-                icon="plus"
-                onClick={() => startNew()}
-                disabled={!activeOrg.capabilities?.includes("board.create")}
-              >
-                {t("boards.new")}
-              </Button>
-            )}
-          </div>
+            <Button
+              variant="primary"
+              icon="plus"
+              className="home-new"
+              onClick={() => startNew()}
+              disabled={!canCreate}
+            >
+              {t("boards.new")}
+            </Button>
+          </section>
 
-          {directory && (
-            <div className="home-toolbar">
-              <Input
-                type="search"
-                className="home-search"
-                label={t("home.search")}
-                placeholder={t("home.searchPlaceholder")}
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.currentTarget.value);
-                  setPage(1);
-                }}
-              />
-              <Select
-                label={t("home.sort")}
-                value={sort}
-                options={[
-                  { value: "updated", label: t("home.updated") },
-                  { value: "created", label: t("home.created") },
-                  { value: "name", label: t("home.name") },
-                  { value: "author", label: t("home.author") },
-                ]}
-                onChange={(event) => {
-                  setSort(readSort(event.currentTarget.value));
-                  setPage(1);
-                }}
-              />
-              <Button
-                variant="secondary"
-                aria-label={dir === "asc" ? t("home.asc") : t("home.desc")}
-                title={dir === "asc" ? t("home.asc") : t("home.desc")}
-                onClick={() => {
-                  setDir((value) => (value === "asc" ? "desc" : "asc"));
-                  setPage(1);
-                }}
-              >
-                {dir === "asc" ? "↑" : "↓"}
-              </Button>
-            </div>
-          )}
+          <section className="home-now" aria-labelledby="home-now-title">
+            <h2 id="home-now-title">{t("home.nowQuiet")}</h2>
+          </section>
 
-          {error && (
-            <div className="home-error" role="alert">
-              <span>{error}</span>
-              <Button size="compact" variant="secondary" onClick={() => setReloadKey((v) => v + 1)}>
-                {t("home.retry")}
-              </Button>
-            </div>
-          )}
+          <section className="home-start" aria-labelledby="home-start-title">
+            <h2 id="home-start-title">{t("home.startTitle")}</h2>
+            <HomeTemplates disabled={!canCreate} onStart={(template) => startNew(template)} />
+          </section>
 
-          {status === "loading" && !data ? (
-            <p className="home-state">{t("home.loading")}</p>
-          ) : data && data.boards.length === 0 ? (
-            <section className="home-empty">
-              <Icon name="boards" size={32} />
-              <h2>
-                {query.trim()
-                  ? t("home.noResults", { query: query.trim() })
-                  : trash
-                    ? t("home.emptyTrash")
-                    : t("home.empty")}
-              </h2>
-              {!query.trim() && !trash && (
-                <>
-                  <Button variant="primary" icon="plus" onClick={() => startNew()}>
-                    {t("boards.new")}
-                  </Button>
-                  <div className="home-examples">
-                    <span className="muted">{t("home.examples")}</span>
-                    {EXAMPLES.map((template) => (
-                      <Button
-                        key={template}
-                        size="compact"
-                        variant="ghost"
-                        onClick={() => startNew(template)}
-                      >
-                        {t(TEMPLATE_LABEL_KEY[template])}
-                      </Button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </section>
-          ) : data ? (
-            <>
-              <ul className="home-tiles">
-                {data.boards.map((board) => (
-                  <li key={board.id} className="home-tile">
-                    <button
-                      type="button"
-                      className="home-tile-main"
-                      onClick={() => openBoard(board.id)}
-                      aria-label={`${t("home.open")}: ${boardTitle(board)}`}
-                    >
-                      <span className="home-tile-icon" aria-hidden="true">
-                        {board.icon || <Icon name="boards" size={22} />}
-                      </span>
-                      <span className="home-tile-title">{boardTitle(board)}</span>
-                      <span className="home-tile-team muted">
-                        {board.teamName ?? activeOrg.name}
-                      </span>
-                      <span className="home-tile-author muted">
-                        {t("home.by", { name: authorOf(board) })}
-                      </span>
-                      <span className="home-tile-dates muted">
-                        <span>{t("home.createdOn", { date: formatDate(board.createdAt, lang) })}</span>
-                        <span>{t("home.updatedOn", { date: formatDateTime(board.updatedAt, lang) })}</span>
-                      </span>
-                    </button>
-                    {directory && (
-                      <div className="home-tile-menu">
-                        {trash ? (
-                        <Button size="compact" variant="secondary" onClick={() => void restoreBoard(board)}>
-                          {t("home.restore")}
-                        </Button>
-                      ) : (
-                        <>
-                      <span className="home-emoji-anchor">
-                        <IconButton
-                          icon="agent"
-                          label={t("home.emoji")}
-                          size="compact"
-                          variant="ghost"
-                          onClick={() => setEmojiBoard(emojiBoard === board.id ? null : board.id)}
-                        />
-                        {emojiBoard === board.id && (
-                          <Popover
-                            label={t("home.emoji")}
-                            width={256}
-                            onClose={() => setEmojiBoard(null)}
-                          >
-                            <div className="home-emoji-grid">
-                              <button
-                                type="button"
-                                className="home-emoji-none"
-                                onClick={() => void setIcon(board, "")}
-                              >
-                                {t("home.noEmoji")}
-                              </button>
-                              {HOME_EMOJI.map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  className="home-emoji"
-                                  aria-label={emoji}
-                                  onClick={() => void setIcon(board, emoji)}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          </Popover>
-                        )}
-                      </span>
-                      {board.canDuplicate && (
-                        <IconButton
-                          icon="copy"
-                          label={t("boards.duplicate")}
-                          size="compact"
-                          variant="ghost"
-                          onClick={() => void duplicateBoard(board)}
-                        />
-                      )}
-                      {board.canDelete && (
-                        <IconButton
-                          icon="trash"
-                          label={t("boards.delete")}
-                          size="compact"
-                          variant="ghost-danger"
-                          onClick={() => setPendingDelete(board)}
-                        />
-                      )}
-                        </>
-                      )}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-
-              {totalPages > 1 && (
-                <nav className="home-pages" aria-label={t("home.page", { page })}>
-                  <Button
-                    size="compact"
-                    variant="secondary"
-                    disabled={page <= 1}
-                    aria-label={t("home.previousPage")}
-                    onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  >
-                    ‹
-                  </Button>
-                  {pageNumbers(page, totalPages).map((number, index) =>
-                    number === null ? (
-                      <span key={`gap-${index}`} className="home-page-gap" aria-hidden="true">
-                        …
-                      </span>
-                    ) : (
-                      <Button
-                        key={number}
-                        size="compact"
-                        variant={number === page ? "primary" : "secondary"}
-                        aria-current={number === page ? "page" : undefined}
-                        aria-label={t("home.page", { page: number })}
-                        onClick={() => setPage(number)}
-                      >
-                        {number}
-                      </Button>
-                    ),
-                  )}
-                  <Button
-                    size="compact"
-                    variant="secondary"
-                    disabled={page >= totalPages}
-                    aria-label={t("home.nextPage")}
-                    onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-                  >
-                    ›
-                  </Button>
-                </nav>
-              )}
-            </>
-          ) : null}
+          <HomeRooms
+            data={data}
+            status={status}
+            error={error}
+            directory={directory}
+            query={query}
+            sort={sort}
+            dir={dir}
+            page={page}
+            trash={trash}
+            totalPages={totalPages}
+            lang={lang}
+            canCreate={canCreate}
+            emojiBoard={emojiBoard}
+            boardTitle={boardTitle}
+            onSort={(value) => {
+              setSort(value);
+              setPage(1);
+            }}
+            onDir={() => {
+              setDir((value) => (value === "asc" ? "desc" : "asc"));
+              setPage(1);
+            }}
+            onPage={setPage}
+            onTrash={() => {
+              setTrash(true);
+              setPage(1);
+              setQuery("");
+            }}
+            onBoards={() => {
+              setTrash(false);
+              setPage(1);
+            }}
+            onOpen={openBoard}
+            onRestore={(board) => void restoreBoard(board)}
+            onDuplicate={(board) => void duplicateBoard(board)}
+            onDelete={setPendingDelete}
+            onEmoji={setEmojiBoard}
+            onIcon={(board, icon) => void setIcon(board, icon)}
+            onNew={() => startNew()}
+            onRetry={() => setReloadKey((value) => value + 1)}
+          />
         </main>
       )}
 
@@ -781,10 +581,7 @@ export function WorkspaceHome({
       )}
       <AuthDialog
         open={authOpen}
-        onClose={() => {
-          setAuthOpen(false);
-          setAuthNotice(null);
-        }}
+        onClose={closeAuth}
         onForgot={openForgot}
         notice={authNotice}
         onSignedIn={(user) => {

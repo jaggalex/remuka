@@ -27,6 +27,12 @@
   color: var(--text-danger);
 }
 
+.auth-switch {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
 .auth-actions {
   display: flex;
   justify-content: flex-end;

@@ -54,6 +54,10 @@ export const BUTTON_ALLOW = {
   // A row or tile that is picked, not an action.
   "section-axis-row": "row", "comments-list-item": "row", "room-agent-thread": "row",
   "home-tile-main": "tile", "home-emoji": "tile", "home-emoji-none": "tile",
+  // A template card on the home: the whole card is the choice, not a label inside it.
+  "home-template-card": "tile",
+  // The three ways into an empty room are whole cards, not labels inside a button.
+  "empty-card": "tile",
   // Who and where: the avatar or name is the control.
   "agent-avatar": "identity", "peer": "identity", "account-button": "identity", "topbar-path-button": "identity",
   "topbar-mark": "identity", "people-trigger": "identity",

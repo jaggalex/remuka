@@ -169,8 +169,6 @@ export function BoardApp() {
     closeInfo,
     applyPlan,
     addStickyAndEdit,
-    addTextAndEdit,
-    addShapeAndEdit,
     addTable,
     addKanban,
     rail,
@@ -309,7 +307,7 @@ export function BoardApp() {
         me={me}
         identity={identity}
         boardId={currentRoom()}
-        boardTitle={title}
+        boardTitle={title || boardTitle || ""}
         boardOrgId={boardOrgId ?? null}
         onRefreshAccess={refreshAccess}
         onSignedIn={(user) => {
@@ -379,7 +377,7 @@ export function BoardApp() {
         agentIntent={agentDraft}
         tidy={tidy}
         boardId={currentRoom()}
-        boardTitle={title}
+        boardTitle={title || boardTitle || ""}
         access={access}
         selectedIds={selectedIds}
         widgets={widgets}
@@ -484,9 +482,10 @@ export function BoardApp() {
           boardId: currentRoom(),
           readOnly: writeBlocked,
         }}
-        onCreateNote={addStickyAndEdit} onCreateShape={() => addShapeAndEdit("rectangle")}
-        onCreateText={addTextAndEdit}
+        onCreateNote={addStickyAndEdit}
         onExample={() => setTemplateRequest((value) => value + 1)}
+        onAskAgent={canAskAgents ? () => setAgentOpen(true) : null}
+        onInvite={canShare ? () => setShareOpen(true) : null}
         onSignIn={() => setAuthOpen(true)}
         onRetry={() => void refreshAccess()}
         onClaim={() => void claimBoard()}
@@ -495,7 +494,7 @@ export function BoardApp() {
       <div className="workspace">
         <ToolRail {...rail} more={railMore} />
         <BoardCanvas
-          boardTitle={title}
+          boardTitle={title || boardTitle || ""}
           board={board}
           connection={connection}
           canFacilitate={canFacilitate}

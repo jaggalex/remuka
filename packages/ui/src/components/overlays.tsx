@@ -71,6 +71,8 @@ export interface DialogProps {
   /** One help link for the whole dialog, beside the title (a `?` icon that opens help). */
   help?: ReactNode;
   size?: "sm" | "md" | "lg";
+  /** An extra class on the sheet, for a dialog whose form is defined by its mockup. */
+  className?: string;
   footer?: ReactNode;
   onClose?: () => void;
   dismissable?: boolean;
@@ -80,7 +82,7 @@ export interface DialogProps {
   children?: ReactNode;
 }
 
-export function Dialog({ title, description, help, size = "md", footer, onClose, dismissable = true, inline, alert, children }: DialogProps) {
+export function Dialog({ title, description, help, size = "md", className, footer, onClose, dismissable = true, inline, alert, children }: DialogProps) {
   const { t } = useUiStrings();
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -108,7 +110,7 @@ export function Dialog({ title, description, help, size = "md", footer, onClose,
     }
   };
   const box = (
-    <div ref={ref} className={cx("rm-dialog", `rm-dialog-${size}`)} role={alert ? "alertdialog" : "dialog"} aria-modal={inline ? undefined : true} aria-labelledby={titleId} onKeyDown={onKey}>
+    <div ref={ref} className={cx("rm-dialog", `rm-dialog-${size}`, className)} role={alert ? "alertdialog" : "dialog"} aria-modal={inline ? undefined : true} aria-labelledby={titleId} onKeyDown={onKey}>
       <div className="rm-dialog-head">
         <div className="rm-dialog-heading">
           <h2 id={titleId} className="rm-dialog-title">{title}</h2>

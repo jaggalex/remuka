@@ -760,7 +760,7 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
   await page
     .getByLabel("What should it draw?")
     .fill("Соедини две заметки FAKE_PLAN_CONNECTED");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -781,6 +781,9 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
   // The plan's hull breathes in canvas time, which a screenshot cannot freeze; calm
   // animations hold it at full opacity, so the frame is deterministic.
   await calmMotion(page);
+  // The mouse still sits where the submit button was; it may hover "Reject" and paint a
+  // hover plate into a picture that is about the plan, not the pointer.
+  await page.mouse.move(4, 400);
   await capture(page, page.locator(".app"), "agent-plan");
   await loudMotion(page);
 });
@@ -1557,10 +1560,10 @@ test("a clipped label is marked and named", async ({ page }) => {
 test("room access reads as one form", async ({ page }) => {
   await freshBoard(page, "visual-share");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Room access" });
-  await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
-  await capture(page, dialog, "share", [dialog.getByRole("textbox", { name: "Public link" })]);
+  const dialog = page.getByRole("dialog", { name: "Invite to the room" });
+  await dialog.locator(".share-guest-head .rm-switch").click();
+  await expect(dialog.getByRole("switch", { name: "Guest link" })).toBeChecked();
+  await capture(page, dialog, "share", [dialog.getByRole("textbox", { name: "Guest link" })]);
 });
 
 /**

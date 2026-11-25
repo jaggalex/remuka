@@ -10,9 +10,8 @@ test("home shows board tiles with metadata, then the directory at a second page"
   const home = page.locator(".home");
   await expect(home.locator(".org-badge.personal").first()).toBeVisible();
   const tile = home.locator(".home-tile").filter({ hasText: "Meta board" });
-  await expect(tile).toContainText("Created");
-  await expect(tile).toContainText("Updated");
-  await expect(tile).toContainText("by home-meta");
+  await expect(tile).toContainText("home-meta");
+  await expect(tile).toContainText("changed");
 
   // ADR-197: one page of rooms is not a directory. No search, sort or tile menus.
   await expect(home.locator(".home-toolbar")).toHaveCount(0);

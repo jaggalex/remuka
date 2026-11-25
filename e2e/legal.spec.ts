@@ -42,13 +42,14 @@ function text(zone: string, ru: string, en: string): string {
 }
 
 async function openRegister(page: Page, zone: string): Promise<void> {
-  await page.goto(`/?lang=${zone === "ru" ? "ru" : "en"}`);
-  await page.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).first().click();
-  const dialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
-  await dialog.getByRole("tab", { name: text(zone, "Создать аккаунт", "Create an account") }).click();
-  await dialog.locator('input[autocomplete="name"]').fill("Legal Test");
-  await dialog.locator('input[type="email"]').fill(`legal-ui-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`);
-  await dialog.locator('input[type="password"]').fill(PASSWORD);
+  // Registration is its own screen (ADR-265 stage 3, mockup App-SignUp), reached from the
+  // sign-in dialog and addressable as `?signup=1`.
+  await page.goto(`/?signup=1&lang=${zone === "ru" ? "ru" : "en"}`);
+  const screen = page.locator(".signup-screen");
+  await expect(screen).toBeVisible();
+  await screen.locator('input[autocomplete="name"]').fill("Legal Test");
+  await screen.locator('input[type="email"]').fill(`legal-ui-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`);
+  await screen.locator('input[type="password"]').fill(PASSWORD);
 }
 
 test("the documents page serves a guest without acceptance actions", async ({ page, browser }) => {
@@ -140,7 +141,7 @@ test("registration asks for every required document and creates the account only
   const zone = required[0].zone;
 
   await openRegister(page, zone);
-  const dialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const dialog = page.locator(".signup-screen");
   const create = dialog.getByRole("button", {
     name: text(zone, "Создать аккаунт", "Create account"),
     exact: true,
@@ -156,7 +157,10 @@ test("registration asks for every required document and creates the account only
   await expect(create).toBeEnabled();
   await create.click();
 
-  await expect(dialog).toHaveCount(0, { timeout: 20_000 });
+  // The screen stays in its "done" state (mockup App-SignUp); the session exists.
+  await expect(dialog.getByRole("status")).toContainText(text(zone, "Готово!", "Done!"), {
+    timeout: 20_000,
+  });
   const me = await page.request.get("/api/auth/me");
   expect(me.ok()).toBeTruthy();
   const { user } = (await me.json()) as { user: { id: string } };

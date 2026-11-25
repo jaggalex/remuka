@@ -120,10 +120,10 @@ test("a selected editor publishes a shared editable draft and loses launch acces
     await expect(ownerPanel.getByRole("button", { name: "Assign an agent" })).toBeVisible();
     await ownerPanel.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Invite", exact: true }).click();
-    const share = page.getByRole("dialog", { name: "Room access" });
-    await share.getByRole("button", { name: "Turn on", exact: true }).click();
+    const share = page.getByRole("dialog", { name: "Invite to the room" });
+    await share.locator(".share-guest-head .rm-switch").click();
     await share.getByRole("button", { name: "Turn on link and share drafts" }).click();
-    await expect(share.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
+    await expect(share.getByRole("switch", { name: "Guest link" })).toBeChecked();
 
     const external = await browser.newContext({ baseURL: new URL(page.url()).origin });
     try {

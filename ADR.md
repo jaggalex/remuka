@@ -11906,3 +11906,58 @@ returned; keeping the long bars would keep every control one click away but repe
 would put the caret's controls outside the text; the panel uses the same editor events
 instead. Creating a kanban in the client would duplicate the matrix writer that templates,
 clipboard and loading already share.
+
+## ADR-293: The T10 screens keep one mechanism each; four mockup details wait for the owner
+
+Date: 2026-11-25. Status: **proposed** — the deviations below need the owner's signature
+(ADR-286 §2). Spec: `spec/dev-plan-character.md` T10. Mockups: `App-SignUp`, `App-Home`,
+`App-EmptyRoom`, `App-Invite` (ADR-287).
+
+**Context.** T10 rebuilds four screens against their artboards. Three of them show a product
+that is narrower than the one in the repository: the home shows news, templates and a global
+search; the empty room is drawn without the room chrome; the invite dialog invites a batch of
+people typed before one press. The repository already decided some of these in earlier
+records (ADR-197, ADR-256, ADR-266), and T10 is not allowed to add functions.
+
+**Decision.** The screens are rebuilt with the mockups' structure, texts, tokens, shape and
+motion. Four details keep the existing mechanism and therefore differ from the drawing; each
+is a question to the owner rather than a silent choice:
+
+1. **Home name search sits in the header, always; the directory stays ADR-197.** The mockup's
+   field is always visible, so the name search (the only search the product has) is in the
+   header. Sort, pages, tile menus and the trash view still appear only when there is more
+   than one page or a filter. The placeholder says "Room name", not the mockup's "room,
+   sticker or person", because the product does not search stickers or people.
+2. **The invite dialog is one person at a time.** The product creates a grant or an invitation
+   on the press, so the button says **Invite**, not "Invite 2 people", and there are no draft
+   chips. People who already have access are chips; their roles and removal stay in one list
+   below, as do "Hand over ownership" and the link password/expiry controls the mockup
+   abbreviates. "Close after 7 days" is a preset of the existing expiry, not a second expiry.
+3. **The empty room keeps the room chrome.** The 8-item header (T5) and the rail and bottom
+   panel (T8) are the room's one chrome; the mockup draws a three-item header because it
+   predates them. The empty state itself — logo-shape illustration, "It's quiet in here",
+   three ways in, the invite line — is the mockup's. The hint plate uses the registry text
+   (ADR-266 §6), so its sentence is longer than the mockup's sticker.
+4. **The home offers the four templates the product has.** The mockup's cards are Retro,
+   Kanban, Process and "a plan from a brief". The first two and the process map do not exist
+   as templates, and the fourth is the agent's job; the cards therefore name the real
+   templates (story map, roadmap, roadmap example, kanban). The plan badge says "4 rooms"
+   rather than "Free · 4 of 5 rooms" until T22 brings plan limits.
+
+Two details are settled by records that already exist and are not re-decided here: the
+registration screen keeps empty boxes and a disabled button until the server's documents are
+ticked (ADR-256 §3, `e2e/legal.spec.ts`), so its "errors" state appears when a tick is taken
+back or the server refuses, not before; and the form error shakes its frame only when motion
+is allowed (ADR-265 §4.2).
+
+**Consequences.** Every screenshot pair in the T10 report names these four differences. If
+the owner accepts them, the ADR moves to accepted; if not, the mockups or the product change
+in a separate task. No API, schema or permission changes are involved: registration still
+accepts the same `{doc, version, sha256}` list, the invite still creates one grant, and the
+link still uses the existing expiry.
+
+**Alternatives considered.** A global search over stickers and people would be a new function
+(T7 + a new index) and is out of T10. Batch invitations would change the command and the mail
+model. Hiding the room chrome on an empty room would create a second header and break the
+8-item rule. Inventing Retro and Process templates would add template data and two more
+maintained documents; the four real templates already fill the block.

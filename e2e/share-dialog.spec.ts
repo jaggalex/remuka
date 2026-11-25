@@ -11,19 +11,22 @@ import { freshBoard } from "./helpers";
 test("room access invites, opens the link and puts an error on its field", async ({ page }) => {
   await freshBoard(page, "share-dialog");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Room access" });
+  const dialog = page.getByRole("dialog", { name: "Invite to the room" });
   await expect(dialog).toBeVisible();
 
   // Labelled fields, not placeholders standing in for labels.
-  await dialog.getByLabel("Person").fill("nobody-yet@example.com");
+  await dialog.getByRole("textbox", { name: "Who to invite" }).fill("nobody-yet@example.com");
   await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue("viewer");
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("button", { name: "Invite", exact: true }).click();
   // No account with that email: the honest answer is an invitation link to send.
   await expect(dialog.getByLabel(/No account with that email yet/)).toHaveValue(/invite/);
 
-  await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
-  await expect(dialog.getByRole("textbox", { name: "Public link" })).toHaveValue(/\?room=/);
+  const link = dialog.getByRole("switch", { name: "Guest link" });
+  await expect(link).not.toBeChecked();
+  // The switch paints its track over the 1 × 1 native input; a person clicks the track.
+  await dialog.locator(".share-guest-head .rm-switch").click();
+  await expect(link).toBeChecked();
+  await expect(dialog.getByRole("textbox", { name: "Guest link" })).toHaveValue(/\?room=/);
 
   // A refused expiry is said on the expiry field, not in a banner at the top.
   const expiry = dialog.getByLabel("Expiry date and time");

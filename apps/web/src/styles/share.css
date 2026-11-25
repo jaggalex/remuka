@@ -158,3 +158,112 @@
   font: var(--type-body);
   color: var(--text-secondary);
 }
+
+/* --- Invite to the room (mockup App-Invite, ADR-286) --- */
+
+.share-dialog .rm-dialog-title {
+  font: var(--type-title-lg);
+  letter-spacing: -0.025em;
+}
+
+.share-dialog .rm-dialog-desc {
+  margin-top: var(--space-1);
+  font: var(--type-subtitle);
+  font-weight: 400;
+}
+
+.share-invite-form {
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+  align-items: stretch;
+}
+
+.share-invite-form .rm-input {
+  min-height: var(--control-form);
+}
+
+.share-invite-form .rm-input input,
+.share-invite-form .rm-input select {
+  min-height: calc(var(--control-form) - 2 * var(--panel-border-width));
+  font: var(--type-subtitle);
+}
+
+.share-invite-submit {
+  --control-h: var(--control-cta);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  font: var(--type-subtitle);
+  font-weight: 600;
+}
+
+.share-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.share-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  font: var(--type-body);
+  font-weight: 600;
+}
+
+.share-chip-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  color: var(--text-on-presence);
+  font: var(--type-caption);
+  font-weight: 600;
+}
+
+.share-divider {
+  height: 0;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: var(--panel-border-width) solid var(--border-subtle);
+}
+
+.share-guest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.share-guest-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.share-guest-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font: var(--type-body);
+}
+
+.share-dialog .share-list li {
+  padding: var(--space-2) 0;
+}
+
+.share-people {
+  padding-top: var(--space-2);
+  border-top: var(--panel-border-width) solid var(--border-subtle);
+}
+
+@media (max-width: 560px) {
+  .share-invite-form {
+    grid-template-columns: 1fr;
+  }
+}
