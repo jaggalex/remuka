@@ -210,6 +210,17 @@ export const STORAGE_REGISTRY = Object.freeze(
       lifetime: "until cleared",
     },
     {
+      name: "remo.commands.recent",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Последние команды из поиска ⌘K в этом браузере",
+        en: "The commands you last ran from the ⌘K search in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
       name: "remo.moveBanner.dismissed",
       kind: "sessionStorage",
       category: "preferences",

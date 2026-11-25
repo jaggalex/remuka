@@ -11,6 +11,8 @@ import type { Theme } from "./useTheme";
 import { useMediaQuery } from "./useMediaQuery";
 import { TEMPLATE_LABEL_KEY } from "./templateLabels";
 import { menuCommands, reactionCommands, type ChromeCommand, type ChromeContext } from "./commands";
+import { useChromeSurfaceRegistration } from "./chromeSurfaces";
+import { openCommandSearch } from "./commandSearchStore";
 import { BoardTitleMenu } from "./topbar/BoardTitleMenu";
 import { AccountMenu } from "./topbar/AccountMenu";
 import { PeopleMenu } from "./topbar/PeopleMenu";
@@ -270,6 +272,9 @@ export function BoardTopbar(props: BoardTopbarProps) {
     },
     run: (id) => actions[id]?.(),
   };
+  // The search dispatches chrome commands here instead of holding a second copy of
+  // every handler; this menu owns the room, Run, Agent and Invite rows (T7).
+  useChromeSurfaceRegistration("topbar", ctx);
 
   const roomCommands = menuCommands(["room"], ctx);
   const runCommands = menuCommands(["run"], ctx);
@@ -493,6 +498,7 @@ export function BoardTopbar(props: BoardTopbarProps) {
             agentAvailable={agentVisible}
             onAgent={onOpenRoomAgent}
             onComments={() => setCommentsOpen(!commentsOpen)}
+            onSearch={(returnTo) => openCommandSearch(returnTo)}
           />
         </div>
       </header>

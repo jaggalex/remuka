@@ -42,6 +42,7 @@ describe("the storage registry (ADR-255 §2)", () => {
       [
         "guide.theme",
         "remo.canvas.hint",
+        "remo.commands.recent",
         "remo.identity",
         "remo.inspector",
         "remo.lang",

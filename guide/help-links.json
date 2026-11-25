@@ -10,6 +10,7 @@
   "agents.tidy": "how-to/tidy-selection",
   "apps.hello": "capabilities/apps",
   "room.colours": "concepts/colors",
+  "room.search": "concepts/board-chrome",
   "connectors.create": "capabilities/connectors",
   "connectors.keyboard": "capabilities/connectors",
   "connectors.waypoints": "concepts/connectors",

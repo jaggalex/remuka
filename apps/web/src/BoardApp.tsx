@@ -1,4 +1,5 @@
 import { setAllowBringEveryone, setWidgetPositions } from "@remo/doc";
+import { useState } from "react";
 import { currentRoom } from "./identity";
 import { saveSettings } from "./settings";
 import { BoardCanvas } from "./BoardCanvas";
@@ -9,6 +10,7 @@ import { BoardInspector } from "./BoardInspector";
 import { CanvasChrome } from "./BoardOverlays";
 import { BoardStart } from "./BoardStart";
 import { ContextMenu } from "./ContextMenu";
+import { CommandSearch } from "./CommandSearchDialog";
 import { useConsentHold } from "./ConsentProvider";
 import { InfoCard } from "./InfoCard";
 import { MoveNotice } from "./MoveNotice";
@@ -196,6 +198,16 @@ export function BoardApp() {
     onReattachEnd,
   } = useBoardAppState();
 
+  /**
+   * The search's "ask the agent" line hands its text to the agent dialog and runs nothing
+   * itself (ADR-266 §1.2). The draft lives here so closing the dialog forgets it.
+   */
+  const [agentDraft, setAgentDraft] = useState("");
+  const askAgent = (text: string) => {
+    setAgentDraft(text);
+    setAgentOpen(true);
+  };
+
   // §6.5: the cookie plate waits while a presentation or a followed camera owns the
   // screen. The state lives here, so the rule is a prop of the room, not a DOM guess.
   useConsentHold(presentOpen || follow.target !== null);
@@ -280,6 +292,7 @@ export function BoardApp() {
           void refreshAccess();
         }}
         agentOpen={agentOpen}
+        agentIntent={agentDraft}
         tidy={tidy}
         boardId={currentRoom()}
         boardTitle={title}
@@ -287,7 +300,10 @@ export function BoardApp() {
         selectedIds={selectedIds}
         widgets={widgets}
         onApplyPlan={applyPlan}
-        onCloseAgent={() => setAgentOpen(false)}
+        onCloseAgent={() => {
+          setAgentOpen(false);
+          setAgentDraft("");
+        }}
         onOpenOrg={() => {
           setAgentOpen(false);
           openAccount("agents");
@@ -305,6 +321,11 @@ export function BoardApp() {
         onConfirmTrash={() => void trashBoard()}
       />
       <RoomAgentPanel {...roomAgent.panelProps} />
+      <CommandSearch
+        objectContext={commandContext}
+        canAskAgents={canAskAgents}
+        onAskAgent={askAgent}
+      />
       <BoardTopbar
         {...header}
         title={title || boardTitle || ""}

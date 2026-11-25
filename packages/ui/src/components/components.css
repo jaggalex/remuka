@@ -543,3 +543,38 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-brand { display: inline-flex; align-items: center; gap: calc(var(--space-3) - var(--space-1) / 2); }
 .rm-brand-mark { display: block; flex: none; }
 .rm-brand-word { font-family: var(--font-sans); font-size: calc(var(--rm-brand-size) * 0.7); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: inherit; white-space: nowrap; }
+
+/* ---------- Command palette (ADR-266 §1.2) ---------- */
+
+.rm-command-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  background: var(--bg-overlay);
+  display: flex;
+  justify-content: center;
+  padding: calc(var(--space-12) + var(--space-10)) var(--space-5) var(--space-5);
+}
+
+.rm-command {
+  width: var(--dialog-md);
+  max-width: 92%;
+  align-self: flex-start;
+  background: var(--bg-dialog);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-dialog);
+  overflow: hidden;
+  color: var(--text-primary);
+  animation: rm-dialog-drop var(--dur-4) var(--ease-spring) both;
+}
+
+@media (max-width: 640px) {
+  .rm-command-scrim {
+    padding: var(--space-8) var(--space-2) var(--space-2);
+  }
+
+  .rm-command {
+    max-width: 100%;
+  }
+}

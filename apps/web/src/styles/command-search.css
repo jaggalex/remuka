@@ -1,0 +1,128 @@
+/*
+ * The command search (ADR-266 §1.2, T7).
+ *
+ * The `cmdk` state of the room-header artboard: the sheet, scrim and shadow are the
+ * design system's `CommandPalette`; this file is what sits inside it — the search row
+ * with the Esc chip, and rows that read "title / where … key". The bottom panel's
+ * "Find an action" button lives in the canvas HUD and is styled in `workspace.css`.
+ */
+.command-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--panel-border-width) solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.command-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-path);
+}
+
+.command-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* The field, not the input, is the control: focus shows on the row's edge (ADR-031). */
+.command-search-field:focus-within {
+  border-bottom-color: var(--border-focus);
+}
+
+.command-search-field .command-search-input:focus-visible {
+  outline: none;
+}
+
+/* …but the Esc chip is a button and keeps its own ring. */
+.command-search-esc:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* The browser's own clear cross would sit where the Esc chip is. */
+.command-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.command-search-esc {
+  flex: none;
+  height: var(--control-compact);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font: var(--type-kbd);
+}
+
+.command-search-list {
+  max-height: 340px;
+  overflow: auto;
+  padding: var(--space-2);
+}
+
+.command-search-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 42px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.command-search-row.is-active {
+  background: var(--bg-hover);
+}
+
+.command-search-row.is-unavailable {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.command-search-row.is-danger strong {
+  color: var(--text-danger);
+}
+
+/* The last line is a different kind of promise: it opens the agent, it runs nothing. */
+.command-search-row.is-agent {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--panel-border-width) solid var(--border-subtle);
+}
+
+.command-search-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-search-text strong {
+  overflow: hidden;
+  font: var(--type-subtitle);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-search-where {
+  color: var(--text-secondary);
+  font: var(--type-caption);
+}
+
+.command-search-key {
+  flex: none;
+  color: var(--text-secondary);
+  font: var(--type-kbd);
+  white-space: nowrap;
+}
+
+.command-search-empty {
+  margin: var(--space-2);
+  color: var(--text-secondary);
+  font: var(--type-body);
+}

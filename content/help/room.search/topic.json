@@ -1,0 +1,26 @@
+{
+  "id": "room.search",
+  "type": "how-to",
+  "title": {
+    "ru": "Поиск команд",
+    "en": "Command search"
+  },
+  "summary": {
+    "ru": "⌘K находит любое действие комнаты по названию и синонимам, показывает недоступные с причиной и предлагает спросить агента.",
+    "en": "⌘K finds any room action by title and synonyms, shows unavailable ones with a reason and offers to ask the agent."
+  },
+  "related": [
+    "rooms.home",
+    "export.formats",
+    "facilitation.timer"
+  ],
+  "verifiedAgainst": "2026-11-24",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:b803018baaecc461bf6b66e1795ec2007c6278062b0ae9e2fed122a36e521f35",
+      "targetHash": "sha256:6a2290dd24195e6c269c289bce9d91355c18bf1f0b96b840143255343166f82a"
+    }
+  }
+}

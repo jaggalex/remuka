@@ -8,6 +8,7 @@ import {
 } from "./tableCellSelection";
 import { isEditable } from "./BoardCanvas";
 import { commandForShortcut, runCommand, type CommandContext } from "./commands";
+import { openCommandSearch } from "./commandSearchStore";
 import type { RailTool } from "./ToolRail";
 import { openImageViewer } from "./imageViewer";
 import type { BarBlock } from "./textFormatBar";
@@ -34,7 +35,6 @@ export function useBoardKeyboard({
   addConnectedNote,
   setEditingId,
   setSelectedIds,
-  onOpenHome,
   forceRender,
   pasteSelection,
   onTool,
@@ -57,8 +57,6 @@ export function useBoardKeyboard({
   addConnectedNote: (id: string, side: "left" | "right") => void;
   setEditingId: (id: string | null) => void;
   setSelectedIds: (ids: string[]) => void;
-  /** Leave the board for the organisation home (ADR-168). */
-  onOpenHome: () => void;
   forceRender: (update: (n: number) => number) => void;
   /** Only a dependency: a stale command context must not keep the old listener. */
   pasteSelection: unknown;
@@ -244,9 +242,10 @@ useEffect(() => {
     }
 
     if (mod && key === "k") {
-      // The same shortcut the source product uses to get to things.
+      // The command search (ADR-266 §1.2). Fields and the canvas editor returned above,
+      // so ⌘K keeps its meaning there: a link window in the text editor.
       event.preventDefault();
-      onOpenHome();
+      openCommandSearch();
       return;
     }
 

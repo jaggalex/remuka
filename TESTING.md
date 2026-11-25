@@ -106,12 +106,12 @@ _Tree facts, checked by `pnpm state:check`; run facts are printed by the command
 
 | Fact | Value |
 |---|---|
-| ADR | 287, latest ADR-287 |
+| ADR | 288, latest ADR-288 |
 | Schema version | 39 |
-| Browser scenarios | 299 in 54 files |
-| Help topics | 42 (RU + EN) |
+| Browser scenarios | 306 in 55 files |
+| Help topics | 43 (RU + EN) |
 | Portal pages | 86 |
-| Baselines | 65 product + 12 DS |
+| Baselines | 66 product + 12 DS |
 | Largest file | `apps/web/src/BoardCanvas.tsx` — 800 lines |
 <!-- generated:state:end -->
 

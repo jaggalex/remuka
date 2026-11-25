@@ -341,3 +341,78 @@ export function Lightbox({
     </div>
   );
 }
+
+// ---------- Command palette ----------
+
+/**
+ * The modal layer of a command palette: a scrim, a paper sheet near the top, the focus
+ * trap, Tab and Escape (ADR-266 §1.2).
+ *
+ * It is not a `Dialog`: a dialog is a form with a title bar, while a palette's search
+ * field is its title. Like `Lightbox`, the shell owns what every modal needs — the
+ * scrim, the trap and giving focus back to whatever opened it — and the screen owns
+ * what is inside (the field, the rows, the actions).
+ */
+export function CommandPalette({
+  label,
+  onClose,
+  returnFocusTo,
+  children,
+}: {
+  /** The accessible name of the dialog; the field itself usually reads as the title. */
+  label: string;
+  onClose: () => void;
+  /** Overrides "what held focus at open", for a control that no longer exists then. */
+  returnFocusTo?: HTMLElement | null;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [atRender] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
+  useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    const tookFocus = Boolean(ref.current?.contains(active));
+    const opener = tookFocus ? atRender : active;
+    if (!tookFocus) ref.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    return () => (returnFocusTo ?? opener)?.focus?.();
+  }, [atRender, returnFocusTo]);
+  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab" || !ref.current) return;
+    const list = ref.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+  return (
+    <div
+      className="rm-command-scrim"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={ref}
+        className="rm-command"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onKeyDown={onKey}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}

@@ -100,6 +100,7 @@ function allowedButton(tag) {
  */
 export const FIELD_ALLOW = {
   "section-title-input": "in place", "table-header-editor": "in place", "board-title": "in place",
+  "command-search-input": "palette combobox: the list, not the field, is the control",
 };
 const allowedField = (tag) => classWords(tag).some((word) => word in FIELD_ALLOW);
 

@@ -1,25 +1,5 @@
+import type { BoardDocument, StyleSnapshot } from "@remo/doc";
 import {
-  applyStyleSnapshot,
-  clearContent,
-  deleteWidgets,
-  groupWidgets,
-  reorderWidgets,
-  rotateWidgets,
-  setConnectorProps,
-  setFillColor,
-  setLocked,
-  setWidgetRotation,
-  styleSnapshotOf,
-  ungroupWidgets,
-  type BoardDocument,
-  type StyleSnapshot,
-} from "@remo/doc";
-import {
-  canUnlock,
-  FILL_LEVELS,
-  isRotatable,
-  kindOf,
-  lockAuthorName,
   TONE_LEVELS,
   TONES,
   type ColorLevel,
@@ -29,7 +9,6 @@ import type { IconName } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 import { CHROME_COMMANDS } from "./commandsChrome";
 import { colorName } from "./object-panel/colorWindowData";
-import { commonColour } from "./floatingTargets";
 
 // The chrome list lives in its own module for the size ratchet; this file remains the
 // registry's public surface, so every consumer still imports one thing.
@@ -168,7 +147,9 @@ export type ChromeAbility =
   | "support"
   | "templates"
   /** The installation has a guide of its own (`/config` `docs.origin`, ADR-284). */
-  | "docs";
+  | "docs"
+  /** This is a room screen: the command search exists here (T7). */
+  | "search";
 
 /**
  * The chrome command's world: flags it may read and the one way to run a command.
@@ -219,8 +200,16 @@ export interface Command {
   /** The key combination that runs it, if any. */
   shortcut?: Shortcut;
   surfaces: readonly CommandSurface[];
+  /** Words people type when they mean it, in both interface languages (ADR-266 §1.2). */
+  synonyms: CommandSynonyms;
   danger?: boolean;
   enabled: (ctx: CommandContext) => boolean;
+  /**
+   * Why the command is greyed out right now, in words (ADR-266 §1.2). The search shows
+   * it under the title; the context menu does not, and a command without one falls back
+   * to "Select an object first".
+   */
+  unavailable?: TranslationKey;
   /**
    * A grid this row opens rather than a change it makes (ADR-267 §3). A grid row has
    * no `run`: its swatches are what write, which keeps "one descriptor, one action".
@@ -247,15 +236,6 @@ export function paletteChoices(levels: readonly ColorLevel[]): CommandGridChoice
   );
 }
 
-/** The colour grid a menu row opens, built from the one model table. */
-function paletteGrid(
-  levels: readonly ColorLevel[],
-  current: string,
-  pick: (value: string) => void,
-): CommandGrid {
-  return { title: "menu.colour", choices: paletteChoices(levels), current, pick };
-}
-
 /**
  * The key shown at the right of a menu row (ADR-267 §3).
  *
@@ -280,377 +260,17 @@ export function shortcutLabel(shortcut: Shortcut): string {
 }
 
 /**
- * "Find an action ⌘K" belongs to T7 (ADR-266 §1.2): the search surface does not exist
- * yet, so the row stays hidden; T7 registers `search.open` and flips this constant.
+ * "Find an action ⌘K" is a row of the canvas menu since T7 (ADR-266 §1.2): the same
+ * registry opens the search, so the row can never point at a dialog that does not exist.
  */
-export const SEARCH_IN_CONTEXT_MENU = false;
+export const SEARCH_IN_CONTEXT_MENU = true;
 
-/* ------------------------------------------------------------- predicates --- */
-
-export const hasSelection = (ctx: CommandContext): boolean => ctx.ids.length > 0;
-
-export const singleSelected = (ctx: CommandContext): boolean => ctx.ids.length === 1;
-
-/** Every selected object that is not already inside a selected container. */
-function groupRoots(ctx: CommandContext): Widget[] {
-  const selected = new Set(ctx.ids);
-  return ctx.ids
-    .map((id) => ctx.widgets.find((widget) => widget.id === id))
-    .filter((widget): widget is Widget => Boolean(widget))
-    .filter((widget) => {
-      if (!kindOf(widget.type).groupable) return false;
-      return !widget.parentId || !selected.has(widget.parentId);
-    });
-}
-
-/** Two or more roots can become one group (ADR-022). */
-export function isGroupable(ctx: CommandContext): boolean {
-  return groupRoots(ctx).length >= 2;
-}
-
-/** Something in the selection already belongs to a group. */
-export function selectionHasGroup(ctx: CommandContext): boolean {
-  return ctx.widgets.some((widget) => ctx.ids.includes(widget.id) && Boolean(widget.groupId));
-}
-
-function selectedWidgets(ctx: CommandContext): Widget[] {
-  return ctx.ids
-    .map((id) => ctx.widgets.find((widget) => widget.id === id))
-    .filter((widget): widget is Widget => Boolean(widget));
-}
-
-function allLocked(ctx: CommandContext): boolean {
-  const selected = selectedWidgets(ctx);
-  return selected.length > 0 && selected.every((widget) => widget.locked);
-}
-
-/** The first selected lock this person may not release, if any (ADR-107). */
-function foreignLock(ctx: CommandContext): Widget | null {
-  return (
-    selectedWidgets(ctx).find(
-      (widget) =>
-        widget.locked && !canUnlock(widget, ctx.actor.id, ctx.canManage),
-    ) ?? null
-  );
-}
-
-const hasStyleClipboard = (ctx: CommandContext): boolean => ctx.styleClipboard.get() != null;
-
-/** At least one selected object is a kind whose angle means something (ADR-271). */
-function hasRotatable(ctx: CommandContext): boolean {
-  return selectedWidgets(ctx).some((widget) => isRotatable(widget) && !widget.locked);
-}
-
-/** At least one selected object is actually turned, so a reset would do something. */
-function hasTurned(ctx: CommandContext): boolean {
-  return selectedWidgets(ctx).some((widget) => isRotatable(widget) && !widget.locked && (widget.rotation ?? 0) !== 0);
-}
-
-/* --------------------------------------------------------------- commands --- */
-
-export const COMMANDS: readonly Command[] = [
-  {
-    id: "colour",
-    label: () => "menu.colour",
-    group: "main",
-    icon: "palette",
-    menuTitle: "menu.colour",
-    surfaces: ["menu"],
-    enabled: (ctx) => commonColour(selectedWidgets(ctx).filter((widget) => !widget.locked)) != null,
-    grid: (ctx) => {
-      const selected = selectedWidgets(ctx).filter((widget) => !widget.locked);
-      const common = commonColour(selected);
-      if (!common) return null;
-      const current = common.mixed ? "" : common.value.toLowerCase();
-      // The same rows the colour window draws for this role: fills take 100 and 300,
-      // a line takes 600 (ADR-127). A second palette here would be a second truth.
-      if (common.role === "fill") {
-        return paletteGrid(FILL_LEVELS, current, (value) =>
-          setFillColor(ctx.board, ctx.ids, value),
-        );
-      }
-      return paletteGrid([600], current, (value) =>
-        setConnectorProps(ctx.board, ctx.ids, { strokeColor: value }),
-      );
-    },
-  },
-  {
-    id: "copy",
-    label: () => "menu.copy",
-    group: "clipboard",
-    icon: "copy",
-    shortcut: { key: "c", mod: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => ctx.copy(ctx.ids),
-  },
-  {
-    id: "paste",
-    label: () => "menu.paste",
-    group: "clipboard",
-    icon: "plus",
-    shortcut: { key: "v", mod: true, always: true },
-    surfaces: ["menu", "panel"],
-    enabled: () => true,
-    run: (ctx) => ctx.paste(),
-  },
-  {
-    id: "cut",
-    label: () => "menu.cut",
-    group: "clipboard",
-    icon: "cut",
-    shortcut: { key: "x", mod: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => ctx.cut(ctx.ids),
-  },
-  {
-    id: "duplicate",
-    label: () => "menu.duplicate",
-    group: "clipboard",
-    icon: "duplicate",
-    shortcut: { key: "d", mod: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => ctx.duplicate(ctx.ids),
-  },
-  {
-    id: "copyLink",
-    label: () => "menu.copyLink",
-    group: "clipboard",
-    icon: "link",
-    surfaces: ["menu", "panel"],
-    enabled: (ctx) => singleSelected(ctx) && Boolean(ctx.copyLink),
-    run: (ctx) => {
-      const id = ctx.ids[0];
-      if (id) ctx.copyLink?.(id);
-    },
-  },
-  {
-    id: "copyStyle",
-    label: () => "menu.copyStyle",
-    group: "clipboard",
-    icon: "palette",
-    surfaces: ["menu"],
-    enabled: hasSelection,
-    run: (ctx) => {
-      const first = ctx.ids[0];
-      if (!first) return;
-      const snapshot = styleSnapshotOf(ctx.board, first);
-      if (snapshot) ctx.styleClipboard.set(snapshot);
-    },
-  },
-  {
-    id: "pasteStyle",
-    label: () => "menu.pasteStyle",
-    group: "clipboard",
-    icon: "palette",
-    surfaces: ["menu"],
-    enabled: (ctx) => hasSelection(ctx) && hasStyleClipboard(ctx),
-    run: (ctx) => {
-      const snapshot = ctx.styleClipboard.get();
-      // Locked objects refuse the change inside the document command (ADR-040).
-      if (snapshot) applyStyleSnapshot(ctx.board, ctx.ids, snapshot);
-    },
-  },
-  {
-    id: "clearContent",
-    label: () => "menu.clearContent",
-    group: "main",
-    icon: "clear-format",
-    surfaces: ["menu"],
-    enabled: hasSelection,
-    run: (ctx) => clearContent(ctx.board, ctx.ids),
-  },
-  {
-    id: "rotate90",
-    label: () => "menu.rotate90",
-    group: "main",
-    icon: "redo",
-    surfaces: ["menu", "panel", "palette"],
-    enabled: hasRotatable,
-    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, 90),
-  },
-  {
-    id: "resetRotation",
-    label: () => "menu.resetRotation",
-    group: "main",
-    icon: "undo",
-    surfaces: ["menu", "panel", "palette"],
-    enabled: hasTurned,
-    run: (ctx) => setWidgetRotation(ctx.board, ctx.ids, 0),
-  },
-  {
-    id: "rotateLeft15",
-    label: () => "menu.rotateLeft15",
-    group: "main",
-    icon: "undo",
-    shortcut: { key: "arrowleft", mod: true, shift: true },
-    surfaces: [],
-    enabled: hasRotatable,
-    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, -15),
-  },
-  {
-    id: "rotateRight15",
-    label: () => "menu.rotateRight15",
-    group: "main",
-    icon: "redo",
-    shortcut: { key: "arrowright", mod: true, shift: true },
-    surfaces: [],
-    enabled: hasRotatable,
-    run: (ctx) => rotateWidgets(ctx.board, ctx.ids, 15),
-  },
-  {
-    id: "info",
-    label: () => "menu.info",
-    group: "main",
-    icon: "info",
-    surfaces: ["menu", "panel"],
-    enabled: singleSelected,
-    run: (ctx) => {
-      const widget = ctx.widgets.find((candidate) => candidate.id === ctx.ids[0]);
-      if (widget) ctx.info(widget);
-    },
-  },
-  {
-    id: "front",
-    label: () => "menu.front",
-    group: "arrange",
-    icon: "layer-top",
-    shortcut: { key: "]", mod: true, shift: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => reorderWidgets(ctx.board, ctx.ids, "front"),
-  },
-  {
-    id: "forward",
-    label: () => "menu.forward",
-    group: "arrange",
-    icon: "layer-up",
-    shortcut: { key: "]", mod: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => reorderWidgets(ctx.board, ctx.ids, "forward"),
-  },
-  {
-    id: "backward",
-    label: () => "menu.backward",
-    group: "arrange",
-    icon: "layer-down",
-    shortcut: { key: "[", mod: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => reorderWidgets(ctx.board, ctx.ids, "backward"),
-  },
-  {
-    id: "back",
-    label: () => "menu.back",
-    group: "arrange",
-    icon: "layer-bottom",
-    shortcut: { key: "[", mod: true, shift: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => reorderWidgets(ctx.board, ctx.ids, "back"),
-  },
-  {
-    id: "lock",
-    label: (ctx) => (allLocked(ctx) ? "menu.unlock" : "menu.lock"),
-    group: "arrange",
-    icon: "lock",
-    shortcut: { key: "l", mod: true, shift: true },
-    surfaces: ["menu", "panel"],
-    enabled: hasSelection,
-    run: (ctx) => {
-      const locked = allLocked(ctx);
-      if (locked) {
-        const foreign = foreignLock(ctx);
-        if (foreign) {
-          ctx.refuseUnlock(lockAuthorName(foreign) ?? "");
-          return;
-        }
-      }
-      setLocked(
-        ctx.board,
-        ctx.ids,
-        !locked,
-        ctx.actor.id ? { id: ctx.actor.id, name: ctx.actor.name } : null,
-      );
-    },
-  },
-  {
-    id: "unlockAll",
-    label: () => "lock.unlockAll",
-    group: "main",
-    icon: "unlock",
-    surfaces: ["menu"],
-    // The caller's own locks, plus everything when the caller is a board manager.
-    enabled: (ctx) =>
-      ctx.widgets.some(
-        (widget) => widget.locked && canUnlock(widget, ctx.actor.id, ctx.canManage),
-      ),
-    run: (ctx) => {
-      const ids = ctx.widgets
-        .filter((widget) => widget.locked && canUnlock(widget, ctx.actor.id, ctx.canManage))
-        .map((widget) => widget.id);
-      if (ids.length) setLocked(ctx.board, ids, false);
-    },
-  },
-  {
-    id: "tidy",
-    label: () => "tidy.action",
-    group: "main",
-    icon: "tidy",
-    surfaces: ["menu", "panel"],
-    enabled: (ctx) => hasSelection(ctx) && Boolean(ctx.tidy),
-    run: (ctx) => ctx.tidy?.(ctx.ids),
-  },
-  {
-    id: "group",
-    label: () => "menu.group",
-    group: "arrange",
-    icon: "group-make",
-    shortcut: { key: "g", mod: true, always: true },
-    surfaces: ["menu", "panel"],
-    enabled: isGroupable,
-    run: (ctx) => {
-      const groupId = groupWidgets(ctx.board, [...ctx.ids]);
-      if (!groupId) return;
-      // Select every member, so the badge and the next drag treat it as one group.
-      ctx.select(
-        [...ctx.board.widgets.values()]
-          .filter((widget) => widget.groupId === groupId)
-          .map((widget) => widget.id),
-      );
-    },
-  },
-  {
-    id: "ungroup",
-    label: () => "menu.ungroup",
-    group: "arrange",
-    icon: "group-break",
-    shortcut: { key: "g", mod: true, shift: true, always: true },
-    surfaces: ["menu", "panel"],
-    enabled: selectionHasGroup,
-    run: (ctx) => ungroupWidgets(ctx.board, [...ctx.ids]),
-  },
-  {
-    id: "delete",
-    label: () => "menu.delete",
-    group: "danger",
-    icon: "trash",
-    shortcut: { key: ["backspace", "delete"] },
-    surfaces: ["menu", "panel"],
-    danger: true,
-    enabled: hasSelection,
-    run: (ctx) => {
-      if (ctx.deleteSelection) ctx.deleteSelection(ctx.ids);
-      else {
-        deleteWidgets(ctx.board, [...ctx.ids]);
-        ctx.select([]);
-      }
-    },
-  },
-];
+/*
+ * The object half of the list lives in `commandsObject.ts`, split only for the size
+ * ratchet. It is re-exported here so every consumer still imports one registry.
+ */
+export { COMMANDS, hasSelection, isGroupable, selectionHasGroup, singleSelected } from "./commandsObject";
+import { COMMANDS } from "./commandsObject";
 
 /** Commands shown in a given place, in the order they should appear. */
 export function commandsFor(surface: CommandSurface, ctx?: CommandContext): Command[] {
@@ -704,6 +324,7 @@ const CHROME_GROUP: Record<string, string> = {
   "account.org": "people",
   "account.support": "people",
   "account.help": "help",
+  "search.open": "help",
   "account.cookies": "help",
   "account.documents": "help",
   "account.docs": "help",

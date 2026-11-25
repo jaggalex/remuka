@@ -14,6 +14,7 @@ import type { DeletionSchedule } from "../accountDeletionApi";
 import { SecurityDialog } from "../mfa/SecurityDialog";
 import { GuestNameNotice } from "../legal/GuestNameNotice";
 import { commandGroup, menuCommands, type ChromeContext } from "../commands";
+import { useChromeSurfaceRegistration } from "../chromeSurfaces";
 import type { Theme } from "../useTheme";
 
 /**
@@ -52,6 +53,8 @@ export function AccountMenu({
   withView = true,
   onAgent,
   onComments,
+  /** A room passes this; the search exists only where there is a board to search in. */
+  onSearch,
   /** The home needs the date to keep its banner after the account stops working. */
   onDeleteScheduled,
   onDeleteCancelled,
@@ -87,6 +90,8 @@ export function AccountMenu({
   withView?: boolean;
   onAgent?: () => void;
   onComments?: () => void;
+  /** The argument is the control to return focus to after the search closes. */
+  onSearch?: (returnTo: HTMLElement | null) => void;
   onDeleteScheduled?: (schedule: DeletionSchedule) => void;
   onDeleteCancelled?: () => void;
 }) {
@@ -204,9 +209,21 @@ export function AccountMenu({
     "account.signIn": onSignIn,
     "header.agent": () => onAgent?.(),
     "header.comments": () => onComments?.(),
+    "search.open": () => {
+      // The row is gone once the menu closes, so the search opens a frame later, after
+      // the menu has handed focus back to the avatar; the dialog then returns it there.
+      const trigger = anchor.current?.querySelector<HTMLElement>("button") ?? null;
+      window.requestAnimationFrame(() => onSearch?.(trigger));
+    },
   };
   const ctx: ChromeContext = {
-    can: { signedIn, support: support.available, agents: agentAvailable, docs: docsOrigin !== null },
+    can: {
+      signedIn,
+      support: support.available,
+      agents: agentAvailable,
+      docs: docsOrigin !== null,
+      search: Boolean(onSearch),
+    },
     run: (id) => {
       const action = actions[id];
       if (!action) return;
@@ -214,6 +231,7 @@ export function AccountMenu({
       action();
     },
   };
+  useChromeSurfaceRegistration("account-menu", ctx);
   const rows = menuCommands(["account", "help"], ctx, { narrow }).filter(
     (command) =>
       (command.id !== "account.support" || support.available) &&

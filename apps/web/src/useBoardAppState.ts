@@ -498,7 +498,6 @@ export function useBoardAppState() {
     addConnectedNote,
     setEditingId: editWidget,
     setSelectedIds,
-    onOpenHome: openHome,
     forceRender,
     pasteSelection,
   });

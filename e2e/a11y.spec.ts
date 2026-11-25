@@ -95,6 +95,18 @@ test("the four header menus have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "account menu");
 });
 
+test("the command search has no serious accessibility violations", async ({ page }) => {
+  await freshBoard(page, "a11y-command-search");
+
+  await page.keyboard.press("Meta+k");
+  await expect(page.getByRole("dialog", { name: "Command search" })).toBeVisible();
+  await expectNoSerious(page, "command search", ".rm-command");
+
+  await page.getByRole("combobox").fill("export");
+  await expect(page.getByRole("option").first()).toContainText("Export…");
+  await expectNoSerious(page, "command search results", ".rm-command");
+});
+
 test("the canvas context menu has no serious accessibility violations", async ({ page }) => {
   await freshBoard(page, "a11y-context-menu");
   await seedStableNote(page, { id: "a11y-menu-note", x: 0, y: 0, text: "Note" });

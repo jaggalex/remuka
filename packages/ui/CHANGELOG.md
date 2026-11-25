@@ -5,6 +5,9 @@ version with a note here and a codemod where possible.
 
 ## Unreleased
 
+- **CommandPalette:** the modal layer of a command palette — scrim, a paper sheet near the
+  top, the focus trap, Escape and focus back to the opener; it has no title bar because the
+  search field is the title (ADR-266 §1.2). Additive.
 - **Dialog:** optional `help` slot — one help link beside the title. Product dialogs that
   had a «?» in a hand-made header can move onto `Dialog` without losing it (audit
   UX-DIALOG-01). Additive; no existing prop changes.

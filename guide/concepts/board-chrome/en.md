@@ -33,7 +33,15 @@ On a narrow screen (below 900 px) the name, people (up to two faces), **Run** as
 | **Run** | timer, voting, presentation, shared viewing, reactions |
 | **Agent** | give the agent a task, ask the agent, agents and journal |
 | People | participants with roles, "follow", followers and guests by link |
-| Account | all rooms, theme (light, dark), language (Russian, English), help, active sessions, security, organisation, documents, cookies, sign out. Theme and language belong to the account and follow it to another device; before sign-in the browser choice applies |
+| Account | all rooms, find an action, theme (light, dark), language (Russian, English), help, active sessions, security, organisation, documents, cookies, sign out. Theme and language belong to the account and follow it to another device; before sign-in the browser choice applies |
+
+## Command search
+
+`⌘K` (`Ctrl K`), the **Find an action** button at the bottom of the room or a row in the account menu open the command search. It looks at titles and synonyms, both interface languages included: “export”, “экспорт” and “выгрузить” find the same command. Arrows choose, `Enter` runs, `Esc` closes and returns focus where it was.
+
+With no query the search shows the five commands this browser ran last and three context suggestions: with a selection, the actions on it; without, the ways to run the session. An unavailable command stays visible, grey, with its reason: “Select an object first”, “The editor role is required”, “Only on the Team plan”; `Enter` on it does nothing.
+
+When agents are allowed in the room, the last row is **Ask the agent: …**. It opens a task with your words and runs nothing by itself.
 
 ## Rail
 
@@ -54,7 +62,7 @@ Below, in a separate panel, sit **Undo** and **Redo**: history is not a creation
 
 ## Bottom and edges
 
-- Bottom left: zoom: `−`, the percentage, `+` and **Fit**. Fit can frame everything or just the selection.
+- Bottom left: **Find an action** (`⌘K`) and the zoom: `−`, the percentage, `+` and **Fit**. Fit can frame everything or just the selection.
 - Bottom centre: the first-visit hint. It disappears after the first gesture on the canvas or after a few seconds.
 - While voting runs, the **Voting is on** line (or "Voting ended") takes this place: votes left, time, the facilitator and a way into the panel. The hint is not shown at the same time.
 - Top left, beside the rail, the selection badge names the selected object's type, size, lock and tags.
@@ -75,6 +83,7 @@ Below, in a separate panel, sit **Undo** and **Redo**: history is not a creation
 | Add a template | room menu → **Templates…** |
 | Set a task for an agent | **Agent ▾ → Give the agent a task** |
 | Open all rooms | account menu → **All rooms** |
+| Find an action by name | `⌘K`, **Find an action** at the bottom, or the account menu |
 
 ## What changes with a role
 

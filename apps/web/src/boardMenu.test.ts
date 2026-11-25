@@ -139,7 +139,12 @@ describe("the canvas menu", () => {
       const board = boardWith(widgets);
       const ids = widgets.map((entry) => entry.id);
       const menu = menuFor({ kind: "selection", ids }, board, { ids });
-      const order = menu.groups.map((group) => {
+      // The search row is its own last group before the danger group (T7); it is not a
+      // canvas command, so the group-order check reads the registry groups only.
+      const groups = menu.groups.filter(
+        (group) => !group.some((row) => row.commandId === "search.open"),
+      );
+      const order = groups.map((group) => {
         const first = group.find((row) => row.commandId);
         const command = COMMANDS.find((entry) => entry.id === first?.commandId);
         expect(command, first?.label).toBeTruthy();
@@ -147,7 +152,7 @@ describe("the canvas menu", () => {
       });
       const sorted = [...order].sort((a, b) => a - b);
       expect(order, name).toEqual(sorted);
-      const last = menu.groups[menu.groups.length - 1]!;
+      const last = groups[groups.length - 1]!;
       expect(last[last.length - 1]!.commandId, name).toBe("delete");
       expect(last[last.length - 1]!.danger, name).toBe(true);
       expect(last[last.length - 1]!.label, name).toBe("menu.delete");
@@ -226,9 +231,25 @@ describe("the canvas menu", () => {
     expect(ids).not.toContain("delete");
   });
 
-  it("hides the search row until the command search exists (T7)", () => {
+  it("puts the search row last, before the danger group (T7)", () => {
     const board = boardWith([widget("n1", "sticky_note")]);
-    const ids = idsOf(menuFor({ kind: "selection", ids: ["n1"] }, board, { ids: ["n1"] }).groups).flat();
-    expect(ids).not.toContain("search.open");
+    const groups = menuFor({ kind: "selection", ids: ["n1"] }, board, { ids: ["n1"] }).groups;
+    const ids = idsOf(groups).flat();
+    expect(ids).toContain("search.open");
+
+    const searchGroup = groups.findIndex((group) =>
+      group.some((row) => row.commandId === "search.open"),
+    );
+    // Its own group, immediately before the one that holds Delete.
+    expect(searchGroup).toBe(groups.length - 2);
+    expect(idsOf(groups)[groups.length - 1]).toContain("delete");
+    const row = groups[searchGroup]![0]!;
+    expect(row.label).toBe("search.action");
+    expect(row.shortcut).toBe("⌘K");
+
+    // The empty canvas offers it too: the spec gives the row to the canvas, not only
+    // to a selection.
+    const canvas = menuFor({ kind: "selection", ids: [] }, boardWith([])).groups;
+    expect(idsOf(canvas).flat()).toContain("search.open");
   });
 });

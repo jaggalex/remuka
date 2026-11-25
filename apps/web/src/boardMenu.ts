@@ -26,9 +26,9 @@ import type { MenuGrid, MenuItem, MenuState } from "./ContextMenu";
 import {
   COMMAND_GROUPS,
   SEARCH_IN_CONTEXT_MENU,
-  commandById,
   commandsFor,
   paletteChoices,
+  registryCommand,
   runCommand,
   shortcutLabel,
   type Command,
@@ -149,6 +149,26 @@ function commandRow(
             : undefined,
         }
       : undefined,
+  };
+}
+
+/**
+ * "Find an action ⌘K" — the row that opens the search (T6, T7).
+ *
+ * It is a chrome command: the account menu offers the same id. The row is built here
+ * because the canvas menu is not a chrome menu, and the action ignores this context.
+ */
+function searchMenuItem(t: (key: TranslationKey) => string): MenuItem | null {
+  if (!SEARCH_IN_CONTEXT_MENU) return null;
+  const search = registryCommand("search.open");
+  const chrome = search && "title" in search ? search : null;
+  if (!chrome) return null;
+  return {
+    commandId: chrome.id,
+    label: t(chrome.title),
+    icon: chrome.icon,
+    shortcut: chrome.shortcut,
+    action: () => chrome.run({ can: {}, run: () => undefined }),
   };
 }
 
@@ -451,12 +471,9 @@ export function buildBoardMenu({
       else ordered.push(sectionItems);
     }
 
-    // T7 appends the search row here; until then the flag keeps it out (ADR-266 §1.2).
-    if (SEARCH_IN_CONTEXT_MENU) {
-      const search = commandById("search.open");
-      const row = search ? commandRow(search, context, t) : null;
-      if (row) ordered.splice(Math.max(0, ordered.length - 1), 0, [row]);
-    }
+    // The search row is its own last group before the danger group (T6, T7).
+    const search = searchMenuItem(t);
+    if (search) ordered.splice(Math.max(0, ordered.length - 1), 0, [search]);
 
     menu({
       x,
@@ -475,7 +492,9 @@ export function buildBoardMenu({
   }
 
   // Empty canvas: the menu is about the board itself, and paste lands where the
-  // click was rather than wherever the cascade happens to be.
+  // click was rather than wherever the cascade happens to be. The search row follows,
+  // as it does over a selection (spec/canvas-character.md §3).
+  const search = searchMenuItem(t);
   menu({
     x,
     y,
@@ -489,6 +508,7 @@ export function buildBoardMenu({
           action: () => void pasteSelection(point.world),
         },
       ],
+      ...(search ? [[search]] : []),
     ],
   });
 

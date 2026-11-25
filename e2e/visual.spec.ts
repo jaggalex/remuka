@@ -1943,3 +1943,23 @@ test("rotation: the canvas and its export draw the same turned objects", async (
   await capture(page, page.locator(".app"), "rotation");
   await exportRoom(page, testInfo, "rotation-export");
 });
+
+/**
+ * The command search (ADR-266 §1.2, T7).
+ *
+ * The `cmdk` state of the room-header artboard: the paper sheet, the ink outline, the
+ * hard shadow, the search row with the Esc chip and the rows of "title / where … key".
+ * A query with several matches photographs the list, not an empty box; the rows come
+ * from the registry, so the picture changes only when a command changes.
+ */
+test("the command search keeps its artboard shape", async ({ page }) => {
+  await freshBoard(page, "visual-command-search");
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.keyboard.press("Meta+k");
+  await expect(page.getByRole("dialog", { name: "Command search" })).toBeVisible();
+  await page.getByRole("combobox").fill("e");
+  await expect(page.getByRole("option").first()).toBeVisible();
+
+  await capture(page, page.locator(".rm-command"), "command-search");
+});

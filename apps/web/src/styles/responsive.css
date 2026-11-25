@@ -72,4 +72,9 @@
   }
   /* The inspector is gone, so the board is wider: the hint keeps clear of the zoom bar
      with the same reserve rather than a second rule. */
+  /* Below 900 the bottom bar also carries "Find an action" (T7) and is wider than the
+     reserve: the hint steps above it instead of sitting on top of it. */
+  .canvas-hint {
+    bottom: calc(var(--space-4) + var(--control-default) + var(--space-2));
+  }
 }

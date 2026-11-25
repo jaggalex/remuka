@@ -26,6 +26,7 @@ import { useI18n } from "./i18n";
  */
 export function AgentDialog({
   open,
+  initialIntent = "",
   boardId,
   boardTitle,
   canManage,
@@ -37,6 +38,8 @@ export function AgentDialog({
   onOpenOrg,
 }: {
   open: boolean;
+  /** A task the command search already typed for the person (T7). */
+  initialIntent?: string;
   boardId: string;
   boardTitle: string;
   canManage: boolean;
@@ -132,6 +135,12 @@ export function AgentDialog({
     setSourceIds([...selectionIds]);
     void load();
   }, [open, load, selectionIds.join(",")]);
+
+  // The search's last line opens the dialog with its words already in the field; the
+  // person still presses the button, so nothing runs by itself (ADR-266 §1.2).
+  useEffect(() => {
+    if (open && initialIntent) setIntent(initialIntent);
+  }, [open, initialIntent]);
 
   // A finished brief becomes a preview by itself. The person still decides: no plan
   // reaches the board without the Apply button (ADR-142).

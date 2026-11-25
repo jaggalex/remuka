@@ -159,6 +159,35 @@ Chatwoot требует отдельного развёртывания и ст�
 Не используйте реальные деньги, production-ключи ИИ или почтовые адреса клиентов.
 Проверка отказа live-платежей остаётся отдельным пунктом ТЗ; сейчас live-подключений нет.
 
+## Поддержка: Chatwoot на стенде
+
+На стенде поднят Chatwoot CE отдельным compose-проектом `stage-chatwoot` в `/srv/stage-chatwoot`: rails, sidekiq, отдельные PostgreSQL и Redis, своя сеть. Контейнер приложения виден только в сети `edge`, к backend-сети Ремуки он не подключён. Ограничения памяти рассчитаны на 4 ГБ стенда: rails 1.2 ГБ, sidekiq 700 МБ, PostgreSQL 384 МБ, Redis 192 МБ.
+
+| Что | Адрес |
+|---|---|
+| Чат и виджет | `https://support.stage.remuka.ru/` |
+| Вход операторов | `https://support.stage.remuka.ru/app` (сначала пароль стенда, потом учётная запись Chatwoot) |
+| Страница виджета | `https://support.stage.remuka.ru/widget.html` |
+| Администратор | `support@stage.remuka.ru`, пароль — `ADMIN_PASSWORD` в `/srv/stage-chatwoot/secrets.env` (mode 600, только через `sudo`) |
+
+**Что уже настроено:** аккаунт `Remuka`, канал Website «Помощь в приложении», **Identity Validation включена** (`hmac_mandatory`), pre-chat выключен, сайт канала — `https://app.stage.remuka.ru`. Токены лежат в `/srv/stage-chatwoot/tokens.env`: website token ушёл в страницу виджета, HMAC — в `REMO_SUPPORT_HMAC_SECRET` приложения.
+
+**Как это связано:** Caddy стенда ведёт `support.stage.remuka.ru` в stage-ingress; там `support.conf` отдаёт два статических файла и проксирует остальное в `stage-chatwoot:3000`. Basic auth снят только на хосте поддержки: iframe не может унаследовать пароль стенда, а переписка привязана к подписанной личности. `/app` операторов остаётся за паролем стенда.
+
+**CSP приложения.** Контейнер web отдаёт политику без `frame-src`, поэтому в vhost `app.stage.remuka.ru` (`/srv/stage-nginx/conf.d/stage.conf`) стоит `proxy_hide_header Content-Security-Policy` и своя политика с `frame-src https://support.stage.remuka.ru`. Это правка стенда, не прода: на боевых установках вариант с `frame-src` рендерится при выкладке (`deploy/config.sh`, `render_support_headers`).
+
+**Как проверить обращение:**
+
+1. Войдите владельцем (`owner@stage.remuka.ru`) → «Помощь» в меню аккаунта.
+2. Панель должна открыть чат, а в Chatwoot появиться разговор с именем, почтой и тарифом. Названий и содержимого комнат там быть не должно.
+3. Ответьте из `https://support.stage.remuka.ru/app` — ответ появляется в панели и приходит письмом.
+4. Выйдите из аккаунта приложения при открытой панели: виджет должен сбросить сессию (`reset`), следующий вход — новый разговор.
+5. Проверьте, что страницу нельзя встроить с чужого origin: `curl -I https://support.stage.remuka.ru/widget.html` отдаёт `frame-ancestors https://app.stage.remuka.ru`, а без `/app` пароля операторская часть отвечает `401`.
+
+**Повторная установка:** `deploy/stage/chatwoot.compose.yml`, `chatwoot.env.example`, `chatwoot-init.rb` и `nginx-support.conf` лежат в репозитории. Секреты создаются на месте (`SECRET_KEY_BASE`, пароль базы, `ADMIN_PASSWORD`), в git не попадают. Порядок: `up -d postgres redis` → `rails db:chatwoot_prepare` → `chatwoot-init.rb` → `up -d rails sidekiq` → отрендерить страницу виджета с website token → включить `REMO_SUPPORT_*` в `production.env` → перезапустить sync.
+
+**Ограничения стенда:** письма Chatwoot уходят через Postbox **без** белого списка приложения — тестировщикам не стоит вводить чужие адреса. Ресурсы рассчитаны на несколько одновременных разговоров, не на нагрузку. Сброс `stage:reset` базу Chatwoot не трогает: переписка стенда переживает сброс приложения.
+
 ## Почта: как проверить до прода
 
 Стенд работает через настоящий SMTP (Postbox), но с белым списком получателей: `REMO_MAIL_ALLOW_RECIPIENTS`. Всё, что не перечислено, получает `status = 'suppressed'`, ссылка вычищается. Поэтому «письма не приходят» почти всегда означает «адрес не в списке», а не сломанную почту.

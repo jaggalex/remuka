@@ -1,6 +1,7 @@
 import type { TranslationKey } from "./i18n";
 import { REACTIONS } from "./reactions";
 import type { ChromeAbility, ChromeCommand, ChromeContext } from "./commands";
+import { openCommandSearch } from "./commandSearchStore";
 
 /**
  * The chrome half of the command registry (ADR-266 §1.1).
@@ -324,6 +325,20 @@ export const CHROME_COMMANDS: readonly ChromeCommand[] = [
     surfaces: ["header", "palette"],
     available: () => true,
     run: (ctx) => ctx.run("account.help"),
+  },
+  {
+    // The third way into the search (spec/tidy-desk §1.2): the help group of the account
+    // menu. Only a room can search, so the home menu does not show a dead row.
+    id: "search.open",
+    title: "search.action",
+    icon: "search",
+    synonyms: { ru: ["найти", "поиск", "действие", "команда"], en: ["find", "search", "action", "command"] },
+    intent: "help",
+    surfaces: ["header", "palette"],
+    shortcut: "⌘K",
+    hideWhenUnavailable: true,
+    available: allow("search", "search.roomOnly"),
+    run: () => openCommandSearch(),
   },
   {
     id: "account.sessions",

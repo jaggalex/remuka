@@ -37,6 +37,7 @@ function PanelsBody({
   onCloseAccount,
   onSignedOut,
   agentOpen,
+  agentIntent,
   tidy,
   boardId,
   boardTitle,
@@ -62,6 +63,8 @@ function PanelsBody({
   onCloseAccount: () => void;
   onSignedOut: () => void;
   agentOpen: boolean;
+  /** Text the command search handed over: the dialog opens on it (T7). */
+  agentIntent: string;
   tidy: TidyCommand;
   boardId: string;
   boardTitle: string;
@@ -117,6 +120,7 @@ function PanelsBody({
       )}
       <AgentDialog
         open={agentOpen}
+        initialIntent={agentIntent}
         boardId={boardId}
         boardTitle={boardTitle}
         canManage={Boolean(access?.capabilities.includes("board.manage"))}
