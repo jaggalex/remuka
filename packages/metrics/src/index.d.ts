@@ -22,9 +22,24 @@ export type MetricName =
   | "activation.first_value"
   | "help.opened"
   | "help.search"
-  | "billing.subscription_started";
+  | "billing.subscription_started"
+  | "chrome.used";
 
 export type ActorType = "user" | "agent" | "visitor";
+
+/** Where a chrome control is offered today (ADR-266 §9). */
+export interface ChromeControl {
+  /** The command registry id the event carries. */
+  id: string;
+  where: "header" | "menu";
+}
+
+/**
+ * The closed list of controls `chrome.used` may name. The web sender, the sync route
+ * and the Pulse aggregate read this one list.
+ */
+export declare const CHROME_CONTROLS: readonly ChromeControl[];
+export declare const CHROME_CONTROL_IDS: readonly string[];
 
 export interface MetricEvent {
   event_id: string;

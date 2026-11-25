@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Segmented, Select, Table } from "@remo/ui";
 import { formatMoney } from "../apiBilling";
+import { CHROME_COMMANDS } from "../commands";
 import { formatDate } from "../format";
 import { useI18n, type TranslationKey } from "../i18n";
 import { operatorApi, type Pulse } from "./operatorApi";
@@ -32,6 +33,11 @@ const TILE_HINT: Record<string, TranslationKey> = {
 };
 
 const PERCENT_TILES = new Set(["activation7d", "retentionW4"]);
+
+/** The name a control already has in the product, so the console does not invent one. */
+const CONTROL_LABEL = new Map<string, TranslationKey>(
+  CHROME_COMMANDS.map((command) => [command.id, command.title]),
+);
 
 export function OperatorPulse() {
   const { t, lang } = useI18n();
@@ -75,6 +81,10 @@ export function OperatorPulse() {
 
   const money = (value: number | null) =>
     value === null || !data.currency ? t("operator.na") : formatMoney(value, data.currency, lang);
+  const count = (value: number | null) =>
+    value === null
+      ? t("operator.na")
+      : new Intl.NumberFormat(lang === "ru" ? "ru-RU" : "en-GB").format(value);
 
   return (
     <div className="operator-pulse">
@@ -207,6 +217,43 @@ export function OperatorPulse() {
             reason={data.engagement.reason}
           />
         </div>
+      </section>
+
+      <section className="operator-section">
+        <h2>{t("operator.chrome.title")}</h2>
+        <p className="operator-note">
+          {t("operator.chrome.hint", { day: data.chrome.day ?? t("operator.na") })}
+        </p>
+        {data.chrome.items.length > 0 ? (
+          <Table
+            columns={[
+              { key: "control", label: t("operator.chrome.control") },
+              { key: "orgs", label: t("operator.chrome.orgs"), numeric: true },
+              { key: "share", label: t("operator.chrome.share"), numeric: true },
+              { key: "verdict", label: t("operator.chrome.verdict") },
+            ]}
+            rows={data.chrome.items.map((item) => {
+              const label = CONTROL_LABEL.get(item.control);
+              return {
+                id: item.control,
+                control: label ? t(label) : item.control,
+                orgs: count(item.orgs),
+                share: item.share === null ? t("operator.na") : `${item.share}%`,
+                verdict:
+                  item.verdict === "deep"
+                    ? t("operator.chrome.deep")
+                    : item.verdict === "place"
+                      ? t("operator.chrome.place")
+                      : "",
+              };
+            })}
+          />
+        ) : (
+          <Fact label={t("operator.chrome.title")} value={null} reason={data.chrome.reason} />
+        )}
+        {data.chrome.items.length > 0 && data.chrome.reason && (
+          <p className="operator-note">{data.chrome.reason}</p>
+        )}
       </section>
 
       <section className="operator-section">

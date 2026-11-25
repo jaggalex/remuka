@@ -25,6 +25,7 @@ export const DIMS = Object.freeze([
   "skill",
   "cohort",
   "offset",
+  "control",
 ]);
 
 /**
@@ -36,7 +37,7 @@ export const DIMS = Object.freeze([
  * list is a closed constant with a test; a new dimension of that kind is added here, not
  * configured per installation.
  */
-export const SUPPRESSED_DIMS = Object.freeze(["source", "template", "feature", "skill"]);
+export const SUPPRESSED_DIMS = Object.freeze(["source", "template", "feature", "skill", "control"]);
 
 /** Below this a small cell is hidden; five is the specification's number (§5.1). */
 export const SUPPRESSION_FLOOR = 5;
@@ -137,6 +138,24 @@ export const METRICS = Object.freeze([
     periods: ["week"],
     available: eventPresent("template.used"),
     description: "Rooms created from a template, by template",
+  },
+  {
+    metric: "chrome.orgs28",
+    unit: "count",
+    class: "derived",
+    dims: ["control"],
+    periods: ["day"],
+    available: eventPresent("chrome.used"),
+    description: "Organisations that ran a chrome control in the trailing 28 days, by control",
+  },
+  {
+    metric: "active.orgs28",
+    unit: "count",
+    class: "derived",
+    dims: [],
+    periods: ["day"],
+    available: true,
+    description: "Organisations with an event in the trailing 28 days (chrome share denominator)",
   },
   {
     metric: "invites.sent",

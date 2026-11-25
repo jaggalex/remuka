@@ -12,6 +12,7 @@ const ROUTE_FAMILIES = new Set([
   "apps",
   "auth",
   "boards",
+  "chrome",
   "files",
   "health",
   "integrations",

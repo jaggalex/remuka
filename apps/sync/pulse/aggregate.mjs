@@ -29,6 +29,8 @@ import { METRICS_EVENTS_RETENTION_DAYS } from "../metrics-store.mjs";
 import {
   computeActivation,
   computeActiveActors,
+  computeActiveOrgs28,
+  computeChromeUsage,
   computeCollaborativeSessions,
   computeCollaborativeTeams,
   computeFeatureUsage,
@@ -40,6 +42,7 @@ import {
   computeTemplateUsage,
 } from "./compute.mjs";
 import { metricAvailable } from "./catalog.mjs";
+import { CHROME_WINDOW_DAYS } from "./chrome.mjs";
 import {
   deleteStale,
   firstEventDay,
@@ -97,6 +100,10 @@ export function rowsForDay({ day, orgs = [], events = [], invitations = [], subs
     ...computeInvitesSent({ day, invitations }),
     ...computeInvitesAccepted({ day, invitations }),
     ...computeActiveActors({ day, events }),
+    // The chrome share is a trailing 28-day window, so its rows sit on every day and
+    // are not a sum of the daily activity (ADR-294).
+    ...(metricAvailable("chrome.orgs28") ? computeChromeUsage({ day, events }) : []),
+    ...computeActiveOrgs28({ day, events }),
     ...(metricAvailable("collab.sessions")
       ? computeCollaborativeSessions({ day, events })
       : []),
@@ -132,7 +139,7 @@ async function writeDay({ pool, store, zone, day, yesterday, metrics, log }) {
     await client.query("set local time zone 'UTC'");
     await client.query("select pg_advisory_xact_lock(hashtext($1))", [`pulse:${day}`]);
 
-    const starts = [day];
+    const starts = [day, addDays(day, -(CHROME_WINDOW_DAYS - 1))];
     if (isWeekEnd(day)) starts.push(startOfWeek(day));
     if (isMonthEnd(day)) starts.push(startOfMonth(day));
     const eventsFrom = minDay(...starts);

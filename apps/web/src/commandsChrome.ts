@@ -2,6 +2,7 @@ import type { TranslationKey } from "./i18n";
 import { REACTIONS } from "./reactions";
 import type { ChromeAbility, ChromeCommand, ChromeContext } from "./commands";
 import { openCommandSearch } from "./commandSearchStore";
+import { recordChromeUse } from "./chromeUse";
 
 /**
  * The chrome half of the command registry (ADR-266 §1.1).
@@ -32,7 +33,7 @@ const signedIn: (ctx: ChromeContext) => true | { reason: TranslationKey } = (ctx
  * way to run it, availability as data. They live in this file on purpose — a second
  * registry would let a menu and the search drift apart.
  */
-export const CHROME_COMMANDS: readonly ChromeCommand[] = [
+const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
   // Canvas creation (T8 «More»): the same ids the search finds, so the rail and ⌘K
   // cannot offer different objects. The action itself is the app's (ADR-266 §1.1).
   {
@@ -543,3 +544,20 @@ export const CHROME_COMMANDS: readonly ChromeCommand[] = [
     run: (ctx) => ctx.run("header.comments"),
   },
 ];
+
+/**
+ * The registry the app runs: the same commands, with one side effect on `run`.
+ *
+ * Every surface — a header menu, the rail's «More», ⌘K — dispatches through the
+ * command's `run`, so wrapping it here observes all of them without a second call site
+ * (ADR-294). The helper is a best-effort metric and never changes what the command does.
+ */
+export const CHROME_COMMANDS: readonly ChromeCommand[] = REGISTERED_CHROME_COMMANDS.map(
+  (command) => ({
+    ...command,
+    run: (ctx) => {
+      recordChromeUse(command.id);
+      command.run(ctx);
+    },
+  }),
+);

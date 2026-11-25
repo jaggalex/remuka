@@ -65,6 +65,7 @@ import { handlePublicRoutes } from "./public-api.mjs";
 import { isStage } from "./stage.mjs";
 import { handleConsentRoutes } from "./consent-api.mjs";
 import { handleOperatorConsole } from "./operator-console-api.mjs";
+import { handleChromeUseRoute } from "./pulse/chrome-use.mjs";
 import { createPulseRuntime } from "./pulse-runtime.mjs";
 
 import { websocketUtils } from "./y.mjs";
@@ -524,7 +525,7 @@ async function routeRequest(request, response, url) {
   // The cookie choice and its journal (ADR-255 §4); `/consent` shares no prefix with a
   // domain route and must answer for a guest and in the `none` zone.
   if (await handleConsentRoutes({ request, response, url, store, zone: COMPLIANCE.zone, metrics, log: console })) return;
-
+  if (await handleChromeUseRoute({ request, response, url, store })) return;
   /**
    * The operator console (ADR-259 §5, stage 2). Its own prefix, answered before IAM:
    * `/operator` is not a customer route, and a non-operator gets the same 404 an unknown

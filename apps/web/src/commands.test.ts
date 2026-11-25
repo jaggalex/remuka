@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
+import { CHROME_CONTROL_IDS } from "@remo/metrics";
 import { paintOrder, type Widget, type WidgetType } from "@remo/model";
 import {
   CHROME_COMMANDS,
@@ -312,6 +313,17 @@ describe("the chrome registry", () => {
         expect(command.surfaces, command.id).toContain("palette");
       }
     }
+  });
+
+  it("measures exactly the closed control list", () => {
+    // The registry, the sender and the Pulse aggregate read one list (ADR-294). A new
+    // menu row that is not in `CHROME_CONTROLS` would be invisible to the rule; a list
+    // entry without a row would be a control that cannot be pressed.
+    const registered = CHROME_COMMANDS
+      .filter((command) => !command.id.startsWith("run.reaction."))
+      .map((command) => command.id)
+      .sort();
+    expect([...CHROME_CONTROL_IDS].sort()).toEqual(registered);
   });
 
   it("builds each intent menu from registry entries only", () => {

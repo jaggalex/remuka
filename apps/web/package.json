@@ -12,6 +12,7 @@
     "@remo/brand": "workspace:*",
     "@remo/canvas": "workspace:*",
     "@remo/consent": "workspace:*",
+    "@remo/metrics": "workspace:*",
     "@remo/model": "workspace:*",
     "@remo/ui": "workspace:*",
     "react": "^18.3.1",

@@ -11961,3 +11961,57 @@ link still uses the existing expiry.
 model. Hiding the room chrome on an empty room would create a second header and break the
 8-item rule. Inventing Retro and Process templates would add template data and two more
 maintained documents; the four real templates already fill the block.
+
+## ADR-294: Chrome usage is one fact per organisation per day, read as a 28-day share
+
+**Status:** accepted (2026-11-25, owner). Task T11 (server half). Implements ADR-266 §9;
+extends ADR-082 (metrics) and ADR-258 (`spec/pulse.md`). The disclosure components and the
+replacement of the local T8 implementation stay in the UI half of T11.
+
+**Context.** ADR-266 decided that placement is revisited on data, quarterly: an element
+used by fewer than 5 % of active organisations is a candidate to go deeper, a hidden one
+used by more than 40 % is a candidate for a permanent place. The metrics contract has a
+name list and a closed prop vocabulary (ADR-082) but no `chrome.used`; `metrics_daily`
+has no dimension that can name a control; and a count of presses is not a share of
+organisations — one person pressing Export ten times says nothing about adoption.
+
+**Decision.**
+- `chrome.used` joins `METRIC_CATALOG` with one required prop, `control`, from the closed
+  `CHROME_CONTROLS` list in `@remo/metrics`. The list is the registry ids whose placement
+  is in question; reactions are not measured. `metricEvent` refuses an unknown control and
+  any other prop, so a room or a person cannot ride along in this event. The envelope names
+  the organisation — the rule is per organisation per day — and writes no actor or session,
+  so the stream cannot answer "who clicked". The aggregate never leaves the installation
+  and carries no identifier either.
+- The browser sends the control and the organisation slug to `POST /chrome/used`; the
+  service checks the session and an active membership, then emits through the one
+  metrics sink. The registry wraps every chrome command's `run`, so a header menu, the
+  rail's «More», ⌘K and any later surface are measured without a second call site.
+- The first press of a control per organisation per **UTC day** is the fact. A partial
+  unique index on `metrics_events (org_id, props->>'control', UTC day)` implements it in
+  the storage, so concurrent tabs cannot both insert; the sink's `on conflict do nothing`
+  keeps the first row. No new product column and no `SCHEMA_VERSION` change: the metrics
+  database is separate (ADR-082).
+- The share cannot be a sum of daily counts: distinct organisations are not additive.
+  The aggregator writes two trailing-28-day rows on every day — `chrome.orgs28` per
+  `control` and `active.orgs28` for the denominator (organisations with any event) —
+  and the Pulse reads the latest complete day. `control` is a closed dimension of
+  `metrics_daily` (the check is replaced idempotently at start) and a suppressed split on
+  export, because a cell of one organisation describes behaviour.
+- The operator section «Хром» lists every control with organisations, share and the
+  verdict. Comparisons are strict: below 5 %, above 40 % of a control offered in a menu.
+  The console names candidates; it never moves a control.
+
+**Consequences.** One more event and two more daily metrics per zone. Every nightly
+recompute loads 28 days of events instead of one, which is the price of an honest
+distinct count. `pnpm db:metrics` upgrades an existing table by replacing the dimension
+check. The count of controls is a ratchet: a new registry row without a `CHROME_CONTROLS`
+entry fails a test, and a list entry without a row would be a control nobody can press.
+Header buttons that call a handler directly are not measured yet; wiring them belongs to
+the UI half, together with `Disclosure`/`DangerZone`.
+
+**Alternatives considered.** Counting presses instead of organisations would reward one
+enthusiast and miss adoption. A generic `feature` dimension with `chrome:<id>` values
+would give one key two meanings. Writing a metric per control would flood the catalogue
+and lose export suppression. Computing the share on read from daily rows is impossible
+without identifiers, and reading `metrics_events` from the panel is forbidden (§4.6).

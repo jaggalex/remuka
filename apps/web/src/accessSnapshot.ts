@@ -108,3 +108,17 @@ export function plansUrl(): string {
   const query = slug ? `?org=${encodeURIComponent(slug)}&billing=1` : "?billing=1";
   return `/${query}`;
 }
+
+/**
+ * The organisation slug of the open screen, for the few writes that are addressed by
+ * slug rather than by a board (`chrome.used`, ADR-294). The room's access answer names
+ * the board's organisation; the home already has `?org=` and has no board to ask.
+ */
+export function currentOrgSlug(): string | null {
+  if (snapshot.orgSlug) return snapshot.orgSlug;
+  try {
+    return new URLSearchParams(window.location.search).get("org");
+  } catch {
+    return null;
+  }
+}

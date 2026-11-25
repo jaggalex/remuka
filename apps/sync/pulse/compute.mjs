@@ -11,6 +11,8 @@
  */
 import { addDays, startOfWeek } from "./time.mjs";
 import { normalizeDim, normalizeDims } from "./catalog.mjs";
+import { CHROME_CONTROLS } from "@remo/metrics";
+import { CHROME_WINDOW_DAYS, chromeDim } from "./chrome.mjs";
 
 /** A value event (`spec/metrics.md`): proof that work, not a sign-in, happened. */
 const VALUE_EVENTS = new Set([
@@ -46,6 +48,11 @@ function dayBounds(day) {
 
 function periodBounds(from, to) {
   return [new Date(`${from}T00:00:00.000Z`).getTime(), new Date(`${addDays(to, 1)}T00:00:00.000Z`).getTime()];
+}
+
+/** The trailing window ending on `day`, as `[start, end)` moments. */
+function trailingBounds(day, days) {
+  return periodBounds(addDays(day, -(days - 1)), day);
 }
 
 function row(metric, dims, value, { status = "ok", basis = "derived" } = {}) {
@@ -207,6 +214,44 @@ export function computeTemplateUsage({ day, events = [] }) {
   return [...counts.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([template, count]) => row("template.used", { period: "week", template }, count));
+}
+
+/* ------------------------------------------------------------------- chrome -- */
+
+/**
+ * `chrome.orgs28`: organisations that ran each control in the trailing 28 days
+ * (`spec/tidy-desk.md` §9, ADR-294).
+ *
+ * The event is written once per organisation per day, but the share is over 28 days, so
+ * the row is a distinct-organisation count over the whole window and not a sum of daily
+ * rows. Every control in the closed list gets a row: a row of zero is a real zero and
+ * lets the panel say "nobody used this" instead of "no data".
+ */
+export function computeChromeUsage({ day, events = [] }) {
+  const [start, end] = trailingBounds(day, CHROME_WINDOW_DAYS);
+  const used = countByOrg(
+    events.filter((event) => event.name === "chrome.used" && occurredBetween(event, start, end)),
+    (event) => [chromeDim(String(event.props?.control ?? ""))],
+  );
+  return CHROME_CONTROLS.map((control) =>
+    row("chrome.orgs28", { control: control.id }, used.get(chromeDim(control.id))?.size ?? 0),
+  );
+}
+
+/**
+ * `active.orgs28`: organisations with any event in the trailing 28 days — the
+ * denominator of the chrome share. Presence is enough here: an organisation that opened
+ * the account menu on its first visit is active even if it has not saved a room yet, and
+ * the numerator must never exceed its denominator.
+ */
+export function computeActiveOrgs28({ day, events = [] }) {
+  const [start, end] = trailingBounds(day, CHROME_WINDOW_DAYS);
+  const orgs = new Set();
+  for (const event of events) {
+    if (!event.orgId || !occurredBetween(event, start, end)) continue;
+    orgs.add(event.orgId);
+  }
+  return [row("active.orgs28", {}, orgs.size)];
 }
 
 /* -------------------------------------------------------------- activation -- */

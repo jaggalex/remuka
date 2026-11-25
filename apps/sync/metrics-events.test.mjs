@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createRecorder, METRIC_CATALOG, METRIC_NAMES, metricEvent } from "@remo/metrics";
+import {
+  CHROME_CONTROLS,
+  createRecorder,
+  METRIC_CATALOG,
+  METRIC_NAMES,
+  metricEvent,
+} from "@remo/metrics";
 
 describe("product metrics (ADR-082)", () => {
   it("keeps the name list and the catalog in sync", () => {
@@ -42,5 +48,38 @@ describe("product metrics (ADR-082)", () => {
     expect(() => metricEvent({ name: "board.opened" })).toThrow(/unknown metric/);
     expect(() => metricEvent({ name: "board.saved", orgId: "o" })).toThrow(/needs prop objectCount/);
     expect(() => metricEvent({ name: "help.search", orgId: "o", props: { query: "secret", lang: "ru", queryLength: 6, resultCount: 0 } })).toThrow(/content or personal data/);
+  });
+
+  it("accepts a chrome control from the closed list and refuses anything else", () => {
+    expect(() =>
+      metricEvent({ name: "chrome.used", orgId: "o", props: { control: "room.export" } }),
+    ).not.toThrow();
+    expect(() =>
+      metricEvent({ name: "chrome.used", orgId: "o", props: { control: "not.a.control" } }),
+    ).toThrow(/unknown control/);
+    // A room or a person may not ride along in the only event about placement.
+    expect(() =>
+      metricEvent({
+        name: "chrome.used",
+        orgId: "o",
+        props: { control: "room.export", roomId: "r-1" },
+      }),
+    ).toThrow(/only the control property/);
+  });
+
+  it("keeps people and room ids out of the catalog and the control list", () => {
+    const forbidden = ["orgId", "actorId", "userId", "boardId", "roomId", "sessionId", "personId", "memberId"];
+    for (const [name, definition] of Object.entries(METRIC_CATALOG)) {
+      const props = [...definition.required, ...definition.optional];
+      for (const key of forbidden) {
+        expect(props, `${name}.${key}`).not.toContain(key);
+      }
+    }
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const control of CHROME_CONTROLS) {
+      // A control is a registry id, never an identifier of a person or a room.
+      expect(control.id, control.id).not.toMatch(uuid);
+      expect(control.id, control.id).not.toMatch(/(^|[._])(user|person|room|board|org)[._]?id/i);
+    }
   });
 });

@@ -24,7 +24,7 @@ const orgId = randomUUID();
 const orgOldId = randomUUID();
 const userA = randomUUID();
 const userB = randomUUID();
-const eventIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+const eventIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
 const PEER = "https://app.remuka.ru";
 const PULSE_TOKEN = "test-pulse-token";
 
@@ -77,6 +77,7 @@ describe.skipIf(!store)("pulse aggregates (ADR-258)", () => {
       ["object.created", "2026-11-18T11:00:00Z", userB, "user", {}],
       ["activation.first_value", "2026-11-18T12:00:00Z", userA, "user", { kind: "solo" }],
       ["collab.session", "2026-11-19T12:00:00Z", userA, "user", { participants: 2, durationMin: 20 }],
+      ["chrome.used", "2026-11-21T10:00:00Z", userA, "user", { control: "room.export" }],
     ];
     for (let index = 0; index < events.length; index += 1) {
       const [name, occurredAt, actorId, actorType, props] = events[index];
@@ -137,6 +138,25 @@ describe.skipIf(!store)("pulse aggregates (ADR-258)", () => {
     const xts = money.find((row) => row.dims.currency === "XTS");
     // 120000 a year is 10000 a month.
     expect(xts).toMatchObject({ value: 10000, basis: "snapshot" });
+  });
+
+  it("shows the chrome share and its thresholds in the Pulse", async () => {
+    const pulse = await readOperatorPulse({
+      store,
+      metricsPool: pool,
+      zone: "eu",
+      weeks: 4,
+      now: NOW,
+      log: { error() {} },
+    });
+    expect(pulse.chrome.day).toBe("2026-11-22");
+    // One organisation did a value event in the 28-day window; Export was used by it.
+    expect(pulse.chrome.activeOrgs).toBe(1);
+    const exported = pulse.chrome.items.find((item) => item.control === "room.export");
+    expect(exported).toMatchObject({ orgs: 1, share: 100, verdict: "place" });
+    // A control nobody pressed is a real zero and a candidate to go deeper.
+    const unused = pulse.chrome.items.find((item) => item.control === "canvas.addCard");
+    expect(unused).toMatchObject({ orgs: 0, share: 0, verdict: "deep" });
   });
 
   it("is idempotent: a second run leaves the same rows and sum", async () => {

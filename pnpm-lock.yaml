@@ -101,6 +101,9 @@ importers:
       '@remo/doc':
         specifier: workspace:*
         version: link:../../packages/doc
+      '@remo/metrics':
+        specifier: workspace:*
+        version: link:../../packages/metrics
       '@remo/model':
         specifier: workspace:*
         version: link:../../packages/model
