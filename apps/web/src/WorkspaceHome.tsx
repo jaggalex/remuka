@@ -30,6 +30,7 @@ import { useAccountPreferences } from "./useAccountPreferences";
 import { useCursorIdentity } from "./useCursorIdentity";
 import { useI18n } from "./i18n";
 import { useTheme } from "./useTheme";
+import { useCalmMotion } from "./useMotion";
 import { HelpLink } from "./help/HelpLink";
 
 type Sort = "updated" | "created" | "name" | "author";
@@ -78,8 +79,9 @@ export function WorkspaceHome({
 }) {
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const { calm, setCalm } = useCalmMotion();
   const { me, setMe, orgs, refreshOrgs, sessionReady } = useBoardAccess(null);
-  useAccountPreferences({ me, theme, setTheme, lang, setLang });
+  useAccountPreferences({ me, theme, setTheme, lang, setLang, calm, setCalm });
   const [identity, setIdentity] = useState<Identity>(() => loadIdentity());
   const { renameSelf, forgetAccountName } = useCursorIdentity({
     accountName: me?.name,
@@ -380,7 +382,7 @@ export function WorkspaceHome({
               setSessionsOpen(true);
             }}
             onAllRooms={() => setAccountOpen(false)}
-            theme={theme} setTheme={setTheme}
+            theme={theme} setTheme={setTheme} calm={calm} setCalm={setCalm}
             lang={lang} setLang={setLang} withView={false}
             onDeleteScheduled={(schedule) => {
               setDeletion(schedule);

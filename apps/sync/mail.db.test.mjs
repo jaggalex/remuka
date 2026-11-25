@@ -79,7 +79,7 @@ describe.skipIf(!store)("db:mail (ADR-246)", () => {
   it("applies schema 29 and installs the claim function for the app role", async () => {
     // The suite database is migrated by the same path the service uses (ADR-089).
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(39);
+    expect(rows[0].version).toBe(40);
 
     const { rows: granted } = await store.pool.query(
       `select has_function_privilege('remo_app', 'remo_claim_mail_batch(integer)', 'execute')

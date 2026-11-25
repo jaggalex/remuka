@@ -2,6 +2,7 @@ import { Button, ZoomControls } from "@remo/ui";
 import type { Camera } from "@remo/canvas";
 import { openCommandSearch } from "./commandSearchStore";
 import { useI18n } from "./i18n";
+import { useChromeQuiet } from "./quietChrome";
 
 /**
  * World coordinates are a developer's instrument, not a product readout (§10.4, Н2):
@@ -26,8 +27,9 @@ export function CanvasHud({
   onZoom: (factor: number) => void;
 }) {
   const { t } = useI18n();
+  const quiet = useChromeQuiet();
   return (
-    <div className="canvas-hud">
+    <div className={quiet ? "canvas-hud is-quiet" : "canvas-hud"}>
       <Button
         variant="secondary"
         size="default"

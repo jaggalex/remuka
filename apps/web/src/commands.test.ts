@@ -338,9 +338,11 @@ describe("the chrome registry", () => {
       "account.allRooms",
       "account.theme.light",
       "account.theme.dark",
+      "account.motion.calm",
       "account.lang.ru",
       "account.lang.en",
       "account.help",
+      "help.resetHints",
       "account.delete",
       "account.signOut",
     ]) {

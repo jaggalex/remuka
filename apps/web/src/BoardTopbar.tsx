@@ -6,6 +6,7 @@ import type { SessionUser } from "./api";
 import type { FollowState } from "./follow";
 import { formatRemaining, TEMPLATE_KEYS, type TemplateKey } from "@remo/model";
 import { useI18n } from "./i18n";
+import { useChromeQuiet } from "./quietChrome";
 import type { Identity } from "./identity";
 import type { Theme } from "./useTheme";
 import { useMediaQuery } from "./useMediaQuery";
@@ -98,6 +99,9 @@ export interface BoardTopbarProps {
   onAccountRenamed: (user: SessionUser) => void;
   theme: Theme;
   setTheme: (value: Theme) => void;
+  /** "Calm animations" is an account preference, like the theme (ADR-266 §8). */
+  calm: boolean;
+  setCalm: (value: boolean) => void;
   setAccountOpen: (value: boolean) => void;
   setAuthOpen: (value: boolean) => void;
   onSignOut: () => void;
@@ -114,6 +118,7 @@ export interface BoardTopbarProps {
 
 export function BoardTopbar(props: BoardTopbarProps) {
   const { t, lang, setLang } = useI18n();
+  const quiet = useChromeQuiet();
   const narrow = useMediaQuery("(max-width: 899px)");
   const [menu, setMenu] = useState<MenuView>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -133,7 +138,7 @@ export function BoardTopbar(props: BoardTopbarProps) {
     timerHint, timerLeft, setVoteOpen, setTimerOpen, setFollowOpen, setAgentOpen,
     roomAgent, canAssignAgent, hasRoomAgentHistory, onOpenRoomAgent, onOpenAgentSettings,
     setAppsOpen, onReact, toggleFollow, myFollowers, visiblePresence, me,
-    identity, roleLine, renameSelf, onAccountRenamed, theme, setTheme, setAccountOpen,
+    identity, roleLine, renameSelf, onAccountRenamed, theme, setTheme, calm, setCalm, setAccountOpen,
     setAuthOpen, onSignOut, saveState, toggleInspector, setPresentOpen, commentsOpen, setCommentsOpen, commentsUnread, addTemplate,
     templateRequest,
   } = props;
@@ -284,7 +289,9 @@ export function BoardTopbar(props: BoardTopbarProps) {
 
   return (
     <>
-      <header className={narrow ? "topbar is-narrow" : "topbar"}>
+      <header
+      className={`topbar${narrow ? " is-narrow" : ""}${quiet ? " is-quiet" : ""}`}
+    >
         <button
           type="button"
           className="topbar-mark topbar-wide-only"
@@ -492,6 +499,8 @@ export function BoardTopbar(props: BoardTopbarProps) {
             onOrg={() => setAccountOpen(true)}
             theme={theme}
             setTheme={setTheme}
+            calm={calm}
+            setCalm={setCalm}
             lang={lang}
             setLang={setLang}
             narrow={narrow}

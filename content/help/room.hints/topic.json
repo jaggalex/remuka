@@ -1,0 +1,25 @@
+{
+  "id": "room.hints",
+  "type": "reference",
+  "title": {
+    "ru": "Подсказки в комнате",
+    "en": "Hints in the room"
+  },
+  "summary": {
+    "ru": "Одна подсказка внизу комнаты: когда она исчезает и как вернуть её из меню аккаунта.",
+    "en": "One hint at the bottom of the room: when it goes away and how to bring it back from the account menu."
+  },
+  "related": [
+    "about.remo",
+    "room.panel"
+  ],
+  "verifiedAgainst": "2026-11-24",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:3a50e3aba75a083fe6840e492773b5e637696284bbd56c00845448b630bfd6b1",
+      "targetHash": "sha256:2b9e9d39a44d3371fa3bdca8d9f8f0272b6903aa43cf43aa976c42ebb80fec34"
+    }
+  }
+}

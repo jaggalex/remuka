@@ -299,6 +299,19 @@ export const CHROME_COMMANDS: readonly ChromeCommand[] = [
     run: (ctx) => ctx.run("account.theme.dark"),
   },
   {
+    id: "account.motion.calm",
+    title: "account.motion",
+    icon: "reaction",
+    synonyms: {
+      ru: ["спокойные анимации", "анимации", "движение", "спокойно"],
+      en: ["calm animations", "animations", "motion", "calm"],
+    },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.motion.calm"),
+  },
+  {
     id: "account.lang.ru",
     title: "lang.ru",
     synonyms: { ru: ["язык", "русский"], en: ["language", "russian", "ru"] },
@@ -325,6 +338,19 @@ export const CHROME_COMMANDS: readonly ChromeCommand[] = [
     surfaces: ["header", "palette"],
     available: () => true,
     run: (ctx) => ctx.run("account.help"),
+  },
+  {
+    id: "help.resetHints",
+    title: "hints.reset",
+    icon: "undo",
+    synonyms: {
+      ru: ["подсказки", "показать подсказки", "сбросить", "снова"],
+      en: ["hints", "show hints", "reset", "again"],
+    },
+    intent: "help",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("help.resetHints"),
   },
   {
     // The third way into the search (spec/tidy-desk §1.2): the help group of the account

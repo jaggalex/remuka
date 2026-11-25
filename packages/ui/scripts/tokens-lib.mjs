@@ -71,8 +71,8 @@ export function buildCss(t) {
     head("component tokens and density") +
     block(":root", [...comp.map((x) => ({ name: x.name, value: css(x.value) })), { name: "control-h", value: "var(--control-default)" }]) +
     `[data-density="compact"] {\n  --control-h: var(--control-compact);\n}\n` +
-    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --dur-1: 0ms;\n    --dur-2: 0ms;\n    --dur-3: 0ms;\n    --dur-4: 0ms;\n  }\n}\n` +
-    `/* «Спокойные анимации» в настройках аккаунта (ADR-265): то же, что reduced motion. */\n:root[data-motion="calm"] {\n  --dur-1: 0ms;\n  --dur-2: 0ms;\n  --dur-3: 0ms;\n  --dur-4: 0ms;\n}\n`;
+    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --dur-1: 0ms;\n    --dur-2: 0ms;\n    --dur-3: 0ms;\n    --dur-4: 0ms;\n    --dur-quiet: 0ms;\n    --dur-quiet-back: 0ms;\n  }\n}\n` +
+    `/* «Спокойные анимации» в настройках аккаунта (ADR-265): то же, что reduced motion. */\n:root[data-motion="calm"] {\n  --dur-1: 0ms;\n  --dur-2: 0ms;\n  --dur-3: 0ms;\n  --dur-4: 0ms;\n    --dur-quiet: 0ms;\n    --dur-quiet-back: 0ms;\n}\n`;
   return {
     "primitive.css": primitive,
     "semantic.css": semantic,

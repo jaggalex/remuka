@@ -204,7 +204,7 @@ afterAll(async () => {
 suite("db:account deletion (ADR-257)", () => {
   it("is schema 37 with the two states and the request date", async () => {
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(39);
+    expect(rows[0].version).toBe(40);
 
     const userId = await seedUser();
     await store.pool.query("update users set state = 'deleting' where id = $1", [userId]);

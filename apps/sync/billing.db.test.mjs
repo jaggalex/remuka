@@ -252,7 +252,7 @@ describe.skipIf(!store)("db:billing (ADR-247)", () => {
 
   it("applies schema 29 with the billing tables and the two new columns", async () => {
     const { rows: meta } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(meta[0].version).toBe(39);
+    expect(meta[0].version).toBe(40);
 
     const billingTables = [
       "prices",

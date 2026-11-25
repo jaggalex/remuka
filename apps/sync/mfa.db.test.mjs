@@ -48,7 +48,7 @@ async function seedSession(userId) {
 describe.skipIf(!store)("second factor (ADR-260)", () => {
   beforeAll(async () => {
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(39);
+    expect(rows[0].version).toBe(40);
   });
 
   afterAll(async () => {

@@ -36,6 +36,8 @@
     --dur-2: 0ms;
     --dur-3: 0ms;
     --dur-4: 0ms;
+    --dur-quiet: 0ms;
+    --dur-quiet-back: 0ms;
   }
 }
 /* «Спокойные анимации» в настройках аккаунта (ADR-265): то же, что reduced motion. */
@@ -44,4 +46,6 @@
   --dur-2: 0ms;
   --dur-3: 0ms;
   --dur-4: 0ms;
+    --dur-quiet: 0ms;
+    --dur-quiet-back: 0ms;
 }

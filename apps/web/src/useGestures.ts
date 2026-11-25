@@ -5,6 +5,7 @@ import { pointerMove } from "./gesturePointerMove";
 import { pointerUp } from "./gesturePointerUp";
 import { doubleClick } from "./gestureDoubleClick";
 import type { GestureDeps, Gestures } from "./gestureTypes";
+import { useQuietWhileGesturing } from "./quietChrome";
 
 export type { GestureDeps, Gestures, ConnectDraft } from "./gestureTypes";
 
@@ -17,6 +18,16 @@ export type { GestureDeps, Gestures, ConnectDraft } from "./gestureTypes";
  */
 export function useGestures(deps: GestureDeps): Gestures {
   const env: GestureEnv = useGestureEnv(deps);
+  // One publisher for quiet chrome (ADR-266 §7): the gesture states, not the callers.
+  useQuietWhileGesturing(
+    env.dragIds.length > 0 ||
+      env.preview.size > 0 ||
+      env.marquee !== null ||
+      env.shapeDraft !== null ||
+      env.connectDraft !== null ||
+      env.rotationDraft !== null ||
+      env.dragPreview !== null,
+  );
   return {
     cursor: env.cursor,
     dragPreview: env.dragPreview,

@@ -145,7 +145,7 @@ export async function sessionFromRequest(request, store) {
       name: row.name,
       handle: row.handle,
       emailVerified: Boolean(row.email_verified_at),
-      preferences: { theme: row.theme ?? null, lang: row.lang ?? null },
+      preferences: { theme: row.theme ?? null, lang: row.lang ?? null, motion: row.motion ?? null },
     },
   };
 }

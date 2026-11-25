@@ -11,6 +11,11 @@ export interface SessionUser {
   handle: string;
   /** True once a mail link proved the address; false while mail is off (ADR-246). */
   emailVerified?: boolean;
-  /** Display preferences that follow the account, not the browser (ADR-150). */
-  preferences?: { theme: "system" | "light" | "dark" | null; lang: "ru" | "en" | null };
+  /** Display preferences that follow the account, not the browser (ADR-150, ADR-289). */
+  preferences?: {
+    theme: "system" | "light" | "dark" | null;
+    lang: "ru" | "en" | null;
+    /** "Calm animations": `null` until the person chooses. */
+    motion: boolean | null;
+  };
 }

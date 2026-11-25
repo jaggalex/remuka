@@ -555,6 +555,7 @@ export const accountMethods = {
                   support_id = null,
                   theme = null,
                   lang = null,
+                  motion = null,
                   email_verified_at = null,
                   state = 'deleted',
                   updated_at = now()

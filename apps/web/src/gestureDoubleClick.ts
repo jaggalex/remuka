@@ -6,6 +6,7 @@ import { openKanbanTitleEdit } from "./kanbanTitleEditStore";
 import { measureText } from "./KanbanTitleEditor";
 import { openFrameLabelEdit } from "./frameLabelEditStore";
 import { openImageViewer } from "./imageViewer";
+import { markHintDone } from "./hints";
 
 /**
    * Double-click edits what is under the cursor.
@@ -84,7 +85,10 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   });
   if (line && (!hit || layerKey(line) > layerKey(hit))) {
     onSelect([line.id]);
-    if (isEditable(line)) onEdit(line.id);
+    if (isEditable(line)) {
+      markHintDone("canvas.doubleClickEdit");
+      onEdit(line.id);
+    }
     return;
   }
 
@@ -92,12 +96,16 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   // be restyled, layered or edited without taking the group apart (ADR-047).
   if (hit && hit.groupId) {
     onSelect([hit.id]);
-    if (isEditable(hit)) onEdit(hit.id);
+    if (isEditable(hit)) {
+      markHintDone("canvas.doubleClickEdit");
+      onEdit(hit.id);
+    }
     return;
   }
 
   if (hit && isEditable(hit)) {
     onSelect(expandGroups(widgets, [hit.id]));
+    markHintDone("canvas.doubleClickEdit");
     onEdit(hit.id);
     return;
   }

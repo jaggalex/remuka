@@ -278,7 +278,7 @@ export const api = { ...roomAgentApi, ...backupApi, ...authApi,
     call<{ user: SessionUser; org: { id: string }; team: { id: string } }>("/auth/register", { method: "POST", body }),
   renameAccount: (body: { name?: string; handle?: string }) =>
     call<{ user: SessionUser }>("/auth/me", { method: "PATCH", body }),
-  updatePreferences: (body: { theme: string | null; lang: string | null }) =>
+  updatePreferences: (body: { theme?: string | null; lang?: string | null; motion?: boolean | null }) =>
     call<{ preferences: NonNullable<SessionUser["preferences"]> }>("/auth/preferences", { method: "PATCH", body }),
   logout: () => call<{ ok: true }>("/auth/logout", { method: "POST" }),
   access: (boardId: string) =>

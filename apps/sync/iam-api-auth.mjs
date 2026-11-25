@@ -42,7 +42,7 @@ const LANGS = new Set(["ru", "en"]);
 
 /** The one shape of an account's display preferences on the wire (ADR-150). */
 function preferencesOf(row) {
-  return { theme: row?.theme ?? null, lang: row?.lang ?? null };
+  return { theme: row?.theme ?? null, lang: row?.lang ?? null, motion: row?.motion ?? null };
 }
 
 export async function handleAuthRoutes(ctx) {
@@ -513,15 +513,21 @@ export async function handleAuthRoutes(ctx) {
     if (!body || typeof body !== "object") {
       return fail(response, 400, "BAD_JSON", "malformed request"), true;
     }
-    const theme = body.theme ?? null;
-    const lang = body.lang ?? null;
-    if (theme !== null && !THEMES.has(theme)) {
+    // A field left out stays as it is: an older client that sends theme and language
+    // must not clear the motion choice (ADR-289).
+    const theme = body.theme === undefined ? undefined : (body.theme ?? null);
+    const lang = body.lang === undefined ? undefined : (body.lang ?? null);
+    const motion = body.motion === undefined ? undefined : body.motion;
+    if (theme !== undefined && theme !== null && !THEMES.has(theme)) {
       return fail(response, 422, "BAD_THEME", "theme must be system, light or dark"), true;
     }
-    if (lang !== null && !LANGS.has(lang)) {
+    if (lang !== undefined && lang !== null && !LANGS.has(lang)) {
       return fail(response, 422, "BAD_LANG", "language must be ru or en"), true;
     }
-    const preferences = await store.updateUserPreferences(user.id, { theme, lang });
+    if (motion !== undefined && motion !== null && typeof motion !== "boolean") {
+      return fail(response, 422, "BAD_MOTION", "motion must be true, false or null"), true;
+    }
+    const preferences = await store.updateUserPreferences(user.id, { theme, lang, motion });
     json(response, 200, { preferences });
     return true;
   }

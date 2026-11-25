@@ -193,8 +193,30 @@ export const STORAGE_REGISTRY = Object.freeze(
       category: "preferences",
       owner: "web",
       purpose: {
-        ru: "Подсказка о холсте уже показана",
-        en: "The canvas hint has been shown",
+        ru: "Старая отметка «подсказка о холсте показана»; читается как «освоено», пока подсказки не вернут заново",
+        en: "The old «canvas hint was shown» flag; read as learned until the hints are brought back",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remuka.hints.*",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Сколько раз действие подсказки выполнено и сколько было визитов",
+        en: "How often the hinted action was used and how many visits it had",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.motion",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Включены ли «Спокойные анимации» в этом браузере",
+        en: "Whether calm animations are on in this browser",
       },
       lifetime: "until cleared",
     },

@@ -9,6 +9,7 @@ import { docsHref } from "../docsLinks";
 import { useConsent } from "../ConsentProvider";
 import { aboutLabel } from "../about";
 import { useMenuFocus } from "../useMenuFocus";
+import { resetHints } from "../hints";
 import { AccountDeletionDialog } from "../AccountDeletion";
 import type { DeletionSchedule } from "../accountDeletionApi";
 import { SecurityDialog } from "../mfa/SecurityDialog";
@@ -44,6 +45,8 @@ export function AccountMenu({
   onOrg,
   theme,
   setTheme,
+  calm,
+  setCalm,
   lang,
   setLang,
   /** Below 900 px the header hides Agent and Comments; the menu carries them. */
@@ -83,6 +86,8 @@ export function AccountMenu({
   onOrg: () => void;
   theme: Theme;
   setTheme: (value: Theme) => void;
+  calm: boolean;
+  setCalm: (value: boolean) => void;
   lang: Lang;
   setLang: (value: Lang) => void;
   narrow?: boolean;
@@ -178,6 +183,7 @@ export function AccountMenu({
   const checked = (id: string): boolean =>
     (id === "account.theme.light" && theme === "light") ||
     (id === "account.theme.dark" && theme === "dark") ||
+    (id === "account.motion.calm" && calm) ||
     (id === "account.lang.ru" && lang === "ru") ||
     (id === "account.lang.en" && lang === "en");
 
@@ -189,9 +195,11 @@ export function AccountMenu({
     "account.allRooms": onAllRooms,
     "account.theme.light": () => setTheme("light"),
     "account.theme.dark": () => setTheme("dark"),
+    "account.motion.calm": () => setCalm(!calm),
     "account.lang.ru": () => setLang("ru"),
     "account.lang.en": () => setLang("en"),
     "account.help": () => window.location.assign(`/help/${lang}`),
+    "help.resetHints": () => resetHints(),
     "account.sessions": onSessions,
     "account.security": () => setSecurityOpen(true),
     "account.org": onOrg,
@@ -227,7 +235,7 @@ export function AccountMenu({
     run: (id) => {
       const action = actions[id];
       if (!action) return;
-      if (!id.startsWith("account.theme.") && !id.startsWith("account.lang.")) onOpen(false);
+      if (!id.startsWith("account.theme.") && !id.startsWith("account.lang.") && !id.startsWith("account.motion.")) onOpen(false);
       action();
     },
   };

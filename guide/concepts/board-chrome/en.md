@@ -33,7 +33,7 @@ On a narrow screen (below 900 px) the name, people (up to two faces), **Run** as
 | **Run** | timer, voting, presentation, shared viewing, reactions |
 | **Agent** | give the agent a task, ask the agent, agents and journal |
 | People | participants with roles, "follow", followers and guests by link |
-| Account | all rooms, find an action, theme (light, dark), language (Russian, English), help, active sessions, security, organisation, documents, cookies, sign out. Theme and language belong to the account and follow it to another device; before sign-in the browser choice applies |
+| Account | all rooms, find an action, theme (light, dark), language (Russian, English), calm animations, help, show the hints again, active sessions, security, organisation, documents, cookies, sign out. Theme, language and calm animations belong to the account and follow it to another device; before sign-in the browser choice applies |
 
 ## Command search
 
@@ -63,9 +63,13 @@ Below, in a separate panel, sit **Undo** and **Redo**: history is not a creation
 ## Bottom and edges
 
 - Bottom left: **Find an action** (`⌘K`) and the zoom: `−`, the percentage, `+` and **Fit**. Fit can frame everything or just the selection.
-- Bottom centre: the first-visit hint. It disappears after the first gesture on the canvas or after a few seconds.
+- Bottom centre: one hint about what can be done here. It waits until the action is learned: it goes away after three edits by double-click or after five visits to the room. Bring it back in the account menu → **Show the hints again**.
 - While voting runs, the **Voting is on** line (or "Voting ended") takes this place: votes left, time, the facilitator and a way into the panel. The hint is not shown at the same time.
 - Top left, beside the rail, the selection badge names the selected object's type, size, lock and tags.
+
+## Chrome steps back
+
+While you drag, rotate or draw on the canvas, the header, the rail and the bottom panel step back: they become 35 % opaque and stop taking clicks. They return 200 ms after the gesture ends. Keyboard work never quiets the chrome, and an open menu or dialog cancels it. With **Calm animations** or the system "reduce motion" setting the change is instant.
 
 ## Where to find what
 
@@ -78,6 +82,8 @@ Below, in a separate panel, sit **Undo** and **Redo**: history is not a creation
 | Discuss an object | the discussion icon in the header or a pin on the canvas |
 | Start voting | **Run ▾ → Voting** |
 | Change the theme or language | the account menu; with an account the choice follows you to other devices |
+| Remove springs and transitions | the account menu → **Calm animations**; with an account the setting follows you to other devices |
+| Bring the hints back | the account menu → **Show the hints again** |
 | Find or end a session on another device | account menu → **Active sessions** |
 | Invite a person or turn on the link | **Invite** |
 | Add a template | room menu → **Templates…** |

@@ -37,4 +37,6 @@ export const ruChrome = {
   "search.nothingLocked": "Закреплённых объектов нет",
   "search.needTwo": "Нужно два объекта",
   "search.notGrouped": "В выделении нет группы",
+  "account.motion": "Спокойные анимации",
+  "hints.reset": "Показать подсказки снова",
 };

@@ -9,6 +9,7 @@ import { currentRoom } from "./identity";
 import { roleSourceLine } from "./roleSource";
 import { useNow } from "./useNow";
 import { useTheme } from "./useTheme";
+import { useCalmMotion } from "./useMotion";
 import { useAccountPreferences } from "./useAccountPreferences";
 import type { Lang, TranslationKey } from "./i18n";
 import type { VoteController } from "./useVoteSessions";
@@ -54,8 +55,10 @@ export function useBoardHeader({
   setLang: (value: Lang) => void;
 }) {
   const { theme, setTheme } = useTheme();
-  // Theme and language are the two display preferences that follow the account (ADR-150).
-  useAccountPreferences({ me, theme, setTheme, lang, setLang });
+  const { calm, setCalm } = useCalmMotion();
+  // Theme, language and calm motion are the display preferences that follow the account
+  // (ADR-150, ADR-266 §8).
+  useAccountPreferences({ me, theme, setTheme, lang, setLang, calm, setCalm });
   const [presentOpen, setPresentOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsUnread, setCommentsUnread] = useState(0);
@@ -155,6 +158,8 @@ export function useBoardHeader({
   return {
     theme,
     setTheme,
+    calm,
+    setCalm,
     presentOpen,
     setPresentOpen,
     commentsOpen,

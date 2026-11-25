@@ -120,7 +120,7 @@ suite("db:consent (ADR-255 §4)", () => {
     const { rows: meta } = await store.pool.query(
       "select version from schema_meta where id = 1",
     );
-    expect(meta[0].version).toBe(39);
+    expect(meta[0].version).toBe(40);
 
     const { rows: columns } = await store.pool.query(
       `select column_name, is_nullable

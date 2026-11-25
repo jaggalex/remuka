@@ -1,0 +1,25 @@
+{
+  "id": "interface.motion",
+  "type": "reference",
+  "title": {
+    "ru": "Спокойные анимации",
+    "en": "Calm animations"
+  },
+  "summary": {
+    "ru": "Настройка аккаунта, которая убирает пружины и переходы: где включить и как она переносится на другие устройства.",
+    "en": "An account setting that removes springs and transitions: where to turn it on and how it follows you to other devices."
+  },
+  "related": [
+    "about.remo",
+    "room.hints"
+  ],
+  "verifiedAgainst": "2026-11-24",
+  "audience": "public",
+  "sourceLocale": "ru",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:0fd5d673532ff41fb72542c9344e580c50744a0f492d3462b544e9f4e02d7147",
+      "targetHash": "sha256:9305a973c343494f7d3aa752bc70ca9174665057cf0d546106395b00d1702331"
+    }
+  }
+}

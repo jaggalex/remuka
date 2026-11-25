@@ -151,6 +151,8 @@ create table if not exists users (
   -- "this account has not chosen yet": the first browser to sign in seeds it locally.
   theme text,
   lang text,
+  -- "Calm animations" (ADR-266 §8, ADR-289): null means the person has not chosen.
+  motion boolean,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -158,6 +160,7 @@ create table if not exists users (
 -- Older deployments created `users` without the preference columns.
 alter table users add column if not exists theme text;
 alter table users add column if not exists lang text;
+alter table users add column if not exists motion boolean;
 alter table users add column if not exists handle text;
 -- Nobody proved the address until a token was used (ADR-246). Existing accounts stay
 -- null on purpose: nothing ever checked them, so claiming otherwise would be a lie.
@@ -1928,5 +1931,5 @@ create index if not exists boards_org_updated_idx on boards (org_id, updated_at 
 create index if not exists boards_org_created_idx on boards (org_id, created_at desc);
 create index if not exists boards_title_trgm_idx on boards using gin (title gin_trgm_ops);
 
-insert into schema_meta (id, version) values (1, 39)
+insert into schema_meta (id, version) values (1, 40)
 on conflict (id) do update set version = excluded.version, updated_at = now();

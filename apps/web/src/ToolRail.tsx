@@ -3,6 +3,7 @@ import type { ShapeKind } from "@remo/model";
 import { IconButton, Popover, Separator, Tooltip } from "@remo/ui";
 import type { IconName } from "@remo/ui";
 import { useI18n, type TranslationKey } from "./i18n";
+import { useChromeQuiet } from "./quietChrome";
 import { COLOR_WINDOW_WIDTH, ColorSwatch } from "./object-panel/ColorWindow";
 import {
   defaultStickerFill,
@@ -96,6 +97,7 @@ export function ToolRail({
   onShapeSeries: (kind: ShapeKind) => void;
 }) {
   const { t } = useI18n();
+  const quiet = useChromeQuiet();
   const rail = useRef<HTMLDivElement | null>(null);
   const defaultFill = useMemo(() => defaultStickerFill(), []);
 
@@ -164,7 +166,12 @@ export function ToolRail({
   };
 
   return (
-    <div className="tool-rail" role="toolbar" aria-label={t("tool.rail")} ref={rail}>
+    <div
+      className={quiet ? "tool-rail is-quiet" : "tool-rail"}
+      role="toolbar"
+      aria-label={t("tool.rail")}
+      ref={rail}
+    >
       <div className="tool-rail-panel">
         {tool({
           icon: "cursor",

@@ -160,11 +160,11 @@ test("theme and language follow the account to another browser", async ({ page, 
     .poll(async () => {
       const response = await page.request.get("/api/auth/me");
       const body = (await response.json()) as {
-        user: { preferences: { theme: string | null; lang: string | null } };
+        user: { preferences: { theme: string | null; lang: string | null; motion: boolean | null } };
       };
       return body.user.preferences;
     })
-    .toEqual({ theme: "dark", lang: "ru" });
+    .toEqual({ theme: "dark", lang: "ru", motion: false });
 
   const second = await browser.newContext();
   const other = await second.newPage();

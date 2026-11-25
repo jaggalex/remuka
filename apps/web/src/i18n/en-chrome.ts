@@ -37,4 +37,6 @@ export const enChrome = {
   "search.nothingLocked": "Nothing is locked",
   "search.needTwo": "Select two objects",
   "search.notGrouped": "Nothing is grouped in the selection",
+  "account.motion": "Calm animations",
+  "hints.reset": "Show the hints again",
 };

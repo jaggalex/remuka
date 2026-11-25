@@ -18,7 +18,7 @@ export async function insertUser(queryable, { email, passwordHash, name, handle 
   const { rows } = await queryable.query(
     `insert into users (email, password_hash, name, handle)
      values ($1, $2, $3, $4)
-     returning id, email, name, handle, state, theme, lang, created_at`,
+     returning id, email, name, handle, state, theme, lang, motion, created_at`,
     [email, passwordHash, name, handle],
   );
   return rows[0];
@@ -31,7 +31,7 @@ async createUser(account) {
 
 async findUserByHandle(handle) {
   const { rows } = await this.pool.query(
-    `select id, email, name, handle, state, theme, lang from users where lower(handle) = lower($1)`,
+    `select id, email, name, handle, state, theme, lang, motion from users where lower(handle) = lower($1)`,
     [handle],
   );
   return rows[0] ?? null;
@@ -39,7 +39,7 @@ async findUserByHandle(handle) {
 
 async findUserByEmail(email) {
   const { rows } = await this.pool.query(
-    `select id, email, name, handle, state, theme, lang, password_hash, created_at,
+    `select id, email, name, handle, state, theme, lang, motion, password_hash, created_at,
             email_verified_at
        from users where email = $1`,
     [email],
@@ -49,20 +49,39 @@ async findUserByEmail(email) {
 
 async findUserById(id) {
   const { rows } = await this.pool.query(
-    `select id, email, name, handle, state, theme, lang, created_at, email_verified_at
+    `select id, email, name, handle, state, theme, lang, motion, created_at, email_verified_at
        from users where id = $1`,
     [id],
   );
   return rows[0] ?? null;
 },
 
-/** Theme and language are personal display preferences, not rights or content (ADR-150). */
-async updateUserPreferences(userId, { theme, lang }) {
+/**
+ * Display preferences are personal, not rights or content (ADR-150).
+ *
+ * A field the caller omits is left alone: an older client that knows only theme and
+ * language must not erase the "calm animations" choice (ADR-289). `null` explicitly
+ * clears a choice; `undefined` means "not part of this request".
+ */
+async updateUserPreferences(userId, { theme, lang, motion }) {
+  const sets = [];
+  const values = [userId];
+  for (const [column, value] of [["theme", theme], ["lang", lang], ["motion", motion]]) {
+    if (value === undefined) continue;
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  }
+  if (!sets.length) {
+    const { rows } = await this.pool.query(
+      `select theme, lang, motion from users where id = $1`,
+      [userId],
+    );
+    return rows[0] ?? null;
+  }
+  sets.push("updated_at = now()");
   const { rows } = await this.pool.query(
-    `update users set theme = $2, lang = $3, updated_at = now()
-      where id = $1
-      returning theme, lang`,
-    [userId, theme ?? null, lang ?? null],
+    `update users set ${sets.join(", ")} where id = $1 returning theme, lang, motion`,
+    values,
   );
   return rows[0] ?? null;
 },
@@ -106,7 +125,7 @@ async findSession(tokenHash) {
   // true even then (ADR-257 §2.3). Suspended accounts keep their session as before.
   const { rows } = await this.pool.query(
     `select s.id, s.user_id, s.expires_at, s.operator_confirmed_at, s.mfa_at, s.mfa_factor,
-            u.email, u.name, u.handle, u.state, u.theme, u.lang, u.email_verified_at
+            u.email, u.name, u.handle, u.state, u.theme, u.lang, u.motion, u.email_verified_at
        from sessions s
        join users u on u.id = s.user_id
       where s.token_hash = $1

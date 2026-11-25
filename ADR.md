@@ -11585,7 +11585,8 @@ prototypes and every `#artboard-…` reference in the tasks were out of their re
 - Reference PNGs (every state in `scripts/mockups/states.json`, 1440 and 390 px) live in
   `docs/design/reference/<Artboard>/`. They are rendered offline from the sources by
   `pnpm mockups:shots` (a small renderer, `scripts/mockups/dc-lite.js`, and the product's own
-  Golos font), so any agent can regenerate and inspect them without claude.ai.
+  Golos font), so any agent can regenerate and inspect them without claude.ai. The PNGs are
+  not committed (`.gitignore`); only the sources, `states.json` and the index are.
 - `#artboard-App-X` in tasks means `docs/design/mockups/App-X.dc.html`. Prompts point to the
   repository, not to claude.ai. Agents never edit these files; Claude re-exports them after any
   canvas change and bumps `exportedFromVersion`.
@@ -11593,3 +11594,159 @@ prototypes and every `#artboard-…` reference in the tasks were out of their re
 **Consequences.** The mockup is reviewable in code review and diffable over time. A change on the
 canvas is not visible to agents until it is exported.
 
+## ADR-288: Support AI uses versioned knowledge tools, an operator control plane and an accountable usage ledger
+
+**Status:** proposed (2026-11-24). Development specification:
+[spec/support-agent.md](spec/support-agent.md). Extends ADR-250; replaces the external-agent
+requirements in `spec/support.md` §4, §6 and the agent parts of §7–§9. The optional core
+support integration, signed identity and room-access boundary of ADR-250 remain in force.
+This decision specifies future work; it does not assert that the service is implemented.
+
+**Context.** The support widget and Chatwoot need a first-line assistant that can answer
+in Russian and English, cite the documentation of the installed release and hand off to a
+human. Publishing `llms-full.txt` makes documentation accessible but does not implement
+retrieval, updates, access checks or quality control. Operators also need to change the
+prompt and model without editing source or restarting containers, measure customer feedback
+and account for all model spending, including retries and indexing.
+
+**Decision.**
+
+1. **Keep the service outside the product.** `remo-support-agent` is an independent service
+   and repository, connected to Chatwoot through Agent Bot and to Remuka only through its
+   aggregate read-only support-context API. Chatwoot remains the authoritative conversation
+   and final CSAT store. The agent owns configuration revisions, jobs, decision events,
+   customer-resolution feedback and the usage ledger. It cannot read room content or mutate the product.
+2. **Publish language-specific knowledge from one source.** The guide build gains
+   `llms.ru.txt`, `llms.en.txt`, `llms-full.ru.txt` and `llms-full.en.txt`. Existing
+   `llms.txt` and the English `llms-full.txt` keep their compatibility contracts. The build
+   also produces a manifest identifying the release, locales, documents and hashes. The
+   support index uses approved guide/help content; it never indexes internal specifications
+   or customer conversations automatically. Language is independent of the installation's
+   RU/EU data zone. A run pins one compatible immutable index revision.
+3. **Use a bounded harness and knowledge tools.** The runtime owns instructions, identity,
+   tools, context limits, state and authorization. It provides `knowledge.search` and
+   `knowledge.read` over an approved, versioned corpus; the model does not receive arbitrary
+   filesystem, shell, SQL or web access. Hybrid lexical/semantic retrieval runs on the
+   service's PostgreSQL and pgvector, with bounded result sizes and a lexical fallback.
+   Hosted provider file search is not the MVP backend: portability, regional separation
+   and attributable costs take precedence. MCP is not required for an internal tool call.
+4. **Separate product facts from conversation control.** Product instructions need
+   supporting retrieved passages and valid source links. Greetings, clarification and
+   handoff notices do not require artificial citations. A model's self-reported confidence
+   is not an authorization gate. Missing evidence, incompatible versions, sensitive topics
+   and explicit requests for a human cause handoff. Silence and a missing feedback click
+   are not evidence of success or a reason to close a conversation.
+5. **Give operators a versioned control plane.** A separate authenticated `/agent/` UI
+   provides quality, usage, knowledge and settings pages. Prompt, approved provider/model
+   connections, pricing, limits and modes are draft/test/publish/rollback revisions.
+   Changes take effect for new runs without deployment. Immutable safety rules remain in
+   code; changing an editable prompt cannot relax them. Provider secrets are write-only,
+   encrypted with a KEK outside the database. OIDC authenticates operators; server-side
+   roles separate administrator, operator and analyst. Provisioning an IdP is an explicit
+   deployment prerequisite, not an assumed existing integration with Chatwoot.
+6. **Measure the whole support outcome.** The quality dashboard covers all conversations
+   in the configured inboxes, including human-only work and periods when AI is disabled.
+   Ask whether the customer's problem was solved (yes/partially/no); separately import
+   Chatwoot CSAT about the support experience. Closure alone is not customer-confirmed
+   resolution, and missing feedback is unknown. Show coverage, first response, time to
+   resolution, repeat contacts/reopening, backlog and satisfaction with explicit denominators.
+   AI participation is an optional analytical filter, not the definition of support quality.
+   Do not add a per-AI-answer rating in MVP. Feedback enters a durable event stream and the
+   metrics projection regardless of who proposed the solution.
+7. **Account for each provider attempt once.** An append-only usage ledger records provider
+   and requested/actual model, operation, reported token categories, pricing revision,
+   currency, cost status and request identifier. Retries, judging, summarization, embeddings
+   and indexing all count. Cached/reasoning tokens follow each adapter's billing semantics
+   without double counting. Unknown usage/cost is visible and never silently zero.
+   Corrections are additional entries. Different currencies are not added without an
+   explicit versioned conversion. Dashboards are projections of this ledger, not model
+   estimates or sampled telemetry.
+8. **Enforce budgets before dispatch.** Atomic reservations cover concurrent calls against
+   conversation, daily/monthly installation and provider limits. Timeouts retain exposure
+   until reconciled; a retry requires a new reservation. An incomplete tariff or an
+   unbounded provider response prevents monetary-budgeted auto mode. Operator-configured
+   limits, warning thresholds and a kill switch complement provider-side spending limits;
+   local accounting is not a guarantee of the provider's final invoice.
+9. **Make delivery and regional boundaries explicit.** PostgreSQL supplies the durable
+   queue, outbox and locks; no new Redis or vector-server dependency is needed. A shared
+   cluster is acceptable with a separate database and roles, not shared application tables.
+   Webhooks are authenticated, replay-checked and deduplicated; per-conversation work is
+   serialized. An ambiguous Chatwoot send is reconciled before retry, not assumed exactly
+   once. RU/EU and stage/production keep separate histories, stores, credentials and approved
+   model routes. Anonymous fleet totals may be combined through an explicit export;
+   customer transcripts are not pooled.
+
+**Consequences.** The operator gains an auditable support service and four administrative
+screens, with additional migration, backup, IdP and provider-adapter responsibilities.
+The product schema is not changed by this ADR. The service starts paused until identity,
+knowledge, pricing, budgets and compatibility checks pass. A low-risk pilot precedes public
+auto replies. Acceptance includes browser flows, failure/replay tests, regional isolation,
+feedback formulas and exact usage-ledger fixtures; satisfaction targets are hypotheses to
+measure rather than claims that the system already meets them.
+
+**Alternatives considered.** A URL-only prompt cannot pin knowledge or measure retrieval.
+Sending the whole manual on every turn wastes context and obscures version attribution.
+A provider-hosted file store is viable for a single approved provider but is not required
+for a portable first release. n8n may consume events for notifications; it is not a second
+runtime for support decisions. A new ticket system would duplicate Chatwoot.
+
+**Sources checked 2026-11-24.**
+[Chatwoot Agent Bot](https://www.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots),
+[Chatwoot CSAT](https://app.chatwoot.com/hc/user-guide/articles/1677693868-how-to-read-csat-reports),
+[Anthropic context engineering](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents),
+[OpenAI file search](https://developers.openai.com/api/docs/guides/tools-file-search),
+[OWASP prompt injection prevention](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html).
+The numerical limits and service design in the specification are project decisions, not
+universal requirements inferred from these sources.
+
+
+## ADR-289: Calm animations are an account preference, and a hint is learned by doing
+
+**Status:** accepted (2026-11-24). Task T9. Implements ADR-266 §6–§8; extends ADR-150
+(preferences on the account) and ADR-123 (browser settings). Schema 40.
+
+**Context.** ADR-266 decided that hints last until the action is learned, that chrome fades
+while a canvas gesture runs, and that "calm animations" is an account setting, but none of
+the three had a mechanism. `CanvasHint` kept one browser key and disappeared after six
+seconds whether or not anybody had learned the double click; `html[data-motion="calm"]` was
+honoured by the painting code but nothing ever set it; theme and language already followed
+the account, while motion had nowhere to live.
+
+**Decision.**
+- **One hint mechanism.** `apps/web/src/hintRegistry.ts` names every hint slot in code: an
+  id, its i18n text key, `doneAfter` (default 3), `maxSessions` (default 5) and, for the
+  existing slot, the browser key under which the old single-visit promise was kept. The
+  registry has no server side; it is the list T16 later turns into editable slots with
+  server texts. `apps/web/src/hints.ts` keeps the learned state in `localStorage` under
+  `remuka.hints.<id>` as `{"done":n,"visits":n}`; `markHintDone(id)` counts the action,
+  `resetHints()` forgets every slot, and a subscription lets the visible hint disappear at
+  once. A slot is learned when `done >= doneAfter` or `visits >= maxSessions`. The old
+  `remo.canvas.hint = "seen"` reads as a learned hint for the canvas slot, so people who
+  already dismissed it do not see it again. `CanvasHint` is the only renderer; there is no
+  second "one-time plate" path. "Show the hints again" is a registry command in the help
+  group of the account menu (ADR-050), not a separate settings screen.
+- **Quiet chrome is client state, not a document property.** While a canvas gesture
+  (move, resize, rotate, marquee, connector, shape draft) runs longer than 150 ms, the
+  header, the tool rail and the bottom HUD carry `.is-quiet`: `opacity: .35` and
+  `pointer-events: none`, fading back 200 ms after the gesture ends. Keyboard work never
+  sets it; an open menu or dialog cancels it; `prefers-reduced-motion` and calm animations
+  drop the transition. The one publisher lives beside `CanvasHint`'s mechanism, and the
+  three chrome containers read it rather than receiving a prop through `BoardApp`.
+- **Motion lives with theme and language.** `users.motion boolean` (`null` = never chosen)
+  is served as `preferences.motion` by `/auth/me`, `/auth/login` and `/auth/preferences`;
+  the browser mirrors it under `remo.motion` and applies `html[data-motion="calm"]`. The
+  client writes only the fields it sends, so an older client that patches theme and
+  language does not erase the motion choice. A change reaches another browser on sign-in
+  through the same hook that already applies theme and language. `prefers-reduced-motion`
+  keeps working independently and wins nothing: either signal means "no motion".
+
+**Consequences.** Schema 40 adds one nullable column and makes the preferences PATCH
+partial; existing accounts read `motion: null` (off) until they choose. Hints stop being a
+one-off browser flag: they are counted per action and per visit and can be brought back,
+which is what T13 and T16 build on. The account menu gains one row ("Calm animations")
+until T15 rebuilds the account screen's "Look" section around the same field.
+
+**Alternatives considered.** A JSON `preferences` column would rewrite the table for three
+scalars; a separate hints service would put a personal learning record on the server for no
+product reason. Hiding the header with `display: none` would reflow the canvas mid-gesture,
+which is the opposite of calm; `opacity` plus `pointer-events` changes nothing about layout.

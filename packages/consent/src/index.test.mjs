@@ -48,6 +48,7 @@ describe("the storage registry (ADR-255 §2)", () => {
         "remo.lang",
         "remo.legal.upcoming.*",
         "remo.moveBanner.dismissed",
+        "remo.motion",
         "remo.session",
         "remo.settings",
         "remo.theme",
@@ -57,6 +58,7 @@ describe("the storage registry (ADR-255 §2)", () => {
         "remo_link_unlock",
         "remo_session",
         "remo_visitor",
+        "remuka.hints.*",
         "support.remuka.com",
       ].sort(),
     );

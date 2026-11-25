@@ -88,14 +88,15 @@ suite("IAM API", () => {
       password,
       name: "Prefs",
     });
-    expect(registered.body.user.preferences).toEqual({ theme: null, lang: null });
+    expect(registered.body.user.preferences).toEqual({ theme: null, lang: null, motion: null });
 
-    const saved = await api("PATCH", "/auth/preferences", { theme: "dark", lang: "ru" });
+    const saved = await api("PATCH", "/auth/preferences", { theme: "dark", lang: "ru", motion: true });
     expect(saved.status).toBe(200);
-    expect(saved.body.preferences).toEqual({ theme: "dark", lang: "ru" });
+    expect(saved.body.preferences).toEqual({ theme: "dark", lang: "ru", motion: true });
     expect((await api("GET", "/auth/me")).body.user.preferences).toEqual({
       theme: "dark",
       lang: "ru",
+      motion: true,
     });
 
     // A second browser is the same account, so it reads the same values on login.
@@ -104,7 +105,15 @@ suite("IAM API", () => {
       email: email("prefs"),
       password,
     });
-    expect(login.body.user.preferences).toEqual({ theme: "dark", lang: "ru" });
+    expect(login.body.user.preferences).toEqual({ theme: "dark", lang: "ru", motion: true });
+
+    // A patch that names only one preference leaves the others alone (ADR-289).
+    const partial = await api("PATCH", "/auth/preferences", { lang: "en" });
+    expect(partial.body.preferences).toEqual({ theme: "dark", lang: "en", motion: true });
+
+    const badMotion = await api("PATCH", "/auth/preferences", { motion: "calm" });
+    expect(badMotion.status).toBe(422);
+    expect(badMotion.body.error).toBe("BAD_MOTION");
 
     const bad = await api("PATCH", "/auth/preferences", { theme: "neon", lang: "ru" });
     expect(bad.status).toBe(422);

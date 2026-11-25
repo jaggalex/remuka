@@ -41,5 +41,7 @@
   "text.format": "how-to/format-text",
   "room.panel": "concepts/board-chrome",
   "account.support": "how-to/contact-support",
-  "objects.rotate": "capabilities/canvas"
+  "objects.rotate": "capabilities/canvas",
+  "interface.motion": "concepts/board-chrome",
+  "room.hints": "concepts/board-chrome"
 }
