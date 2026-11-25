@@ -11,9 +11,9 @@ import type { StickyBarActions } from "./object-panel/stickyTypes";
 import { addColumn, addSwimlane, groupNameOf, setColumnWip } from "@remo/doc";
 import { currentRoom } from "./identity";
 import { CardFilterPanel } from "./CardFilterPanel";
-import { Button, Checkbox, IconButton, Input, Select } from "@remo/ui";
+import { Button, Checkbox, Disclosure, DangerZone, IconButton, Input, Select } from "@remo/ui";
 import { HelpLink } from "./help/HelpLink";
-import { InspectorFold } from "./InspectorFold";
+
 import { useI18n } from "./i18n";
 import {
   CardFieldsPanel,
@@ -225,7 +225,7 @@ function InspectorBody(props: BoardInspectorProps) {
               )}
 
               {selectedWidget ? (
-                <InspectorFold
+                <Disclosure
                   label={t("properties.more")}
                   value={kindName ?? t("inspector.none")}
                   className="properties-more"
@@ -394,7 +394,7 @@ function InspectorBody(props: BoardInspectorProps) {
                       disabled={writeBlocked}
                     />
                   )}
-                  <InspectorFold label={t("inspector.nameAndLink")} value={nameValue} className="name-link-fold">
+                  <Disclosure label={t("inspector.nameAndLink")} value={nameValue} className="name-link-fold">
                     <ObjectNameField board={board} widget={selectedWidget} disabled={writeBlocked} />
                     <ObjectLinkPanel
                       board={board}
@@ -403,8 +403,8 @@ function InspectorBody(props: BoardInspectorProps) {
                       disabled={writeBlocked}
                       onOpenObject={onOpenObject}
                     />
-                  </InspectorFold>
-                  <InspectorFold label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
+                  </Disclosure>
+                  <Disclosure label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
                     <TagsPanel
                       board={board}
                       widgets={widgets}
@@ -412,8 +412,8 @@ function InspectorBody(props: BoardInspectorProps) {
                       setSelectedIds={setSelectedIds}
                       disabled={writeBlocked}
                     />
-                  </InspectorFold>
-                </InspectorFold>
+                  </Disclosure>
+                </Disclosure>
               ) : (
                 <>
                   <SelectionActions
@@ -450,7 +450,7 @@ function InspectorBody(props: BoardInspectorProps) {
                       {t("selection.gather")}
                     </Button>
                   )}
-                  <InspectorFold label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
+                  <Disclosure label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
                     <TagsPanel
                       board={board}
                       widgets={widgets}
@@ -458,7 +458,7 @@ function InspectorBody(props: BoardInspectorProps) {
                       setSelectedIds={setSelectedIds}
                       disabled={writeBlocked}
                     />
-                  </InspectorFold>
+                  </Disclosure>
                 </>
               )}
             </>
@@ -501,8 +501,7 @@ function InspectorBody(props: BoardInspectorProps) {
           </div>
 
           {selectedIds.length > 0 && (
-            <section className="inspector-danger" aria-label={t("menu.delete")}>
-              <span className="properties-note">{t("properties.deleteUndo")}</span>
+            <DangerZone title={t("menu.delete")} description={t("properties.deleteUndo")}>
               <Button
                 variant="ghost-danger"
                 size="compact"
@@ -512,7 +511,7 @@ function InspectorBody(props: BoardInspectorProps) {
               >
                 {t("inspector.delete")}
               </Button>
-            </section>
+            </DangerZone>
           )}
         </aside>
   );

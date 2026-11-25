@@ -256,67 +256,6 @@
   outline: 2px solid var(--accent-soft);
 }
 
-/* A rare group folded to one row (ADR-236): name, current value, chevron. One hairline
-   above, no frame of its own; the chevron turns when open. */
-.inspector-fold {
-  margin: var(--space-2) var(--space-4) 0;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.inspector-fold > summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-default);
-  list-style: none;
-  cursor: pointer;
-  font: var(--type-label);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.inspector-fold > summary::-webkit-details-marker {
-  display: none;
-}
-
-.inspector-fold > summary:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-.inspector-fold-label {
-  flex: 1;
-  min-width: 0;
-}
-
-.inspector-fold-value {
-  max-width: 50%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: var(--type-caption);
-  color: var(--text-secondary);
-}
-
-.inspector-fold > summary .rm-icon,
-.inspector-fold > summary svg {
-  flex: none;
-  color: var(--text-secondary);
-  transition: transform var(--dur-1) var(--ease);
-}
-
-.inspector-fold[open] > summary svg {
-  transform: rotate(90deg);
-}
-
-.inspector-fold-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-bottom: var(--space-3);
-}
-
 /* --------------------------------------------------- frequent properties --- */
 
 /* The mockup's top half of the panel: colour grid, then the text row (T8). */
@@ -387,18 +326,6 @@
 }
 
 /* The dangerous action at the panel's foot, with the way back (T8). */
-.inspector-danger {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin: var(--space-2) var(--space-4) var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: var(--panel-border-width) solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-}
-
 /* The rest of the text formats in «⋯»: one wrapped row, no second toolbar. */
 .properties-text-more {
   display: flex;

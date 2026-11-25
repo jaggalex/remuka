@@ -532,7 +532,7 @@ export async function openFold(page: Page, name: string | RegExp): Promise<void>
   if ((await outer.getAttribute("open")) === null) await outer.locator("summary").first().click();
   await expect(outer).toHaveAttribute("open", "");
   const fold = page
-    .locator("aside.inspector details.inspector-fold")
+    .locator("aside.inspector details.rm-disclosure")
     .filter({ has: page.locator("summary", { hasText: name }) })
     // An outer fold contains its children's summaries; the innermost is the target.
     .last();

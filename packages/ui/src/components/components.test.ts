@@ -140,3 +140,30 @@ describe("countPrimary (П2)", () => {
     expect(UI.countPrimary(footer)).toBe(2);
   });
 });
+
+describe("disclosure and danger zone (ADR-236, ADR-266 §10)", () => {
+  it("renders a folded group with its current value and a body", () => {
+    const html = render(
+      h(UI.Disclosure, { label: "More settings", value: "2" }, h("span", null, "body")),
+    );
+    expect(html).toContain("<details");
+    expect(html).toContain("rm-disclosure");
+    expect(html).toContain("More settings");
+    expect(html).toContain("2");
+    expect(html).toContain("body");
+  });
+
+  it("renders the danger zone with the consequence in words", () => {
+    const html = render(
+      h(
+        UI.DangerZone,
+        { title: "Delete", description: "You can undo with Cmd Z" },
+        h("button", null, "Delete"),
+      ),
+    );
+    expect(html).toContain("rm-danger-zone");
+    expect(html).toContain('aria-label="Delete"');
+    expect(html).toContain("You can undo with Cmd Z");
+    expect(html).toContain("<button>Delete</button>");
+  });
+});

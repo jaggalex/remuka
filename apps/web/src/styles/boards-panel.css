@@ -547,8 +547,8 @@ html[data-motion="calm"] .empty-shape {
 }
 
 /* Inside a fold the fold's hairline is the separator (ADR-236): no second one. */
-.inspector-fold .tags-panel,
-.inspector-fold .link-panel {
+.rm-disclosure .tags-panel,
+.rm-disclosure .link-panel {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;

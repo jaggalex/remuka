@@ -14,7 +14,7 @@ test("a tag and a safe external link survive a reload", async ({ page }) => {
   await expect(tags.locator(".tag-assign .tag-chip")).toHaveText("Priority");
   await tags.locator(".tag-assign input[type=checkbox]").first().check();
   // The folded row says what it holds without opening it.
-  await expect(page.locator(".tags-fold .inspector-fold-value")).toHaveText("Priority");
+  await expect(page.locator(".tags-fold .rm-disclosure-value")).toHaveText("Priority");
 
   const link = page.locator(".link-panel");
   await link.locator('input[type="url"]').fill("https://example.com");

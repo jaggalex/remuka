@@ -21,7 +21,7 @@ import {
   type TableLayout,
   type Widget,
 } from "@remo/model";
-import { Button, Checkbox, ConfirmDialog, Segmented, Textarea } from "@remo/ui";
+import { Button, Checkbox, ConfirmDialog, Disclosure, Segmented, Textarea } from "@remo/ui";
 import { AxisSizeButton } from "./AxisSizeControl";
 import { TableAppearanceControls } from "./TableAppearanceControls";
 import { TableHeaderSize } from "./TableHeaderSize";
@@ -31,7 +31,7 @@ import { openSectionLayout } from "./sectionLayoutStore";
 import { AxisDeleteDialog } from "./AxisDeleteDialog";
 import { colorName } from "./object-panel/colorWindowData";
 import { ColorGridSection } from "./object-panel/ColorWindow";
-import { InspectorFold } from "./InspectorFold";
+
 import { useI18n } from "./i18n";
 import { setTableAxisSelection, useTableAxisSelection } from "./tableSelection";
 import { useTableCellSelection } from "./tableCellSelection";
@@ -577,7 +577,7 @@ export function SectionPanel({
       {/* Fills belong to the table; a free section has no cells to colour. */}
       {active && (
       // The panel's one disclosure (ADR-236): keyed by section, so another section opens folded.
-      <InspectorFold key={frame.id} label={t("section.look")} value="" className="section-look-fold">
+      <Disclosure key={frame.id} label={t("section.look")} value="" className="section-look-fold">
           <div className="section-look">
             <p className="muted">{t("section.look.hint")}</p>
             {fillRows.map((entry) => {
@@ -628,7 +628,7 @@ export function SectionPanel({
               disabled={readOnly}
             />
           </div>
-      </InspectorFold>
+      </Disclosure>
       )}
 
       <div className="section-group section-remove">

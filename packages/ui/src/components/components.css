@@ -598,3 +598,32 @@ html[data-motion="calm"] .rm-shake.is-shaking { animation: none; }
     max-width: 100%;
   }
 }
+
+/* ---------- Disclosure / DangerZone (ADR-236, ADR-266 §10) ---------- */
+/* A rare group folded to one row: a hairline above, no frame of its own, the chevron
+   turning when open. The values match the inspector fold they replace. */
+.rm-disclosure {
+  margin: var(--space-2) var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.rm-disclosure > summary {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-height: var(--control-default); list-style: none; cursor: pointer;
+  font: var(--type-label); font-weight: 600; color: var(--text-primary);
+}
+.rm-disclosure > summary::-webkit-details-marker { display: none; }
+.rm-disclosure > summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.rm-disclosure-label { flex: 1; min-width: 0; }
+.rm-disclosure-value { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-caption); color: var(--text-secondary); }
+.rm-disclosure > summary .rm-icon, .rm-disclosure > summary svg { flex: none; color: var(--text-secondary); transition: transform var(--dur-1) var(--ease); }
+.rm-disclosure[open] > summary svg { transform: rotate(90deg); }
+.rm-disclosure-body { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--space-3); }
+
+/* The danger at the bottom of a panel: the consequence, then the action. */
+.rm-danger-zone {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2); margin: var(--space-2) var(--space-4) var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: var(--panel-border-width) solid var(--border-subtle); border-radius: var(--radius-lg);
+}
+.rm-danger-zone-note { font: var(--type-caption); color: var(--text-secondary); }
