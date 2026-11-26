@@ -223,6 +223,8 @@
 .rm-dialog-title { margin: 0; font: var(--type-title); }
 .rm-dialog-heading { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin-right: auto; }
 .rm-dialog-help { display: inline-flex; color: var(--text-secondary); }
+/* A room or person name has no spaces to wrap at more often than one would think. */
+.rm-dialog-title, .rm-dialog-desc { overflow-wrap: anywhere; }
 .rm-dialog-desc { margin: var(--space-1) var(--dialog-padding) 0; font: var(--type-body); color: var(--text-secondary); }
 .rm-dialog-body { padding: var(--space-4) var(--dialog-padding); overflow: auto; display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; flex: 1 1 auto; }
 .rm-dialog-body > *, .rm-field > *, .rm-input { flex-shrink: 0; }
@@ -418,7 +420,7 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-pin.is-selected { box-shadow: 0 0 0 2px var(--selection-stroke); }
 
 /* ---------- Popover ---------- */
-.rm-popover { position: relative; width: 280px; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-menu); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
+.rm-popover { position: relative; width: 280px; max-width: calc(100vw - 2 * var(--space-2)); overflow-wrap: anywhere; box-sizing: border-box; background: var(--bg-raised); color: var(--text-primary); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-menu); box-shadow: var(--shadow-pop); font: 400 13px/18px var(--font-sans); }
 .rm-popover-arrow { position: absolute; width: 10px; height: 10px; background: var(--bg-raised); border: var(--panel-border-width) solid var(--border-ink); transform: rotate(45deg); }
 .rm-popover-bottom .rm-popover-arrow { top: -6px; left: 24px; border-right: 0; border-bottom: 0; }
 .rm-popover-top .rm-popover-arrow { bottom: -6px; left: 24px; border-left: 0; border-top: 0; }

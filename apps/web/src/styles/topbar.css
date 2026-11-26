@@ -298,6 +298,15 @@
   left: 0;
 }
 
+/* On a phone a header popover is pinned to the window, not to its button: a button near
+   the left edge would otherwise push a 320 px popover off the screen. */
+.topbar.is-narrow .topbar-anchor > .rm-popover {
+  position: fixed;
+  top: calc(var(--topbar-height) + var(--space-1));
+  right: var(--space-2);
+  left: auto;
+}
+
 .room-menu-anchor > .rm-menu {
   width: var(--panel-room-menu-width);
   max-width: calc(100vw - var(--space-4));
