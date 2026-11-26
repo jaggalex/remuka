@@ -437,6 +437,7 @@ export function CommentsPanel({
                     {!thread.resolvedAt && (
                       <div className="comment-reply">
                         <Textarea
+                          rows={1}
                           disabled={!canComment || !online || busy}
                           value={active === thread.id ? reply : ""}
                           maxLength={4000}
@@ -447,10 +448,16 @@ export function CommentsPanel({
                             setActive(thread.id);
                             setReply(event.target.value);
                           }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                            event.preventDefault();
+                            sendReply();
+                          }}
                         />
                         <Button
                           variant="secondary"
                           size="compact"
+                          icon="check"
                           className="comment-resolve"
                           disabled={!canComment || !online || busy}
                           onClick={(event) => {
@@ -460,17 +467,20 @@ export function CommentsPanel({
                         >
                           {t("comments.resolve")}
                         </Button>
-                        <Button
-                          variant="primary"
-                          size="compact"
-                          disabled={!canComment || busy || !online || !reply.trim() || active !== thread.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            sendReply();
-                          }}
-                        >
-                          {t("comments.send")}
-                        </Button>
+                        {active === thread.id && reply.trim() && (
+                          <Button
+                            variant="primary"
+                            size="compact"
+                            className="comment-reply-send"
+                            disabled={!canComment || busy || !online}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              sendReply();
+                            }}
+                          >
+                            {t("comments.send")}
+                          </Button>
+                        )}
                       </div>
                     )}
                   </article>

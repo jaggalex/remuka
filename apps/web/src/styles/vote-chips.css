@@ -422,7 +422,7 @@ button.peer:disabled {
 }
 
 .comments-about {
-  font: var(--type-caption);
+  font: var(--type-body);
   color: var(--text-secondary);
 }
 
@@ -436,13 +436,12 @@ button.peer:disabled {
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--space-7);
-  height: var(--space-7);
+  width: var(--space-8);
+  height: var(--space-8);
   border: var(--panel-border-width) solid var(--border-ink);
   border-radius: var(--radius-pill);
   color: var(--text-on-accent);
-  font: var(--type-caption);
-  font-weight: 600;
+  font: var(--type-label);
 }
 
 .comment-body {
@@ -454,37 +453,59 @@ button.peer:disabled {
 
 .comment-meta {
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font: var(--type-caption);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  font: var(--type-body);
   color: var(--text-secondary);
 }
 
 .comment-meta b {
+  font: var(--type-form-label);
   color: var(--text-primary);
+}
+
+/* A secondary action under the text, never stretched across the column. */
+.comment-body > .rm-btn {
+  align-self: flex-start;
 }
 
 .comment-body p {
   margin: 0;
-  font: var(--type-body);
+  font: var(--type-reading);
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
+/* App-Panels: one wide reply field and «Решено» beside it; «Отправить» joins them
+   only while there is a reply to send. Enter sends, Shift+Enter starts a new line. */
 .comment-reply {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
 }
 
 .comment-reply .rm-field {
-  flex: 1;
   min-width: 0;
 }
 
+.comment-reply .rm-textarea {
+  padding-block: var(--space-1);
+}
+
 .comment-reply textarea {
-  min-height: var(--control-default);
+  min-height: 0;
+  max-height: 160px;
+  field-sizing: content;
+  resize: none;
+  font: var(--type-reading);
+}
+
+.comment-reply-send {
+  grid-column: 1 / -1;
+  justify-self: end;
 }
 
 /* «Решено» is the mockup's green cardboard button, the one action of a thread. */
