@@ -22,6 +22,9 @@ import type { BarBlock } from "./textFormatBar";
  * alongside the menu and the panel — so a key cannot do something the registry does not
  * know about (ADR-050).
  */
+/** Surfaces that take the keyboard from the room while they are open, wherever the focus is. */
+const BLOCKING_SURFACES = '[aria-modal="true"], [role="alertdialog"], [role="menu"], .rm-popover';
+
 export function useBoardKeyboard({
   board,
   writeBlocked,
@@ -97,14 +100,13 @@ useEffect(() => {
     // Native controls own activation even when a canvas object stays selected.
     if ((event.key === "Enter" || event.key === " ") && target?.closest("button, a[href], summary, [role=button]")) return;
 
-    // A dialog or an open menu owns the keyboard: a size popover must not let Delete
-    // reach the section behind it, and arrows in a menu must not move a cell.
-    const roomUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" &&
-      !event.altKey && !target?.closest('[role="dialog"]');
-    const blockingSurface = roomUndo
-      ? '[role="dialog"]:not([data-board-plan]), [role="menu"]'
-      : '[role="dialog"], [role="menu"]';
-    if (document.querySelector(blockingSurface)) return;
+    // A modal, an open menu or a popover owns the keyboard: a size popover must not let
+    // Delete reach the section behind it, and arrows in a menu must not move a cell.
+    // A side panel (Run, the agent's plan, a hint card, the cookie notice) is not modal:
+    // it owns the keys only while the focus is inside it, so the room keeps its shortcuts
+    // whenever the person is back on the canvas.
+    if (target?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+    if (document.querySelector(BLOCKING_SURFACES)) return;
 
     // A Tab from the canvas belongs to board navigation. Keep the browser's
     // native tab order when a toolbar control, link or other UI element has focus.
