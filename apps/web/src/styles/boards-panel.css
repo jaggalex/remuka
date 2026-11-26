@@ -474,7 +474,7 @@
 
 .presentation-list li {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2);
@@ -522,6 +522,7 @@
   font: var(--type-label);
 }
 
+.presentation-list li > span,
 .presentation-available li > span {
   min-width: 0;
   overflow: hidden;
@@ -529,10 +530,14 @@
   white-space: nowrap;
 }
 
+.presentation-available li > .rm-btn {
+  flex: none;
+}
+
+/* «· 2»: the order of a repeated name on the canvas, never an id. */
 .presentation-id {
   color: var(--text-muted);
   font: var(--type-caption);
-  font-family: var(--font-mono);
 }
 
 .object-name-field {

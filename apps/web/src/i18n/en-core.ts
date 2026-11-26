@@ -302,6 +302,9 @@ export const enCore = {
   "presentation.filterPlaceholder": "Name, title or text",
   "presentation.noAvailable": "Every object is already a slide.",
   "presentation.someone": "Someone",
+  "presentation.untitled": "{type} without a name",
+  "presentation.object": "Object",
+  "presentation.missing": "Deleted object",
 
   // Room agent (ADR-189).
   "roomAgent.title": "Room agent",

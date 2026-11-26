@@ -301,6 +301,9 @@ export const ruCore = {
   "presentation.filterPlaceholder": "Имя, заголовок или текст",
   "presentation.noAvailable": "Все объекты уже в презентации.",
   "presentation.someone": "Участник",
+  "presentation.untitled": "{type} без названия",
+  "presentation.object": "Объект",
+  "presentation.missing": "Удалённый объект",
 
   // Room agent (ADR-189).
   "roomAgent.title": "Агент комнаты",
