@@ -50,7 +50,7 @@ test("all six reactions display locally and reduced motion flashes on the select
       y: Number.parseFloat((el as HTMLElement).style.top),
     }));
     expect(style.name).toBe("reaction-rise");
-    expect(style.duration).toBe("2.4s");
+    expect(style.duration).toBe("5s");
     expect(style.x).toBeGreaterThanOrEqual(10);
     expect(style.x).toBeLessThanOrEqual(90);
     expect(style.y).toBeGreaterThanOrEqual(85);
@@ -82,7 +82,7 @@ test("all six reactions display locally and reduced motion flashes on the select
   expect(Math.abs(flash.dx)).toBeLessThanOrEqual(2);
   expect(Math.abs(flash.dy)).toBeLessThanOrEqual(2);
   expect(flash.name).toBe("reaction-flash");
-  expect(flash.transforms).toEqual([undefined, undefined]);
+  expect(flash.transforms.every(transform => transform === undefined)).toBe(true);
   await expect(page.locator(".reaction-burst")).toHaveCount(0);
 });
 

@@ -12195,3 +12195,11 @@ Opening the viewer requests headers from the original-file route. The route chec
 **Decision.** Keep a room document and its unacknowledged sequence in the current tab for the account that made the edits. Resume it only after a fresh server decision confirms the same account and its edit permission for that room. Validate the resumed transport against that session before it can exchange document data. A guest, viewer, different account or denied request cannot receive or transmit that document. The new connection reports outstanding work until the server acknowledges persistence.
 
 **Consequences.** The old document and its undo state are isolated in the tab. They do not become data for a different principal or a tab-local broadcast. A compatible non-browser client can still use the existing socket contract. The guarantee applies to the current tab before it is closed or refreshed. There is no database migration or new persistent browser store.
+
+## ADR-315 — A reaction stays readable for five seconds and floats straight up
+
+**Context (2026-11-26).** The owner reported that a reaction sent on a selected object appears and disappears too quickly. In the owner's words: «При вызове эмоций - эмоции выходят на выделенном объекте и быстро исчезают, а нужно чтобы они были хотя бы секунд 5 и двигались через вертикаль плавно исчезая». The burst lasted 2.4 s with an ease-out curve, so most of its movement and its fade happened in the first second; with calm motion it was a 0.45 s flash.
+
+**Decision.** Scope: live reactions on the canvas, both on a selected object and on the free canvas. A burst lives 5 s (`--dur-reaction`). It moves at a steady pace, stays fully opaque for the first half and fades out over the second half. On a selected object it rises about 240 px straight up with a sideways sway of at most 6 px. With calm motion or reduced motion it does not move: it holds for half of `--dur-reaction-flash` (5 s) and then fades.
+
+**Consequences.** This supersedes the 2.4 s duration of ADR-227 and the 0.45 s flash of ADR-285. Several bursts can be on screen at the same time for longer; they still never take pointer input. `e2e/reactions-motion.spec.ts` measures the duration, the rise and the opacity from the running animation.

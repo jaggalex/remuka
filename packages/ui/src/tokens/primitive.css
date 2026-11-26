@@ -170,8 +170,8 @@
   --dur-progress: 1200ms;
   --dur-quiet: 150ms;
   --dur-quiet-back: 200ms;
-  --dur-reaction-flash: 450ms;
-  --dur-reaction: 2400ms;
+  --dur-reaction-flash: 5000ms;
+  --dur-reaction: 5000ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-3: 220ms;
