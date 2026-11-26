@@ -313,7 +313,7 @@ html[data-motion="calm"] .export-progress::before { animation: none; }
     & .export-choices:not(.export-scopes) .export-choice {
       position: relative;
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       grid-template-rows: auto 1fr;
       align-items: start;
       gap: var(--space-1) var(--space-2);

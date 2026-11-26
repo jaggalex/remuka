@@ -103,7 +103,7 @@
 .room-agent-thread {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px var(--space-2);
   padding: var(--space-2);
   border: 1px solid transparent;

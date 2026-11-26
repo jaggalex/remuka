@@ -653,7 +653,7 @@ html[data-motion="calm"] .home-hero {
   }
 
   .home-toolbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .home-count {

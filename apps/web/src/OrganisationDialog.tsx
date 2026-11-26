@@ -293,7 +293,8 @@ export function OrganisationDialog({
   }
 
   function personLabel(id: string): string {
-    return members.find((member) => member.id === id)?.name ?? id.slice(0, 8);
+    // Someone who has left the organisation is named as such, never by an id.
+    return members.find((member) => member.id === id)?.name ?? t("user.deleted");
   }
 
   function roleLabel(role: string): string {

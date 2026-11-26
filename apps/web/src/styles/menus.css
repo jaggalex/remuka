@@ -35,7 +35,7 @@
 
 .context-menu-stepper {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: calc(var(--space-2) - 2px);
   align-items: center;
   margin-inline: var(--space-2);
