@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { BoardDocument } from "@remo/doc";
 import {
   deleteAxis,
@@ -21,9 +20,7 @@ import { ink as inkOn } from "@remo/model";
 import type { Rect, TableAxis, Widget } from "@remo/model";
 import { Menu, type MenuItem } from "@remo/ui";
 import { AxisDeleteDialog, type AxisDeleteTarget } from "./AxisDeleteDialog";
-import { AxisSizePopover, axisIsManual, axisSizeValue } from "./AxisSizeControl";
 import { duplicateAxisNear, insertAxisNear } from "./tableActions";
-import { PanelWindow } from "./object-panel/PanelWindow";
 import { TableAxisControls } from "./TableAxisControls";
 import { TableMirror } from "./TableGrid";
 import { useI18n } from "./i18n";
@@ -103,21 +100,9 @@ export function TableHeaderLayer({
   const [editing, setEditing] = useState<EditState | null>(null);
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [sizeEntry, setSizeEntry] = useState<HeaderEntry | null>(null);
-  useEffect(() => {
-    if (!sizeEntry) return;
-    const node = document.querySelector<HTMLElement>(".axis-size-portal .rm-popover");
-    node?.setAttribute("tabindex", "-1");
-    node?.focus();
-    const onDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (document.querySelector(".axis-size-portal")?.contains(target)) return;
-      setSizeEntry(null);
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    return () => window.removeEventListener("pointerdown", onDown, true);
-  }, [sizeEntry]);
-  const [pendingDelete, setPendingDelete] = useState<AxisDeleteTarget | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    (AxisDeleteTarget & { neighbourId?: string }) | null
+  >(null);
   const deletedInSpan = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -256,8 +241,17 @@ export function TableHeaderLayer({
     setEditing(next);
   };
 
-  const focusHeader = (frameId: string, axisId: string) => {
-    window.requestAnimationFrame(() => buttons.current.get(keyOf(frameId, axisId))?.focus());
+  const focusHeader = (frameId: string, axisId?: string) => {
+    window.requestAnimationFrame(() => {
+      const header = axisId ? buttons.current.get(keyOf(frameId, axisId)) : undefined;
+      const destination = header ?? document.querySelector<HTMLCanvasElement>("canvas.layer.overlay");
+      destination?.focus();
+    });
+  };
+
+  const closeMenu = (entry: HeaderEntry) => {
+    setMenu(null);
+    focusHeader(entry.frame.id, entry.axis.id);
   };
 
   const finishEditing = (commit: boolean, next?: EditState | null) => {
@@ -322,10 +316,38 @@ export function TableHeaderLayer({
     });
   };
 
-  const sizeLabel = (entry: HeaderEntry): string => {
-    if (!axisIsManual(entry.axis)) return t("section.size.content");
-    const size = axisSizeValue(board, entry.frame, entry.kind, entry.axis.id);
-    return `${t("section.size.manual")} · ${t("section.size.px", { n: size })}`;
+  const axisMenuTitle = (entry: HeaderEntry) => t(
+    entry.kind === "column" ? "section.axis.columnMenu" : "section.axis.rowMenu",
+    { name: entry.axis.title || t("section.axis.untitled") },
+  );
+
+  const axisHasObjects = (entry: HeaderEntry, candidates = widgets) => {
+    const field = entry.kind === "column" ? "columnId" : "rowId";
+    return candidates.some(
+      (widget) => widget.parentId === entry.frame.id && widget.cell?.[field] === entry.axis.id,
+    );
+  };
+
+  const removeAxis = (entry: HeaderEntry) => {
+    if (!canWrite(entry)) return;
+    const layout = tableLayoutOf(board, entry.frame.id);
+    if (!layout) return;
+    const axes = entry.kind === "column" ? layout.columns : layout.rows;
+    const index = axes.findIndex((axis) => axis.id === entry.axis.id);
+    if (index < 0) return;
+    const neighbourId = axes[index + 1]?.id ?? axes[index - 1]?.id;
+    if (axisHasObjects(entry, board.readWidgets())) {
+      deletedInSpan.current = axisInSpan(layout, entry.kind, entry.axis.id);
+      setPendingDelete({ frameId: entry.frame.id, axisId: entry.axis.id, kind: entry.kind, neighbourId });
+    } else {
+      // ADR-201: delete an empty axis without asking where to move objects.
+      const result = deleteAxis(board, entry.frame.id, entry.axis.id, { mode: "move" });
+      if (result.ok) {
+        setTableAxisSelection(null);
+        focusHeader(entry.frame.id, neighbourId);
+      }
+    }
+    setMenu(null);
   };
 
   const menuItems = (entry: HeaderEntry): MenuItem[] => {
@@ -334,9 +356,10 @@ export function TableHeaderLayer({
     const axes = entry.kind === "column" ? layout.columns : layout.rows;
     const index = axes.findIndex((axis) => axis.id === entry.axis.id);
     const items: MenuItem[] = [
+      { heading: axisMenuTitle(entry) },
       {
         label: t("section.axis.rename"),
-        hint: entry.axis.title || t("section.axis.untitled"),
+        shortcut: ["Enter"],
         onSelect: () => startEditing(entry),
       },
       {
@@ -356,6 +379,27 @@ export function TableHeaderLayer({
         onSelect: () => insert(entry, "after"),
       },
       {
+        pair: [
+          {
+            label: t(entry.kind === "column" ? "section.axis.moveLeft" : "section.axis.moveUp"),
+            disabled: index <= 0,
+            onSelect: () => {
+              moveAxis(board, entry.frame.id, entry.axis.id, -1);
+              closeMenu(entry);
+            },
+          },
+          {
+            label: t(entry.kind === "column" ? "section.axis.moveRight" : "section.axis.moveDown"),
+            visibleLabel: t(entry.kind === "column" ? "section.axis.right" : "section.axis.down"),
+            disabled: index < 0 || index >= axes.length - 1,
+            onSelect: () => {
+              moveAxis(board, entry.frame.id, entry.axis.id, 1);
+              closeMenu(entry);
+            },
+          },
+        ],
+      },
+      {
         label: t(
           entry.kind === "column"
             ? "section.axis.duplicateColumn"
@@ -369,28 +413,7 @@ export function TableHeaderLayer({
             entry.axis.id,
             placeholder(entry.kind, axes.length + 1),
           );
-          setMenu(null);
-        },
-      },
-      { separator: true },
-      {
-        label: t(
-          entry.kind === "column" ? "section.axis.moveLeft" : "section.axis.moveUp",
-        ),
-        disabled: index <= 0,
-        onSelect: () => {
-          moveAxis(board, entry.frame.id, entry.axis.id, -1);
-          setMenu(null);
-        },
-      },
-      {
-        label: t(
-          entry.kind === "column" ? "section.axis.moveRight" : "section.axis.moveDown",
-        ),
-        disabled: index < 0 || index >= axes.length - 1,
-        onSelect: () => {
-          moveAxis(board, entry.frame.id, entry.axis.id, 1);
-          setMenu(null);
+          closeMenu(entry);
         },
       },
       {
@@ -398,52 +421,17 @@ export function TableHeaderLayer({
         checked: Boolean(entry.axis.vertical),
         onSelect: () => {
           setAxisVertical(board, entry.frame.id, entry.axis.id, !entry.axis.vertical);
-          setMenu(null);
+          closeMenu(entry);
         },
       },
       { separator: true },
       {
-        label: t("section.size.mode"),
-        hint: sizeLabel(entry),
-        onSelect: () => {
-          setMenu(null);
-          setSizeEntry(entry);
-        },
-      },
-      { separator: true },
-      {
-        label: t(
-          entry.kind === "column"
-            ? "section.axis.deleteColumn"
-            : "section.axis.deleteRow",
-        ),
+        label: t(entry.kind === "column" ? "section.axis.deleteColumn" : "section.axis.deleteRow")
+          + (axisHasObjects(entry) ? "…" : ""),
+        shortcut: ["Del"],
+        keyShortcuts: "Delete",
         danger: true,
-        onSelect: () => {
-          const field = entry.kind === "column" ? "columnId" : "rowId";
-          const objects = widgets.filter(
-            (widget) =>
-              widget.parentId === entry.frame.id &&
-              widget.cell?.[field] === entry.axis.id,
-          );
-          // An empty axis is deleted at once; asking what to do with zero objects is
-          // noise (ADR-201).
-          if (!objects.length) {
-            deleteAxis(board, entry.frame.id, entry.axis.id, { mode: "move" });
-            setTableAxisSelection(null);
-          } else {
-            deletedInSpan.current = axisInSpan(
-              layout,
-              entry.kind,
-              entry.axis.id,
-            );
-            setPendingDelete({
-              frameId: entry.frame.id,
-              axisId: entry.axis.id,
-              kind: entry.kind,
-            });
-          }
-          setMenu(null);
-        },
+        onSelect: () => removeAxis(entry),
       },
     ];
     return items;
@@ -476,6 +464,8 @@ export function TableHeaderLayer({
           }
           const label = entry.axis.title || t("section.axis.untitled");
           const selected =
+            selectedIds.length === 1 &&
+            selectedIds[0] === entry.frame.id &&
             selection?.frameId === entry.frame.id &&
             selection.axisId === entry.axis.id;
           const isEditing =
@@ -630,6 +620,12 @@ export function TableHeaderLayer({
         <div
           ref={menuRef}
           className="table-axis-menu"
+          onKeyDown={(event) => {
+            if (event.key !== "Delete" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) removeAxis(menu.entry);
+          }}
           style={{
             left: (placement ?? { left: menu.x, top: menu.y }).left,
             top: (placement ?? { left: menu.x, top: menu.y }).top,
@@ -637,48 +633,12 @@ export function TableHeaderLayer({
           }}
         >
           <Menu
-            label={`${menu.entry.kind === "column" ? t("section.columns") : t("section.rows")}: ${
-              menu.entry.axis.title || t("section.axis.untitled")
-            }`}
+            label={axisMenuTitle(menu.entry)}
             items={menuItems(menu.entry)}
-            onClose={() => setMenu(null)}
+            onClose={() => closeMenu(menu.entry)}
           />
         </div>
       )}
-
-      {sizeEntry &&
-        (() => {
-          const rect = screenRect(sizeEntry.rect);
-          const liveFrame = widgets.find((widget) => widget.id === sizeEntry.frame.id);
-          const liveLayout =
-            liveFrame?.layout?.kind === "table" ? liveFrame.layout : null;
-          const liveAxis = liveLayout
-            ? (sizeEntry.kind === "column" ? liveLayout.columns : liveLayout.rows).find(
-                (axis) => axis.id === sizeEntry.axis.id,
-              )
-            : undefined;
-          if (!liveFrame || !liveAxis) return null;
-          return (
-            createPortal(
-              <div
-                className="axis-size-portal"
-                style={{ left: rect.left + rect.width + 12, top: rect.top }}
-              >
-                <PanelWindow>
-                  <AxisSizePopover
-                    board={board}
-                    frame={liveFrame}
-                    kind={sizeEntry.kind}
-                    axis={liveAxis}
-                    disabled={!canWrite(sizeEntry)}
-                    onClose={() => setSizeEntry(null)}
-                  />
-                </PanelWindow>
-              </div>,
-              document.body,
-            )
-          );
-        })()}
 
       {dropRect && (
         <div
@@ -708,10 +668,14 @@ export function TableHeaderLayer({
           board={board}
           widgets={widgets}
           target={pendingDelete}
-          onClose={() => setPendingDelete(null)}
+          onClose={() => {
+            setPendingDelete(null);
+            focusHeader(pendingDelete.frameId, pendingDelete.axisId);
+          }}
           onDeleted={() => {
             setPendingDelete(null);
             setTableAxisSelection(null);
+            focusHeader(pendingDelete.frameId, pendingDelete.neighbourId);
             if (deletedInSpan.current) {
               deletedInSpan.current = false;
               onNotice?.(t("section.axis.deleteKeepsWidths"));

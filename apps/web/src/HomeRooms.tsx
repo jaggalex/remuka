@@ -1,6 +1,7 @@
-import { Button, Icon, IconButton, Popover, Select } from "@remo/ui";
+import { Button, Icon, Select } from "@remo/ui";
 import type { BoardDirectoryPage, BoardTile } from "./boardDirectory";
-import { HOME_EMOJI } from "./homeEmoji";
+import { RoomAppearance } from "./RoomAppearance";
+import { RoomTileActions } from "./RoomTileActions";
 import { formatAgo } from "./format";
 import { useI18n, type Lang } from "./i18n";
 
@@ -168,7 +169,7 @@ export function HomeRooms({
       ) : data ? (
         <>
           <ul className="home-tiles">
-            {data.boards.map((board, index) => (
+            {data.boards.map((board) => (
               <li key={board.id} className="home-tile">
                 <button
                   type="button"
@@ -177,9 +178,8 @@ export function HomeRooms({
                   aria-label={`${t("home.open")}: ${boardTitle(board)}`}
                 >
                   <span className="home-tile-thumb" aria-hidden="true">
-                    <span className={`home-tile-sticker is-${index % 6 + 1}`} />
-                    <span className={`home-tile-sticker is-${index % 6 + 2}`} />
-                    <span className={`home-tile-sticker is-${index % 6 + 3}`} />
+                    {board.coverUpdatedAt && <img className="home-room-cover" loading="lazy" alt=""
+                      src={`/api/boards/${encodeURIComponent(board.id)}/cover?v=${encodeURIComponent(board.coverUpdatedAt)}`} />}
                   </span>
                   <span className="home-tile-body">
                     <span className="home-tile-title">
@@ -196,77 +196,18 @@ export function HomeRooms({
                     </span>
                   </span>
                 </button>
-                {directory && (
-                  <div className="home-tile-menu">
-                    {trash ? (
-                      <Button size="compact" variant="secondary" onClick={() => onRestore(board)}>
-                        {t("home.restore")}
-                      </Button>
-                    ) : (
-                      <>
-                        <span className="home-emoji-anchor">
-                          <IconButton
-                            icon="agent"
-                            label={t("home.emoji")}
-                            size="compact"
-                            variant="ghost"
-                            onClick={() => onEmoji(emojiBoard === board.id ? null : board.id)}
-                          />
-                          {emojiBoard === board.id && (
-                            <Popover
-                              label={t("home.emoji")}
-                              width={256}
-                              onClose={() => onEmoji(null)}
-                            >
-                              <div className="home-emoji-grid">
-                                <button
-                                  type="button"
-                                  className="home-emoji-none"
-                                  onClick={() => onIcon(board, "")}
-                                >
-                                  {t("home.noEmoji")}
-                                </button>
-                                {HOME_EMOJI.map((emoji) => (
-                                  <button
-                                    key={emoji}
-                                    type="button"
-                                    className="home-emoji"
-                                    aria-label={emoji}
-                                    onClick={() => onIcon(board, emoji)}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </Popover>
-                          )}
-                        </span>
-                        {board.canDuplicate && (
-                          <IconButton
-                            icon="copy"
-                            label={t("boards.duplicate")}
-                            size="compact"
-                            variant="ghost"
-                            onClick={() => onDuplicate(board)}
-                          />
-                        )}
-                        {board.canDelete && (
-                          <IconButton
-                            icon="trash"
-                            label={t("boards.delete")}
-                            size="compact"
-                            variant="ghost-danger"
-                            onClick={() => onDelete(board)}
-                          />
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
+                <RoomTileActions board={board} trash={trash} onRestore={() => onRestore(board)}
+                  onAppearance={() => onEmoji(board.id)} onDuplicate={() => onDuplicate(board)}
+                  onDelete={() => onDelete(board)} />
               </li>
             ))}
           </ul>
 
+          {emojiBoard && <RoomAppearance boardId={emojiBoard} onClose={() => onEmoji(null)}
+            onSaved={(icon) => {
+              const board = data.boards.find((row) => row.id === emojiBoard);
+              if (board) onIcon(board, icon);
+            }} />}
           {totalPages > 1 && (
             <nav className="home-pages" aria-label={t("home.page", { page })}>
               <Button

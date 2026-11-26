@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useOrgBilling } from "./useOrgBilling";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   loadBoard,
   setWidgetDelta,
   type BoardDocument,
 } from "@remo/doc";
 import type { Tag, Board, KanbanState, TextDeltaOp, Widget } from "@remo/model";
-import { Button, Checkbox, Dialog } from "@remo/ui";
+import { Button, Checkbox, Dialog, Icon } from "@remo/ui";
 import { api, ApiError } from "./api";
 import { planLimitFrom, type PlanLimitNotice } from "./apiBilling";
 import { PlanNotice } from "./PlanNotice";
@@ -26,7 +27,6 @@ import {
   scopeWidgets,
   type ExportScope,
 } from "./exportRender";
-import { HelpLink } from "./help/HelpLink";
 import { brandName } from "@remo/brand";
 import { useI18n } from "./i18n";
 import type { BoardSettings } from "./settings";
@@ -52,15 +52,15 @@ interface PendingImport {
 /**
  * Export and backup (ADR-071).
  *
- * Scope comes before format because "may look at it" and "may take the whole board
- * away" are different grants. A backup is always the whole board; a picture is exactly
- * what the person chose. The dialog never starts from an implicit whole board: with a
- * selection it preselects that, otherwise the person picks a scope explicitly.
+ * A backup is always the whole board. For PNG and PDF, the selected scope determines
+ * what leaves the room. With no selection, the dialog starts on the whole room and
+ * offers its only frame when there is exactly one (ADR-301).
  */
 export function ExportDialog({
   open,
   boardId,
   boardTitle,
+  orgId,
   board,
   widgets,
   kanbanStates,
@@ -77,6 +77,7 @@ export function ExportDialog({
   open: boolean;
   boardId: string;
   boardTitle: string;
+  orgId?: string | null;
   board: BoardDocument;
   widgets: Widget[];
   kanbanStates: Record<string, KanbanState>;
@@ -97,23 +98,27 @@ export function ExportDialog({
   onImported: () => void;
 }) {
   const { t, count, productName, stage } = useI18n();
+  const billing = useOrgBilling(orgId ?? null, open);
+  const pdfPlan = billing.seed && !billing.seed.features.includes("export.pdf") ? billing.seed.featurePlans?.["export.pdf"] : undefined;
   const [scope, setScope] = useState<ExportScope | null>(null);
   const [format, setFormat] = useState<Format>("png");
   const [status, setStatus] = useState<Status>("idle");
-  const [progress, setProgress] = useState(0);
+  const [stageLabel, setStageLabel] = useState<"preparing" | "rendering" | "saving">("preparing");
+  const activeExport = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [planLimit, setPlanLimit] = useState<PlanLimitNotice | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
-  const [includeComments, setIncludeComments] = useState(true);
+  const [includeComments, setIncludeComments] = useState(false);
   /** The room is over the 200 MiB backup limit: the offer, not a dead end (§5.3). */
   const [backupTooLarge, setBackupTooLarge] = useState(false);
   /** Pictures the export could not decode: a placeholder is in the picture (§6.1). */
   const [imageWarning, setImageWarning] = useState(0);
   const fileInput = useRef<HTMLInputElement | null>(null);
-  const importSection = useRef<HTMLElement | null>(null);
+  const importSection = useRef<HTMLDetailsElement | null>(null);
+  const handledRestore = useRef(0);
 
   const frame = useMemo(
     () => frameForSelection(widgets, selectedIds),
@@ -122,10 +127,10 @@ export function ExportDialog({
 
   useEffect(() => {
     if (!open) return;
-    setScope(selectedIds.length ? "selection" : null);
+    setScope(selectedIds.length ? "selection" : "board");
     setFormat(canExport ? "png" : "backup");
     setStatus("idle");
-    setProgress(0);
+    setStageLabel("preparing");
     setError(null);
     setPlanLimit(null);
     setJobId(null);
@@ -134,13 +139,16 @@ export function ExportDialog({
     setImportBusy(false);
     setBackupTooLarge(false);
     setImageWarning(0);
+    return () => activeExport.current?.abort();
     // The reset is about opening, not about every change while the dialog is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // A restore request scrolls to the one place that replaces the board.
   useEffect(() => {
-    if (!open || !restoreRequest || !canImport) return;
+    if (!open || !restoreRequest || restoreRequest === handledRestore.current || !canImport || !importSection.current) return;
+    handledRestore.current = restoreRequest;
+    importSection.current.open = true;
     importSection.current?.scrollIntoView({ block: "nearest" });
     importSection.current?.querySelector<HTMLButtonElement>("button")?.focus();
   }, [canImport, open, restoreRequest]);
@@ -192,14 +200,16 @@ export function ExportDialog({
     setPlanLimit(null);
     setBackupTooLarge(false);
     setImageWarning(0);
-    setProgress(0.05);
+    const operation = new AbortController();
+    activeExport.current = operation;
+    setStageLabel("preparing");
     try {
       if (format === "backup") {
         // A room over 200 MiB is offered the same backup without pictures (§5.3): the
         // assets keep their metadata and lose their bytes.
         const result = await api.downloadBackup(boardId, options.withoutImages === true);
+        operation.signal.throwIfAborted();
         download(result.blob, result.filename);
-        setProgress(1);
         setStatus("done");
         return;
       }
@@ -211,10 +221,11 @@ export function ExportDialog({
           format,
           objectCount,
         });
+        operation.signal.throwIfAborted();
         currentJob = created.jobId;
         setJobId(currentJob);
       }
-      setProgress(0.25);
+      setStageLabel("rendering");
 
       await document.fonts?.ready;
       const palette = canvasPaletteFromTokens();
@@ -250,6 +261,7 @@ export function ExportDialog({
         selectedIds,
         scope: effectiveScope,
       });
+      operation.signal.throwIfAborted();
       const rendered = renderScope({
         widgets,
         kanbanStates,
@@ -267,11 +279,13 @@ export function ExportDialog({
         watermark: stage ? t("stage.watermark") : null,
       });
       if (!rendered) throw new Error("EMPTY_SCOPE");
-      setProgress(0.65);
 
       if (format === "png") {
         const blob = await canvasToBlob(rendered.canvas, "image/png");
+        operation.signal.throwIfAborted();
+        setStageLabel("saving");
         await api.completeExportJob(boardId, currentJob, blob.size);
+        operation.signal.throwIfAborted();
         download(blob, filenameFor(boardTitle, "png"));
       } else {
         const jpeg = await canvasToBlob(rendered.canvas, "image/jpeg", 0.92);
@@ -282,16 +296,19 @@ export function ExportDialog({
           rendered.height,
           brandName({ locale: "en", productName }),
         );
+        operation.signal.throwIfAborted();
+        setStageLabel("saving");
         await api.completeExportJob(boardId, currentJob, pdf.size);
+        operation.signal.throwIfAborted();
         download(pdf, filenameFor(boardTitle, "pdf"));
       }
       // A picture that did not arrive in 15 s is in the file as a placeholder; saying so
       // beats letting the person discover it later (§6.1).
       if (images.failed > 0) setImageWarning(images.failed);
-      setProgress(1);
       setStatus("done");
       setJobId(null);
     } catch (failure) {
+      if (operation.signal.aborted) return;
       // The job id stays, so "retry" resumes the same audited request instead of
       // creating a second `export.requested` for one click. A plan refusal is shown as
       // an offer to change the plan, not as a broken export.
@@ -402,6 +419,22 @@ export function ExportDialog({
     onImported();
   };
 
+  const navigateChoices = (event: KeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    const choices = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="radio"]:enabled'));
+    const current = choices.indexOf(event.target as HTMLButtonElement);
+    if (current < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    const index = event.key === "Home" ? 0 : event.key === "End" ? choices.length - 1 :
+      (current + direction + choices.length) % choices.length;
+    const next = choices[index]!;
+    next.focus();
+    if (!next.dataset.paid) next.click();
+  };
+
   const scopeOption = (
     value: ExportScope,
     title: string,
@@ -413,7 +446,9 @@ export function ExportDialog({
       type="button"
       role="radio"
       aria-checked={selected}
+      tabIndex={selected ? 0 : -1}
       className={`export-choice${selected ? " selected" : ""}`}
+      data-export-busy={!disabled && status === "running" || undefined}
       disabled={disabled || format === "backup" || status === "running"}
       onClick={() => setScope(value)}
     >
@@ -427,76 +462,45 @@ export function ExportDialog({
       type="button"
       role="radio"
       aria-checked={format === value}
+      data-paid={value === "pdf" && pdfPlan || undefined}
+      tabIndex={format === value ? 0 : -1}
       className={`export-choice${format === value ? " selected" : ""}`}
+      data-export-busy={enabled && status === "running" || undefined}
       disabled={!enabled || status === "running"}
-      onClick={() => setFormat(value)}
+      onClick={() => {
+        if (value === "pdf" && pdfPlan) setPlanLimit({ kind: "feature", feature: "export.pdf", plan: billing.seed?.plan });
+        else setFormat(value);
+      }}
     >
-      <strong>{title}</strong>
+      <span className="export-badge" aria-hidden={value === "backup"}>{value === "backup" ? "{ }" : value.toUpperCase()}</span>
+      <strong>{title}{value === "pdf" && pdfPlan && <small className="paid-feature-plan">{pdfPlan}</small>}</strong>
       <span>{hint}</span>
+      <span className="rm-choicecard-check export-format-check" aria-hidden="true">
+        {format === value && <Icon name="check" size={12} />}
+      </span>
     </button>
   );
 
-  const statusLabel =
-    status === "running"
-      ? progress < 0.3
-        ? t("export.preparing")
-        : progress < 0.7
-          ? t("export.rendering")
-          : t("export.saving")
-      : status === "done"
-        ? t("export.done")
-        : t("export.failed");
+  const statusLabel = status === "running" ? t(`export.${stageLabel}`)
+    : status === "done" ? t("export.done") : t("export.failed");
+  const close = () => {
+    activeExport.current?.abort();
+    onClose();
+  };
 
   return (
     <Dialog
       title={t("export.title")}
-      description={boardTitle || t("board.untitled")}
-      help={<HelpLink topicId="export.formats" />}
+      description={t("export.intro")}
+      className={format === "png" && status === "idle" ? "export-sheet export-sheet-png" : "export-sheet"}
       size="md"
-      onClose={onClose}
+      onClose={close}
     >
       <section className="dialog-stack export-dialog">
 
         <section className="export-section">
-          <h3>
-            {t("export.scopeTitle")} <HelpLink topicId="export.scope" />
-          </h3>
-          <div className="export-choices" role="radiogroup" aria-label={t("export.scopeTitle")}>
-            {scopeOption(
-              "selection",
-              t("export.scope.selection"),
-              selectedIds.length
-                ? count("selected", selectedIds.length)
-                : t("export.scope.selectionEmpty"),
-              selectedIds.length === 0,
-              effectiveScope === "selection",
-            )}
-            {scopeOption(
-              "frame",
-              t("export.scope.frame"),
-              frame ? frame.title || t("export.scope.frameHint") : t("export.scope.frameEmpty"),
-              !frame,
-              effectiveScope === "frame",
-            )}
-            {scopeOption(
-              "board",
-              t("export.scope.board"),
-              count("objects", widgets.length),
-              false,
-              effectiveScope === "board",
-            )}
-          </div>
-          {format === "backup" && (
-            <p className="muted export-note">{t("export.backupWholeBoard")}</p>
-          )}
-          {effectiveScope && (
-            <p className="muted export-note">{count("objects", objectCount)}</p>
-          )}
-        </section>
-
-        <section className="export-section">
           <h3>{t("export.formatTitle")}</h3>
-          <div className="export-choices" role="radiogroup" aria-label={t("export.formatTitle")}>
+          <div className="export-choices" role="radiogroup" onKeyDown={navigateChoices} aria-label={t("export.formatTitle")}>
             {formatOption("png", t("export.format.png"), t("export.format.pngHint"), canExport)}
             {formatOption("pdf", t("export.format.pdf"), t("export.format.pdfHint"), canExport)}
             {canBackup &&
@@ -509,19 +513,63 @@ export function ExportDialog({
           </div>
         </section>
 
-        {format !== "backup" && (
-          <Checkbox className="export-comments" label={t("export.includeComments")}
-              checked={includeComments}
-              onChange={(event) => setIncludeComments(event.target.checked)}
-            />
+        {format === "backup" ? <p className="export-note export-backup-note">{t("export.backupWholeBoard")}</p> : (
+        <section className="export-section">
+          <h3>
+            {t("export.scopeTitle")}
+          </h3>
+          <div className="export-choices export-scopes" role="radiogroup" onKeyDown={navigateChoices} aria-label={t("export.scopeTitle")}>
+            {scopeOption(
+              "selection",
+              t("export.scope.selection"),
+              selectedIds.length
+                ? count("selected", selectedIds.length)
+                : t("export.scope.selectionEmpty"),
+              selectedIds.length === 0,
+              effectiveScope === "selection",
+            )}
+            {scopeOption(
+              "frame",
+              t("export.scope.frame"),
+              frame
+                ? frame.title ? t("export.scope.frameTitle", { title: frame.title }) : t("export.scope.frameHint")
+                : t("export.scope.frameEmpty"),
+              !frame,
+              effectiveScope === "frame",
+            )}
+            {scopeOption(
+              "board",
+              t("export.scope.board"),
+              count("objects", widgets.length),
+              false,
+              effectiveScope === "board",
+            )}
+          </div>
+          {effectiveScope && effectiveScope !== "board" && (
+            <p className="muted export-note">{count("objects", objectCount)}</p>
+          )}
+          <Checkbox
+            className="export-comments"
+            label={t("export.includeComments")}
+            hint={t("export.commentsHint")}
+            checked={includeComments}
+            onChange={(event) => setIncludeComments(event.target.checked)}
+          />
+        </section>
         )}
 
         {status !== "idle" && (
           <div className={`export-status ${status}`} aria-live="polite">
-            <div className="export-progress" aria-hidden="true">
-              <span style={{ width: `${Math.round(progress * 100)}%` }} />
+            <div className="export-status-caption">
+              <span>{statusLabel}</span>
+              {status === "running" && <span>{t("export.unchanged")}</span>}
             </div>
-            <span>{statusLabel}</span>
+            {status === "running" && (
+              <>
+                <progress className="rm-visually-hidden" aria-label={statusLabel} />
+                <div className="export-progress" aria-hidden="true" />
+              </>
+            )}
           </div>
         )}
         {error && (
@@ -548,6 +596,7 @@ export function ExportDialog({
         )}
         {planLimit && (
           <PlanNotice
+            orgId={orgId}
             notice={planLimit}
             onSeePlans={onOpenBilling}
             onDismiss={() => setPlanLimit(null)}
@@ -555,8 +604,8 @@ export function ExportDialog({
         )}
 
         <footer className="export-actions">
-          <Button onClick={onClose}>
-            {t("export.close")}
+          <Button onClick={close}>
+            {t("export.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -567,15 +616,14 @@ export function ExportDialog({
               ? t("export.retry")
               : status === "running"
                 ? t("export.running")
-                : t("export.start")}
+                : t(`export.download.${format}`)}
           </Button>
         </footer>
 
         {canImport && (
-          <section className="export-section export-import" ref={importSection}>
-            <h3>
-              {t("export.importTitle")} <HelpLink topicId="export.backup" />
-            </h3>
+          <details className="export-import" ref={importSection}>
+            <summary>{t("export.importTitle")} <span aria-hidden="true">›</span></summary>
+            <div className="export-restore-content">
             <p className="muted">{t("export.importHint")}</p>
             <input
               ref={fileInput}
@@ -624,7 +672,8 @@ export function ExportDialog({
                 {importError}
               </p>
             )}
-          </section>
+            </div>
+          </details>
         )}
       </section>
     </Dialog>

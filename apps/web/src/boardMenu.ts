@@ -1,6 +1,7 @@
 import {
   addColumn,
   setColumnAccent,
+  setColumnWip,
   addSwimlane,
   deleteColumn,
   deleteSwimlane,
@@ -34,6 +35,7 @@ import {
   type Command,
   type CommandContext,
 } from "./commands";
+import { KANBAN_COMMANDS, type KanbanCommand } from "./commandsKanban";
 import type { TranslationKey } from "./i18n";
 
 export interface BoardMenuResult {
@@ -74,17 +76,21 @@ function objectTitle(widget: Widget): TranslationKey {
 /** A row that opens a colour grid, built from the palette's own words (ADR-127). */
 function paletteRow({
   title,
+  caption,
   levels,
   current,
   pick,
   reset,
+  inline,
   t,
 }: {
   title: TranslationKey;
+  caption?: TranslationKey;
   levels: readonly ColorLevel[];
   current: string;
   pick: (value: string) => void;
   reset?: MenuGrid["reset"];
+  inline?: MenuGrid["inline"];
   t: (key: TranslationKey) => string;
 }): MenuItem {
   return {
@@ -92,6 +98,7 @@ function paletteRow({
     icon: "palette",
     grid: {
       title: t(title),
+      caption: caption && t(caption),
       // Seven columns per row, in the model's order: the same grid the colour window
       // and the column menu draw, only reached from a row (ADR-267 §3).
       choices: paletteChoices(levels).map((choice) => ({
@@ -100,6 +107,7 @@ function paletteRow({
       })),
       current: current.toLowerCase(),
       pick,
+      inline,
       reset,
     },
   };
@@ -121,7 +129,7 @@ function commandRow(
   if (command.grid && !grid) return null;
   return {
     commandId: command.id,
-    label: t(command.label(context) as TranslationKey),
+    label: t(command.menuTitle ?? command.label(context) as TranslationKey),
     icon: command.icon,
     shortcut: command.shortcut ? shortcutLabel(command.shortcut) : undefined,
     danger: command.danger,
@@ -217,175 +225,73 @@ export function buildBoardMenu({
   };
   const { x, y } = point;
 
-  if (target.kind === "column") {
+  if (target.kind === "column" || target.kind === "swimlane" || target.kind === "card") {
     const state = kanbanStates[target.kanbanId];
     if (!state) return result;
-    const column = state.columns[target.index];
-    menu({
-      x,
-      y,
-      title: t("menu.column", { title: column?.title ?? "" }),
-      groups: [
-        [
-          {
-            // The same field a double click on the title opens, on the kanban (ADR-244).
-            label: t("menu.renameColumn"),
-            icon: "pencil",
-            action: () =>
-              openKanbanTitleEdit({ kanbanId: target.kanbanId, kind: "column", id: target.columnId }),
-            disabled: writeBlocked,
-          },
-          paletteRow({
-            title: "menu.columnColor",
-            // The bright fill row and the line row: a row-600 accent changes only the
-            // header's colour, the cards still read the 300 fill (ADR-267 §2.1).
-            levels: [300, 600],
-            current: column?.accent ?? "",
-            pick: (value) => setColumnAccent(board, target.kanbanId, target.columnId, value),
-            t,
-          }),
-        ],
-        [
-          {
-            label: t("menu.addColumnRight"),
-            icon: "plus",
-            action: () => addColumn(board, target.kanbanId, t("menu.newColumn"), target.index + 1),
-          },
-          {
-            label: t("menu.moveLeft"),
-            icon: "undo",
-            action: () => moveColumn(board, target.kanbanId, target.columnId, target.index - 1),
-            disabled: target.index === 0,
-          },
-          {
-            label: t("menu.moveRight"),
-            icon: "redo",
-            action: () => moveColumn(board, target.kanbanId, target.columnId, target.index + 1),
-            disabled: target.index >= state.columns.length - 1,
-          },
-        ],
-        [
-          {
-            label: t("menu.deleteColumn"),
-            icon: "trash",
-            action: () => deleteColumn(board, target.kanbanId, target.columnId),
-            disabled: state.columns.length <= 1,
-            danger: true,
-          },
-        ],
-      ],
-    });
-    return result;
-  }
-
-  if (target.kind === "swimlane") {
-    const state = kanbanStates[target.kanbanId];
-    if (!state) return result;
-    const lane = state.swimlanes[target.index];
-    menu({
-      x,
-      y,
-      title: t("menu.swimlane", { title: lane?.title ?? "" }),
-      groups: [
-        [
-          {
-            label: t("menu.renameSwimlane"),
-            icon: "pencil",
-            action: () =>
-              openKanbanTitleEdit({ kanbanId: target.kanbanId, kind: "lane", id: target.swimlaneId }),
-            disabled: writeBlocked,
-          },
-        ],
-        [
-          {
-            label: t("menu.addSwimlaneBelow"),
-            icon: "plus",
-            action: () =>
-              addSwimlane(board, target.kanbanId, t("menu.newSwimlane"), target.index + 1),
-          },
-          {
-            label: t("menu.moveUp"),
-            icon: "layer-up",
-            action: () =>
-              moveSwimlane(board, target.kanbanId, target.swimlaneId, target.index - 1),
-            disabled: target.index === 0,
-          },
-          {
-            label: t("menu.moveDown"),
-            icon: "layer-down",
-            action: () =>
-              moveSwimlane(board, target.kanbanId, target.swimlaneId, target.index + 1),
-            disabled: target.index >= state.swimlanes.length - 1,
-          },
-        ],
-        [
-          {
-            label: t("menu.deleteSwimlane"),
-            icon: "trash",
-            action: () => deleteSwimlane(board, target.kanbanId, target.swimlaneId),
-            disabled: state.swimlanes.length <= 1,
-            danger: true,
-          },
-        ],
-      ],
-    });
-    return result;
-  }
-
-  if (target.kind === "card") {
-    result.select = [target.cardId];
-    result.point = { x, y };
-    // The card's own colour, or the column's when it has none (ADR-267 §2.1). The grid
-    // offers the two fill rows; "same as column" clears the card's own value and lets the
-    // column paint it again.
-    const state = kanbanStates[target.kanbanId];
-    const columnId = state?.cards[target.cardId]?.columnId;
-    const accent = state?.columns.find((column) => column.id === columnId)?.accent;
-    const own = board.readWidget(target.cardId)?.style?.fillColor;
-    menu({
-      x,
-      y,
-      title: t("menu.card"),
-      groups: [
-        [
-          {
-            label: t("menu.copy"),
-            icon: "copy",
-            shortcut: "⌘C",
-            action: () => void copyIds([target.cardId]),
-          },
-          {
-            label: t("menu.duplicate"),
-            icon: "duplicate",
-            shortcut: "⌘D",
-            action: () => duplicateIds([target.cardId]),
-          },
-        ],
-        [
-          paletteRow({
-            title: "menu.cardColour",
-            levels: FILL_LEVELS,
-            current: own ?? cardFillFor(accent),
-            pick: (value) => setCardFill(board, target.cardId, value),
-            reset: {
-              label: t("menu.likeColumn"),
-              active: !own,
-              pick: () => setCardFill(board, target.cardId, null),
-            },
-            t,
-          }),
-        ],
-        [
-          {
-            label: t("menu.deleteCard"),
-            icon: "trash",
-            shortcut: "Del",
-            action: () => deleteWidgets(board, [target.cardId]),
-            danger: true,
-          },
-        ],
-      ],
-    });
+    const id = target.kanbanId;
+    const canWrite = !writeBlocked && !board.readWidget(id)?.locked;
+    type Binding = Pick<MenuItem, "action" | "grid" | "disabled" | "shortcut" | "stepper" | "pairedWithNext" | "visibleLabel">;
+    const bindings: Record<string, Binding> = {};
+    let title: string;
+    if (target.kind === "column") {
+      const index = state.columns.findIndex(col => col.id === target.columnId);
+      const column = state.columns[index];
+      if (!column) return result;
+      title = t("menu.column", { title: column.title });
+      bindings["kanban.column.rename"] = {action: () => openKanbanTitleEdit({kanbanId: id, kind: "column", id: column.id})};
+      bindings["kanban.column.color"] = paletteRow({
+        title: "menu.columnColor", caption: "menu.columnColorCaption", levels: [300,600], current: column.accent ?? "",
+        inline: { subscribe: board.subscribe, read: () => board.snapshot().kanbanStates[id]?.columns
+          .find(col => col.id === column.id)?.accent?.toLowerCase() ?? "" },
+        pick: color => setColumnAccent(board, id, column.id, color), t});
+      bindings["kanban.column.wip"] = {stepper: {
+        subscribe: board.subscribe,
+        read: () => board.snapshot().kanbanStates[id]?.columns.find(col => col.id === column.id)?.wipLimit ?? 0,
+        write: n => setColumnWip(board, id, column.id, n || null),
+        lower: t("menu.wipLess"), higher: t("menu.wipMore"), empty: t("menu.wipNone"), hint: t("inspector.wipHint"),
+      }};
+      bindings["kanban.column.add"] = {action: () => addColumn(board, id, t("menu.newColumn"), index + 1)};
+      bindings["kanban.column.left"] = {pairedWithNext: true, disabled: index === 0, action: () => moveColumn(board, id, column.id, index - 1)};
+      bindings["kanban.column.right"] = {
+        visibleLabel: t("section.axis.right"),
+        disabled: index === state.columns.length - 1,
+        action: () => moveColumn(board, id, column.id, index + 1),
+      };
+      bindings["kanban.column.delete"] = {disabled: state.columns.length <= 1, action: () => deleteColumn(board, id, column.id)};
+    } else if (target.kind === "swimlane") {
+      const index = state.swimlanes.findIndex(lane => lane.id === target.swimlaneId);
+      const lane = state.swimlanes[index];
+      if (!lane) return result;
+      title = t("menu.swimlane", { title: lane.title });
+      bindings["kanban.lane.rename"] = {action: () => openKanbanTitleEdit({kanbanId: id, kind: "lane", id: lane.id})};
+      bindings["kanban.lane.add"] = {action: () => addSwimlane(board, id, t("menu.newSwimlane"), index + 1)};
+      bindings["kanban.lane.up"] = {disabled: index === 0, action: () => moveSwimlane(board, id, lane.id, index - 1)};
+      bindings["kanban.lane.down"] = {disabled: index === state.swimlanes.length - 1, action: () => moveSwimlane(board, id, lane.id, index + 1)};
+      bindings["kanban.lane.delete"] = {disabled: state.swimlanes.length <= 1, action: () => deleteSwimlane(board, id, lane.id)};
+    } else {
+      title = t("menu.card");
+      const card = target.cardId;
+      result.select = [card];
+      result.point = { x, y };
+      const accent = state.columns.find(column => column.id === state.cards[card]?.columnId)?.accent;
+      const widget = board.readWidget(card);
+      const own = widget?.style?.fillColor;
+      bindings["kanban.card.copy"] = {shortcut: "⌘C", action: () => void copyIds([card])};
+      bindings["kanban.card.duplicate"] = {shortcut: "⌘D", action: () => duplicateIds([card])};
+      bindings["kanban.card.color"] = paletteRow({title: "menu.cardColour", levels: FILL_LEVELS, current: own ?? cardFillFor(accent),
+        pick: color => setCardFill(board, card, color),
+        reset: {label: t("menu.likeColumn"), active: !own, pick: () => setCardFill(board, card, null)}, t});
+      bindings["kanban.card.color"].disabled = Boolean(widget?.locked);
+      bindings["kanban.card.delete"] = {disabled: Boolean(widget?.locked), shortcut: "Del", action: () => deleteWidgets(board, [card])};
+    }
+    const rowsFor = (group: KanbanCommand["group"]): MenuItem[] => KANBAN_COMMANDS
+      .filter(command => command.target === target.kind && command.group === group)
+      .map(command => {
+        const binding = bindings[command.id]!;
+        return { ...binding, commandId: command.id, icon: command.icon, label: t(command.label),
+          danger: group === "danger", disabled: binding.disabled || (!canWrite && command.id !== "kanban.card.copy") };
+      });
+    menu({ x, y, title, groups: [rowsFor("main"), rowsFor("edit"), rowsFor("danger")].filter(rows => rows.length) });
     return result;
   }
 
@@ -440,6 +346,15 @@ export function buildBoardMenu({
     if (frame?.type === "frame" && !writeBlocked) {
       const locked = Boolean(frame.locked);
       const reason = locked ? ` — ${t("section.view.locked")}` : "";
+      const isCover = board.meta.get("coverFrameId") === frame.id;
+      sectionItems.push({
+        label: t(isCover ? "home.useBoardCover" : "home.makeCover"),
+        icon: "image",
+        action: () => board.transact(() => {
+          if (isCover) board.meta.delete("coverFrameId");
+          else board.meta.set("coverFrameId", frame.id);
+        }),
+      });
       sectionItems.push(
         {
           label: `${t("section.view.toTable")}${reason}`,
@@ -475,6 +390,11 @@ export function buildBoardMenu({
     const search = searchMenuItem(t);
     if (search) ordered.splice(Math.max(0, ordered.length - 1), 0, [search]);
 
+    // Split after the section-specific rows so they share the same seven-row cap.
+    const groups: MenuItem[][] = [];
+    for (const rows of ordered) {
+      for (let start = 0; start < rows.length; start += 7) groups.push(rows.slice(start, start + 7));
+    }
     menu({
       x,
       y,
@@ -486,7 +406,7 @@ export function buildBoardMenu({
           : count
             ? count("objects", target.ids.length)
             : t("menu.objects", { count: target.ids.length }),
-      groups: ordered,
+      groups,
     });
     return result;
   }

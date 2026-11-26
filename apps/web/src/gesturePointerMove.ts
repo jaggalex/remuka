@@ -34,7 +34,7 @@ import {
    * work in. Cards inside a kanban are skipped: their place is derived from the
    * matrix, not chosen by dragging a widget.
    */
-export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
+export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLElement>) {
   const { alignmentTargets, anchorNear, anchorPressRef, applyPreview, camera, cardPreviewRef, connectDraftRef, connectPendingRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onCamera, publishCursor, selectedIds, setConnectDraft, setCursor, setDragPreview, setGuides, setHoverAnchor, setHoverCell, setHoverId, setMarquee, setResizeLimit, setRotationDraft, setRotationHover, setShapeDraft, setTableHover, setTableRefused, settings, toWorld, widgetById, widgets } = env;
   const drag = dragRef.current;
   setCursor({ x: event.clientX, y: event.clientY });
@@ -92,6 +92,7 @@ export function pointerMove(env: GestureEnv, event: React.PointerEvent<HTMLCanva
     return;
   }
 
+  if (drag.mode === "place") return;
   if (drag.mode === "shape") {
     const moved = drag.moved || isShapeDrag(drag.startScreen, {
       x: event.clientX,

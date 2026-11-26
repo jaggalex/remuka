@@ -1,4 +1,4 @@
-import { Button, IconButton, Menu, Popover, Tooltip } from "@remo/ui";
+import { Button, Icon, IconButton, Popover, Tooltip } from "@remo/ui";
 import {
   SHAPE_PRESETS,
   resolveColor,
@@ -18,25 +18,24 @@ import { colorName, isTransparent } from "./colorWindowData";
 import { PanelWindow } from "./PanelWindow";
 import type { StickyBarActions, StickyBarTarget } from "./stickyTypes";
 import { DEFAULT_INK } from "../objectDefaults";
-import { ELEVATION_LABEL_KEY, ELEVATION_LEVELS } from "../elevationMenu";
 import { SHAPE_KIND_LABEL, ShapeCorners, ShapeKindGrid, shapeSelection } from "./ShapeKindPicker";
 
 export type { StickyBarActions, StickyBarTarget };
 
-type PopoverName = "kind" | "colour" | "size" | "width" | "elevation" | null;
+type PopoverName = "kind" | "colour" | "size" | "width" | null;
 
 /**
  * The bar above a note, a shape or a text object (ADR-120, ADR-266 §10a).
  *
  * One row of the things changed most: the colour sample, the text size, the few marks,
  * the link, the connector, and «⋯» for everything else. The mockup fixes the order and
- * the count — a note has seven buttons, a shape eight (its lift sits in the bar), a text
- * object seven. Everything rarer is in the properties panel, which «⋯» opens; a second
+ * the count — each single-object bar has seven buttons (ADR-300). Everything rarer is in the properties panel, which «⋯» opens; a second
  * menu here would be a second way to the same document write.
  */
 export function StickyPanel({
   target,
   actions,
+  editing,
 }: {
   target: StickyBarTarget | null;
   actions: StickyBarActions;
@@ -79,15 +78,16 @@ export function StickyPanel({
   const needsOpenText = note || text;
 
   const inkPreview = text && !target.ink ? undefined : target.ink;
+  const barClass = shape ? "shape-selection-bar" : note && !editing ? "note-selection-bar" : undefined;
 
   return (
-    <ObjectBar ref={ref} placement={target.placement} label={t("sticky.properties")}>
+    <ObjectBar ref={ref} placement={target.placement} label={t("sticky.properties")} className={barClass}>
       <span className="sb-anchor">
         <Button
           variant="ghost"
           size="compact"
           className="sb-colour"
-          iconEnd="chevron-down"
+          iconEnd={text ? "chevron-down" : undefined}
           aria-label={colourLabel}
           aria-haspopup="dialog"
           aria-expanded={open === "colour"}
@@ -96,23 +96,10 @@ export function StickyPanel({
         >
           {shape ? (
             <span
-              className={isTransparent(fill) ? "sb-aa-preview checkerboard" : "sb-aa-preview"}
+              className={isTransparent(fill) ? "sb-paint-sample checkerboard" : "sb-paint-sample"}
               aria-hidden="true"
-              style={{
-                background: isTransparent(fill) ? undefined : fill,
-                borderColor: target.strokeColor ?? DEFAULT_INK,
-                borderWidth: target.strokeWidth == null ? 2 : Math.min(target.strokeWidth, 2),
-                borderStyle:
-                  target.strokeStyle === "dashed"
-                    ? "dashed"
-                    : target.strokeStyle === "dotted"
-                      ? "dotted"
-                      : "solid",
-                color: inkPreview,
-              }}
-            >
-              Aa
-            </span>
+              style={{ background: isTransparent(fill) ? undefined : fill }}
+            />
           ) : text ? (
             <span className="sb-text-preview" style={{ color: inkPreview }} aria-hidden="true">
               A<span className="sb-text-bar" />
@@ -149,19 +136,9 @@ export function StickyPanel({
               onClick={() => setOpen(open === "colour" ? null : "colour")}
             >
               <span
-                className="sb-border-preview"
+                className={isTransparent(target.strokeColor) ? "sb-paint-sample checkerboard is-none" : "sb-paint-sample"}
                 aria-hidden="true"
-                style={{
-                  background: "transparent",
-                  borderColor: target.strokeColor ?? DEFAULT_INK,
-                  borderWidth: Math.min(target.strokeWidth ?? 2, 4),
-                  borderStyle:
-                    target.strokeStyle === "dashed"
-                      ? "dashed"
-                      : target.strokeStyle === "dotted"
-                        ? "dotted"
-                        : "solid",
-                }}
+                style={{ background: isTransparent(target.strokeColor) ? undefined : target.strokeColor ?? DEFAULT_INK }}
               />
             </Button>
           </span>
@@ -204,7 +181,7 @@ export function StickyPanel({
         </>
       )}
 
-      <span className="sb-divider" aria-hidden="true" />
+      {text && <span className="sb-divider" aria-hidden="true" />}
 
       {shape && kind && (
         <>
@@ -213,14 +190,13 @@ export function StickyPanel({
               variant="ghost"
               size="compact"
               className="sb-kind"
-              iconEnd="chevron-down"
               aria-label={`${t("shape.kind")}: ${t(SHAPE_KIND_LABEL[kind.kind ?? "rectangle"])}`}
               aria-haspopup="dialog"
               aria-expanded={open === "kind"}
               selected={open === "kind"}
               onClick={() => setOpen(open === "kind" ? null : "kind")}
             >
-              {t("shape.kind")}
+              <Icon name="shape" size={20} />
             </Button>
             {open === "kind" && (
               <PanelWindow>
@@ -247,40 +223,7 @@ export function StickyPanel({
               </PanelWindow>
             )}
           </span>
-          {target.canElevate && (
-            <span className="sb-anchor">
-              <Button
-                variant="ghost"
-                size="compact"
-                className="sb-elevation"
-                iconEnd="chevron-down"
-                aria-label={`${t("inspector.elevation")}: ${t(ELEVATION_LABEL_KEY[target.elevation ?? "none"]!)}`}
-                aria-haspopup="menu"
-                aria-expanded={open === "elevation"}
-                selected={open === "elevation"}
-                onClick={() => setOpen(open === "elevation" ? null : "elevation")}
-              >
-                {t(ELEVATION_LABEL_KEY[target.elevation ?? "none"]!)}
-              </Button>
-              {open === "elevation" && (
-                <PanelWindow>
-                  <Menu
-                    label={t("inspector.elevation")}
-                    width={200}
-                    onClose={() => setOpen(null)}
-                    items={ELEVATION_LEVELS.map((level) => ({
-                      label: t(ELEVATION_LABEL_KEY[level ?? "none"]!),
-                      checked: (target.elevation ?? null) === level,
-                      onSelect: () => {
-                        actions.setElevation(level);
-                        setOpen(null);
-                      },
-                    }))}
-                  />
-                </PanelWindow>
-              )}
-            </span>
-          )}
+          <span className="sb-divider" aria-hidden="true" />
           <Tooltip label={t("inspector.editText")}>
             <IconButton
               icon="text"
@@ -299,13 +242,12 @@ export function StickyPanel({
               variant="ghost"
               size="compact"
               className="sb-auto"
-              aria-label={sizeLabel}
-              selected={explicit == null}
+              aria-label={t("sticky.textSize") + " · " + sizeLabel}
               aria-haspopup="dialog"
               aria-expanded={open === "size"}
               onClick={() => setOpen(open === "size" ? null : "size")}
             >
-              Aa · {sizeLabel}
+              Aa · {sizeLabel.toLowerCase()}
             </Button>
             {open === "size" && (
               <PanelWindow>
@@ -385,6 +327,7 @@ export function StickyPanel({
           <Tooltip label={t("sticky.link")}>
             <IconButton
               icon="link"
+              iconSize={note ? 18 : undefined}
               size="compact"
               label={needsOpenText ? t("sticky.linkNeedsEdit") : t("sticky.link")}
               onClick={actions.edit}
@@ -393,7 +336,7 @@ export function StickyPanel({
         </>
       )}
 
-      <span className="sb-divider" aria-hidden="true" />
+      {!shape && <span className="sb-divider" aria-hidden="true" />}
 
       <span className="sb-group" role="group" aria-label={t("inspector.actions")}>
         <Tooltip

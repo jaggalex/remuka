@@ -199,6 +199,10 @@ export const STORAGE_REGISTRY = Object.freeze(
       lifetime: "until cleared",
     },
     {
+      name: "remuka.news.dismissed", kind: "localStorage", category: "preferences", owner: "web",
+      purpose: { ru: "Скрытые новости команды", en: "Dismissed team updates" }, lifetime: "48 hours",
+    },
+    {
       name: "remuka.hints.*",
       kind: "localStorage",
       category: "preferences",

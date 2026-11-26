@@ -19,9 +19,11 @@ The sticky notes are written but scattered: stories `US-1`…`US-12`, ideas by t
 2. Open the command in one of two ways: right-click → **Tidy up**, or the **Tidy up** button on the selection bar. A viewer has no such command, and with an empty selection it is unavailable.
 3. Choose a layout. **Auto** is selected by default; you can change it later in the preview.
 4. Click **Tidy up**. Result: the agent prepares a plan and the button reads "Preparing the layout…".
-5. Wait for the preview. Result: the new places of the objects and the future blocks are drawn with dashed lines in the room, with a task panel at the bottom; the objects themselves have not moved yet.
-6. Read the warnings. If the layout does not fit, open **Details** and choose another one: the coordinates and the dashed lines are recomputed and the block labels are kept.
-7. Click **Apply**. Result: the objects have moved, the block frames exist, and the panel shows "One ⌘Z puts all objects back".
+5. Look at the dashed outlines in the room. They show the proposed blocks and where the objects will move.
+6. To try another layout, choose it under **Layout**. The outlines update in place.
+7. Click **Tidy up** in the preview panel to move the objects. Press ⌘Z once to restore their original layout.
+
+Under **Room tags**, you can create a tag or select the objects with an existing tag. Selecting them changes the canvas selection. The layout preview keeps the objects you originally chose.
 
 ## Layouts
 
@@ -39,7 +41,7 @@ A selected frame is laid out inside itself: its contents stand in columns, the f
 
 - The room itself: future blocks have a rounded dashed outline, and the new places of the objects are dashed ghosts beside the objects in their current places. While the panel is open you can pan and select in the room.
 - In the task panel: the number of objects that move, of new blocks and of actions, the bounds, and block labels when the layout creates blocks.
-- Under **Details**: the layout choice, the object list and the warnings.
+- Warnings appear above **Tidy up**. Open **Details** for the list of objects.
 - Warnings: locked objects stayed in place; objects from an unselected frame did not move; a block consists only of locked objects; the selection does not fit inside the frame; there is no free space beside it; the model was unavailable and the fallback layout was used.
 
 ## What goes to the model

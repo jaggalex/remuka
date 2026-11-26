@@ -1,10 +1,13 @@
+import { FacilitationPanel } from "./FacilitationPanel";
 import { setAllowBringEveryone, setWidgetPositions } from "@remo/doc";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FitObjects } from "./useBoardCameraFit";
 import { currentRoom } from "./identity";
 import { saveSettings } from "./settings";
 import { BoardCanvas } from "./BoardCanvas";
 import { BoardDialogs } from "./BoardDialogs";
 import { BoardPanels } from "./BoardPanels";
+import { GuestLinkEntry } from "./GuestLinkEntry";
 import { BoardTopbar } from "./BoardTopbar";
 import { BoardInspector } from "./BoardInspector";
 import { CanvasChrome } from "./BoardOverlays";
@@ -32,6 +35,7 @@ import { useChromeSurfaceRegistration } from "./chromeSurfaces";
  * hundred lines of hooks (ADR-093).
  */
 export function BoardApp() {
+  const fitObjectsRef = useRef<FitObjects>(null);
   const {
     board,
     widgets,
@@ -67,6 +71,7 @@ export function BoardApp() {
     agentOpen,
     setAgentOpen,
     tidy,
+    facilitationTab, setFacilitationTab,
     timerOpen,
     setTimerOpen,
     followOpen,
@@ -92,11 +97,11 @@ export function BoardApp() {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
+    anonymousLink,
     renameSelf,
     openBoard,
     revealWidget,
-    openHome,
+    openHome, homeHref, teamHref, boardTeam, boardIcon,
     readOnly,
     connection,
     status,
@@ -172,7 +177,7 @@ export function BoardApp() {
     addTable,
     addKanban,
     rail,
-    shapeTool,
+    creationTool, suggestSeries,
     editWidget,
     claimBoard,
     menu,
@@ -295,9 +300,11 @@ export function BoardApp() {
   }, [closeProperties, commentsOpen, inspectorOpen, setCommentsPanel]);
 
   return (
-    <div className={inspectorOpen ? "app" : "app no-inspector"}>
+    <div className={`app${inspectorOpen ? "" : " no-inspector"}${anonymousLink ? " guest-room" : ""}`}>
+      <FacilitationPanel tab={facilitationTab} onChange={setFacilitationTab}>
       <MoveNotice />
       <BoardDialogs
+        onRevealSession={ids => fitObjectsRef.current?.(ids) ?? false}
         board={board}
         widgets={widgets}
         kanbanStates={kanbanStates}
@@ -331,7 +338,6 @@ export function BoardApp() {
         appsOpen={appsOpen}
         setAppsOpen={setAppsOpen}
         timerOpen={timerOpen}
-        setTimerOpen={setTimerOpen}
         timerWidget={timerWidget}
         timerPhase={currentTimerPhase}
         timerLeft={timerLeft}
@@ -343,7 +349,6 @@ export function BoardApp() {
         onExtendTimer={extend}
         onResetTimer={reset}
         followOpen={followOpen}
-        setFollowOpen={setFollowOpen}
         followerNames={followerNames}
         otherPeers={otherPeers}
         allowBringEveryone={allowBringEveryone}
@@ -358,12 +363,13 @@ export function BoardApp() {
         onReveal={revealWidget}
         shareFallback={shareFallback}
         onCloseShareFallback={closeShareFallback}
-        shareOpen={shareOpen}
+        shareOpen={shareOpen && canShare}
         setShareOpen={setShareOpen}
         canTransfer={canTransfer}
         canManage={canManage}
       />
       <BoardPanels
+        board={board}
         accountOpen={accountOpen}
         accountTab={accountTab}
         me={me}
@@ -373,13 +379,14 @@ export function BoardApp() {
           setAgentOpen(false);
           void refreshAccess();
         }}
-        agentOpen={agentOpen}
+        agentOpen={agentOpen && canAskAgents}
         agentIntent={agentDraft}
         tidy={tidy}
         boardId={currentRoom()}
         boardTitle={title || boardTitle || ""}
         access={access}
         selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds} writeBlocked={writeBlocked}
         widgets={widgets}
         onApplyPlan={applyPlan}
         onCloseAgent={() => {
@@ -408,8 +415,11 @@ export function BoardApp() {
         canAskAgents={canAskAgents}
         onAskAgent={askAgent}
       />
+      {anonymousLink && <GuestLinkEntry identity={identity} renameSelf={renameSelf} />}
       <BoardTopbar
+        anonymousLink={anonymousLink}
         {...header}
+        setPresentOpen={setPresentOpen}
         title={title || boardTitle || ""}
         titleDraft={titleDraft}
         setTitleDraft={setTitleDraft}
@@ -420,11 +430,15 @@ export function BoardApp() {
         writeBlocked={writeBlocked}
         readOnly={readOnly}
         onOpenHome={openHome}
+        homeHref={homeHref}
+        teamHref={teamHref}
+        teamName={boardTeam?.name} boardIcon={boardIcon} onAppearanceSaved={refreshAccess}
         canShare={canShare}
         copied={copied}
         copyShareLink={copyShareLink}
         setShareOpen={setShareOpen}
         canExport={canExport}
+        canExportPdf={access?.pdfExportAvailable === true}
         canBackup={canBackup}
         canImport={canImport}
         canDuplicate={canManage}
@@ -462,7 +476,7 @@ export function BoardApp() {
         visiblePresence={visiblePresence}
         me={me}
         identity={identity}
-        renameSelf={renameSelf} onAccountRenamed={setMe}
+        renameSelf={renameSelf}
         setAccountOpen={(value) => (value ? openAccount("people") : setAccountOpen(false))}
         setAuthOpen={setAuthOpen}
         onSignOut={() => void signOutAndForgetName()}
@@ -474,9 +488,12 @@ export function BoardApp() {
       <BoardStart
         state={{
           blocked: saveState.blocked,
+          offline: saveState.state === "offline" && !(notice && typeof notice === "object"),
+          placing: Boolean(creationTool),
+          synced,
+          hasPeers: otherPeers > 0,
           widgets,
           denied,
-          unclaimed,
           reason: access?.reason,
           signedIn: Boolean(me),
           boardId: currentRoom(),
@@ -487,13 +504,14 @@ export function BoardApp() {
         onAskAgent={canAskAgents ? () => setAgentOpen(true) : null}
         onInvite={canShare ? () => setShareOpen(true) : null}
         onSignIn={() => setAuthOpen(true)}
-        onRetry={() => void refreshAccess()}
+        onHome={openHome}
         onClaim={() => void claimBoard()}
       />
 
       <div className="workspace">
         <ToolRail {...rail} more={railMore} />
         <BoardCanvas
+          fitObjectsRef={fitObjectsRef}
           boardTitle={title || boardTitle || ""}
           board={board}
           connection={connection}
@@ -527,12 +545,14 @@ export function BoardApp() {
           onResizeMany={resizeSelection}
           onRotateMany={rotateSelection}
           onMoveCard={onMoveCard}
+          onCreateFirstSticker={(at) => addStickyAndEdit(undefined, at)}
           onAddCard={onAddCard}
           onAddColumn={onAddColumn}
           onConnect={onConnect}
           presence={visiblePresence}
           onCursor={onCursor}
           onContextMenu={(target, point) => openMenu(target, point)}
+          openColumn={menu?.column}
           textOf={textOf}
           deltaOf={deltaOf}
           onSetText={onSetText}
@@ -552,10 +572,11 @@ export function BoardApp() {
           onEdit={editWidget}
           synced={synced} fitKey={`${active}#${cameraEpoch}`}
           grid={settings.grid.style}
-          hintAllowed={hintAllowed}
+          hintAllowed={hintAllowed && !writeBlocked}
           settings={settings}
           readOnly={writeBlocked}
-          shapeTool={shapeTool}
+          suggestSeries={suggestSeries}
+          creationTool={creationTool}
         />
         <CanvasChrome
           follow={follow}
@@ -579,6 +600,7 @@ export function BoardApp() {
         <ContextMenu state={menu} onClose={closeMenu} />
         <InfoCard state={info} onClose={closeInfo} onOpenThread={roomAgent.openFromFrame} />
       <BoardInspector
+        onNotice={showNotice}
         toggleInspector={closeProperties}
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
@@ -602,6 +624,7 @@ export function BoardApp() {
         onGather={gatherSelection}
       />
       </div>
+      </FacilitationPanel>
     </div>
   );
 }

@@ -1,6 +1,24 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, type Ref, type RefObject } from "react";
 import { fitToBounds, unionBox, visibleWorldRect, zoomAt, type Camera } from "@remo/canvas";
-import { rotatedBounds, type Widget } from "@remo/model";
+import { rotatedBounds, type Rect, type Widget } from "@remo/model";
+import { fitTidyPreview } from "./proposalStore";
+import { boardObjectBounds } from "./boardObjectBounds";
+import type { BoardSettings } from "./settings";
+
+export type FitObjects = (ids: readonly string[]) => boolean;
+
+/** The camera is centred on the full canvas; move the fitted content into its exposed area. */
+function fitUnobstructed(bounds: Rect, viewport: Rect, left: number, bottom: number): Camera {
+  const centered = fitToBounds(bounds, viewport);
+  const width = viewport.width - left;
+  const height = viewport.height - bottom;
+  if (width <= 0 || height <= 0) return centered;
+  const horizontalMargin = (viewport.width - bounds.width * centered.zoom) / 2;
+  const verticalMargin = (viewport.height - bounds.height * centered.zoom) / 2;
+  if (horizontalMargin >= left && verticalMargin >= bottom) return centered;
+  const fit = fitToBounds(bounds, { x: 0, y: 0, width, height });
+  return { x: fit.x - left / (2 * fit.zoom), y: fit.y + bottom / (2 * fit.zoom), zoom: fit.zoom };
+}
 
 /**
  * The camera fit and the two HUD zoom buttons.
@@ -13,34 +31,52 @@ export function useBoardCameraFit({
   camera,
   setCamera,
   viewport,
+  canvasRef,
   widgets,
   selectedIds,
   widgetById,
   fitKey,
   synced,
+  fitObjectsRef,
+  connectors,
 }: {
   camera: Camera;
   setCamera: (camera: Camera) => void;
   viewport: { width: number; height: number };
+  canvasRef: RefObject<HTMLDivElement | null>;
   widgets: Widget[];
   selectedIds: readonly string[];
   widgetById: (id: string) => Widget | undefined;
   fitKey: string;
   synced: boolean;
+  fitObjectsRef: Ref<FitObjects>;
+  connectors: BoardSettings["connectors"];
 }) {
-  const fit = useCallback(() => {
-    if (!viewport.width || !viewport.height) return;
-    // Fit what the person is looking at: a selection if there is one, the whole
-    // board otherwise. `widgetById` resolves a card to its cell, so a kanban's cards
-    // are not measured at the origin they do not occupy.
-    const ids = selectedIds.length ? [...selectedIds] : widgets.map((widget) => widget.id);
-    const boxes = ids
-      .map((id) => widgetById(id))
-      .filter((widget): widget is Widget => Boolean(widget))
-      .map((widget) => rotatedBounds(widget));
-    const target = unionBox(boxes);
-    if (target) setCamera(fitToBounds(target, { x: 0, y: 0, ...viewport }));
-  }, [setCamera, selectedIds, viewport, widgetById, widgets]);
+  const frameBounds = useCallback((target: Rect | null, avoidControls = true) => {
+    if (!target || !viewport.width || !viewport.height) return false;
+    const surface = { x: 0, y: 0, ...viewport };
+    const canvas = canvasRef.current;
+    if (avoidControls && canvas) {
+      const box = canvas.getBoundingClientRect();
+      const rail = canvas.parentElement?.querySelector(".tool-rail-panel")?.getBoundingClientRect();
+      const hud = canvas.querySelector(".canvas-hud")?.getBoundingClientRect();
+      const left = rail?.width ? Math.max(0, rail.right - box.left) : 0;
+      const bottom = hud?.height ? Math.max(0, box.bottom - hud.top) : 0;
+      setCamera(fitUnobstructed(target, surface, left, bottom));
+    } else {
+      setCamera(fitToBounds(target, surface));
+    }
+    return true;
+  }, [canvasRef, setCamera, viewport]);
+  useImperativeHandle(fitObjectsRef, () => ids => frameBounds(boardObjectBounds(ids, widgetById, {
+    max: connectors.stubMax, ratio: connectors.stubRatio,
+  })), [connectors.stubMax, connectors.stubRatio, frameBounds, widgetById]);
+
+  const fitContents = useCallback((avoidControls: boolean) => {
+    const ids = selectedIds.length ? selectedIds : widgets.map(widget => widget.id);
+    const boxes = ids.map(widgetById).filter((widget): widget is Widget => Boolean(widget)).map(rotatedBounds);
+    frameBounds(unionBox(boxes), avoidControls);
+  }, [frameBounds, selectedIds, widgetById, widgets]);
 
   /** Zoom around the middle of the canvas, for the two HUD buttons. */
   const zoomBy = useCallback(
@@ -78,7 +114,8 @@ export function useBoardCameraFit({
       if (synced) emptyAfterSync.current = fitKey;
       return;
     }
-    const key = `${fitKey}@${Math.round(viewport.width)}x${Math.round(viewport.height)}`;
+    // Opening or resizing an inspector changes the canvas, not the user's chosen camera.
+    const key = `${fitKey}@${window.innerWidth}x${window.innerHeight}`;
     if (fittedFor.current === key) return;
     fittedFor.current = key;
     // A room that opened empty keeps its view when its first content is already in
@@ -90,8 +127,11 @@ export function useBoardCameraFit({
     ) {
       return;
     }
-    fit();
-  }, [fit, fitKey, synced, viewport.height, viewport.width, widgets]);
+    fitContents(false);
+  }, [fitContents, fitKey, synced, viewport.height, viewport.width, widgets]);
 
+  const fit = () => {
+    if (!fitTidyPreview(canvasRef.current)) fitContents(true);
+  };
   return { fit, zoomBy };
 }

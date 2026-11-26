@@ -24,8 +24,6 @@ export const ruChrome = {
   "search.action": "Найти действие",
   "search.title": "Поиск команд",
   "search.input": "Что сделать",
-  "search.placeholder": "Что сделать? Например: таймер, экспорт, тема",
-  "search.empty": "Такого пока нет. Попробуйте другое слово — или спросите агента.",
   "search.askAgent": "Спросить агента: {query}",
   "search.close": "Закрыть поиск",
   "search.roomOnly": "Поиск есть в комнате",
@@ -39,5 +37,6 @@ export const ruChrome = {
   "search.needTwo": "Нужно два объекта",
   "search.notGrouped": "В выделении нет группы",
   "account.motion": "Спокойные анимации",
+  "account.helpShortcuts": "Помощь и горячие клавиши",
   "hints.reset": "Показать подсказки снова",
 };

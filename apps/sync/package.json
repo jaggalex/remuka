@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1172.0",
+    "@napi-rs/canvas": "^0.1.100",
     "@remo/agent-plan": "workspace:*",
     "@remo/brand": "workspace:*",
     "@remo/consent": "workspace:*",
     "@remo/legal": "workspace:*",
     "@remo/metrics": "workspace:*",
+    "@remo/model": "workspace:*",
     "@remo/outbound": "workspace:*",
     "@remo/text": "workspace:*",
     "lib0": "^0.2.102",

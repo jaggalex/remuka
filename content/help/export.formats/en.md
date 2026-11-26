@@ -18,8 +18,8 @@ You get a file with the chosen scope: a PNG for a chat or a document, or a one-p
 
 ## Steps
 
-1. Open the room menu (the room’s name) and choose Export….
-2. Choose a scope and a format.
+1. Click the room name and choose **Export**. The menu entry lists the formats available to you.
+2. Choose a format. For PNG and PDF, select an area to export. A room backup includes the whole room.
 3. Click Export and wait for "The file is ready".
 
 ## If it did not work

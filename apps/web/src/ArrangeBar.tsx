@@ -117,13 +117,12 @@ export function ArrangeBar({
       ref={ref}
       placement={target.placement}
       label={t("canvas.selected", { count: target.objects })}
-      className="arrange-bar"
+      className={shape ? "arrange-bar arrange-shapes" : "arrange-bar"}
     >
       <span className="sb-anchor" ref={typesRef}>
         <Button
           variant="ghost"
           size="compact"
-          iconEnd="chevron-down"
           aria-label={`${t("arrange.types")}: ${summary}`}
           aria-haspopup="menu"
           aria-expanded={open === "types"}
@@ -161,55 +160,6 @@ export function ArrangeBar({
 
       <span className="sb-divider" aria-hidden="true" />
 
-      {target.colour && (
-        <span className="sb-anchor">
-          <Button
-            variant="ghost"
-            size="compact"
-            className="sb-colour sb-multi-colour"
-            iconEnd="chevron-down"
-            aria-label={`${colourRole}: ${colourValue}`}
-            aria-haspopup="dialog"
-            aria-expanded={open === "colour"}
-            selected={open === "colour"}
-            onClick={() => setOpen(open === "colour" ? null : "colour")}
-          >
-            <span className="sb-role-label">{colourRole}</span>
-            <span
-              className={
-                target.colour.mixed
-                  ? "sb-multi-swatch is-mixed"
-                  : isTransparent(target.colour.value)
-                    ? "sb-multi-swatch checkerboard"
-                    : target.colour.value
-                      ? "sb-multi-swatch"
-                      : "sb-multi-swatch is-auto"
-              }
-              style={
-                target.colour.mixed || isTransparent(target.colour.value) || !target.colour.value
-                  ? undefined
-                  : { background: target.colour.value }
-              }
-              aria-hidden="true"
-            >
-              {target.colour.mixed ? "≠" : null}
-            </span>
-          </Button>
-          {open === "colour" && (
-            <ColorWindow title={colourRole} onClose={() => setOpen(null)}>
-              <ColorGridSection
-                ariaLabel={colourRole}
-                levels={target.colour.role === "fill" ? [100, 300] : [600]}
-                value={target.colour.value}
-                mixed={target.colour.mixed}
-                role={colourRoleKind}
-                onPick={actions.setColour}
-                showKeys
-              />
-            </ColorWindow>
-          )}
-        </span>
-      )}
 
       {shape && (
         <span className="sb-anchor">
@@ -242,18 +192,16 @@ export function ArrangeBar({
       )}
 
       <span className="sb-anchor">
-        <Button
-          variant="secondary"
+        <IconButton
+          variant="ghost"
           size="compact"
-          iconEnd="chevron-down"
-          aria-label={t("arrange.title")}
+          icon="align-objects"
+          label={t("arrange.title")}
           aria-haspopup="dialog"
           aria-expanded={open === "align"}
           disabled={!target.canArrange}
           onClick={() => setOpen(open === "align" ? null : "align")}
-        >
-          {t("arrange.title")}
-        </Button>
+        />
         {open === "align" && (
           <PanelWindow>
             <Popover title={t("arrange.title")} width={240} onClose={() => setOpen(null)}>
@@ -293,19 +241,61 @@ export function ArrangeBar({
         )}
       </span>
 
-      <Button variant="ghost" size="compact" onClick={actions.tidy}>
-        {t("tidy.action")}
-      </Button>
-
+      <IconButton variant="ghost" size="compact" icon="tidy" label={t("tidy.action")} onClick={actions.tidy} />
       {(actions.canGroup || actions.canUngroup) && (
-        <Button
-          variant="ghost"
-          size="compact"
-          onClick={actions.canUngroup ? actions.ungroup : actions.group}
-        >
-          {actions.canUngroup ? t("menu.ungroup") : t("menu.group")}
-        </Button>
+        <IconButton variant="ghost" size="compact" icon={actions.canUngroup ? "group-break" : "group-make"}
+          label={actions.canUngroup ? t("menu.ungroup") : t("menu.group")}
+          onClick={actions.canUngroup ? actions.ungroup : actions.group} />
       )}
+
+      {target.colour && (
+        <span className="sb-anchor">
+          <Button
+            variant="ghost"
+            size="compact"
+            className="sb-colour sb-multi-colour"
+            aria-label={`${colourRole}: ${colourValue}`}
+            aria-haspopup="dialog"
+            aria-expanded={open === "colour"}
+            selected={open === "colour"}
+            onClick={() => setOpen(open === "colour" ? null : "colour")}
+          >
+            <span
+              className={
+                target.colour.mixed
+                  ? "sb-multi-swatch is-mixed"
+                  : isTransparent(target.colour.value)
+                    ? "sb-multi-swatch checkerboard"
+                    : target.colour.value
+                      ? "sb-multi-swatch"
+                      : "sb-multi-swatch is-auto"
+              }
+              style={
+                target.colour.mixed || isTransparent(target.colour.value) || !target.colour.value
+                  ? undefined
+                  : { background: target.colour.value }
+              }
+              aria-hidden="true"
+            >
+              {target.colour.mixed ? "≠" : null}
+            </span>
+          </Button>
+          {open === "colour" && (
+            <ColorWindow title={colourRole} onClose={() => setOpen(null)}>
+              <ColorGridSection
+                ariaLabel={colourRole}
+                levels={target.colour.role === "fill" ? [100, 300] : [600]}
+                value={target.colour.value}
+                mixed={target.colour.mixed}
+                role={colourRoleKind}
+                onPick={actions.setColour}
+                showKeys
+              />
+            </ColorWindow>
+          )}
+        </span>
+      )}
+
 
       <IconButton
         icon="more"

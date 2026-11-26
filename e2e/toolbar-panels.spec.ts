@@ -8,13 +8,13 @@ import {
   selectKanbanCard,
   seedConnector,
   seedObject,
+  setAccountTheme,
 } from "./helpers";
 
 /**
  * T8: one rail, one bar per selection, one side panel (ADR-266 §5, §10a; ADR-286).
  *
- * The counts are the acceptance: seven tools and «More», a note bar of seven, a shape
- * bar of eight (its lift), and one properties panel at a time.
+ * The counts are the acceptance: seven tools and «More», note and shape bars of seven, and one properties panel at a time.
  */
 function worldToClient(page: Page, point: { x: number; y: number }) {
   return page.evaluate((world) => {
@@ -132,7 +132,7 @@ test("the rail is seven tools and More, and More is the same list as the search"
   await expect.poll(frames).toBe(beforeSearchTable + 1);
 });
 
-test("every selection bar is seven buttons, the shape's eight, and More opens properties", async ({
+test("every selection bar has seven buttons and More opens properties", async ({
   page,
 }) => {
   await freshBoard(page, "t8-bars", { template: "empty" });
@@ -147,7 +147,7 @@ test("every selection bar is seven buttons, the shape's eight, and More opens pr
 
   await createShape(page, "Rectangle");
   await expect(bar).toBeVisible();
-  expect(await bar.getByRole("button").count()).toBe(8);
+  expect(await bar.getByRole("button").count()).toBe(7);
 
   // A text being edited carries six formats and «⋯».
   await page.getByRole("button", { name: "Text", exact: true }).click();
@@ -224,6 +224,23 @@ test("a connector's bar is seven, and its More opens the same panel", async ({ p
   const bar = page.locator(".connector-bar");
   await expect(bar).toBeVisible();
   expect(await bar.getByRole("button").count()).toBe(7);
+  const colour = bar.locator(".sb-line-colour");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({width, height: 900});
+    const sample = await colour.locator(".sb-paint-sample").boundingBox();
+    const button = await colour.boundingBox();
+    const toolbar = await bar.boundingBox();
+    expect(sample!.width).toBe(24);
+    expect(sample!.x).toBeGreaterThanOrEqual(button!.x);
+    expect(sample!.x + sample!.width).toBeLessThanOrEqual(button!.x + button!.width);
+    if (width === 1440) expect(Math.round(sample!.x - toolbar!.x)).toBe(177);
+    else expect(Math.abs((sample!.x + sample!.width / 2) - (button!.x + button!.width / 2))).toBeLessThan(1);
+    await colour.focus();
+    await page.keyboard.press("Enter");
+    await expect(colour).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(colour).toHaveAttribute("aria-expanded", "false");
+  }
   await bar.getByRole("button", { name: "More" }).click();
   await expect(page.locator("aside.inspector")).toBeVisible();
 });
@@ -287,10 +304,114 @@ test("the working screen has at most twelve chrome controls outside the canvas",
 }) => {
   await freshBoard(page, "t8-chrome", { template: "empty" });
   await page.setViewportSize({ width: 1440, height: 900 });
-  const count = await page
-    .locator(
-      ".topbar button, .topbar a, .canvas-hud button, .canvas-search, .canvas-hint button",
-    )
-    .count();
-  expect(count).toBeLessThanOrEqual(12);
+  const controls = ":is(button, a, [role=button]):visible";
+  const names = await page.locator(".topbar, .canvas-hud, .canvas-hint").locator(controls)
+    .evaluateAll(nodes => nodes.map(node =>
+      node.getAttribute("aria-label") || node.textContent?.trim() || node.className));
+  const header = await page.locator(".topbar").locator(controls).count();
+  expect.soft(header, "Controls in the header").toBeLessThanOrEqual(8);
+  expect(names.length, names.join(" · ")).toBeLessThanOrEqual(12);
 });
+
+for (const lang of ["ru", "en"] as const) {
+  test(`the sticky palette has seven choices and dismisses accessibly at both widths in ${lang}`, async ({ page }) => {
+    await freshBoard(page, "sticky-palette", { template: "empty" });
+    await setAccountTheme(page, "light", lang);
+    const trigger = page.getByRole("button", { name: lang === "ru" ? "Цвета стикера" : "Sticky note colours", exact: true });
+    const palette = page.getByRole("dialog", { name: lang === "ru" ? "Стикер · цвет нового" : "Colour for new sticky notes" });
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await trigger.focus();
+      await trigger.press("Enter");
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      const colours = palette.getByRole("button");
+      await expect(colours).toHaveCount(7);
+      await expect(palette.getByRole("link")).toHaveCount(0);
+      await page.evaluate(() => document.fonts.ready);
+      const box = (await palette.boundingBox())!;
+      expect(box.width).toBe(width === 390 ? 270 : 262);
+      expect(Math.abs(box.height - 199)).toBeLessThanOrEqual(1);
+      const hint = palette.locator(".tool-flyout-note");
+      await expect(hint).toHaveCSS("color", "rgb(63, 66, 86)");
+      await expect(hint).toHaveCSS("line-height", "17.4px");
+      const shadows = await palette.locator(".tool-swatch-paper").evaluateAll(samples =>
+        samples.map(sample => getComputedStyle(sample).boxShadow));
+      expect(new Set(shadows).size).toBe(1);
+      expect(shadows[0]).toContain("0px 6px 6px -5px");
+      await trigger.press("Tab");
+      await expect(colours.first()).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(palette).toBeHidden();
+      await expect(trigger).toBeFocused();
+
+      await trigger.click();
+      await trigger.click();
+      await expect(palette).toBeHidden();
+      await trigger.click();
+      const outside = page.getByRole("button", { name: lang === "ru" ? "Приблизить" : "Zoom in", exact: true });
+      const oldZoom = await page.locator(".rm-zoom-value").innerText();
+      await outside.click();
+      await expect(palette).toBeHidden();
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(page.locator(".rm-zoom-value")).not.toHaveText(oldZoom);
+    }
+  });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`the rail palette and all shape actions stay accessible after panning at 390 px in ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await freshBoard(page, "narrow-sticky-palette", { template: "empty" });
+    await setAccountTheme(page, theme);
+    await createShape(page);
+    const shapeBar = page.locator(".shape-selection-bar");
+    const rail = page.getByRole("toolbar", { name: "Tools" });
+    const caret = rail.getByRole("button", { name: "Sticky note colours" });
+    const palette = rail.getByRole("group", { name: "Sticky note colours" });
+    const first = palette.getByRole("button").first();
+
+    await caret.click();
+    await expect(rail.getByRole("dialog", { name: "Colour for new sticky notes" })).toBeVisible();
+    await expect(first).toHaveAttribute("aria-pressed", "true");
+    await expect(palette.locator('[aria-pressed="true"]')).toHaveCount(1);
+    await expect(first.locator(".rm-btn-label")).toHaveCSS("overflow", "visible");
+    await expect(first.locator(".tool-swatch-paper")).toHaveCSS("outline-style", "solid");
+    const bar = (await shapeBar.boundingBox())!;
+    await caret.click();
+
+    const beforePan = await worldToClient(page, { x: 0, y: 0 });
+    await page.mouse.move(360, 660);
+    await page.mouse.down({ button: "middle" });
+    await page.mouse.move(360, 500, { steps: 6 });
+    await page.mouse.up({ button: "middle" });
+    await expect.poll(async () => (await worldToClient(page, { x: 0, y: 0 })).y)
+      .toBeLessThan(beforePan.y - 100);
+    await expect(rail).not.toHaveClass(/is-quiet/);
+    await caret.click();
+    const dialog = rail.getByRole("dialog", { name: "Colour for new sticky notes" });
+    await expect(dialog).toBeVisible();
+    const afterPan = (await shapeBar.boundingBox())!;
+    expect(afterPan).toEqual(bar);
+    expect(afterPan.y + afterPan.height).toBeLessThanOrEqual((await dialog.boundingBox())!.y);
+    const actions = shapeBar.getByRole("button");
+    await expect(actions).toHaveCount(7);
+    await expect(shapeBar.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
+    await expect(shapeBar.locator("button:enabled")).toHaveCount(6);
+    for (const action of await actions.all()) {
+      await expect(action).toBeInViewport({ ratio: 1 });
+      if (await action.isEnabled()) await action.click({ trial: true, timeout: 3000 });
+    }
+    await first.click();
+    await expect(palette).toBeHidden();
+
+    await caret.click();
+    const second = palette.getByRole("button").nth(1);
+    await second.focus();
+    await second.press("Enter");
+    await expect(palette).toBeHidden();
+    await caret.click();
+    await expect(second).toHaveAttribute("aria-pressed", "true");
+    await expect(first).toHaveAttribute("aria-pressed", "false");
+    await expect(palette.locator('[aria-pressed="true"]')).toHaveCount(1);
+  });
+}

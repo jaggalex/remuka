@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { PlanWarning } from "@remo/doc";
-import { isCriticalWarning, uniqueWarnings } from "./agentPlanText";
+import { enCollab } from "./i18n/en-collab";
+import { ruCollab } from "./i18n/ru-collab";
+import { interpolate } from "./i18n";
+import { isCriticalWarning, uniqueWarnings, warningText } from "./agentPlanText";
 
 /**
  * A warning is either a question or a stop; the preview must not leave that to a
@@ -20,8 +23,23 @@ describe("agent plan warnings", () => {
     // cannot arrive.
     expect(isCriticalWarning(warning("PLAN_TOO_LARGE"))).toBe(false);
     expect(isCriticalWarning(warning("OVERLAP"))).toBe(false);
+    expect(isCriticalWarning(warning("MISSING_ROLE"))).toBe(false);
     expect(isCriticalWarning(warning("PLAN_LARGE"))).toBe(false);
     expect(isCriticalWarning(warning("STORIES_EXCEED_LANES"))).toBe(false);
+  });
+
+  it("asks about the named step in the reader's language", () => {
+    const finding = warning("MISSING_ROLE", { title: "Review" });
+    for (const [strings, sentence] of [
+      [ruCollab, "«Review» — роль не найдена в источниках. Уточните, кто это."],
+      [enCollab, "“Review” — the sources do not identify who is responsible. Clarify who takes this step."],
+    ] as const) {
+      const result = warningText(finding, (key, vars) => {
+        expect(key).toBe("agents.plan.warn.missingRole");
+        return interpolate(strings["agents.plan.warn.missingRole"], vars);
+      });
+      expect(result).toBe(sentence);
+    }
   });
 
   it("keeps one row per finding when the dry run repeats a warning", () => {

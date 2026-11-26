@@ -15,43 +15,48 @@ export function BoardStart({
   onAskAgent,
   onInvite,
   onSignIn,
-  onRetry,
+  onHome,
   onClaim,
 }: {
   state: {
     blocked: boolean;
+    offline: boolean;
+    placing: boolean;
     widgets: readonly Widget[];
     denied: boolean;
-    unclaimed: boolean;
     reason: string | null | undefined;
     signedIn: boolean;
     boardId: string;
     readOnly: boolean;
+    synced: boolean;
+    hasPeers: boolean;
   };
   onCreateNote: () => void;
   onExample: () => void;
   onAskAgent: (() => void) | null;
   onInvite: (() => void) | null;
   onSignIn: () => void;
-  onRetry: () => void;
+  onHome: () => void;
   onClaim: () => void;
 }) {
   return (
     <BoardStateLayer
       blocked={state.blocked}
-      emptyRoom={!state.denied && state.widgets.length === 0 ? state.boardId : null}
+      offline={state.offline}
+      emptyRoom={!state.placing && !state.denied && state.widgets.length === 0 ? state.boardId : null}
       denied={state.denied}
-      unclaimed={state.unclaimed}
       reason={state.reason}
       signedIn={state.signedIn}
       boardId={state.boardId}
       readOnly={state.readOnly}
+      hasPeers={state.hasPeers}
+      synced={state.synced}
       onCreateNote={onCreateNote}
       onExample={onExample}
       onAskAgent={onAskAgent}
       onInvite={onInvite}
       onSignIn={onSignIn}
-      onRetry={onRetry}
+      onHome={onHome}
       onClaim={onClaim}
     />
   );

@@ -19,11 +19,13 @@ import { useI18n } from "./i18n";
  */
 export function AccountDeletionDialog({
   open,
+  inline = false,
   onClose,
   onScheduled,
   onCancelled,
 }: {
   open: boolean;
+  inline?: boolean;
   onClose: () => void;
   onScheduled: (schedule: DeletionSchedule) => void;
   onCancelled: () => void;
@@ -47,6 +49,7 @@ export function AccountDeletionDialog({
   };
 
   const close = () => {
+    if (busy) return;
     reset();
     onClose();
   };
@@ -101,8 +104,8 @@ export function AccountDeletionDialog({
     }
   };
 
-  return (
-    <Dialog title={t("account.deleteTitle")} description={t("account.deleteBody")} size="sm" onClose={close}>
+  const content = (
+    <>
       {cancelled ? (
         <div className="dialog-stack">
           <p className="auth-hint">{t("account.deleteCancelled")}</p>
@@ -143,9 +146,9 @@ export function AccountDeletionDialog({
             maxLength={16}
             onChange={(event) => setPhrase(event.currentTarget.value)}
           />
-          {error && <p className="auth-error">{error}</p>}
+          {error && <p role="alert" className="auth-error">{error}</p>}
           <div className="auth-actions">
-            <Button type="submit" variant="primary" loading={busy} disabled={!password || !phrase.trim()}>
+            <Button type="submit" variant="primary" loading={busy} disabled={!password || (inline ? phrase.trim().toLowerCase() !== (lang === "ru" ? "удалить" : "delete") : !phrase.trim())}>
               {t("account.deleteConfirm")}
             </Button>
             <Button variant="ghost" onClick={close}>
@@ -154,6 +157,11 @@ export function AccountDeletionDialog({
           </div>
         </form>
       )}
+    </>
+  );
+  return inline ? content : (
+    <Dialog title={t("account.deleteTitle")} description={t("account.deleteBody")} size="sm" onClose={close}>
+      {content}
     </Dialog>
   );
 }

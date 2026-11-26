@@ -67,10 +67,9 @@ test("the rail's colour and shape flyouts create the chosen sample", async ({ pa
 
   await rail.getByRole("button", { name: "Sticky note colours" }).click();
   const swatches = page.locator(".tool-flyout-swatches .tool-swatch");
-  // The rail is the window's fill grid: seven tonal columns × 100/300 (ADR-127, ADR-139).
-  await expect(swatches).toHaveCount(14);
-  await expect(swatches.nth(1)).toHaveAttribute("data-hex", "#f4e0a8");
-  await expect(swatches.nth(1)).toHaveClass(/is-default/);
+  await expect(swatches).toHaveCount(7);
+  await expect(swatches.first()).toHaveAttribute("data-hex", "#f4e0a8");
+  await expect(swatches.first()).toHaveAttribute("aria-pressed", "true");
   await swatches.nth(1).click();
 
   const fills = () =>
@@ -80,7 +79,7 @@ test("the rail's colour and shape flyouts create the chosen sample", async ({ pa
         .map((widget) => widget.style?.fillColor ?? ""),
     );
   await expect.poll(fills).toHaveLength(1);
-  expect((await fills())[0]).toMatch(/^#/);
+  expect((await fills())[0]).toBe("#c8e8d4");
 
   await createShape(page, "Ellipse");
   const kinds = await page.evaluate(() =>

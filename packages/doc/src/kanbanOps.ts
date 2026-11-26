@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import * as Y from "yjs";
 import {
   kanbanContentHeight,
@@ -99,7 +100,7 @@ export function addCard(
     if (board.readWidget(kanbanId)?.locked) return;
     const kanban = kanbanOf(board, kanbanId);
     if (!kanban) return;
-    board.widgets.set(cardId, widget);
+    insertNewWidget(board.widgets, widget);
     seedTextField(board, widget, widget.title ?? widget.content ?? "");
 
     const cell = cellOrders(kanban, columnId, swimlaneId, cardId);

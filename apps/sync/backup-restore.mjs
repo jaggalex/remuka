@@ -146,6 +146,10 @@ export function applyBoardBackup(doc, bundle, { fileIds = new Map() } = {}) {
       writeKanban(kanbans, kanbanId, state);
     }
 
+    const cover = bundle.meta?.coverFrameId;
+    if (typeof cover === "string" && widgets.get(cover)?.type === "frame") meta.set("coverFrameId", cover);
+    else meta.delete("coverFrameId");
+
     if (!meta.get("title")) {
       const title = bundle.board?.title ?? bundle.meta?.title;
       if (typeof title === "string" && title.trim()) meta.set("title", title.trim());

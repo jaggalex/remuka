@@ -28,7 +28,7 @@ async listBoards() {
 async listReadableBoards(userId) {
   const { rows } = await this.pool.query(
     `select distinct b.id, b.org_id as "orgId", b.title, b.updated_at, b.snapshot_through,
-            b.visibility, b.archived_at as "archivedAt",
+            b.visibility, b.archived_at as "archivedAt", (b.frozen_at is not null) as frozen,
             (b.owner_id = $1) as "canDelete",
             (b.owner_id = $1 or exists (
               select 1 from board_grants g
@@ -85,7 +85,7 @@ async listReadableBoards(userId) {
  * and pagination only narrow what the person may already read. Author is the creator,
  * not the current owner; both are joined on purpose.
  */
-async listBoardDirectory(userId, { orgSlug = null, q = null, sort = "updated", dir = "desc", page = 1, limit = 24, trash = false } = {}) {
+async listBoardDirectory(userId, { orgSlug = null, teamId = null, q = null, sort = "updated", dir = "desc", page = 1, limit = 24, trash = false } = {}) {
   const order = {
     updated: '"updatedAt"',
     created: '"createdAt"',
@@ -100,9 +100,9 @@ async listBoardDirectory(userId, { orgSlug = null, q = null, sort = "updated", d
 
   const { rows } = await this.pool.query(
     `with visible as (
-       select distinct b.id, b.org_id as "orgId", b.title, b.icon,
+       select distinct b.id, b.org_id as "orgId", b.title, b.icon, b.cover_source_at as "coverUpdatedAt",
               b.created_at as "createdAt", b.updated_at as "updatedAt",
-              b.visibility, b.archived_at as "archivedAt",
+              b.visibility, b.archived_at as "archivedAt", (b.frozen_at is not null) as frozen,
               b.team_id as "teamId", t.name as "teamName",
               u.name as "createdByName", u.handle as "createdByHandle",
               (b.owner_id = $1) as "canDelete",
@@ -131,6 +131,7 @@ async listBoardDirectory(userId, { orgSlug = null, q = null, sort = "updated", d
                and g.subject_id = $1 and g.role = 'coowner'
           ))` : ""}
           and ($2::text is null or o.slug = $2)
+          and ($6::text is null or b.team_id::text = $6)
           and ($3::text is null or b.title ilike '%' || $3 || '%')
           and (
             b.owner_id = $1
@@ -152,7 +153,7 @@ async listBoardDirectory(userId, { orgSlug = null, q = null, sort = "updated", d
        from visible
       order by ${order} ${direction}, id
       limit $4 offset $5`,
-    [userId, orgSlug, needle, pageSize, offset],
+    [userId, orgSlug, needle, pageSize, offset, teamId],
   );
   return {
     boards: rows.map(({ total: _total, ...row }) => row),

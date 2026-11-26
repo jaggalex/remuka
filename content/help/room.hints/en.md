@@ -2,6 +2,8 @@
 
 At the bottom of the room, in the centre, one hint says what can be done here: "Double-click to edit · drag a line's blue dot to reshape it · drag a label to move it". It waits until you have learned the action instead of disappearing on a timer.
 
+The heading in an empty room changes on your next visit. Double-click the canvas to add your first sticker. If you can invite people and have the room to yourself, one of the headings suggests inviting a teammate.
+
 ## When it goes away
 
 - after three edits by double-click;

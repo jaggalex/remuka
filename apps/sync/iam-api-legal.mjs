@@ -39,6 +39,7 @@ function documentState(document, row) {
     version: document.version,
     sha256: document.sha256,
     effective: document.effective ?? null,
+    ...(document.changes ? { changes: document.changes } : {}),
     required: document.required,
     reaccept: document.reaccept,
     status: document.status,

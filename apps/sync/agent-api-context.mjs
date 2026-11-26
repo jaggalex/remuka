@@ -448,6 +448,16 @@ export function humanContext({ request, store, log, onTaskQueued, me, sessionId 
     const planProblem = await agentTaskLimit(store, board.org_id);
     if (planProblem) return { status: 402, code: "PLAN_LIMIT", problem: planProblem };
 
+    // Replays above return the original task, even after somebody removes its draft.
+    // Both publication and admission take the room-agent lock. Re-read the live
+    // document at admission so a deleted frame cannot authorise a new request.
+    if (thread) {
+      const ids = await store.publishedAgentThreadFrameIds(thread.id);
+      const widgets = ids.length ? (await store.roomDocument(boardId)).getMap("widgets") : null;
+      if (!ids.some((id) => widgets.get(id)?.type === "frame")) {
+        return { status: 409, code: "DRAFT_NOT_AVAILABLE", message: "a published draft must be on the room canvas before clarifying" };
+      }
+    }
     const result = await store.enqueueRoomAgentTask({
       thread,
       agentName: ready.agent.name,

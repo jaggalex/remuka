@@ -1,6 +1,6 @@
 import type { AlignmentGuide, Camera, KanbanLayout } from "@remo/canvas";
 import type { ConnectorPatch, NoteDirection, WidgetPosition, WidgetRect } from "@remo/doc";
-import type { ConnectorSide, Rect, ShapeKind, TurnOptions, Widget } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, Vec2, TurnOptions, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 
 /**
@@ -35,6 +35,7 @@ export interface GestureDeps {
   onRotateMany: (ids: readonly string[], delta: number, options?: TurnOptions) => void;
   /** Move a kanban column or lane to an index among the others (ADR-244). */
   onMoveKanbanAxis: (kanbanId: string, kind: "column" | "lane", id: string, index: number) => void;
+  onColumnTitleClick: (target: Extract<import("./canvasTargets").ContextTarget, {kind: "column"}>, world: Vec2, screen: Vec2) => void;
   /** Drop a card in a cell, before `beforeCardId` or at the end (null). */
   onMoveCard: (
     kanbanId: string,
@@ -51,6 +52,7 @@ export interface GestureDeps {
     ids: string[],
     offset: { x: number; y: number },
   ) => void;
+  onCreateFirstSticker: (at: Vec2) => void;
   onAddCard: (kanbanId: string, columnId: string, swimlaneId: string) => void;
   onConnect: (
     fromId: string,
@@ -84,7 +86,7 @@ export interface GestureDeps {
    * The armed shape tool (ADR-271): a drag on the canvas draws it at size, a click
    * without a drag creates the default shape at the centre.
    */
-  shapeTool?: ShapeTool | null;
+  creationTool?: CreationTool | null;
   /**
    * The viewer may read but not write (viewer role or a public link).
    *
@@ -105,11 +107,10 @@ export interface ConnectDraft {
 }
 
 /** The armed shape tool and the one call that turns a gesture into a document command. */
-export interface ShapeTool {
-  kind: ShapeKind;
-  /** `null` means the click created the default at the centre (ADR-119). */
-  onDraw: (kind: ShapeKind, box: Rect | null) => void;
-}
+export type CreationTool = (
+  | { tool: "shape"; kind: ShapeKind; onDraw: (kind: ShapeKind, box: Rect | null, at: Vec2) => void }
+  | { tool: "sticky" | "text"; onPlace: (at: Vec2) => void }
+) & { series: boolean; cancel: () => void };
 
 export interface Gestures {
   cursor: { x: number; y: number } | null;
@@ -141,10 +142,11 @@ export interface Gestures {
   resolve: (id: string) => Widget | undefined;
   /** Drop the hover ring and the highlighted anchor (the pointer left the canvas). */
   clearHover: () => void;
-  onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
-  onPointerMove: (event: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerDown: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: () => void;
-  onDoubleClick: (event: React.MouseEvent<HTMLCanvasElement>) => void;
+  onPointerCancel: (event: React.PointerEvent<HTMLElement>) => void;
+  onDoubleClick: (event: React.MouseEvent<HTMLElement>) => void;
   /**
    * Begin a line from a side of an object, as a press on its port would (ADR-201: the
    * edge "+" and the port are one handle). The caller forwards the rest of the drag.

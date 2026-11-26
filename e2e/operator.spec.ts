@@ -118,7 +118,7 @@ test("an operator enrols, signs in with a code and clears the step-up window", a
   await page.goto("/?lang=en");
   await openAccount(page);
   await page.locator(".rm-popover").getByRole("button", { name: "Sign in", exact: true }).click();
-  const login = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const login = page.getByRole("main").filter({ has: page.locator('input[type="email"]') });
   await login.locator('input[type="email"]').fill(account.email);
   await login.locator('input[type="password"]').fill(PASSWORD);
   await login.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -157,7 +157,7 @@ test("an operator enrols, signs in with a code and clears the step-up window", a
   await page.goto("/?lang=en");
   await openAccount(page);
   await page.locator(".rm-popover").getByRole("button", { name: "Sign in", exact: true }).click();
-  const second = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const second = page.getByRole("main").filter({ has: page.locator('input[type="email"]') });
   await second.locator('input[type="email"]').fill(account.email);
   await second.locator('input[type="password"]').fill(PASSWORD);
   await second.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -170,7 +170,7 @@ test("an operator enrols, signs in with a code and clears the step-up window", a
 
   const loginCode = await codeAfter(page, secret, enrollingStep);
   await page.locator('input[autocomplete="one-time-code"]').fill(loginCode);
-  await page.getByRole("dialog").getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("main").getByRole("button", { name: "Confirm", exact: true }).click();
   await expect
     .poll(async () => (await page.request.get("/api/auth/me")).status(), { timeout: 20_000 })
     .toBe(200);
@@ -190,10 +190,10 @@ test("an operator enrols, signs in with a code and clears the step-up window", a
   await page.goto("/operator?lang=en");
   const stepUp = page.getByRole("dialog");
   await expect(stepUp).toBeVisible({ timeout: 20_000 });
-  await expect(stepUp.getByRole("heading", { name: "Code from the app" })).toBeVisible();
+  await expect(stepUp.getByRole("heading", { name: "Is it you?" })).toBeVisible();
   await stepUp.getByRole("button", { name: "Use a recovery code" }).click();
   await stepUp.getByLabel("Recovery code").fill(codes[0]!);
-  await stepUp.getByRole("button", { name: "Open the console" }).click();
+  await stepUp.getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByRole("heading", { name: "Installation operator" })).toBeVisible({
     timeout: 20_000,
   });

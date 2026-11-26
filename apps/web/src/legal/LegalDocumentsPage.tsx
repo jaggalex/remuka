@@ -11,6 +11,7 @@
  * consequence and opens the existing account-deletion dialog, because withdrawing does
  * not delete anything by itself.
  */
+import { LegalChanges } from "./LegalChanges";
 import { useState } from "react";
 import { Button, Dialog, Link } from "@remo/ui";
 import { useI18n } from "../i18n";
@@ -76,7 +77,8 @@ function Status({ document: doc }: { document: LegalDocumentState }) {
   );
 }
 
-export function LegalDocumentsPage() {
+export function LegalDocumentsPage({ inline = false }: { inline?: boolean }) {
+  const Container = inline ? "section" : "main";
   const { t, legal } = useI18n();
   const { account, ready, busy, error, accept, withdraw } = useLegalAccount();
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -100,15 +102,15 @@ export function LegalDocumentsPage() {
     : null;
 
   return (
-    <div className="legal-page">
-      <header className="legal-page-topbar">
+    <div className={inline ? "account-documents" : "legal-page"}>
+      {!inline && <header className="legal-page-topbar">
         <a className="legal-page-home" href="/">
           {t("legal.page.back")}
         </a>
-      </header>
-      <main className="legal-page-main">
+      </header>}
+      <Container className={inline ? undefined : "legal-page-main"}>
         <div className="legal-page-heading">
-          <h1>{t("legal.page.title")}</h1>
+          {!inline && <h1>{t("legal.page.title")}</h1>}
           <HelpLink topicId="account.documents" />
         </div>
         <p className="legal-page-intro">{t("legal.page.intro")}</p>
@@ -127,6 +129,7 @@ export function LegalDocumentsPage() {
           <ul className="legal-doc-list">
             {documents.map((document) => (
               <li className="legal-doc" key={document.doc}>
+                <LegalChanges document={document} />
                 <div className="legal-doc-head">
                   <h2 className="legal-doc-title">
                     <a href={document.url} target="_blank" rel="noopener noreferrer">
@@ -188,7 +191,7 @@ export function LegalDocumentsPage() {
             </Button>
           </section>
         )}
-      </main>
+      </Container>
 
       {confirmDocument && (
         <Dialog

@@ -85,6 +85,7 @@ describe("drawProposal", () => {
             lineWidth: target.lineWidth,
             strokeStyle: target.strokeStyle,
           });
+          if (key === "measureText") return { width: String(args[0]).length * 7 };
         };
       },
       set(target, key, value) {
@@ -115,6 +116,25 @@ describe("drawProposal", () => {
     const { ctx, calls } = recorder();
     drawProposal(ctx, proposalLayout({}, none), 1, DEFAULT_PALETTE);
     expect(calls).toEqual([]);
+  });
+
+  it("labels only named tidy frames, in screen pixels, clipping long names to the group", () => {
+    const plan = { objects: [
+      { tempId: "a", type: "frame", title: "Процесс", x: 100, y: 60, width: 100, height: 80 },
+      { tempId: "b", type: "sticky_note", title: "Note", x: 100, y: 60, width: 40, height: 40 },
+      { tempId: "c", type: "frame", title: "  ", x: 300, y: 60, width: 100, height: 80 },
+    ] };
+    expect(proposalLayout(plan, none).blocks.every(block => !block.title)).toBe(true);
+    const layout = proposalLayout(plan, none, true);
+    expect(layout.blocks.filter(block => block.title).map(block => block.title)).toEqual(["Процесс"]);
+    for (const [zoom, label] of [[2, "Процесс"], [0.5, "Про…"], [0.1, null]] as const) {
+      const { ctx, calls } = recorder();
+      drawProposal(ctx, layout, zoom, DEFAULT_PALETTE);
+      expect(calls.find(call => call.name === "translate")?.args).toEqual([50, 20]);
+      expect(calls.find(call => call.name === "scale")?.args).toEqual([1 / zoom, 1 / zoom]);
+      expect(calls.filter(call => call.name === "fillText").map(call => call.args))
+        .toEqual(label ? [[label, 10, -16]] : []);
+    }
   });
 
   it("draws a planned connector as a 2 px dashed line in the agent's colour", () => {

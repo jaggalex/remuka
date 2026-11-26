@@ -6,6 +6,13 @@
  * the one flat table (ADR-093).
  */
 export const enBilling = {
+  "billing.limit.title": "Plan limit",
+  "billing.promo.title": "Promo code",
+  "billing.trialHint": "Your trial is active. Pick a plan to continue after it ends.",
+  "billing.activeHint": "Your team can use the features and limits of this plan.",
+  "billing.limit.kept": "Your existing rooms and their contents are safe.",
+  "billing.limit.askPerson": "Ask {name} to review the plan.",
+  "billing.limit.askAdmin": "Ask an organisation administrator to review the plan.",
   "billing.tab": "Plan & payment",
 
   "billing.plan": "Plan",
@@ -33,6 +40,7 @@ export const enBilling = {
   "billing.rooms.title": "Active rooms",
   "billing.rooms.hint":
     "The plan keeps {max} active rooms. The others become read-only: their content is kept and export still works.",
+  "billing.rooms.reserved": "Other active rooms count towards the limit. There are {n} outside this list. Your choice applies only to the rooms shown here.",
   "billing.rooms.choose": "Choose active rooms",
   "billing.rooms.change": "Change active rooms",
   "billing.rooms.counter": "{selected} of {max} selected",
@@ -51,6 +59,8 @@ export const enBilling = {
   "billing.rooms.askOwner":
     "The organisation is over its room limit. Ask the owner to choose which rooms stay active.",
 
+  "billing.updateMethod": "Update payment method",
+  "billing.payOutstanding": "Pay now",
   "billing.changePlan": "Change plan",
   "billing.cancel": "Cancel subscription",
   "billing.cancelConfirm":

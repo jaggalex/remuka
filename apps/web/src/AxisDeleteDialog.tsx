@@ -1,7 +1,8 @@
 import type { BoardDocument } from "@remo/doc";
 import { deleteAxis, tableLayoutOf } from "@remo/doc";
 import type { Widget } from "@remo/model";
-import { Button, Dialog } from "@remo/ui";
+import { useId, useState } from "react";
+import { Button, Dialog, Radio } from "@remo/ui";
 import { useI18n } from "./i18n";
 
 /**
@@ -31,6 +32,8 @@ export function AxisDeleteDialog({
   onDeleted: () => void;
 }) {
   const { t, count } = useI18n();
+  const group = useId();
+  const [choice, setChoice] = useState<string | null>(null);
   const layout = tableLayoutOf(board, target.frameId);
   const axes = layout
     ? target.kind === "column"
@@ -49,68 +52,37 @@ export function AxisDeleteDialog({
   );
   const name = axis.title || t("section.axis.untitled");
 
-  const finish = (mode: "move" | "withObjects", toAxisId?: string) => {
-    const result = deleteAxis(
-      board,
-      target.frameId,
-      axis.id,
-      mode === "move" ? { mode, toAxisId } : { mode },
-    );
-    if (!result.ok) return;
-    onDeleted();
+  const neighbours = [
+    before && { axis: before, label: t(target.kind === "column" ? "section.axis.moveToLeft" : "section.axis.moveToAbove", {name: before.title || t("section.axis.untitled")}) },
+    after && { axis: after, label: t(target.kind === "column" ? "section.axis.moveToRight" : "section.axis.moveToBelow", {name: after.title || t("section.axis.untitled")}) },
+  ].filter(entry => entry !== undefined);
+  const destination = choice === null
+    ? neighbours[0]
+    : neighbours.find(entry => "to:" + entry.axis.id === choice);
+  const removeObjects = choice === "remove";
+  const confirmLabel = removeObjects ? t("section.axis.deleteWithObjects", { count: objects.length })
+    : t(target.kind === "row" ? "section.axis.deleteRow" : "section.axis.deleteColumn");
+  const finish = () => {
+    if (!removeObjects && !destination) return;
+    const outcome = deleteAxis(board, target.frameId, axis.id, removeObjects ? { mode: "withObjects" }
+      : { mode: "move", toAxisId: destination!.axis.id });
+    if (outcome.ok) onDeleted();
   };
-
+  const prompt = t(target.kind === "row" ? "section.axis.deleteRowBody" : "section.axis.deleteBody",
+    { count: count("objects", objects.length) });
   return (
-    <Dialog
-      title={t(
-        target.kind === "row" ? "section.axis.deleteRowTitle" : "section.axis.deleteTitle",
-        { name },
-      )}
-      size="sm"
-      onClose={onClose}
-      footer={
-        <div className="axis-delete-actions">
-          <Button size="compact" variant="secondary" onClick={onClose}>
-            {t("delete.cancel")}
-          </Button>
-          {before && (
-            <Button
-              size="compact"
-              variant="secondary"
-              onClick={() => finish("move", before.id)}
-            >
-              {t(
-                target.kind === "column"
-                  ? "section.axis.moveToLeft"
-                  : "section.axis.moveToAbove",
-                { name: before.title || t("section.axis.untitled") },
-              )}
-            </Button>
-          )}
-          {after && (
-            <Button
-              size="compact"
-              variant="secondary"
-              onClick={() => finish("move", after.id)}
-            >
-              {t(
-                target.kind === "column"
-                  ? "section.axis.moveToRight"
-                  : "section.axis.moveToBelow",
-                { name: after.title || t("section.axis.untitled") },
-              )}
-            </Button>
-          )}
-          <Button size="compact" variant="danger" onClick={() => finish("withObjects")}>
-            {t("section.axis.deleteWithObjects", { count: objects.length })}
-          </Button>
-        </div>
-      }
-    >
-      {t(
-        target.kind === "row" ? "section.axis.deleteRowBody" : "section.axis.deleteBody",
-        { count: count("objects", objects.length) },
-      )}
+    <Dialog title={t(target.kind === "row" ? "section.axis.deleteRowTitle" : "section.axis.deleteTitle", { name })}
+      size="sm" className="axis-delete-sheet" onClose={onClose} footer={<>
+        <Button variant="secondary" onClick={onClose}>{t("delete.cancel")}</Button>
+        <Button variant={removeObjects ? "danger" : "primary"} onClick={finish} disabled={!destination && !removeObjects}>{confirmLabel}</Button>
+      </>}>
+      <fieldset className="axis-delete-choices">
+        <legend>{prompt}</legend>
+        {neighbours.map(entry => <Radio key={entry.axis.id} name={group} label={entry.label}
+          checked={!removeObjects && destination?.axis.id === entry.axis.id} onChange={() => setChoice("to:" + entry.axis.id)} />)}
+        <Radio name={group} label={t("section.axis.deleteWithObjects", { count: objects.length })}
+          checked={removeObjects} onChange={() => setChoice("remove")} />
+      </fieldset>
       <p className="muted">{t("section.axis.undoHint")}</p>
     </Dialog>
   );

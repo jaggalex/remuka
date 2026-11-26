@@ -325,7 +325,7 @@ export function setWidgetDelta(
       text.insert(index, value, insertionAttributes(attributes));
       index += value.length;
     }
-  }, LOCAL_ORIGIN, { merge: true });
+  }, LOCAL_ORIGIN, { merge: true, textId: id });
 }
 
 /**
@@ -482,7 +482,7 @@ export function setWidgetText(
     if (removeLength > 0) text.delete(prefix, removeLength);
     const insertValue = value.slice(prefix, value.length - suffix);
     if (insertValue) text.insert(prefix, insertValue);
-  }, LOCAL_ORIGIN, { merge: true });
+  }, LOCAL_ORIGIN, { merge: true, textId: id });
 }
 
 

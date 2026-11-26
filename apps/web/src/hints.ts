@@ -1,3 +1,5 @@
+export { slotRules } from "./hintSlots";
+import { actedOnHint } from "./hintCatalog";
 import { HINT_REGISTRY, hintDefinition, type HintId } from "./hintRegistry";
 
 /**
@@ -62,7 +64,7 @@ export function readHint(
   // The old one-visit key wins over a fresh count: a person who dismissed the plate
   // before this mechanism existed must not see it again (ADR-289).
   if (definition.legacyKey === LEGACY_CANVAS_HINT && storage?.getItem(LEGACY_CANVAS_HINT) === "seen") {
-    return { done: Math.max(stored.done, definition.doneAfter), visits: stored.visits };
+    return { done: Math.max(stored.done, definition.doneAfter ?? 0), visits: stored.visits };
   }
   return stored;
 }
@@ -73,7 +75,8 @@ export function hintLearned(
 ): boolean {
   const definition = hintDefinition(id);
   const record = readHint(id, storage);
-  return record.done >= definition.doneAfter || record.visits >= definition.maxSessions;
+  return (definition.doneAfter !== undefined && record.done >= definition.doneAfter) ||
+    (definition.maxSessions !== undefined && record.visits >= definition.maxSessions);
 }
 
 function write(id: HintId, record: HintRecord, storage: HintStorage | null): HintRecord {
@@ -91,6 +94,7 @@ export function markHintDone(
   id: HintId,
   storage: HintStorage | null = browserStorage(),
 ): HintRecord {
+  actedOnHint(id);
   const record = readHint(id, storage);
   return write(id, { ...record, done: record.done + 1 }, storage);
 }
@@ -104,12 +108,26 @@ export function markHintVisit(
   return write(id, { ...record, visits: record.visits + 1 }, storage);
 }
 
+// A reload starts a visit. Multiple mounts, including StrictMode replay, share its ordinal.
+const pageVisits = new Map<HintId, number>();
+
+export function currentHintVisit(id: HintId): number {
+  return pageVisits.get(id) ?? readHint(id).visits;
+}
+
+export function beginHintVisit(id: HintId, visit: number): void {
+  if (pageVisits.has(id)) return;
+  pageVisits.set(id, visit);
+  markHintVisit(id);
+}
+
 /** "Show the hints again": forget every slot, including the old one-visit keys. */
 export function resetHints(storage: HintStorage | null = browserStorage()): void {
+  pageVisits.clear();
   for (const hint of HINT_REGISTRY) {
     try {
       storage?.removeItem(keyOf(hint.id));
-      if (hint.legacyKey === LEGACY_CANVAS_HINT) storage?.removeItem(LEGACY_CANVAS_HINT);
+      if (hintDefinition(hint.id).legacyKey === LEGACY_CANVAS_HINT) storage?.removeItem(LEGACY_CANVAS_HINT);
     } catch {
       /* nothing to forget */
     }

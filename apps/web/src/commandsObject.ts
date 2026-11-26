@@ -109,6 +109,24 @@ function hasTurned(ctx: CommandContext): boolean {
 
 export const COMMANDS: readonly Command[] = [
   {
+    id: "editText",
+    label: () => "inspector.editText",
+    menuTitle: "menu.editText",
+    group: "main",
+    synonyms: {
+      ru: ["править текст", "редактировать", "изменить текст", "писать"],
+      en: ["edit text", "edit", "write", "change text"],
+    },
+    icon: "pencil",
+    surfaces: ["menu", "panel", "palette"],
+    enabled: (ctx) => singleSelected(ctx) && selectedWidgets(ctx).some(isEditable),
+    unavailable: "search.notEditable",
+    run: (ctx) => {
+      const id = ctx.ids[0];
+      if (id) ctx.editText?.(id);
+    },
+  },
+  {
     id: "colour",
     label: () => "menu.colour",
     group: "main",
@@ -133,23 +151,6 @@ export const COMMANDS: readonly Command[] = [
       return paletteGrid([600], current, (value) =>
         setConnectorProps(ctx.board, ctx.ids, { strokeColor: value }),
       );
-    },
-  },
-  {
-    id: "editText",
-    label: () => "inspector.editText",
-    group: "main",
-    synonyms: {
-      ru: ["править текст", "редактировать", "изменить текст", "писать"],
-      en: ["edit text", "edit", "write", "change text"],
-    },
-    icon: "pencil",
-    surfaces: ["menu", "panel", "palette"],
-    enabled: (ctx) => singleSelected(ctx) && selectedWidgets(ctx).some(isEditable),
-    unavailable: "search.notEditable",
-    run: (ctx) => {
-      const id = ctx.ids[0];
-      if (id) ctx.editText?.(id);
     },
   },
   {

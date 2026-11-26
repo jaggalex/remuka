@@ -1,12 +1,13 @@
-import type { AgentPlan, AppliedAgentPlan } from "@remo/doc";
+import type { AgentPlan, AppliedAgentPlan, BoardDocument } from "@remo/doc";
 import { useEffect, useState } from "react";
 import type { Widget } from "@remo/model";
 import type { Access, SessionUser } from "./api";
 import { AgentDialog } from "./AgentDialog";
+import { TagsPanel } from "./BoardObjectPanels";
 import { TidyDialog } from "./TidyDialog";
 import type { TidyCommand } from "./useTidyCommand";
 import { BoardDeleteDialog } from "./BoardDeleteDialog";
-import { OrganisationDialog } from "./OrganisationDialog";
+import { OrganisationEntry } from "./OrganisationPage";
 import { SettingsPanel } from "./SettingsPanel";
 import { useI18n } from "./i18n";
 import { Contained } from "./ErrorBoundary";
@@ -31,6 +32,7 @@ export function BoardPanels(props: Parameters<typeof PanelsBody>[0]) {
 }
 
 function PanelsBody({
+  board,
   accountOpen,
   accountTab,
   me,
@@ -43,6 +45,8 @@ function PanelsBody({
   boardTitle,
   access,
   selectedIds,
+  setSelectedIds,
+  writeBlocked,
   widgets,
   onApplyPlan,
   onCloseAgent,
@@ -57,6 +61,7 @@ function PanelsBody({
   onCloseTrash,
   onConfirmTrash,
 }: {
+  board: BoardDocument;
   accountOpen: boolean;
   accountTab?: "people" | "audit" | "agents";
   me: SessionUser | null;
@@ -70,6 +75,8 @@ function PanelsBody({
   boardTitle: string;
   access: Access | null;
   selectedIds: string[];
+  setSelectedIds: (ids: string[]) => void;
+  writeBlocked: boolean;
   widgets: Widget[];
   onApplyPlan: (
     plan: AgentPlan,
@@ -90,13 +97,20 @@ function PanelsBody({
   onConfirmTrash: () => void;
 }) {
   const { t } = useI18n();
+  const roomTags = (
+    <section className="tidy-room-tags" aria-label={t("tags.roomTitle")}>
+      <h3>{t("tags.roomTitle")}</h3>
+      <TagsPanel board={board} widgets={widgets} selectedIds={[]} setSelectedIds={setSelectedIds}
+        disabled={writeBlocked || !access?.capabilities.includes("board.edit")} />
+    </section>
+  );
   /** A `402` anywhere in the room opens the same organisation screen on its plan tab. */
   const [billingOpen, setBillingOpen] = useState(false);
   useEffect(() => onBillingTabRequest(() => setBillingOpen(true)), []);
   return (
     <>
       {me && (
-        <OrganisationDialog
+        <OrganisationEntry
           open={accountOpen || billingOpen}
           me={me}
           initialOrgId={boardOrgId}
@@ -119,6 +133,8 @@ function PanelsBody({
         />
       )}
       <AgentDialog
+        roomTags={roomTags}
+        board={board}
         open={agentOpen}
         initialIntent={agentIntent}
         boardId={boardId}
@@ -132,6 +148,7 @@ function PanelsBody({
         onOpenOrg={onOpenOrg}
       />
       <TidyDialog
+        roomTags={roomTags}
         open={tidy.open}
         boardId={boardId}
         selectionIds={tidy.ids}

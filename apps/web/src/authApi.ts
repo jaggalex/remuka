@@ -10,9 +10,11 @@ import type { SessionUser } from "./sessionUser";
 
 export type LoginResult =
   | { user: SessionUser; mfaRequired?: false }
-  | { user?: undefined; mfaRequired: true; challenge: string; expiresAt?: string };
+  | { user?: undefined; mfaRequired: true; challenge: string; issuer?: string; expiresAt?: string };
 
 export const authApi = {
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    call<{ ok: true }>("/auth/password", { method: "POST", body }),
   login: (body: { email: string; password: string }) =>
     call<LoginResult>("/auth/login", { method: "POST", body }),
   /** The second step: a TOTP code or one recovery code, never both. */

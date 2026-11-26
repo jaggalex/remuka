@@ -3,6 +3,8 @@ import { Button, Dialog, Input } from "@remo/ui";
 import { ApiError } from "../apiCall";
 import { useI18n } from "../i18n";
 import { operatorApi } from "../operator/operatorApi";
+import { CodeCells } from "./CodeCells";
+import { Shake } from "../Shake";
 import { mfaErrorText } from "./mfaError";
 
 /**
@@ -28,11 +30,13 @@ export function MfaStepUp({
   const { t } = useI18n();
   const [recovery, setRecovery] = useState(false);
   const [value, setValue] = useState("");
+  const [shake, setShake] = useState(0);
+  const valid = recovery ? Boolean(value.trim()) : /^\d{6}$/.test(value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!value || busy) return;
+    if (!valid || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -42,6 +46,7 @@ export function MfaStepUp({
       const result = await operatorApi.confirm(body);
       onDone(result.mfaAt ?? result.confirmedAt);
     } catch (failure) {
+      setShake(n => n + 1);
       setError(mfaErrorText(failure, t));
       setValue("");
       if (
@@ -61,8 +66,10 @@ export function MfaStepUp({
       title={t("mfa.stepUpTitle")}
       description={t("mfa.stepUpBody")}
       size="sm"
+      className="stepup-sheet"
       onClose={onClose}
     >
+      <Shake token={shake}>
       <form
         className="mfa-stack"
         onSubmit={(event) => {
@@ -70,20 +77,15 @@ export function MfaStepUp({
           void submit();
         }}
       >
-        <Input
-          label={recovery ? t("mfa.recovery") : t("mfa.code")}
-          hint={recovery ? t("mfa.recoveryHint") : t("mfa.codeHint")}
-          inputMode={recovery ? undefined : "numeric"}
-          autoComplete={recovery ? "off" : "one-time-code"}
-          maxLength={recovery ? undefined : 6}
-          error={error ?? undefined}
-          value={value}
-          onChange={(event) =>
-            setValue(
-              recovery ? event.currentTarget.value : event.currentTarget.value.replace(/\s/g, ""),
-            )
-          }
-        />
+        {recovery
+          ? <Input label={t("mfa.recovery")} hint={t("mfa.recoveryHint")} placeholder="xxxx-xxxx"
+              autoComplete="off" error={error ?? undefined} value={value}
+              onChange={event => setValue(event.currentTarget.value)} />
+          : <CodeCells value={value} error={error} onChange={setValue} />}
+        <div className="mfa-actions">
+          <Button type="submit" variant="primary" loading={busy} disabled={!valid}>
+            {t("mfa.stepUpConfirm")}
+          </Button>
         <Button
           type="button"
           variant="ghost"
@@ -96,12 +98,9 @@ export function MfaStepUp({
         >
           {recovery ? t("mfa.codeToggle") : t("mfa.recoveryToggle")}
         </Button>
-        <div className="mfa-actions">
-          <Button type="submit" variant="primary" loading={busy} disabled={!value}>
-            {t("mfa.stepUpConfirm")}
-          </Button>
         </div>
       </form>
+      </Shake>
     </Dialog>
   );
 }

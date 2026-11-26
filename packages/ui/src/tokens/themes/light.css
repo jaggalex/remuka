@@ -7,6 +7,7 @@
   --bg-qr: var(--neutral-0);
   --bg-hover: var(--neutral-100);
   --bg-active: var(--neutral-200);
+  --bg-command-search-scrim: var(--alpha-brand-ink-28);
   --bg-overlay: var(--alpha-ink-32);
   --bg-inverse: var(--neutral-900);
   --bg-image-placeholder: var(--neutral-100);
@@ -16,7 +17,11 @@
   --bg-lightbox-scrim: var(--alpha-ink-84);
   --text-primary: var(--neutral-900);
   --text-secondary: var(--neutral-600);
+  --text-column-menu-heading: var(--neutral-700);
+  --text-brand-danger: var(--danger-650);
   --text-muted: var(--neutral-500);
+  --text-instruction: var(--neutral-700);
+  --text-code-placeholder: var(--neutral-450);
   --text-inverse: var(--neutral-0);
   --text-on-scrim: var(--neutral-0);
   --text-accent: var(--accent-700);
@@ -41,7 +46,10 @@
   --success-chosen: var(--paper-green-300);
   --state-warning: var(--warning-700);
   --warning-soft: var(--warning-50);
+  --bg-choice-selected: var(--yellow-50);
   --warning-plate: var(--paper-yellow-100);
+  --bg-offline-chip: var(--yellow-50);
+  --bg-offline-notice: var(--yellow-50);
   --state-info: var(--neutral-600);
   --selection-fill: var(--alpha-accent-8);
   --selection-stroke: var(--neutral-900);
@@ -74,6 +82,7 @@
   --text-on-cta: var(--neutral-900);
   --border-ink: var(--neutral-900);
   --accent-chosen: var(--ochre-300);
+  --text-on-chosen: var(--neutral-900);
   --brand-mark-ink: var(--neutral-700);
   --shadow-pop: var(--elev-hard-m-light);
   --shadow-bar: var(--elev-hard-m-light);

@@ -15,6 +15,7 @@ export const LABEL_MIN_WIDTH = 40;
 export const LABEL_WRAP_LINES = 3;
 export const LABEL_MAX_LINES = 8;
 const ELLIPSIS = "…";
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 export interface LabelMetrics {
   lines: string[];
@@ -41,13 +42,15 @@ function pad(fontPx: number): { x: number; y: number } {
 }
 
 /** Cut `text` until it fits `maxWidth` with an ellipsis appended. */
-function ellipsize(measure: Measure, text: string, maxWidth: number): string {
+export function ellipsize(measure: Measure, text: string, maxWidth: number): string {
   if (measure.measureText(`${text}${ELLIPSIS}`).width <= maxWidth) return `${text}${ELLIPSIS}`;
-  let cut = text.length;
-  while (cut > 0 && measure.measureText(`${text.slice(0, cut)}${ELLIPSIS}`).width > maxWidth) {
-    cut -= 1;
+  let prefix = "";
+  for (const { segment } of graphemes.segment(text)) {
+    const next = prefix + segment;
+    if (measure.measureText(next + ELLIPSIS).width > maxWidth) break;
+    prefix = next;
   }
-  return `${text.slice(0, cut)}${ELLIPSIS}`;
+  return prefix + ELLIPSIS;
 }
 
 /** Greedy word wrap; a word wider than the chip is broken rather than allowed to overflow. */
@@ -61,14 +64,18 @@ function wrapParagraph(measure: Measure, paragraph: string, maxWidth: number): s
       continue;
     }
     if (line) lines.push(line);
-    let rest = word;
-    while (measure.measureText(rest).width > maxWidth && rest.length > 1) {
-      let cut = rest.length;
-      while (cut > 1 && measure.measureText(rest.slice(0, cut)).width > maxWidth) cut -= 1;
-      lines.push(rest.slice(0, cut));
-      rest = rest.slice(cut);
+    line = word;
+    if (measure.measureText(word).width <= maxWidth) continue;
+    line = "";
+    for (const { segment } of graphemes.segment(word)) {
+      const next = line + segment;
+      if (line && measure.measureText(next).width > maxWidth) {
+        lines.push(line);
+        line = segment;
+      } else {
+        line = next;
+      }
     }
-    line = rest;
   }
   lines.push(line);
   return lines;

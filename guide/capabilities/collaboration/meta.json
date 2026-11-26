@@ -17,11 +17,11 @@
     "capabilities/facilitation",
     "start/quickstart"
   ],
-  "updated": "2026-10-28",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:afb42ebb6aabe5aae4ef0f195fc27c5c8ef892649649871d7e96a61bafe8cc4c",
-      "targetHash": "sha256:bbc3fbeeb3cebe34fe3d10d99099b90d55bbf39f8ca21d6a176d949ec39e1212"
+      "sourceHash": "sha256:933530bd48eb347da1f954eaaadc74a70d2329103a8b46d5aee9f6054db7d631",
+      "targetHash": "sha256:839554d4c74023562df59dea236bbc2d27f9a8a360ab0141f07af261920ce189"
     }
   }
 }

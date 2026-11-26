@@ -106,9 +106,9 @@ _Tree facts, checked by `pnpm state:check`; run facts are printed by the command
 
 | Fact | Value |
 |---|---|
-| ADR | 295, latest ADR-295 |
-| Schema version | 40 |
-| Browser scenarios | 314 in 58 files |
+| ADR | 314, latest ADR-314 |
+| Schema version | 42 |
+| Browser scenarios | 380 in 77 files |
 | Help topics | 46 (RU + EN) |
 | Portal pages | 86 |
 | Baselines | 66 product + 12 DS |
@@ -130,6 +130,8 @@ shifted runs therefore use sibling directories, never an ancestor relationship, 
 Playwright cleanup cannot delete another run's traces. The database is created on the test
 server with an ownership marker and dropped by `pnpm e2e` only when the marker still names
 that environment instance and run.
+
+For runs with limited disk space, set `REMO_E2E_LOW_DISK=1` to keep failure screenshots and HTML reports while disabling video and trace recording. To diagnose a failure, rerun its spec without the variable and add `--trace on` to keep the trace even if the retry passes.
 
 Each run keeps the newest ten report directories and removes anything older than seven
 days after the database teardown. Override with `REMO_E2E_KEEP` and `REMO_E2E_KEEP_DAYS`;

@@ -23,7 +23,12 @@ export type MetricName =
   | "help.opened"
   | "help.search"
   | "billing.subscription_started"
-  | "chrome.used";
+  | "chrome.used"
+  | "news.clicked"
+  | "hint.shown"
+  | "hint.acted";
+
+export const NEWS_TYPES: readonly ["mention", "agent", "live", "joined"];
 
 export type ActorType = "user" | "agent" | "visitor";
 

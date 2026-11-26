@@ -4,6 +4,7 @@ import {
   LABEL_MAX_WIDTH,
   LABEL_MIN_WIDTH,
   LABEL_WRAP_LINES,
+  ellipsize,
   layoutLabel,
   type Measure,
 } from "./labelLayout";
@@ -19,6 +20,16 @@ const measure: Measure = { measureText: (text) => ({ width: text.length * 7 }) }
 const FONT = 13;
 
 describe("layoutLabel (ADR-213)", () => {
+  it("keeps emoji, joined emoji and accented letters whole at a cut", () => {
+    for (const cluster of ["💡", "👩‍💻", "е́"]) {
+      expect(ellipsize(measure, cluster + " Идеи", 14)).toBe("…");
+      const atBoundary = (cluster.length + 1) * 7;
+      expect(ellipsize(measure, cluster + " Идеи", atBoundary)).toBe(cluster + "…");
+    }
+    const wrapped = layoutLabel(measure, "abcd💡xyz", FONT, LABEL_MIN_WIDTH);
+    expect(wrapped.lines).toEqual(["abcd", "💡xyz"]);
+  });
+
   it("keeps an explicit newline as a line", () => {
     const metrics = layoutLabel(measure, "Первая\nВторая", FONT);
     expect(metrics.lines).toEqual(["Первая", "Вторая"]);

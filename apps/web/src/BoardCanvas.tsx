@@ -29,25 +29,28 @@ import {
   type TextDeltaOp,
   type TextMarks,
   type Rect,
+  type Vec2,
   type TurnOptions,
   type Widget,
 } from "@remo/model";
 import { InlineEditor } from "./InlineEditor";
 import { TableHeaderLayer } from "./TableHeaderLayer";
 import { KanbanTitleEditor, measureText } from "./KanbanTitleEditor";
+import { KanbanColumnMenus, useColumnTitleMenu } from "./KanbanColumnMenus";
 import { useTableCellMenu } from "./TableCellMenu";
 import { CanvasTableLayer } from "./CanvasTableLayer";
 import { placedWidget, type ContinuePreview } from "./canvasGeometry";
 import { useGestures } from "./useGestures";
-import type { ShapeTool } from "./gestureTypes";
+import type { CreationTool } from "./gestureTypes";
 import { ShapeDraftOverlay } from "./ShapeDraftOverlay";
 import { useCanvasWheel } from "./useCanvasWheel";
 import { useCanvasPainting } from "./useCanvasPainting";
-import { useBoardCameraFit } from "./useBoardCameraFit";
+import { useBoardCameraFit, type FitObjects } from "./useBoardCameraFit";
 import { useCanvasProbe } from "./useCanvasProbe";
 import { CanvasHud } from "./CanvasHud";
 import { CanvasHint } from "./CanvasHint";
 import { BoardSelectionBadge } from "./BoardSelectionBadge";
+import { useVisibleSelection } from "./proposalStore";
 import { PresentationLayer } from "./PresentationLayer";
 import { SocialLayer } from "./SocialLayer";
 import { VoteLayer } from "./VoteLayer";
@@ -84,6 +87,7 @@ interface Props {
   canManage: boolean;
   /** A counter from the rail: start comment placement (ADR-119). */
   commentRequest: number;
+  fitObjectsRef: React.Ref<FitObjects>;
   widgets: Widget[];
   /** groupId → name, painted above a named cluster (ADR-101). */
   groupNames: Record<string, string>;
@@ -102,6 +106,7 @@ interface Props {
   /** Commit a turn gesture: one transaction for the whole selection (ADR-271). */
   onRotateMany: (ids: readonly string[], delta: number, options?: TurnOptions) => void;
   onMoveCard: (kanbanId: string, cardId: string, columnId: string, swimlaneId: string, beforeCardId: string | null) => void;
+  onCreateFirstSticker: (at: Vec2) => void;
   onAddCard: (kanbanId: string, columnId: string, swimlaneId: string) => void;
   onAddColumn: (kanbanId: string) => void;
   /** Join two objects; the canvas starts this from the selection's anchor. */
@@ -114,6 +119,7 @@ interface Props {
   presence: Presence[];
   onCursor: (cursor: { x: number; y: number } | null) => void;
   /** Right-click on a kanban header or a card; coordinates are client-space. */
+  openColumn?: Extract<ContextTarget, {kind: "column"}>;
   onContextMenu: (
     target: ContextTarget,
     point: { x: number; y: number; world: { x: number; y: number } },
@@ -162,11 +168,11 @@ interface Props {
   grid: GridStyle;
   /** The bottom-centre hint may be shown: no voting line owns that slot. */
   hintAllowed: boolean;
+  suggestSeries: boolean;
   /** Grid step, snap distance, fonts and other tunables (ADR-032). */
   settings: BoardSettings;
-  /** A viewer or a public link: selection and panning work, writing does not. */
   readOnly?: boolean;
-  shapeTool?: ShapeTool | null;
+  creationTool?: CreationTool | null;
   /** The open voting session, painted on the objects it covers (ADR-115). */
   voteSession: VoteSession | null;
   voteBusy: boolean;
@@ -188,14 +194,7 @@ interface Props {
 }
 /** What the pointer was over when the context menu was requested. */
 export type { ContextTarget } from "./canvasTargets";
-/**
- * The board is painted on two canvases.
- *
- * The expensive layer (frames, stickies, cards, kanban matrices, selection) is only
- * repainted when the document, the camera or the selection actually change. Cursors,
- * the marquee and the drag ghost live on the overlay, so remote cursors moving at
- * ~25 Hz cost one cheap repaint instead of re-rendering the whole board.
- */
+/** The overlay repaints cursors and drag previews without redrawing document objects. */
 export function BoardCanvas({
   boardTitle,
   board,
@@ -204,7 +203,7 @@ export function BoardCanvas({
   meId,
   canComment,
   canManage,
-  commentRequest,
+  commentRequest, fitObjectsRef,
   widgets,
   groupNames,
   tags,
@@ -216,12 +215,13 @@ export function BoardCanvas({
   onResizeMany,
   onRotateMany,
   onMoveCard,
+  onCreateFirstSticker,
   onAddCard,
   onAddColumn,
   onConnect,
   presence,
   onCursor,
-  onContextMenu,
+  onContextMenu, openColumn,
   textOf,
   deltaOf,
   onSetText,
@@ -241,10 +241,10 @@ export function BoardCanvas({
   onEdit,
   fitKey, synced,
   grid,
-  hintAllowed,
+  hintAllowed, suggestSeries,
   settings,
   readOnly = false,
-  shapeTool,
+  creationTool,
   voteSession,
   voteBusy,
   voteOffset,
@@ -344,7 +344,8 @@ export function BoardCanvas({
     [camera],
   );
 
-  const gestures = useGestures({
+  const columnMenu = useColumnTitleMenu(onContextMenu);
+  const gestures = useGestures({ onColumnTitleClick: columnMenu.schedule,
     // Columns and lanes are carried by their titles (ADR-244); the move is one command.
     onMoveKanbanAxis: (kanbanId, kind, id, index) =>
       kind === "column" ? moveColumn(board, kanbanId, id, index) : moveSwimlane(board, kanbanId, id, index),
@@ -372,6 +373,7 @@ export function BoardCanvas({
     onResizeMany,
     onRotateMany,
     onMoveCard,
+    onCreateFirstSticker,
     onAddCard,
     onConnect,
     onConnectorPatch,
@@ -384,7 +386,7 @@ export function BoardCanvas({
     onCreateConnected,
     onCursor,
     onToggleCheck,
-    shapeTool,
+    creationTool,
     readOnly,
   });
 
@@ -401,9 +403,8 @@ export function BoardCanvas({
     onPointerUp,
     onDoubleClick,
   } = gestures;
-
   /* ------------------------------------------------------------- painting -- */
-
+  const visibleSelection = useVisibleSelection(selectedIds);
   const { paintStats, cursorView, palette } = useCanvasPainting({
     boardRef,
     overlayRef,
@@ -416,7 +417,7 @@ export function BoardCanvas({
     cardTitles,
     groupNames,
     tags,
-    selectedIds,
+    selectedIds: visibleSelection,
     gestures,
     isCardOfKanban,
     presence,
@@ -514,8 +515,8 @@ export function BoardCanvas({
     widgets,
     selectedIds,
     widgetById,
-    fitKey,
-    synced,
+    fitKey, synced, fitObjectsRef, canvasRef: wrapRef,
+    connectors: settings.connectors,
   });
 
   const worldCursor = cursor ? toWorld({ clientX: cursor.x, clientY: cursor.y }) : null;
@@ -525,14 +526,14 @@ export function BoardCanvas({
   if (worldCursor && !readOnly) {
     for (const [id, layout] of layouts) {
       if (!kanbanContains(layout, worldCursor) || widgetById(id)?.locked) continue;
-      if (kanbanTitleAt(layout, worldCursor, measureText, settings.text.fontFamily)) kanbanCursor = "grab";
+      if (kanbanTitleAt(layout, worldCursor, measureText, settings.text.fontFamily, camera.zoom)) kanbanCursor = "grab";
       else if (worldCursor.y < layout.top + layout.headerHeight) kanbanCursor = "move";
       break;
     }
   }
-  const selectedKanbanId = selectedIds.find((id) => kanbanStates[id]);
+  const selectedKanbanId = visibleSelection.find((id) => kanbanStates[id]);
   const selectedKanban = selectedKanbanId ? kanbanStates[selectedKanbanId] : undefined;
-  const edgeSource = selectedIds.length === 1 ? widgetById(selectedIds[0]!) : undefined;
+  const edgeSource = visibleSelection.length === 1 ? widgetById(visibleSelection[0]!) : undefined;
   const gatherPreview = useGatherPreview();
   const edgeBusy =
     gestures.dragIds.length > 0 || (edgeSource ? gestures.preview.has(edgeSource.id) : false);
@@ -547,9 +548,10 @@ export function BoardCanvas({
     camera,
     viewport,
     settings,
-    selectedIds,
+    selectedIds: visibleSelection,
     readOnly,
     noteMarks,
+    editingId,
     resolve: widgetById,
     palette,
   });
@@ -575,15 +577,15 @@ export function BoardCanvas({
         ref={overlayRef}
         className="layer overlay" tabIndex={-1}
         style={canvasCursor({ rotationHover, hoverAnchor: Boolean(hoverAnchor), kanban: kanbanCursor })}
-        onPointerDown={onPointerDown}
+        onPointerDown={event => { columnMenu.cancel(); onPointerDown(event); }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={event => { columnMenu.cancel(); gestures.onPointerCancel(event); }}
         onPointerLeave={() => {
           onCursor(null);
           clearHover();
         }}
-        onDoubleClick={onDoubleClick}
+        onDoubleClick={event => { columnMenu.cancel(); onDoubleClick(event); }}
         onContextMenu={(event) => {
           event.preventDefault();
           const target = resolveContextTarget(event);
@@ -602,7 +604,7 @@ export function BoardCanvas({
         onZoom={zoomBy}
       />
       {/* An empty room shows its start, not tips about objects it does not have. */}
-      <CanvasHint allowed={hintAllowed && widgets.length > 0} />
+      <CanvasHint suggestSeries={suggestSeries} allowed={hintAllowed && widgets.length > 0} />
       {resizeLimit && cursor && (
         <div
           className={`canvas-limit${cursor.x > viewport.width - 220 ? " canvas-limit--flip" : ""}`}
@@ -616,7 +618,7 @@ export function BoardCanvas({
       )}
       <BoardSelectionBadge
         widgets={widgets}
-        selectedIds={presenting ? [] : selectedIds}
+        selectedIds={presenting ? [] : visibleSelection}
         groupNames={groupNames}
         tags={tags}
         resizeLimit={resizeLimit}
@@ -676,6 +678,7 @@ export function BoardCanvas({
         onOpen={onOpenVote}
       />
       <SocialLayer
+        board={board}
         connection={connection}
         presence={presence}
         camera={camera}
@@ -706,13 +709,10 @@ export function BoardCanvas({
         menu={cellMenu}
         palette={palette}
       />
-      <KanbanTitleEditor
-        board={board}
-        layouts={layouts}
-        camera={camera}
-        viewport={viewport}
-        fontFamily={settings.text.fontFamily}
-      />
+      {!presenting && !creationTool && <KanbanColumnMenus layouts={layouts} camera={camera} viewport={viewport}
+        open={onContextMenu} openColumn={openColumn} resolve={widgetById} palette={palette}
+        gestures={gestures} cancel={columnMenu.cancel} readOnly={readOnly} fontFamily={settings.text.fontFamily} />}
+      <KanbanTitleEditor board={board} layouts={layouts} camera={camera} viewport={viewport} fontFamily={settings.text.fontFamily} />
       <TableHeaderLayer
         board={board}
         widgets={widgets}

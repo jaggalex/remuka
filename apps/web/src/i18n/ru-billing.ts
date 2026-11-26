@@ -4,6 +4,13 @@
  * Исходный язык этих экранов; EN повторяет ключи один к одному.
  */
 export const ruBilling = {
+  "billing.limit.title": "Ограничение тарифа",
+  "billing.promo.title": "Промокод",
+  "billing.trialHint": "Пробный период действует. Выберите тариф, чтобы продолжить работу после его окончания.",
+  "billing.activeHint": "Команде доступны возможности этого тарифа.",
+  "billing.limit.kept": "Комнаты и их содержимое сохранятся.",
+  "billing.limit.askPerson": "Попросите пересмотреть тариф. Администратор команды — {name}.",
+  "billing.limit.askAdmin": "Попросите администратора команды пересмотреть тариф.",
   "billing.tab": "Тариф и оплата",
 
   "billing.plan": "Тариф",
@@ -31,6 +38,7 @@ export const ruBilling = {
   "billing.rooms.title": "Активные комнаты",
   "billing.rooms.hint":
     "Тариф сохраняет {max} активных комнат. Остальные станут только для чтения: содержимое сохранится, экспорт продолжит работать.",
+  "billing.rooms.reserved": "Активные комнаты за пределами вашего списка тоже входят в лимит. Их количество — {n}. Ваш выбор влияет только на комнаты из списка.",
   "billing.rooms.choose": "Выбрать активные",
   "billing.rooms.change": "Изменить активные",
   "billing.rooms.counter": "Выбрано {selected} из {max}",
@@ -49,6 +57,8 @@ export const ruBilling = {
   "billing.rooms.askOwner":
     "Организация превысила лимит комнат. Попросите владельца выбрать, какие комнаты останутся активными.",
 
+  "billing.updateMethod": "Обновить способ оплаты",
+  "billing.payOutstanding": "Оплатить",
   "billing.changePlan": "Сменить тариф",
   "billing.cancel": "Отменить подписку",
   "billing.cancelConfirm":

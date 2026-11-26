@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
-import { cardAssignees, cardsMatching } from "./cardFilter";
+import { cardAssignees, cardsMatching, daysPastDue } from "./cardFilter";
 
 const card = (id: string, patch: Partial<Widget> = {}): Widget => ({
   id,
@@ -14,6 +14,15 @@ const card = (id: string, patch: Partial<Widget> = {}): Widget => ({
 });
 
 describe("card filter", () => {
+  it("counts calendar boundaries, including DST changes and leap day", () => {
+    expect(daysPastDue(undefined, "2026-11-23")).toBe(0);
+    expect(daysPastDue("2026-11-23", "2026-11-23")).toBe(0);
+    expect(daysPastDue("2026-11-24", "2026-11-23")).toBe(0);
+    expect(daysPastDue("2026-03-07", "2026-03-09")).toBe(2);
+    expect(daysPastDue("2026-10-31", "2026-11-02")).toBe(2);
+    expect(daysPastDue("2024-02-28", "2024-03-01")).toBe(2);
+  });
+
   it("matches by assignee", () => {
     const widgets = [card("a", { assigneeId: "u1" }), card("b", { assigneeId: "u2" })];
     expect(cardsMatching(widgets, { assigneeId: "u1", due: "any" }).map((w) => w.id)).toEqual(["a"]);

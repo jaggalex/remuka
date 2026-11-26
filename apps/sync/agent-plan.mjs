@@ -6,6 +6,7 @@
  * writes an object: in M1 the client applies the plan in one local transaction, so ⌘Z
  * takes the whole plan back.
  */
+import { briefWarnings } from "./agent-brief.mjs";
 import { PlanError, estimatePlan, planFromOperations } from "@remo/agent-plan";
 
 /** The document facts the planner needs, in the shape it expects. */
@@ -49,6 +50,7 @@ export function validateAgentPlan({
   maxActions = null,
   allowedIds = null,
   allowPlacements = true,
+  briefFindings = null,
 }) {
   if (!ydoc || typeof ydoc.getMap !== "function") {
     throw new PlanError("NO_DOCUMENT", "the board document is not open");
@@ -61,6 +63,9 @@ export function validateAgentPlan({
     ...(Array.isArray(allowedIds) ? { allowedIds } : {}),
     allowPlacements,
   });
+  if (briefFindings?.uncertainties.length) {
+    plan.warnings.push(...briefWarnings(briefFindings.uncertainties, plan.objects, briefFindings.selectionIds));
+  }
   const estimate = estimatePlan(plan);
   if (maxActions !== null && maxActions !== undefined) {
     const limit = Number(maxActions);

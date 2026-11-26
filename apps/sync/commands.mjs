@@ -8,6 +8,7 @@
  * editing honest — but anything acting for a person *outside* their open tab goes
  * through here.
  */
+import { insertNewWidget } from "@remo/model/stacking";
 import { createHash, randomUUID } from "node:crypto";
 import { displayTextOf } from "@remo/text";
 import {
@@ -221,7 +222,7 @@ export const COMMANDS = {
         createdAt: Date.now(),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(widget.id, widget);
+        insertNewWidget(widgets(ydoc), widget);
       });
       return { id: widget.id, type: widget.type, fileId: widget.fileId };
     },
@@ -356,7 +357,7 @@ export const COMMANDS = {
         createdAt: Date.now(),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(widget.id, widget);
+        insertNewWidget(widgets(ydoc), widget);
         if (delta) seedTextDelta(ydoc, widget, delta);
         else seedText(ydoc, widget, input.content ?? input.title);
       });
@@ -606,7 +607,7 @@ export const COMMANDS = {
         ...(agent ? { agent } : {}),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(connector.id, connector);
+        insertNewWidget(widgets(ydoc), connector);
       });
       return { id: connector.id, from: from.id, to: to.id };
     },

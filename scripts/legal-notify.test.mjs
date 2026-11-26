@@ -42,6 +42,9 @@ describe("the letter plan", () => {
     expect(plan[0].params.doc).toBe("Согласие на обработку персональных данных");
     expect(plan[1].params.doc).toBe("Personal data processing consent");
     expect(plan[2].params.name).toBeNull();
+    const changes = { ru: "Изменили сроки." };
+    const fallback = noticePlan({ document: "consent", title, changes, effective: "2027-01-01", users });
+    expect(fallback.map(item => item.params.changes)).toEqual([changes.ru, changes.ru, changes.ru]);
   });
 
   it("prints the effective date the way the reader says it", () => {

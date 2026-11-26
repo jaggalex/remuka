@@ -22,6 +22,7 @@ export function useFloatingBars({
   selectedIds,
   readOnly,
   noteMarks,
+  editingId,
   resolve,
   palette,
 }: {
@@ -30,6 +31,7 @@ export function useFloatingBars({
   settings: BoardSettings;
   selectedIds: readonly string[];
   readOnly: boolean;
+  editingId: string | null;
   noteMarks: (id: string) => TextMarks | null;
   resolve: (id: string) => Widget | undefined;
   /** The canvas palette: a caption's ground, and the colour window's warning (ADR-273). */
@@ -49,8 +51,8 @@ export function useFloatingBars({
     const widget = resolve(selectedIds[0]!);
     if (!widget) return null;
     const marks = noteMarks(widget.id);
-    return floating.noteBarTarget({ widget, frame, settings, marks, palette, resolve });
-  }, [frame, noteMarks, readOnly, selectedIds, settings, resolve, palette]);
+    return floating.noteBarTarget({ widget, frame, settings, marks, editing: editingId === widget.id, palette, resolve });
+  }, [frame, editingId, noteMarks, readOnly, selectedIds, settings, resolve, palette]);
 
   /** The arrange bar's target: two or more selected objects. */
   const arrangeBar = useMemo<ArrangeBarTarget | null>(

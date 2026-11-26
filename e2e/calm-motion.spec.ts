@@ -124,7 +124,10 @@ test("calm animations follow the account, and cursors arrive without a spring", 
 
   await expect(page.locator("html")).not.toHaveAttribute("data-motion", "calm");
   await openAccount(page);
-  await page.getByRole("button", { name: "Calm animations", exact: true }).click();
+  const motion = page.getByRole("switch", { name: "Calm animations", exact: true });
+  await motion.focus();
+  await motion.press("Space");
+  await expect(motion).toBeChecked();
   await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");
   await page.keyboard.press("Escape");
 

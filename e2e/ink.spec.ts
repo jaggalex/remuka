@@ -189,17 +189,19 @@ test("the owner's room reads in both themes: old text and a kanban with lanes", 
 test("a new text writes no colour and opens as Auto", async ({ page }) => {
   await freshBoard(page, "ink-new");
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await expect(page.locator(".inline-editor")).toBeFocused();
   const stored = await page.evaluate(() => {
     const probe = (window as unknown as {
       __remo: {
         selectedIds: string[];
-        widgets: Array<{ id: string; style?: Record<string, unknown> }>;
+        widgets: Array<{ id: string; type: string; style?: Record<string, unknown> }>;
       };
     }).__remo;
-    return probe.widgets.find((widget) => widget.id === probe.selectedIds[0])?.style ?? {};
+    return probe.widgets.find((widget) => widget.id === probe.selectedIds[0]);
   });
-  expect(stored.color, "a new text stores no colour").toBeUndefined();
-  expect(stored.textColor, "a new text stores no text colour").toBeUndefined();
+  expect(stored?.type).toBe("text");
+  expect(stored?.style?.color, "a new text stores no colour").toBeUndefined();
+  expect(stored?.style?.textColor, "a new text stores no text colour").toBeUndefined();
 });
 
 test("black on the dark canvas gets a halo, a warning and the way back to Auto", async ({
@@ -208,6 +210,7 @@ test("black on the dark canvas gets a halo, a warning and the way back to Auto",
   await freshBoard(page, "ink-black");
   // A person's own colour: white paper, then the Black swatch in the Text window.
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await expect(page.locator(".inline-editor")).toBeFocused();
   await page.keyboard.type("Black on ink");
   await page.keyboard.press("Escape");
   const bar = page.getByRole("toolbar", { name: "Object properties", exact: true });

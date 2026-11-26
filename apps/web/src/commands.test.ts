@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
 import { CHROME_CONTROL_IDS } from "@remo/metrics";
 import { paintOrder, type Widget, type WidgetType } from "@remo/model";
+import { roomMenuRows } from "./topbar/registryItems";
 import {
   CHROME_COMMANDS,
   COMMANDS,
@@ -82,8 +83,8 @@ describe("the command list", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const ids = commandsFor("menu", contextFor(board)).map((command) => command.id);
     expect(ids).toEqual([
-      "colour",
       "editText",
+      "colour",
       "copy",
       "paste",
       "cut",
@@ -308,6 +309,9 @@ describe("the chrome registry", () => {
       // Canvas creation rows live in the rail and the search, not in a header menu.
       if (command.intent === "canvas") {
         expect(command.surfaces, command.id).toEqual(["palette"]);
+      } else if (command.id === "account.allRooms") {
+        // The palette exposes the same destination once via home.open.
+        expect(command.surfaces).toEqual(["header"]);
       } else {
         expect(command.surfaces, command.id).toContain("header");
         expect(command.surfaces, command.id).toContain("palette");
@@ -353,10 +357,15 @@ describe("the chrome registry", () => {
   it("offers every chrome command the account menu needs, and the reactions", () => {
     const account = menuCommands(["account", "help"], allOn);
     const ids = account.map((command) => command.id);
+    expect(ids.indexOf("account.org")).toBeGreaterThan(-1);
+    expect(ids.indexOf("account.org")).toBeLessThan(ids.indexOf("account.theme.light"));
+    expect(ids.indexOf("account.lang.en")).toBeLessThan(ids.indexOf("account.motion.calm"));
+    expect(account.find((command) => command.id === "account.help")?.title).toBe("account.helpShortcuts");
     for (const id of [
       "account.allRooms",
       "account.theme.light",
       "account.theme.dark",
+      "account.theme.system",
       "account.motion.calm",
       "account.lang.ru",
       "account.lang.en",
@@ -383,6 +392,37 @@ describe("the chrome registry", () => {
     expect(trash).toBeUndefined();
     const app = room.find((command) => command.id === "room.apps");
     expect(app).toBeUndefined();
+  });
+
+  it("partitions each room command once and keeps its permission policy at either level", () => {
+    const can: ChromeContext["can"] = { rename: true, access: true, export: true, import: true,
+      duplicate: true, delete: true, templates: true, apps: true };
+    for (const abilities of [can, {}]) {
+      const ctx = { can: abilities, run: vi.fn() };
+      const rows = roomMenuRows(ctx, key => key, "Comments: 3 new", true,
+        { png: !!abilities.export, pdf: !!abilities.export, backup: !!abilities.import });
+      const ids = (group: typeof rows.more) => group.flatMap(item => "commandId" in item ? [item.commandId] : []);
+      expect(Object.values(rows).flatMap(ids).sort()).toEqual(menuCommands(["room"], ctx).map(c => c.id).sort());
+      expect(ids(rows.propertiesAccess)).toEqual(["room.properties", "room.access"]);
+      const access = rows.propertiesAccess.find(item => "commandId" in item && item.commandId === "room.access");
+      expect(access).toMatchObject({ disabled: !("access" in abilities) });
+      expect(ids(rows.document)).toEqual("export" in abilities ? ["room.export", "room.copyLink"] : ["room.copyLink"]);
+      expect(ids(rows.trash)).toEqual("delete" in abilities ? ["room.trash"] : []);
+      expect(rows.more).toContainEqual(expect.objectContaining({ commandId: "room.replace", disabled: !("rename" in abilities), danger: true }));
+      expect(rows.more).toContainEqual(expect.objectContaining({ commandId: "header.comments", label: "Comments: 3 new", checked: true }));
+    }
+  });
+
+  it.each([
+    [{ png: true, pdf: true, backup: true }, "PNG · PDF · backup"],
+    [{ png: true, pdf: false, backup: false }, "PNG"],
+    [{ png: true, pdf: false, backup: true }, "PNG · backup"],
+    [{ png: false, pdf: false, backup: true }, "backup"],
+  ] as const)("advertises only the room's available download formats", (formats, expected) => {
+    const rows = roomMenuRows({ can: { export: true }, run: vi.fn() },
+      (key, vars) => key === "board.menuExport" ? String(vars?.formats) : key === "board.menuBackup" ? "backup" : key,
+      undefined, false, formats);
+    expect(rows.document).toContainEqual(expect.objectContaining({ commandId: "room.export", label: expected }));
   });
 
   it("offers the guide's row only when the installation has a guide (ADR-284)", () => {

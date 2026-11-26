@@ -1,3 +1,4 @@
+import { hintVariant } from "./hintRegistry";
 import { describe, expect, it } from "vitest";
 import {
   HINT_KEY_PREFIX,
@@ -77,5 +78,26 @@ describe("once hints (ADR-266 §6, ADR-289)", () => {
       JSON.stringify({ done: -4, visits: "many" }),
     );
     expect(readHint("canvas.doubleClickEdit", storage)).toEqual({ done: 0, visits: 0 });
+  });
+});
+
+describe("rotating copy (ADR-268)", () => {
+  it("cycles through empty-room headings on successive visits", () => {
+    const context = { canInvite: true, hasPeers: false };
+    expect([0, 1, 2, 3].map((visit) => hintVariant("room.empty", visit, context).intent))
+      .toEqual(["action", "benefit", "together", "action"]);
+  });
+
+  it("counts only variants that apply to this room and viewer", () => {
+    for (const context of [{ canInvite: false }, { canInvite: true, hasPeers: true }]) {
+      expect([0, 1, 2, 3].map((visit) => hintVariant("room.empty", visit, context).intent))
+        .toEqual(["action", "benefit", "action", "benefit"]);
+    }
+  });
+
+  it("varies an instructional plate without changing its learning rule", () => {
+    expect(hintVariant("canvas.doubleClickEdit", 0).key).toBe("canvas.hint");
+    expect(hintVariant("canvas.doubleClickEdit", 1).intent).toBe("benefit");
+    expect(hintVariant("canvas.doubleClickEdit", 2).key).toBe("canvas.hint");
   });
 });

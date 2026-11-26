@@ -66,33 +66,9 @@
   font: var(--type-title);
 }
 
-.access-gate .muted {
-  max-width: 420px;
-}
-
-.access-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.unclaimed-banner {
-  position: absolute;
-  z-index: var(--z-bar);
-  left: 50%;
-  top: calc(var(--topbar-height) + var(--space-6));
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: min(680px, calc(100% - 32px));
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--warning-soft);
-  border: 1px solid var(--warning-soft);
-  box-shadow: var(--shadow-bar);
-  font: var(--type-caption);
-  color: var(--state-warning);
+.access-gate .guest-gate-card:has(.rm-brand) {
+  justify-items: center;
+  text-align: center;
 }
 
 /* Active sessions: a list of browsers, not people (ADR-153). */

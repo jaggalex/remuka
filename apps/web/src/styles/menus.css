@@ -33,6 +33,73 @@
   color: var(--text-secondary);
 }
 
+.context-menu-stepper {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: calc(var(--space-2) - 2px);
+  align-items: center;
+  margin-inline: var(--space-2);
+  padding-block: calc(var(--space-2) - 2px);
+  font: var(--type-body);
+}
+.context-menu-stepper output {
+  min-inline-size: var(--space-5);
+  font: var(--type-action-strong);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.context-menu-stepper small {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+.context-menu-stepper .rm-iconbtn {
+  --control-h: calc(var(--control-compact) + 2px);
+  border-radius: var(--space-2);
+}
+.kanban-column-menu {
+  position: absolute;
+  z-index: var(--z-canvas-overlay);
+  transform-origin: top left;
+  touch-action: none;
+  max-width: none;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--column-header-ink);
+}
+.kanban-column-menu, .kanban-column-menu:hover { background: transparent; }
+.kanban-column-menu .rm-btn-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-1);
+  font: var(--type-action-strong);
+  font-family: inherit;
+  opacity: 0;
+}
+.kanban-column-name { overflow: hidden; text-overflow: ellipsis; }
+.kanban-column-swatch {
+  flex: none;
+  margin-inline-start: auto;
+  width: var(--space-4);
+  height: var(--space-4);
+  background: var(--column-fill);
+  border: var(--panel-border-width) solid var(--column-marker-ink);
+  border-radius: var(--radius-xs);
+}
+.kanban-column-marker {
+  flex: none;
+  width: calc(var(--space-9) / 4);
+  aspect-ratio: 1.5;
+  background: var(--column-marker-ink);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.kanban-column-menu:is(:focus-visible, [aria-expanded="true"]) {
+  background: var(--column-header-paper);
+  border-color: var(--column-marker-ink);
+}
+.kanban-column-menu:is(:focus-visible, [aria-expanded="true"]) .rm-btn-label { opacity: 1; }
+
 .context-menu-group {
   padding: var(--space-1) 0;
 }
@@ -122,6 +189,32 @@
   gap: var(--space-2);
 }
 
+.context-menu:has(.context-menu-inline-palette) {
+  width: min(304px, calc(100vw - var(--space-4)));
+  background: var(--bg-panel);
+}
+.context-menu:has(.context-menu-inline-palette) .context-menu-item > .context-menu-icon { display: none; }
+.context-menu:has(.context-menu-inline-palette) .context-menu-title {
+  font: var(--type-palette-title);
+  color: var(--text-column-menu-heading);
+}
+.context-menu:has(.context-menu-inline-palette) .context-menu-item.danger { color: var(--text-brand-danger); }
+.context-menu .rm-menu-pair .context-menu-item:first-child { padding-inline-end: var(--space-1); }
+.context-menu .rm-menu-pair .context-menu-item:last-child { padding-inline-start: var(--space-1); }
+.context-menu-inline-palette {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  font: var(--type-label);
+  font-weight: 400;
+  color: var(--text-column-menu-heading);
+}
+.context-menu-inline-palette .context-menu-swatch-grid {
+  grid-template-columns: repeat(7, minmax(0, var(--space-7)));
+  gap: calc(var(--space-2) - 1px);
+}
+.context-menu-inline-palette .context-menu-swatch { max-width: 100%; }
+
 .context-menu-swatch {
   width: var(--space-7);
   height: var(--space-7);
@@ -140,10 +233,99 @@
   box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--border-ink);
 }
 
+.context-menu-swatch[aria-checked="true"]:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
 .context-menu-grid-reset {
   margin-top: var(--space-2);
 }
 
 .context-menu-grid-reset[aria-checked="true"] {
   font-weight: 600;
+}
+
+/* ADR-313 adopts the compact Figma column menu for the light desktop view. */
+@media (min-width: 901px) {
+  :root[data-theme="light"] .context-menu:has(.context-menu-inline-palette) {
+    width: calc(25 * var(--space-3));
+    gap: var(--space-1);
+    background: var(--bg-raised);
+
+    & .context-menu-title {
+      padding: 0;
+      font: var(--type-caption);
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    & .context-menu-group {
+      display: grid;
+      gap: var(--space-1);
+      padding: 0;
+    }
+
+    & .context-menu-group + .context-menu-group {
+      border-top: thin solid var(--border-subtle);
+      padding-top: var(--space-1);
+    }
+
+    & .context-menu-item,
+    & .rm-menu-pair {
+      font: var(--type-label);
+      font-weight: 400;
+    }
+
+    & .context-menu-item {
+      min-height: var(--control-compact);
+      padding-inline: var(--space-3);
+      border-radius: var(--radius-pill);
+    }
+
+    & .rm-menu-pair .context-menu-item:first-child { padding-inline-end: var(--space-1); }
+    & .rm-menu-pair .context-menu-item:last-child { padding-inline-start: var(--space-1); }
+
+    & .context-menu-inline-palette {
+      padding: var(--space-1) var(--space-3);
+      font: var(--type-caption);
+      color: var(--text-instruction);
+    }
+
+    & .context-menu-swatch-grid {
+      grid-template-columns: repeat(7, var(--space-5));
+      gap: calc(var(--space-3) / 2);
+    }
+
+    & .context-menu-swatch {
+      box-sizing: border-box;
+      width: var(--space-5);
+      height: var(--space-5);
+      border-width: thin;
+    }
+
+    & .context-menu-swatch[aria-checked="true"] {
+      border-width: calc(var(--space-1) / 2);
+      box-shadow: none;
+    }
+
+    & .context-menu-stepper {
+      margin: 0;
+      padding: 0 var(--space-3);
+      gap: var(--space-1) var(--space-2);
+      font: var(--type-label);
+      font-weight: 400;
+    }
+
+    & .context-menu-stepper output {
+      min-inline-size: 0;
+      font: var(--type-palette-title);
+    }
+
+    & .context-menu-stepper small { color: var(--text-instruction); }
+    & .context-menu-stepper .rm-iconbtn {
+      --control-h: var(--control-compact);
+      border-radius: var(--radius-control);
+    }
+  }
 }

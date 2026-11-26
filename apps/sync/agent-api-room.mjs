@@ -277,6 +277,7 @@ export async function handleRoomAgentRoutes(ctx) {
       json(response, 200, {
         thread,
         messages: await store.listAgentThreadMessages(threadId),
+        publishedFrameIds: await store.publishedAgentThreadFrameIds(threadId),
       });
       return true;
     }

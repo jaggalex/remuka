@@ -135,6 +135,10 @@ function TechnicalToggle({
   );
 }
 
+function currentPanelTheme() {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
 export function SupportPanel({
   open,
   config,
@@ -159,6 +163,7 @@ export function SupportPanel({
   const origin = config.origin ?? "";
   // `open` decides; `mounted` keeps the frame alive for one message after it closes.
   const [mounted, setMounted] = useState(open);
+  const [initialTheme, setInitialTheme] = useState(currentPanelTheme);
   const [technical, setTechnical] = useState(initialTechnical);
   const [loaded, setLoaded] = useState(false);
   const resetPending = useRef(false);
@@ -174,8 +179,11 @@ export function SupportPanel({
 
   const postIdentity = useCallback(() => {
     if (!identity) return;
-    post({ type: "remo:support:identity", identity });
-  }, [identity, post]);
+    post({
+      type: "remo:support:identity",
+      identity: { ...identity, attributes: { ...identity.attributes, lang } },
+    });
+  }, [identity, lang, post]);
 
   // The page may finish loading before the identity arrives, and the identity may arrive
   // before the page. Both paths post, and only to the configured origin.
@@ -221,6 +229,7 @@ export function SupportPanel({
 
   useEffect(() => {
     if (open) {
+      if (!mounted) setInitialTheme(currentPanelTheme());
       setMounted(true);
       return;
     }
@@ -236,6 +245,15 @@ export function SupportPanel({
     }, 250);
     return () => clearTimeout(timer);
   }, [open, mounted]);
+
+  useEffect(() => {
+    if (!open || !loaded) return;
+    const sendTheme = () => post({ type: "remo:support:theme", theme: currentPanelTheme() });
+    sendTheme();
+    const observer = new MutationObserver(sendTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, [open, loaded, post]);
 
   const toggleTechnical = (checked: boolean) => {
     setTechnical(checked);
@@ -269,7 +287,7 @@ export function SupportPanel({
           ref={frame}
           className="support-panel-frame"
           title={t("support.frameTitle")}
-          src={`${origin}/widget.html?lang=${lang}`}
+          src={`${origin}/widget.html?lang=${lang}&theme=${initialTheme}`}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="no-referrer"
           allow="clipboard-write"
@@ -319,6 +337,7 @@ export function useSupportSurface({
   const [failed, setFailed] = useState(false);
   const [initialTechnical, setInitialTechnical] = useState(false);
   const [resetSignal, setResetSignal] = useState(0);
+  const sessionGeneration = useRef(0);
   const configRef = useRef<SupportConfig | null>(null);
   const identityRef = useRef<SupportIdentity | null>(null);
 
@@ -361,13 +380,16 @@ export function useSupportSurface({
     }
     setIdentity(null);
     setFailed(false);
+    const generation = sessionGeneration.current;
     supportIdentity().then(
       (result) => {
+        if (generation !== sessionGeneration.current) return;
         identityRef.current = result;
         setIdentity(result);
         setFailed(false);
       },
       () => {
+        if (generation !== sessionGeneration.current) return;
         // The panel says it is unavailable; a refused sign-in is not a product failure.
         setFailed(true);
       },
@@ -375,6 +397,7 @@ export function useSupportSurface({
   }, []);
 
   const signOut = useCallback(() => {
+    sessionGeneration.current++;
     // The panel stays mounted for the `reset` message; `config` stays, the identity does
     // not: the next person in this browser starts as a stranger, with an empty buffer.
     setOpen(false);

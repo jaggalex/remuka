@@ -36,7 +36,7 @@ describe("the save notice", () => {
     ).toBe("blocked");
   });
 
-  it("keeps “All saved” for two seconds after offline and then hides it", () => {
+  it("keeps “Saved” for two seconds after offline and then hides it", () => {
     expect(saveNoticeKind({ ...base, state: "saved", savedMs: 0 })).toBe("saved");
     expect(
       saveNoticeKind({ ...base, state: "saved", savedMs: SAVE_DONE_FOR_MS - 1 }),

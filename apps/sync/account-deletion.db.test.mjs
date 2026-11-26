@@ -6,6 +6,7 @@
  * than a person. It also walks `information_schema`, so a foreign key to `users` added
  * later without a decision in the specification fails here and not in an audit.
  */
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -204,7 +205,7 @@ afterAll(async () => {
 suite("db:account deletion (ADR-257)", () => {
   it("is schema 37 with the two states and the request date", async () => {
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(40);
+    expect(rows[0].version).toBe(SCHEMA_VERSION);
 
     const userId = await seedUser();
     await store.pool.query("update users set state = 'deleting' where id = $1", [userId]);

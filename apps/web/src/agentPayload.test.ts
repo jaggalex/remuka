@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Widget } from "@remo/model";
-import {
-  PAYLOAD_LIMIT,
-  PAYLOAD_TEXT_LIMIT,
-  SELECTION_CHAR_LIMIT,
-  SELECTION_OBJECT_LIMIT,
-  payloadPreview,
-  selectionPreview,
-} from "./agentPayload";
+import { BoardDocument } from "@remo/doc";
+import { SELECTION_LIMITS } from "@remo/agent-plan";
+import { agentPayload } from "./agentPayload";
+
+function context(widgets: Widget[], ids: string[]) {
+  const board = new BoardDocument();
+  for (const widget of widgets) board.widgets.set(widget.id, widget);
+  try { return agentPayload(board, ids); }
+  finally { board.doc.destroy(); }
+}
 
 function note(id: string, content: string): Widget {
   return {
@@ -25,8 +27,8 @@ function note(id: string, content: string): Widget {
 describe("agent payload preview (stage 5)", () => {
   it("lists only selected objects, in selection order", () => {
     const widgets = [note("a", "Alpha"), note("b", "Beta"), note("c", "<p>Gamma</p>")];
-    expect(payloadPreview(widgets, ["c", "a"]).map((item) => item.text)).toEqual([
-      "Gamma",
+    expect(context(widgets, ["c", "a"]).diagram.map((item) => item.text)).toEqual([
+      "<p>Gamma</p>",
       "Alpha",
     ]);
   });
@@ -35,17 +37,17 @@ describe("agent payload preview (stage 5)", () => {
     const widgets = Array.from({ length: 30 }, (_, index) =>
       note(`n${index}`, "x".repeat(400)),
     );
-    const preview = payloadPreview(
+    const preview = context(
       widgets,
       widgets.map((widget) => widget.id),
     );
-    expect(preview).toHaveLength(PAYLOAD_LIMIT);
-    expect(preview[0]!.text).toHaveLength(PAYLOAD_TEXT_LIMIT);
+    expect(preview.diagram).toHaveLength(20);
+    expect(preview.diagram[0]!.text).toHaveLength(200);
   });
 
   it("skips objects without text and unknown ids", () => {
     const widgets = [note("empty", "  "), note("filled", "kept")];
-    expect(payloadPreview(widgets, ["empty", "missing", "filled"])).toEqual([
+    expect(context(widgets, ["empty", "missing", "filled"]).diagram).toEqual([
       { id: "filled", type: "sticky_note", text: "kept" },
     ]);
   });
@@ -76,28 +78,28 @@ describe("selection preview (ADR-143)", () => {
       at("empty", 0, 0, "   "),
       at("dup", 0, 700, "US-1"),
     ];
-    const preview = selectionPreview(widgets, ["a", "g", "frame", "empty", "dup"]);
-    expect(preview.ids).toEqual(["empty", "a", "g", "g2", "f", "frame"]);
+    const {selection: preview} = context(widgets, ["a", "g", "frame", "empty", "dup"]);
+    expect(preview.objects.map((item) => item.id)).toEqual(["empty", "a", "g", "g2", "f", "frame"]);
     expect(preview.texts).toEqual(["US-1", "Group", "Group two", "Inside", "Lane"]);
-    expect(preview.groups).toBe(1);
-    expect(preview.frames).toBe(1);
-    expect(preview.empty).toBe(1);
-    expect(preview.duplicates).toBe(1);
+    expect(preview.counts.groups).toBe(1);
+    expect(preview.counts.frames).toBe(1);
+    expect(preview.counts.empty).toBe(1);
+    expect(preview.counts.duplicates).toBe(1);
   });
 
   it("stops at the object cap and reports truncation", () => {
     const widgets = Array.from({ length: 60 }, (_, index) =>
       at(`n${index}`, index * 10, 0, `Note ${index}`),
     );
-    const preview = selectionPreview(widgets, widgets.map((widget) => widget.id));
-    expect(preview.objects).toHaveLength(SELECTION_OBJECT_LIMIT);
+    const {selection: preview} = context(widgets, widgets.map((widget) => widget.id));
+    expect(preview.objects).toHaveLength(SELECTION_LIMITS.objects);
     expect(preview.truncated).toBe(true);
   });
 
   it("cuts the text at the character cap", () => {
     const widgets = [at("long", 0, 0, "word ".repeat(8_000))];
-    const preview = selectionPreview(widgets, ["long"]);
-    expect(preview.chars).toBeLessThanOrEqual(SELECTION_CHAR_LIMIT);
+    const {selection: preview} = context(widgets, ["long"]);
+    expect(preview.counts.chars).toBeLessThanOrEqual(SELECTION_LIMITS.chars);
     expect(preview.truncated).toBe(true);
   });
 });

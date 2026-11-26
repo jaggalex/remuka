@@ -122,7 +122,7 @@ export function useCanvasPainting({
   );
 
   // A plan under review is painted over the room (ADR-188).
-  const proposal = useProposalLayout(resolveConnector, viewport);
+  const proposal = useProposalLayout(resolveConnector, viewport, overlayRef);
 
   const paintStats = useRef({
     board: 0,

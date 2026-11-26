@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QuotaNotice } from "./QuotaNotice";
 import { Button } from "@remo/ui";
 import { billingApi, type OrgBilling, type OrgStorageRoom } from "./apiBilling";
 import { useI18n } from "./i18n";
@@ -118,6 +119,11 @@ export function StoragePanel({
         </div>
       )}
 
+      {limit !== null && share >= 1 && (
+        <QuotaNotice title={t("image.error.quota")} text={t("storage.quota.body")}
+          onSeePlans={isOrgAdmin ? onSeePlans : undefined} />
+      )}
+
       {rooms.length > 0 && (
         <section className="storage-rooms">
           <h4>{t("storage.roomsTitle")}</h4>
@@ -136,7 +142,7 @@ export function StoragePanel({
       )}
 
       {limit !== null &&
-        (isOrgAdmin ? (
+        (isOrgAdmin ? share < 1 && (
           <div className="storage-actions">
             <Button variant="primary" size="compact" onClick={onSeePlans}>
               {t("billing.seePlans")}

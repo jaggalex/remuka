@@ -149,6 +149,7 @@ export function sideOfDirection(direction: NoteDirection): ConnectorSide {
 export const BAR_ROOM = 84;
 /** A bar with no edge "+" to clear — the arrange and connector bars. */
 export const COMPACT_BAR_ROOM = 52;
+export const BAR_GAP = 12;
 
 /**
  * Vertical placement of a floating bar over a box in screen space.
@@ -161,10 +162,11 @@ export function barTop(
   box: { top: number; height: number },
   viewport: { height: number },
   room = BAR_ROOM,
+  paintedHeight = 40,
 ): number {
   const above = box.top - room;
-  const below = box.top + box.height + 12;
-  const lowest = Math.max(8, viewport.height - 40 - 8);
+  const below = box.top + box.height + BAR_GAP;
+  const lowest = Math.max(8, viewport.height - paintedHeight - 8);
   if (above >= 8) return Math.min(above, lowest);
   if (below <= lowest) return below;
   return Math.min(Math.max(8, above), lowest);

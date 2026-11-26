@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import type { IconName } from "../icons";
 import { Icon } from "./basics";
 import { cx, forced, type Forced } from "./util";
@@ -50,18 +50,20 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   force?: Forced;
 }
 
-export function Textarea({ label, hint, error, success, force, id: given, rows = 3, ...rest }: TextareaProps) {
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  { label, hint, error, success, force, id: given, rows = 3, ...rest }, ref,
+) {
   const auto = useId();
   const id = given ?? auto;
   const own = { label, hint, error, success, readOnly: rest.readOnly };
   return (
     <Field id={id} {...own}>
       <div className={cx("rm-input", "rm-textarea", rest.disabled && "is-disabled", forced(force))}>
-        <textarea rows={rows} {...rest} id={id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, own)} />
+        <textarea ref={ref} rows={rows} {...rest} id={id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, own)} />
       </div>
     </Field>
   );
-}
+});
 
 export type SelectOption = string | { value: string; label: string; disabled?: boolean };
 

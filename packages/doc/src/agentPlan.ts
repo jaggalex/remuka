@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import { DEFAULT_LINE_PRESET, newId, type Widget } from "@remo/model";
 import {
   PlanError,
@@ -327,7 +328,7 @@ export function applyAgentPlan(
         createdAt,
         content,
       );
-      board.widgets.set(id, widget);
+      insertNewWidget(board.widgets, widget);
       // The text map is the editable copy; the field stays for readers that do not
       // materialise text (templates and exports do the same, ADR-016).
       if (delta && isRichDelta(delta)) seedTextDelta(board, widget, delta);
@@ -358,8 +359,8 @@ export function applyAgentPlan(
       const toId = idMap.get(connector.to) ?? connector.to;
       const from = board.readWidget(fromId)!;
       const to = board.readWidget(toId)!;
-      board.widgets.set(
-        id,
+      insertNewWidget(
+        board.widgets,
         plannedConnector(connector, id, from, to, author, options.provenance, createdAt),
       );
       createdConnectors.push(id);

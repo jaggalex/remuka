@@ -27,6 +27,7 @@
 
   const MESSAGE = {
     identity: "remo:support:identity",
+    theme: "remo:support:theme",
     technical: "remo:support:technical",
     reset: "remo:support:reset",
     label: "remo:support:label",
@@ -144,12 +145,18 @@
   const locale = localeFromUrl();
   document.documentElement.lang = locale;
 
+  const requestedTheme = new URLSearchParams(window.location.search).get("theme");
+  let theme = requestedTheme === "dark" || requestedTheme === "light"
+    ? requestedTheme
+    : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  document.documentElement.dataset.theme = theme;
+
   window.chatwootSettings = {
     hideMessageBubble: true,
     position: "left",
     locale,
     widgetStyle: "flat",
-    darkMode: "auto",
+    darkMode: theme,
   };
 
   const state = {
@@ -341,6 +348,14 @@
       case MESSAGE.identity:
         applyIdentity(event.data.identity);
         break;
+      case MESSAGE.theme:
+        if (event.data.theme === "dark" || event.data.theme === "light") {
+          theme = event.data.theme;
+          document.documentElement.dataset.theme = theme;
+          window.chatwootSettings.darkMode = theme;
+          if (state.ready) window.$chatwoot.setColorScheme(theme);
+        }
+        break;
       case MESSAGE.technical:
         applyTechnical(event.data.technical);
         break;
@@ -384,6 +399,7 @@
   window.addEventListener("chatwoot:ready", () => {
     if (state.ready) return;
     state.ready = true;
+    window.$chatwoot.setColorScheme(theme);
     if (status) status.hidden = true;
 
     for (const action of state.pending.splice(0)) run(action);

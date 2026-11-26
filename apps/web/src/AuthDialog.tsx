@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { BrandMark, Button, Dialog, Input, Link } from "@remo/ui";
-import { brandName } from "@remo/brand";
+import { Button, Input } from "@remo/ui";
+import { AuthScreen } from "./AuthScreen";
+import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
 import { api, type SessionUser } from "./api";
 import { ApiError } from "./apiCall";
 import { authCapabilities, type AuthCapabilities } from "./apiMail";
@@ -8,19 +9,7 @@ import { useI18n } from "./i18n";
 import { announceLegalSession } from "./legal/legalSession";
 import { Shake } from "./Shake";
 
-/**
- * Sign in.
- *
- * A dialog rather than a route: the board stays mounted behind it, so a person who
- * opens a protected link lands on the board they meant to see and signs in on top of it
- * instead of losing the URL. Password reset is offered only when the server can send
- * mail; without it the dialog says who can help instead of promising a letter
- * (spec/mail.md §7, ADR-246).
- *
- * Registration is its own page (`?signup=1`, `SignUpScreen.tsx`): the mockup App-SignUp is
- * a two-column screen with the consents and the paper aside, and a dialog cannot carry
- * that shape (ADR-265 stage 3, ADR-286).
- */
+/** The credential challenge stays in memory and the room/invite remains the navigation target. */
 export function AuthDialog({
   open,
   onClose,
@@ -36,14 +25,15 @@ export function AuthDialog({
   /** A result from the reset form, shown above the fields. */
   notice?: string | null;
 }) {
-  const { t, lang, productName } = useI18n();
+  const { t, lang } = useI18n();
+  const [roomForgot, setRoomForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
   /** The second step is a different form in the same dialog, not a new page (§5.2). */
-  const [challenge, setChallenge] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<{ token: string; issuer?: string } | null>(null);
   const [code, setCode] = useState("");
   const [useRecovery, setUseRecovery] = useState(false);
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
@@ -67,6 +57,7 @@ export function AuthDialog({
   useEffect(() => {
     if (!open) {
       // A challenge is bound to one attempt at the password; closing the dialog drops it.
+      setRoomForgot(false);
       setChallenge(null);
       setCode("");
       setUseRecovery(false);
@@ -76,9 +67,11 @@ export function AuthDialog({
 
   if (!open) return null;
 
+  if (roomForgot) return <ForgotPasswordDialog open onClose={() => setRoomForgot(false)} />;
+
   const openForgot = () => {
     if (onForgot) onForgot();
-    else window.location.assign("/?forgot=1");
+    else setRoomForgot(true);
   };
 
   /** A refusal is said once, and the frame shakes its head once (ADR-265 §4.2). */
@@ -97,7 +90,7 @@ export function AuthDialog({
       setError(null);
       try {
         const result = await api.loginMfa(
-          useRecovery ? { challenge, recoveryCode: code } : { challenge, code },
+          useRecovery ? { challenge: challenge.token, recoveryCode: code } : { challenge: challenge.token, code },
         );
         announceLegalSession();
         onSignedIn(result.user);
@@ -105,7 +98,7 @@ export function AuthDialog({
         setChallenge(null);
         onClose();
       } catch (failure) {
-        const failureCode = failure instanceof Error ? (failure as { code?: string }).code ?? "" : "";
+        const failureCode = failure instanceof Error ? ((failure as { code?: string }).code ?? "") : "";
         const reason = failure instanceof ApiError ? failure.details.reason : undefined;
         refuse(
           failureCode === "MFA_INVALID" || failureCode === "INVALID_CREDENTIALS"
@@ -136,7 +129,7 @@ export function AuthDialog({
       if ("mfaRequired" in result && result.mfaRequired) {
         // The password was right; the session waits for the code. No reload and no new
         // screen: the dialog grows a second field (§5.1–2).
-        setChallenge(result.challenge);
+        setChallenge({ token: result.challenge, issuer: result.issuer });
         setCode("");
         setUseRecovery(false);
         setPassword("");
@@ -149,7 +142,7 @@ export function AuthDialog({
       setPassword("");
       onClose();
     } catch (failure) {
-      const code = failure instanceof Error ? (failure as { code?: string }).code ?? "" : "";
+      const code = failure instanceof Error ? ((failure as { code?: string }).code ?? "") : "";
       refuse(
         code === "INVALID_CREDENTIALS"
           ? capabilities && !capabilities.passwordReset
@@ -165,114 +158,105 @@ export function AuthDialog({
   };
 
   return (
-    <Dialog
-      title={challenge ? t("auth.mfaTitle") : t("auth.title")}
-      description={challenge ? t("auth.mfaBody") : undefined}
-      size="sm"
-      onClose={onClose}
+    <AuthScreen
+      step={challenge ? "code" : "login"}
+      title={t(challenge ? "auth.mfaTitle" : "auth.title")}
+      onBack={onClose}
     >
-      <div className="auth-brand">
-        <BrandMark size={30} wordmark={brandName({ locale: lang, productName })} />
-      </div>
       <Shake token={shake}>
-        <form className="dialog-stack" onSubmit={submit}>
+        <form onSubmit={submit}>
           {challenge ? (
             <>
+              <p>{useRecovery ? t("mfa.recoveryHint") : challenge.issuer ? t("auth.mfaIssuerBody", { issuer: challenge.issuer }) : t("auth.mfaBody")}</p>
               <Input
-                label={useRecovery ? t("mfa.recovery") : t("auth.mfaCode")}
-                hint={useRecovery ? t("mfa.recoveryHint") : t("mfa.codeHint")}
+                label={t(useRecovery ? "mfa.recovery" : "auth.mfaCode")}
                 inputMode={useRecovery ? undefined : "numeric"}
+                required
                 autoComplete={useRecovery ? "off" : "one-time-code"}
-                maxLength={useRecovery ? undefined : 6}
-                autoFocus
+                placeholder={useRecovery ? undefined : "000 000"}
                 error={error ?? undefined}
                 value={code}
                 onChange={(event) =>
                   setCode(
                     useRecovery
                       ? event.currentTarget.value
-                      : event.currentTarget.value.replace(/\s/g, ""),
+                      : event.currentTarget.value.replace(/\D/g, "").slice(0, 6),
                   )
                 }
               />
+              <Button type="submit" variant="primary" className="signup-submit" disabled={busy}>
+                {busy ? t("auth.working") : t("mfa.confirm")}
+              </Button>
               <Button
-                type="button"
                 variant="ghost"
                 size="compact"
+                type="button"
+                className="access-link"
                 onClick={() => {
                   setUseRecovery(!useRecovery);
                   setCode("");
                   setError(null);
                 }}
               >
-                {useRecovery ? t("auth.mfaUseCode") : t("auth.mfaUseRecovery")}
+                {t(useRecovery ? "auth.mfaUseCode" : "auth.mfaUseRecovery")}
               </Button>
-              <div className="auth-actions">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setChallenge(null);
-                    setCode("");
-                    setError(null);
-                  }}
-                >
-                  {t("auth.mfaBack")}
-                </Button>
-                <Button type="submit" variant="primary" disabled={busy || !code}>
-                  {busy ? t("auth.working") : t("auth.enter")}
-                </Button>
-              </div>
             </>
           ) : (
             <>
-              <Input
-                label={t("auth.email")}
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.currentTarget.value)}
-                autoComplete="email"
-              />
-              <Input
-                label={t("auth.password")}
-                type="password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.currentTarget.value)}
-                autoComplete="current-password"
-              />
-
-              {capabilities?.passwordReset && (
-                <Link
-                  href="?forgot=1"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    openForgot();
-                  }}
-                >
-                  {t("auth.forgot")}
-                </Link>
-              )}
-              {notice && <p className="auth-hint">{notice}</p>}
-              {error && <p className="auth-error" role="alert">{error}</p>}
-
-              <p className="auth-switch">
+              <p>
                 {t("auth.noAccount")}{" "}
                 <a className="signup-signin" href={signupHref}>
                   {t("auth.signUpLink")}
                 </a>
               </p>
-
-              <div className="auth-actions">
-                <Button onClick={onClose}>{t("auth.cancel")}</Button>
-                <Button type="submit" variant="primary" disabled={busy}>
-                  {busy ? t("auth.working") : t("auth.enter")}
-                </Button>
+              <Input
+                label={t("auth.email")}
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.currentTarget.value)}
+              />
+              <div className="auth-password">
+                <Input
+                  label={t("auth.password")}
+                  type="password"
+                  error={error === t("auth.wrong") ? error : undefined}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.currentTarget.value)}
+                />
+                {capabilities?.passwordReset && (
+                  <a
+                    className="signup-signin access-forgot"
+                    href="?forgot=1"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openForgot();
+                    }}
+                  >
+                    {t("auth.forgot")}
+                  </a>
+                )}
               </div>
+              {notice && (
+                <p className="auth-hint" role="status">
+                  {notice}
+                </p>
+              )}
+              {error && error !== t("auth.wrong") && (
+                <p className="auth-error" role="alert">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" variant="primary" className="signup-submit" disabled={busy}>
+                {busy ? t("auth.working") : t("auth.enter")}
+              </Button>
             </>
           )}
         </form>
       </Shake>
-    </Dialog>
+    </AuthScreen>
   );
 }

@@ -134,6 +134,7 @@ async function main(argv) {
     const plan = noticePlan({
       document: entry.doc,
       title: entry.title ?? {},
+      changes: entry.changes,
       effective,
       users,
     });

@@ -1,6 +1,7 @@
+import { FacilitationBody } from "./FacilitationPanel";
 import { useEffect, useMemo, useState } from "react";
 import type { Widget } from "@remo/model";
-import { Dialog, Tabs } from "@remo/ui";
+import { Tabs } from "@remo/ui";
 import { api, type VoteSession } from "./api";
 import { HelpLink } from "./help/HelpLink";
 import { useI18n } from "./i18n";
@@ -37,9 +38,9 @@ export function VotePanel({
   selectedIds,
   timerEndsAt,
   timerLeft,
-  onClose,
   onPublish,
   onReveal,
+  onRevealSession,
 }: {
   open: boolean;
   vote: VoteController;
@@ -49,10 +50,10 @@ export function VotePanel({
   /** When the board timer runs, the session ends with it, not on its own clock. */
   timerEndsAt: string | null;
   timerLeft: number | null;
-  onClose: () => void;
   /** The results card is written by the board's own command layer, not by the server. */
   onPublish: (sessionId: string, content: string) => Promise<string | null>;
   onReveal: (objectId: string) => void;
+  onRevealSession: (ids: readonly string[]) => void;
 }) {
   const { t, typeName } = useI18n();
   const { sessions, active, busy, error, offset, run } = vote;
@@ -157,17 +158,13 @@ export function VotePanel({
     setTab("results");
   };
 
-  const tabSessionLabel = openSession
-    ? canFacilitate
-      ? t("facilitation.vote.manage")
-      : t("facilitation.vote.tabSession")
-    : t("facilitation.vote.newSession");
+  const tabSessionLabel = canFacilitate
+    ? t(openSession ? "facilitation.vote.manage" : "facilitation.vote.newSession")
+    : t("facilitation.vote.tabSession");
 
   return (
-    <Dialog
+    <FacilitationBody
       title={t("facilitation.vote.title")}
-      size="md"
-      onClose={onClose}
     >
       <p className="vote-params vote-intro">
         {t("facilitation.vote.body")} <HelpLink topicId="facilitation.vote" />
@@ -202,6 +199,7 @@ export function VotePanel({
             onExtend={() => void run(() => api.extendVoteSession(active.id, 1))}
             onEnd={() => void run(() => api.endVoteSession(active.id))}
             onReveal={onReveal}
+            onRevealSession={onRevealSession}
           />
         ) : canFacilitate ? (
           <VoteStart
@@ -264,6 +262,6 @@ export function VotePanel({
           )}
         </>
       )}
-    </Dialog>
+    </FacilitationBody>
   );
 }

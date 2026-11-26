@@ -11,10 +11,12 @@ import { sessionsApi, type AccountSession } from "./sessionsApi";
  */
 export function SessionsDialog({
   open,
+  inline = false,
   onClose,
   onCurrentRevoked,
 }: {
   open: boolean;
+  inline?: boolean;
   onClose: () => void;
   /** The current session was ended: the app must drop back to signed-out state. */
   onCurrentRevoked: () => void;
@@ -63,11 +65,24 @@ export function SessionsDialog({
     }
   }
 
+  async function revokeOthers() {
+    setBusy("others");
+    setError(null);
+    try {
+      await sessionsApi.revokeOthers();
+      setSessions((current) => current?.filter((session) => session.current) ?? null);
+    } catch {
+      setError(t("sessions.revokeFailed"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const device = (ua: string | null) => deviceLabel(ua, t("sessions.unknownDevice"));
   const when = (iso: string) => formatWhen(iso, lang);
 
-  return (
-    <Dialog title={t("sessions.title")} description={t("sessions.body")} onClose={onClose}>
+  const content = (
+    <>
       {error && <p className="auth-error">{error}</p>}
       {sessions === null ? (
         <p className="muted">{t("sessions.loading")}</p>
@@ -88,7 +103,7 @@ export function SessionsDialog({
               </div>
               <Button
                 variant="ghost"
-                disabled={busy === session.id}
+                disabled={busy !== null}
                 onClick={() => void revoke(session)}
               >
                 {session.current ? t("sessions.signOutCurrent") : t("sessions.signOut")}
@@ -97,6 +112,16 @@ export function SessionsDialog({
           ))}
         </ul>
       )}
+      {sessions?.some((session) => !session.current) && (
+        <Button variant="secondary" disabled={busy !== null} onClick={() => void revokeOthers()}>
+          {t("sessions.signOutOthers")}
+        </Button>
+      )}
+    </>
+  );
+  return inline ? content : (
+    <Dialog title={t("sessions.title")} description={t("sessions.body")} onClose={onClose}>
+      {content}
     </Dialog>
   );
 }

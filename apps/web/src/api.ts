@@ -1,9 +1,7 @@
 /**
  * The accounts API, as the browser sees it.
  *
- * Same origin through the dev proxy (`/api` → sync service), cookies included by
- * default because the session lives in an httpOnly cookie and there is no token for
- * JavaScript to hold (ADR-062).
+ * Same-origin cookies carry the HTTP-only session through the dev proxy (ADR-062).
  */
 
 import { backupApi } from "./apiBackup";
@@ -16,7 +14,6 @@ import type { VoteSession } from "./vote/voteTypes";
 import type { LegalAcceptanceInput } from "./legal/accountLegal";
 
 export { ApiError, call } from "./apiCall";
-
 export type {
   VoteBreakdown,
   VoteBreakdownGuests,
@@ -42,6 +39,9 @@ export interface OrgSummary {
 
 export interface Access {
   allowed: boolean;
+  /** Identity used by the server for this room decision. Null identifies a guest. */
+  principalId?: string | null;
+  pdfExportAvailable?: boolean;
   role: string | null;
   capabilities: string[];
   sources: string[];
@@ -129,6 +129,7 @@ export interface Agent {
 }
 
 export interface AgentToken {
+  fingerprint: string;
   id: string;
   label: string;
   expires_at: string;
@@ -284,7 +285,7 @@ export const api = { ...roomAgentApi, ...backupApi, ...authApi,
   access: (boardId: string) =>
     call<{
       access: Access;
-      board?: { id: string; title: string; claimed: boolean; orgId?: string; visibility?: string };
+      board?: { id: string; title: string; claimed: boolean; icon?: string; coverUpdatedAt?: string | null; orgId?: string; team?: { id: string; name: string }; visibility?: string };
     }>(`/boards/${encodeURIComponent(boardId)}/access`),
   boardPeople: (boardId: string) =>
     call<{ people: Array<{ id: string; name: string }> }>(

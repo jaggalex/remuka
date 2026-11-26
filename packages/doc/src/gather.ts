@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import { bounds, type Widget } from "@remo/model";
 import type { BoardDocument } from "./board";
 
@@ -159,7 +160,7 @@ export function gatherIntoSection(
 
   let frameId: string | null = null;
   board.transact(() => {
-    board.widgets.set(frame.id, frame);
+    insertNewWidget(board.widgets, frame);
     for (const widget of members) {
       const current = board.readWidget(widget.id);
       if (!current) continue;

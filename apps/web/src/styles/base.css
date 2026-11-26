@@ -76,12 +76,11 @@ button.rm-menu-item.is-danger {
   color: var(--text-danger);
 }
 
-/* And the same cascade gap for the two states a rail button lives in: a pressed tool
-   keeps the accent of `is-selected`, a disabled one keeps the muted colour of `:disabled`
+/* A pressed tool takes ink for its chosen yellow surface; a disabled control keeps muted ink
    (order matters: disabled wins for a control that is both). */
 button.rm-btn.is-selected,
 button.rm-btn[aria-pressed="true"] {
-  color: var(--text-accent);
+  color: var(--text-on-chosen);
 }
 
 button.rm-btn:disabled {

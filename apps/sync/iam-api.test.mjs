@@ -159,6 +159,25 @@ suite("IAM API", () => {
     expect((await first("GET", "/auth/me")).status).toBe(401);
   });
 
+  it("signs out two other devices, keeps this device and audits the count once", async () => {
+    const first = client(), second = client(), third = client();
+    const address = email("other-devices");
+    const account = await first("POST", "/auth/register", { email: address, password, name: "Devices" });
+    for (const device of [second, third]) {
+      expect((await device("POST", "/auth/login", { email: address, password })).status).toBe(200);
+    }
+    expect((await first("DELETE", "/auth/sessions?others=1")).body.revoked).toBe(2);
+    expect((await first("DELETE", "/auth/sessions?others=1")).body.revoked).toBe(0);
+    expect((await first("GET", "/auth/me")).status).toBe(200);
+    expect((await second("GET", "/auth/me")).status).toBe(401);
+    expect((await third("GET", "/auth/me")).status).toBe(401);
+    const { rows } = await store.pool.query(
+      "select after from audit_events where actor_id = $1 and action = 'auth.sessions_revoked'",
+      [account.body.user.id],
+    );
+    expect(rows).toEqual([{ after: { count: 2 } }]);
+  });
+
   it("records which session performed an audited action", async () => {
     const api = client();
     const registered = await api("POST", "/auth/register", {
@@ -334,7 +353,17 @@ suite("IAM API", () => {
     expect(list.body.boards.map((board) => board.id)).toContain(created.body.board.id);
 
     const access = await owner("GET", `/boards/${created.body.board.id}/access`);
-    expect(access.body.access).toMatchObject({ allowed: true, role: "owner" });
+    expect(access.body.access).toMatchObject({ allowed: true, role: "owner", pdfExportAvailable: true });
+    const previousBilling = process.env.REMO_BILLING;
+    process.env.REMO_BILLING = "on";
+    try {
+      const free = await owner("GET", `/boards/${created.body.board.id}/access`);
+      expect(free.body.access).toMatchObject({ allowed: true, role: "owner", pdfExportAvailable: false });
+      expect(free.body.access.capabilities).toContain("board.export");
+    } finally {
+      if (previousBilling === undefined) delete process.env.REMO_BILLING;
+      else process.env.REMO_BILLING = previousBilling;
+    }
   });
 
   it("keeps one emoji on a board and refuses a long icon", async () => {

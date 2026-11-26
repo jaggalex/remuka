@@ -23,6 +23,8 @@ Only the author sees the upload: for everyone else the object appears once it ha
 
 ## Replace and download
 
+The viewer shows the name given to the image on the board. For an unnamed image, you see the filename if you can download the original. Otherwise the heading shows the description, or “Image” if the description is empty.
+
 - **Replace** on the object bar: the new file goes behind the same object, its size follows the new picture, and its position does not change.
 - **Download original** in the **More** menu: this is the original file, not the lighter copy shown on screen. It needs the export grant (`board.export`).
 - **Natural size** in the same menu returns the object to the file's own size.

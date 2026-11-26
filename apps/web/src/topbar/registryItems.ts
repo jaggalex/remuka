@@ -1,6 +1,7 @@
 import type { MenuItem } from "@remo/ui";
 import {
   commandGroup,
+  menuCommands,
   type ChromeCommand,
   type ChromeContext,
 } from "../commands";
@@ -41,3 +42,37 @@ export function menuItemsFrom(
   }
   return items;
 }
+
+const ROOM_PRIMARY = ["room.rename", "room.properties", "room.access", "room.export", "room.copyLink", "room.trash"];
+
+/** Each action uses the same capability and handler as its command-palette entry (ADR-309). */
+export function roomMenuRows(
+  ctx: ChromeContext,
+  t: Parameters<typeof menuItemsFrom>[2],
+  unreadLabel: string | undefined,
+  commentsOpen: boolean,
+  formats: { png: boolean; pdf: boolean; backup: boolean },
+) {
+  const commands = menuCommands(["room"], ctx);
+  const rows = (...ids: string[]) => menuItemsFrom(commands.filter(command => ids.includes(command.id)), ctx, t);
+  const formatNames = [formats.png && "PNG", formats.png && formats.pdf && "PDF", formats.backup && t("board.menuBackup")]
+    .filter(Boolean).join(" · ");
+  const titled = (id: string, label: string) => rows(id).map(item => "label" in item ? { ...item, label } : item);
+  const additional = commands.filter(command => !ROOM_PRIMARY.includes(command.id));
+  const more = menuItemsFrom(additional, ctx, t).map(item =>
+    "commandId" in item && item.commandId === "header.comments"
+      ? { ...item, label: unreadLabel ?? item.label, checked: commentsOpen }
+      : item);
+  return {
+    rename: rows("room.rename"),
+    propertiesAccess: rows("room.properties", "room.access"),
+    document: [
+      ...titled("room.export", t("board.menuExport", { formats: formatNames })),
+      ...titled("room.copyLink", t("board.menuCopyLink")),
+    ],
+    more,
+    trash: titled("room.trash", t("board.menuTrash")),
+  };
+}
+
+export type RoomMenuRows = ReturnType<typeof roomMenuRows>;

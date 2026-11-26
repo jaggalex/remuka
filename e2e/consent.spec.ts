@@ -204,14 +204,13 @@ test("the policy page lists the registry and opens the settings", async ({ page 
   await expect(page.locator(".consent-legal-table")).toContainText("Вход в аккаунт");
 });
 
-test("the account menu opens the same cookie settings", async ({ page }) => {
+test("the account documents section opens the same cookie settings", async ({ page }) => {
   const account = await register(page, "consent-menu");
   await page.goto(`/?org=${account.orgId}&lang=en`);
   await page.locator(".account-button").click();
-  // The footer carries the same name; the menu entry is the one inside the popover.
-  const item = page.locator(".rm-popover").getByRole("button", { name: /^Cookies?$/ });
-  await expect(item).toBeVisible();
-  await item.click();
+  await page.getByRole("dialog", {name: "Account and interface"}).getByRole("button", {name:"Account settings"}).click();
+  await page.locator(".account-page nav").getByRole("link", {name:"Documents"}).click();
+  await page.locator(".account-page-card").getByRole("button", {name:/^Cookies?$/}).click();
   await expect(page.getByRole("dialog", { name: "Cookie settings" })).toBeVisible();
 });
 

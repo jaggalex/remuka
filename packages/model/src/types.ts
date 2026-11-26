@@ -243,11 +243,13 @@ export interface Widget extends Rect {
   /**
    * Explicit position in the stacking order (ADR-039).
    *
-   * Absent means "wherever this type usually goes" (`layerKey` in layers.ts). Set by
+   * New objects receive an explicit layer on creation (ADR-285). In older rooms, absent means "wherever this type usually goes" (`layerKey` in layers.ts). Set by
    * bring-to-front and friends, and it is what makes the order a decision rather
    * than a side effect of the object's type.
    */
   z?: number;
+  /** Additional order only when adjacent numeric layers have no representable gap. */
+  zTie?: number;
 
   /**
    * Locked against moving, resizing, editing and deleting (ADR-040).

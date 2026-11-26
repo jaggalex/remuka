@@ -141,6 +141,25 @@ test("a selected editor publishes a shared editable draft and loses launch acces
   }
 });
 
+test("removing the last published draft closes refinement and leaves new tasks available", async ({ page }) => {
+  await agentBoard(page, "agent-last-draft");
+  await openRoomAgent(page);
+  const panel = roomPanel(page);
+  await panel.getByRole("button", { name: "Assign an agent" }).click();
+  await expect(panel.getByText("Assigned: Planner")).toBeVisible();
+  await panel.getByRole("textbox", { name: "New task" }).fill("Map the refund process");
+  await panel.getByRole("button", { name: "Create draft" }).click();
+  const refine = panel.getByRole("textbox", { name: "Refine the draft…" });
+  await expect(refine).toBeVisible();
+  await expect.poll(() => frames(page)).toHaveLength(1);
+  await panel.getByRole("button", { name: "Undo draft" }).click();
+  await expect.poll(() => frames(page)).toHaveLength(0);
+  await expect(refine).toHaveCount(0);
+  await expect(panel.getByText(/while a draft from this conversation is on the canvas/)).toBeVisible();
+  await panel.getByRole("button", { name: "New task", exact: true }).click();
+  await expect(panel.getByRole("textbox", { name: "New task" })).toBeVisible();
+});
+
 test("a problem map keeps its selected source and identifies a hypothesis", async ({ page }, testInfo) => {
   await agentBoard(page, "agent-interviews");
   await openRoomAgent(page);

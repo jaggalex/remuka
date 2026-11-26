@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { freshBoard } from "./helpers";
+import { freshBoard, openBoardMenu } from "./helpers";
 
 /**
  * The editor as a set of lines (ADR-252 §5.1–5.3, stage 4).
@@ -217,7 +217,7 @@ test("Backspace right after a rule gives the marker back as text", async ({ page
 test("the settings switch turns the Markdown rules off", async ({ page }) => {
   await freshBoard(page, "text-editor-markdown-off", { template: "empty" });
 
-  await page.getByRole("button", { name: /^Room menu:/ }).click();
+  await openBoardMenu(page, "more");
   await page.getByRole("menuitem", { name: "Room settings" }).click();
   const dialog = page.getByRole("dialog", { name: "Room settings" });
   await expect(dialog).toBeVisible();

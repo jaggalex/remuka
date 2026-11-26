@@ -1,0 +1,97 @@
+.org-ai-settings, .org-agents, .org-agents-roster, .org-skills, .ai-key-controls,
+.ai-key-section, .ai-key-form, .ai-key-policy, .org-agent-tokens, .org-agent-secret-value {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--space-3);
+}
+.org-ai-settings { gap: var(--space-5); }
+.org-ai-settings :is(h1,h3,p,ul) { margin: 0; }
+.org-ai-settings h1 { font: var(--type-hero); }
+.org-ai-settings h3 { font: var(--type-title); }
+.org-ai-settings ul { list-style: none; padding: 0; }
+.org-ai-heading { display: grid; gap: var(--space-1); }
+.org-ai-heading summary { width: fit-content; cursor: pointer; color: var(--text-secondary); font: var(--type-body); }
+.org-ai-heading nav { display: grid; gap: var(--space-2); padding-block: var(--space-2); }
+.org-ai-settings > .rm-tabs { gap: var(--space-2); border-bottom: var(--panel-border-width) solid var(--border-ink); }
+.org-ai-settings > .rm-tabs .rm-tab { padding-inline: var(--space-3); border: var(--panel-border-width) solid transparent; }
+.org-ai-settings > .rm-tabs .rm-tab.is-selected { background: var(--bg-app); border-color: var(--border-ink); border-bottom-color: var(--bg-app); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.org-ai-settings > .rm-tabs .rm-tab.is-selected::after { display: none; }
+.org-agents { gap: var(--space-4); }
+.org-agents-head, .org-agent, .ai-key-section, .ai-key-form, .ai-key-brief, .ai-keys > .ai-journal {
+  padding: var(--space-4);
+  color: var(--text-primary);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+}
+.org-agents-head, .org-agent[data-state="active"], .ai-key-brief, .ai-key-form, .ai-keys > .ai-journal { box-shadow: var(--shadow-bar); }
+.org-agents-switch { display: flex; flex-direction: row-reverse; justify-content: space-between; width: 100%; }
+.org-agents-switch .rm-check-text { display: grid; gap: var(--space-1); color: var(--text-primary); }
+.org-agents-switch .rm-switch-track { box-sizing: border-box; width: 48px; height: 28px; background: var(--bg-hover); border: var(--panel-border-width) solid var(--border-ink); }
+.org-agents-switch .rm-switch-thumb { box-sizing: border-box; width: 20px; height: 20px; border: 1px solid var(--border-ink); }
+.org-agents-switch input:checked + .rm-switch-track { background: var(--success-chosen); }
+.org-agents-switch input:checked + .rm-switch-track .rm-switch-thumb { background: var(--bg-panel); transform: translateX(20px); }
+.org-agents-switch strong { font: var(--type-subtitle); }
+.org-agents-switch .rm-check-text > span, .org-agents-head p, .org-agents-off, .org-skills > p, .ai-key-controls p {
+  font: var(--type-body); color: var(--text-secondary);
+}
+.org-agents-off { text-align: center; border: var(--panel-border-width) dashed var(--border-ink); border-radius: var(--radius-card); padding: var(--space-4); }
+.org-agents-content, .ai-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-5); }
+.ai-keys { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.org-agents-roster, .org-skills { gap: var(--space-2); }
+.org-agent-list { display: grid; gap: var(--space-3); }
+.org-agent { padding: var(--space-3); }
+.org-agent[data-state="disabled"] { background: var(--bg-app); }
+.org-agent-main { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: start; gap: var(--space-2); }
+.org-agent-main .org-avatar { width: var(--space-8); height: var(--space-8); background: var(--agent-soft); color: var(--text-agent); border: var(--panel-border-width) dashed var(--agent); border-radius: var(--radius-md); }
+.org-agent-name { min-width: 0; display: grid; gap: var(--space-2); }
+.org-agent-name > div { display: flex; align-items: center; min-height: var(--space-8); gap: var(--space-2); }
+.org-agent-name strong { flex: 1; overflow-wrap: anywhere; font: var(--type-subtitle); }
+.org-agent-name .muted, .org-token-list, .ai-key-scope { font: var(--type-caption); color: var(--text-secondary); }
+.org-agent .org-badge { border: var(--panel-border-width) solid var(--border-ink); }
+.org-agent .org-badge.agent, .ai-key-default { background: var(--success-soft); color: var(--state-success); }
+.org-agent-main .org-person-actions { grid-column: 1 / -1; justify-content: flex-start; }
+.org-agent .org-person-actions button { border: var(--panel-border-width) solid var(--border-ink); }
+.org-agent-create { display: flex; align-items: end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); border: var(--panel-border-width) dashed var(--border-ink); border-radius: var(--radius-card); }
+.org-agent-create .rm-field { flex: 1 1 200px; }
+.org-agent-tokens { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.org-agent-tokens-head, .ai-key-head, .org-token-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.org-agent-secret { padding: var(--space-3); border: var(--panel-border-width) dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--warning-soft); }
+.org-agent-secret p { margin-bottom: var(--space-2); }
+.org-agent-secret-value button { justify-self: start; }
+.org-token-list li { overflow-wrap: anywhere; }
+.org-skills ul { background: var(--bg-panel); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-card); overflow: clip; }
+.org-skills li + li { border-top: 1px solid var(--border-subtle); }
+.org-skills details { padding: var(--space-2) var(--space-3); }
+.org-skills summary { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; cursor: pointer; font: var(--type-body); }
+.org-skills summary::-webkit-details-marker { display: none; }
+.org-skills details p { margin-top: var(--space-2); color: var(--text-secondary); font: var(--type-caption); }
+.org-skill-risk, .ai-key-default { padding: 0 var(--space-2); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-pill); font: var(--type-caption); }
+.org-skill-risk[data-risk="propose"] { background: var(--agent-soft); color: var(--text-agent); }
+.org-skill-risk[data-risk="read"] { background: var(--sticker-blue); color: var(--sticker-ink); }
+.org-skill-risk[data-risk="write"], .ai-key-brief { background: var(--warning-soft); }
+.org-skill-risk[data-risk="destructive"] { background: var(--danger-soft); color: var(--text-danger); }
+.ai-keys > :is(.ai-journal,.auth-error,.ai-key-feedback) { grid-column: 1 / -1; }
+.ai-keys > .ai-journal { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.ai-keys > .ai-journal .action-row { margin-inline-start: auto; }
+.ai-key-controls { gap: var(--space-4); }
+.ai-key-brief p { margin-top: var(--space-2); }
+.ai-key-policy { gap: var(--space-2); }
+.ai-key-policy .rm-segmented { display: flex; flex-wrap: wrap; }
+.ai-key-policy .rm-segmented:has(.rm-segment.is-selected) { background: var(--bg-panel); border: var(--panel-border-width) solid var(--border-ink); border-radius: var(--radius-md); }
+.ai-key-policy .rm-segment { flex: 1 1 120px; min-height: var(--control-compact); height: auto; justify-content: center; white-space: normal; border-radius: var(--radius-md); }
+.ai-key-policy .rm-segment.is-selected, .ai-key-policy .rm-segment input:checked ~ .rm-segment-label { background: var(--accent-chosen); color: var(--text-on-chosen); }
+.ai-key-policy .rm-segment-label { text-align: center; }
+.ai-key-section.is-personal { border-style: dashed; background: var(--bg-app); }
+.ai-key-section ul:empty { display: none; }
+.ai-key-section ul, .ai-key, .ai-key-main { display: grid; gap: var(--space-2); }
+.ai-key + .ai-key { border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); }
+.ai-key-main > span, .ai-key-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ai-key-main strong { overflow-wrap: anywhere; }
+.ai-key-form .agent-actions { display: grid; justify-content: stretch; }
+.ai-key-form .agent-actions button { width: 100%; max-width: none; }
+@media (max-width: 740px) {
+  .org-ai-settings { margin-inline: var(--space-3); }
+  .org-agents-content, .ai-keys { grid-template-columns: minmax(0, 1fr); }
+}

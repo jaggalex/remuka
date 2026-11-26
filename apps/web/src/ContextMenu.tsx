@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Icon, type IconName } from "@remo/ui";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Icon, IconButton, type IconName } from "@remo/ui";
 
 /** One swatch of a colour grid. */
 export interface MenuGridChoice {
@@ -10,10 +10,13 @@ export interface MenuGridChoice {
 /** The palette grid a row opens instead of acting (ADR-267 §3). */
 export interface MenuGrid {
   title: string;
+  caption?: string;
   choices: MenuGridChoice[];
   /** The current value as lower-case hex, or "" when the selection disagrees. */
   current: string;
   pick: (value: string) => void;
+  /** A visible row in the main menu stays in sync with edits from other tabs. */
+  inline?: { subscribe: (listener: () => void) => () => void; read: () => string };
   /** A named choice under the grid ("Same as the column"). */
   reset?: { label: string; active: boolean; pick: () => void };
 }
@@ -23,6 +26,7 @@ export interface MenuItem {
   /** The registry id the row runs (ADR-050): a row without one is a defect. */
   commandId?: string;
   label: string;
+  visibleLabel?: string;
   icon?: IconName;
   /** The keys, already formatted for display. */
   shortcut?: string;
@@ -30,6 +34,36 @@ export interface MenuItem {
   danger?: boolean;
   action?: () => void;
   grid?: MenuGrid;
+  stepper?: MenuStepper;
+  pairedWithNext?: boolean;
+}
+
+interface MenuStepper {
+  subscribe: (listener: () => void) => () => void;
+  read: () => number;
+  write: (next: number) => void;
+  lower: string; higher: string; empty: string; hint: string;
+}
+
+function MenuStepControl({ item, control }: { item: MenuItem; control: MenuStepper }) {
+  const value = useSyncExternalStore(control.subscribe, control.read);
+  // A menu item stays focusable when its step reaches a boundary. Disabling a
+  // focused native button would send focus to the page and lose the menu's Escape.
+  function step(delta: number) {
+    const next = control.read() + delta;
+    if (!item.disabled && next >= 0 && next <= 999) control.write(next);
+  }
+  return <div className="context-menu-stepper" data-command={item.commandId} role="group" aria-label={item.label}>
+    <span>{item.label}</span>
+    <IconButton role="menuitem" tabIndex={-1} label={control.lower} icon="minus" size="compact" variant="secondary"
+      disabled={item.disabled} aria-disabled={item.disabled || value <= 0}
+      className={value <= 0 ? "is-disabled" : undefined} onClick={() => step(-1)} />
+    <output aria-label={item.label}>{value || control.empty}</output>
+    <IconButton role="menuitem" tabIndex={-1} label={control.higher} icon="plus" size="compact" variant="secondary"
+      disabled={item.disabled} aria-disabled={item.disabled || value >= 999}
+      className={value >= 999 ? "is-disabled" : undefined} onClick={() => step(1)} />
+    <small>{control.hint}</small>
+  </div>;
 }
 
 export interface MenuState {
@@ -47,7 +81,7 @@ const ROWS = '[role="menuitem"], [role="menuitemradio"]';
 
 function focusables(container: HTMLElement | null): HTMLElement[] {
   if (!container) return [];
-  return Array.from(container.querySelectorAll<HTMLElement>(ROWS));
+  return Array.from(container.querySelectorAll<HTMLElement>(ROWS)).filter(row => !row.hasAttribute("disabled"));
 }
 
 function move(container: HTMLElement | null, step: number): void {
@@ -56,6 +90,26 @@ function move(container: HTMLElement | null, step: number): void {
   const at = list.indexOf(document.activeElement as HTMLElement);
   const next = at === -1 ? (step > 0 ? 0 : list.length - 1) : (at + step + list.length) % list.length;
   list[next]?.focus();
+}
+
+function InlinePalette({ grid, disabled }: { grid: MenuGrid; disabled?: boolean }) {
+  const current = useSyncExternalStore(grid.inline!.subscribe, grid.inline!.read);
+  return <div className="context-menu-inline-palette" role="group" aria-label={grid.title}
+    onKeyDown={event => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      event.stopPropagation();
+      move(event.currentTarget, event.key === "ArrowLeft" ? -1 : 1);
+    }}>
+    <span>{grid.caption ?? grid.title}</span>
+    <div className="context-menu-swatch-grid" role="presentation">
+      {grid.choices.slice(0, 7).map(choice =>
+        <button key={choice.value} type="button" role="menuitemradio" tabIndex={-1}
+          disabled={disabled} aria-checked={choice.value === current} aria-label={choice.label}
+          title={choice.label} className="context-menu-swatch" style={{background: choice.value}}
+          onClick={() => grid.pick(choice.value)} />)}
+    </div>
+  </div>;
 }
 
 /**
@@ -241,6 +295,41 @@ export function ContextMenu({ state, onClose }: { state: MenuState | null; onClo
   const flat = state.groups.flat();
   const indexOf = (item: MenuItem) => flat.indexOf(item);
   const gridItem = openGrid != null ? flat[openGrid] : undefined;
+  const renderItem = (item: MenuItem, paired = false) => {
+    const index = indexOf(item);
+    if (item.stepper) return <MenuStepControl key={item.commandId} item={item} control={item.stepper} />;
+    if (item.grid?.inline) return <InlinePalette key={item.commandId} grid={item.grid} disabled={item.disabled} />;
+    return (
+      <button
+        key={`${index}-${item.label}`}
+        type="button"
+        role="menuitem"
+        data-row={index}
+        data-command={item.commandId}
+        tabIndex={-1}
+        className={item.danger ? "context-menu-item danger" : "context-menu-item"}
+        aria-label={item.visibleLabel ? item.label : undefined}
+        aria-disabled={item.disabled || undefined}
+        aria-haspopup={item.grid ? "menu" : undefined}
+        aria-expanded={item.grid ? openGrid === index : undefined}
+        onClick={() => run(item, index)}
+      >
+        {!paired && <span className="context-menu-icon" aria-hidden="true">
+          {item.icon && <Icon name={item.icon} size={16} />}
+        </span>}
+        <span className="context-menu-label">{item.visibleLabel ?? item.label}</span>
+        {item.shortcut ? (
+          <span className="context-menu-key" aria-hidden="true">
+            {item.shortcut}
+          </span>
+        ) : item.grid ? (
+          <span className="context-menu-icon" aria-hidden="true">
+            <Icon name="chevron-right" size={16} />
+          </span>
+        ) : null}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -263,37 +352,17 @@ export function ContextMenu({ state, onClose }: { state: MenuState | null; onClo
         </div>
         {state.groups.map((group, groupIndex) => (
           <div className="context-menu-group" key={groupIndex} role="presentation">
-            {group.map((item) => {
-              const index = indexOf(item);
-              return (
-                <button
-                  key={`${index}-${item.label}`}
-                  type="button"
-                  role="menuitem"
-                  data-row={index}
-                  data-command={item.commandId}
-                  tabIndex={-1}
-                  className={item.danger ? "context-menu-item danger" : "context-menu-item"}
-                  aria-disabled={item.disabled || undefined}
-                  aria-haspopup={item.grid ? "menu" : undefined}
-                  aria-expanded={item.grid ? openGrid === index : undefined}
-                  onClick={() => run(item, index)}
-                >
-                  <span className="context-menu-icon" aria-hidden="true">
-                    {item.icon && <Icon name={item.icon} size={16} />}
-                  </span>
-                  <span className="context-menu-label">{item.label}</span>
-                  {item.shortcut ? (
-                    <span className="context-menu-key" aria-hidden="true">
-                      {item.shortcut}
-                    </span>
-                  ) : item.grid ? (
-                    <span className="context-menu-icon" aria-hidden="true">
-                      <Icon name="chevron-right" size={16} />
-                    </span>
-                  ) : null}
-                </button>
-              );
+            {group.map((item, index) => {
+              if (group[index - 1]?.pairedWithNext) return null;
+              const next = group[index + 1];
+              if (item.pairedWithNext && next) {
+                return <div key={index} className="rm-menu-pair" role="presentation">
+                  {renderItem(item, true)}
+                  <span aria-hidden="true">·</span>
+                  {renderItem(next, true)}
+                </div>;
+              }
+              return renderItem(item);
             })}
           </div>
         ))}

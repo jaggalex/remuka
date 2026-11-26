@@ -71,6 +71,7 @@ export const ruConsent = {
   "consent.close": "Закрыть",
 
   /** The registry's lifetimes in words. One row per value in `@remo/consent`. */
+  "consent.lifetime.hours48": "48 часов",
   "consent.lifetime.days30": "30 дней",
   "consent.lifetime.hours12": "12 часов",
   "consent.lifetime.year1": "1 год",

@@ -270,6 +270,9 @@ async flushLogInTenant(room) {
     this.scheduleLogFlush(room);
     return;
   }
+  // Another flush may have drained the queue while the compaction check awaited SQL.
+  // Only that flush can acknowledge the batch it still holds.
+  if (room.logWriting) return;
   try {
     this.onPersisted?.(room.docName);
   } catch (error) {

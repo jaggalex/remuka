@@ -76,9 +76,10 @@ export function formatEffective(date, locale) {
  * `dedupePrefix` is the revision key (`legal:<doc>:<version>`); when present the per-user
  * key travels in `params.dedupe`, which is what makes the next pass skip the same person.
  */
-export function noticePlan({ document, title, effective, users, dedupePrefix = null }) {
+export function noticePlan({ document, title, changes, effective, users, dedupePrefix = null }) {
   return (users ?? []).map((user) => {
     const locale = pickLocale({ userLang: user.lang });
+    const summary = changes?.[locale] || changes?.ru || changes?.en;
     return {
       userId: user.id,
       toEmail: user.email,
@@ -86,6 +87,7 @@ export function noticePlan({ document, title, effective, users, dedupePrefix = n
       params: {
         name: user.name ?? null,
         doc: title[locale] ?? Object.values(title)[0] ?? document,
+        ...(summary ? { changes: summary } : {}),
         date: formatEffective(effective, locale),
         ...(dedupePrefix ? { dedupe: `${dedupePrefix}:${user.id}` } : {}),
       },
@@ -134,6 +136,7 @@ export async function queueLegalNotices({
     const plan = noticePlan({
       document: document.doc,
       title: document.title ?? {},
+      changes: document.changes,
       effective,
       users,
       dedupePrefix,

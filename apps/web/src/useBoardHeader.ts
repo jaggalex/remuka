@@ -1,3 +1,4 @@
+import { homeAction } from "./homeAction";
 import { useCallback, useEffect, useState } from "react";
 import type { TimerPhase, Widget } from "@remo/model";
 import { formatRemaining } from "@remo/model";
@@ -59,8 +60,7 @@ export function useBoardHeader({
   // Theme, language and calm motion are the display preferences that follow the account
   // (ADR-150, ADR-266 §8).
   useAccountPreferences({ me, theme, setTheme, lang, setLang, calm, setCalm });
-  const [presentOpen, setPresentOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(() => Boolean(homeAction("mention")));
   const [commentsUnread, setCommentsUnread] = useState(0);
   const [reactionRequest, setReactionRequest] = useState<{ emoji: string; at: number } | null>(
     null,
@@ -160,8 +160,6 @@ export function useBoardHeader({
     setTheme,
     calm,
     setCalm,
-    presentOpen,
-    setPresentOpen,
     commentsOpen,
     setCommentsOpen,
     commentsUnread,

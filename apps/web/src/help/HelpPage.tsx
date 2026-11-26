@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { brandName } from "@remo/brand";
-import { BrandMark } from "@remo/ui";
-import { useI18n, type Lang } from "../i18n";
+import { BrandMark, Icon } from "@remo/ui";
+import { useI18n } from "../i18n";
 import { ThemeSwitch } from "../ThemeSwitch";
 import { ConsentLink } from "../ConsentProvider";
 import { SupportEntryButton } from "../SupportPanel";
@@ -31,14 +31,25 @@ const data = generated as unknown as {
 };
 const TYPES = ["tutorial", "how-to", "reference", "explanation"] as const;
 
-function parsePath(): { lang: HelpLocale; topicId: HelpTopicId | null } {
-  const match = window.location.pathname.match(/^\/help(?:\/(ru|en)\/([^/]+))?\/?$/);
-  const lang = (match?.[1] as HelpLocale | undefined) ?? (localStorage.getItem("remo.lang") as HelpLocale) ?? "ru";
+type TopicType = typeof TYPES[number];
+
+// The two introductory collections also point to published articles classified elsewhere.
+// Articles keep their canonical type, stable URL, and complete content.
+const collections: Partial<Record<TopicType, HelpTopicId[]>> = {
+  tutorial: ["rooms.create", "access.share", "room.tools"],
+  explanation: ["sync.status", "access.roles", "agents.room"],
+};
+
+function parsePath(fallback: HelpLocale) {
+  const match = window.location.pathname.match(/^\/help(?:\/(ru|en)(?:\/([^/]+))?)?\/?$/);
+  const lang = (match?.[1] as HelpLocale | undefined) ?? fallback;
   const candidate = match?.[2];
   const topicId = candidate && (HELP_TOPIC_IDS as readonly string[]).includes(candidate)
     ? (candidate as HelpTopicId)
     : null;
-  return { lang: lang === "en" ? "en" : "ru", topicId };
+  const type = new URLSearchParams(window.location.search).get("type");
+  const group = TYPES.find(entry => entry === type) ?? null;
+  return { lang, topicId, group };
 }
 
 /**
@@ -48,26 +59,20 @@ function parsePath(): { lang: HelpLocale; topicId: HelpTopicId | null } {
  * generated at build time and bundled: no network request, no service.
  */
 export function HelpPage() {
-  const { t, setLang, productName, docsOrigin } = useI18n();
-  const initial = parsePath();
-  const [lang, setDocumentLang] = useState<HelpLocale>(initial.lang);
-  const [topicId, setTopicId] = useState<HelpTopicId | null>(initial.topicId);
+  const { t, lang: appLang, setLang, productName, docsOrigin } = useI18n();
+  const [{lang, topicId, group}, setRoute] = useState(() => parsePath(appLang));
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     document.documentElement.lang = lang;
-    setLang(lang as Lang);
+    setLang(lang);
   }, [lang, setLang]);
 
   useEffect(() => {
-    const onPop = () => {
-      const next = parsePath();
-      setLang(next.lang);
-      setTopicId(next.topicId);
-    };
+    const onPop = () => setRoute(parsePath(appLang));
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [appLang]);
 
   const topic = topicId ? data.topics.find((candidate) => candidate.id === topicId) : undefined;
   const html = topic?.html[lang] ?? topic?.html.ru;
@@ -84,12 +89,29 @@ export function HelpPage() {
     );
   }, [lang, query]);
 
-  const go = (nextLang: HelpLocale, id: HelpTopicId | null = topicId) => {
-    const path = id ? `/help/${nextLang}/${id}` : `/help/${nextLang}`;
+  const groupQuery = group ? `?type=${group}` : "";
+  const go = (nextLang: HelpLocale) => {
+    const path = topicId ? `/help/${nextLang}/${topicId}` : `/help/${nextLang}${groupQuery}`;
     window.history.pushState(null, "", path);
-    setDocumentLang(nextLang);
-    setTopicId(id);
+    setRoute(parsePath(nextLang));
   };
+  const grouped = group ? data.topics.filter(item =>
+    item.type === group || collections[group]?.includes(item.id)) : [];
+  const featured = data.topics.find(item => item.id === "facilitation.vote");
+  const featuredHtml = featured?.html[lang] ?? featured?.html.ru;
+  const featuredSteps = useMemo(() => {
+    if (!featuredHtml) return [];
+    const content = new DOMParser().parseFromString(featuredHtml, "text/html");
+    const steps = Array.from(content.querySelector("ol")?.children ?? [], item => (item.textContent ?? "").trim());
+    // The full guide opens with an optional shared timer. The excerpt groups opening and
+    // configuring the vote into one step and keeps the canonical start-button instruction.
+    if (steps.length !== 5) return steps.slice(0, 3);
+    const [, select, open, configure, start] = steps;
+    return [select, [open, configure].join(" "), start];
+  }, [featuredHtml]);
+  const articles = results ?? (group ? grouped.map(item => ({
+    id: item.id, title: item.title[lang], summary: item.summary[lang],
+  })) : null);
 
   return (
     <div className="help-page">
@@ -130,6 +152,7 @@ export function HelpPage() {
                 {status === "missing" ? t("help.translationMissing") : t("help.translationOutdated")}
               </p>
             )}
+            <span className="help-type" data-type={topic.type}>{t(`help.types.${topic.type}`)}</span>
             <h1>{topic.title[lang]}</h1>
             <p className="help-summary">{topic.summary[lang]}</p>
             {body ? (
@@ -155,8 +178,8 @@ export function HelpPage() {
           <>
             <div className="help-hero">
               <h1>{t("help.title")}</h1>
-              <p>{t("help.intro")}</p>
               <label className="help-search">
+                <Icon name="search" size={20} />
                 <span className="rm-sr">{t("help.search")}</span>
                 <input
                   type="search"
@@ -167,40 +190,52 @@ export function HelpPage() {
               </label>
             </div>
 
-            {results ? (
-              <section className="help-section">
-                <h2>{t("help.results")}</h2>
-                {results.length === 0 ? (
-                  <p className="help-notice">{t("help.noResults")}</p>
-                ) : (
+            {!results && (
+              <nav className="help-categories" aria-label={t("help.categories")}>
+                {TYPES.map(type => (
+                  <a key={type} className="help-category" data-type={type}
+                    href={`/help/${lang}?type=${type}`} aria-current={group === type ? "page" : undefined}>
+                    <strong>{t(`help.types.${type}`)}</strong>
+                    <span>{t(`help.examples.${type}`)}</span>
+                  </a>
+                ))}
+              </nav>
+            )}
+            {articles && (
+              <section className="help-section" aria-labelledby="help-list-heading">
+                <h2 id="help-list-heading">{group && !results ? t(`help.types.${group}`) : t("help.results")}</h2>
+                {articles.length === 0 ? <p className="help-notice" role="status">{t("help.noResults")}</p> : (
                   <ul className="help-list">
-                    {results.map((entry) => (
-                      <li key={entry.id}>
-                        <a href={`/help/${lang}/${entry.id}`}>{entry.title}</a>
-                        <p>{entry.summary}</p>
+                    {articles.map(item => (
+                      <li key={item.id}>
+                        <a href={`/help/${lang}/${item.id}`}>{item.title}</a>
+                        <p>{item.summary}</p>
                       </li>
                     ))}
                   </ul>
                 )}
               </section>
-            ) : (
-              TYPES.map((type) => {
-                const items = data.topics.filter((candidate) => candidate.type === type);
-                if (!items.length) return null;
-                return (
-                  <section className="help-section" key={type}>
-                    <h2>{t(`help.types.${type}` as "help.types.tutorial")}</h2>
-                    <ul className="help-list">
-                      {items.map((item) => (
-                        <li key={item.id}>
-                          <a href={`/help/${lang}/${item.id}`}>{item.title[lang]}</a>
-                          <p>{item.summary[lang]}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                );
-              })
+            )}
+            {featured && !group && !results?.length && (
+              <article className="help-featured">
+                <span className="help-type" data-type={featured.type}>{t(`help.types.${featured.type}`)}</span>
+                <h2 id="help-featured-title">{featured.title[lang]}</h2>
+                {featuredSteps.length > 0
+                  ? <ol>{featuredSteps.map(step => <li key={step}>{step}</li>)}</ol>
+                  : <p>{featured.summary[lang]}</p>}
+                {lang === "en" && featured.translationStatus !== "current" && (
+                  <p className="help-notice" role="status">{featured.translationStatus === "missing"
+                    ? t("help.translationMissing") : t("help.translationOutdated")}</p>
+                )}
+                <a href={`/help/${lang}/${featured.id}`} aria-describedby="help-featured-title">{t("help.readArticle")}</a>
+                <nav className="help-featured-related" aria-label={t("help.related")}>
+                  <span>{t("help.related")}</span>
+                  {featured.related.map(id => {
+                    const related = data.topics.find(item => item.id === id);
+                    return related && <a key={id} href={`/help/${lang}/${id}`}>{related.title[lang]}</a>;
+                  })}
+                </nav>
+              </article>
             )}
           </>
         )}

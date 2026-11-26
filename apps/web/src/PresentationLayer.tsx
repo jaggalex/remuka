@@ -1,3 +1,4 @@
+import { FacilitationBody } from "./FacilitationPanel";
 import { useEffect, useMemo, useState } from "react";
 import {
   addAllFrames,
@@ -11,7 +12,7 @@ import {
 import type { BoardConnection, Presence } from "@remo/doc";
 import { cellRect, layoutTable, type Camera } from "@remo/canvas";
 import type { Widget } from "@remo/model";
-import { Button, Dialog, IconButton, Input } from "@remo/ui";
+import { Button, IconButton, Input } from "@remo/ui";
 import { useI18n } from "./i18n";
 import { HelpLink } from "./help/HelpLink";
 import { usePresentation } from "./usePresentation";
@@ -201,12 +202,10 @@ export function PresentationLayer({
       {presentation.notice && <div className="canvas-notice">{presentation.notice}</div>}
 
       {presentation.panelOpen && (
-        <Dialog
+        <FacilitationBody
           title={t("presentation.title")}
           description={t("presentation.hint")}
           help={<HelpLink topicId="presentation.mode" />}
-          size="md"
-          onClose={() => presentation.setPanelOpen(false)}
         >
           <div className="presentation-panel">
             {slides.length === 0 && <p className="muted">{t("presentation.noSlides")}</p>}
@@ -290,7 +289,7 @@ export function PresentationLayer({
             </div>
             {!canFacilitate && <p className="muted">{t("presentation.forbidden")}</p>}
           </div>
-        </Dialog>
+        </FacilitationBody>
       )}
     </>
   );

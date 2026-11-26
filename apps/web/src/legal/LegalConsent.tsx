@@ -74,12 +74,10 @@ function consentSentence(
       <>
         {t("legal.consent.termsBefore")}
         <DocumentLink document={document} label={t("legal.consent.termsLink")} />
-        {t("legal.consent.termsMiddle")}
-        {privacy ? (
-          <DocumentLink document={privacy} label={t("legal.consent.privacyLink")} />
-        ) : (
-          t("legal.consent.privacyLink")
-        )}
+        {privacy && <>
+          {t("legal.consent.termsMiddle")}
+          <DocumentLink document={privacy} label={t("legal.consent.termsPrivacyLink")} />
+        </>}
         {t("legal.consent.termsAfter")}
       </>
     );

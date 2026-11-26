@@ -560,3 +560,5 @@ first release:
 4. Generate a new `REMO_KEK` for the Russian installation before its first registration if
    the current one was copied. A copied KEK with a copied database would decrypt the EU
    provider keys there.
+
+For editing product hints in the operator console and transferring approved text between installations, see the [wording catalogue guide](hint-catalog.md).

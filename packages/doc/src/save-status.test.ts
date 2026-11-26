@@ -40,6 +40,17 @@ describe("save state", () => {
     ).toEqual({ state: "offline", pending: 7, blocked: false });
   });
 
+  it("keeps the offline count through transport retries until the room synchronizes again", () => {
+    const waiting = { synced: false, pending: 3, blocked: false };
+    expect(computeSaveState({ connection: "connecting", ...waiting }).state).toBe("connecting");
+    for (const connection of ["connecting", "connected"] as const) {
+      expect(computeSaveState({ connection, ...waiting, hasSynced: true }))
+        .toEqual({ state: "offline", pending: 3, blocked: false });
+    }
+    expect(computeSaveState({ connection: "connected", ...waiting, hasSynced: true, synced: true }).state)
+      .toBe("pending");
+  });
+
   it("blocks at the offline limit and stays blocked while reconnecting", () => {
     expect(
       computeSaveState({

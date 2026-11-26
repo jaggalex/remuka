@@ -26,6 +26,7 @@ const MORE_LAYERS = ["front", "backward", "back"] as const;
  */
 export function SelectionActions({
   commandContext,
+  showElevation = true,
   widgets,
   selectedIds,
   setSelectedIds,
@@ -38,6 +39,7 @@ export function SelectionActions({
   writeBlocked,
 }: {
   commandContext: CommandContext;
+  showElevation?: boolean;
   widgets: Widget[];
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
@@ -103,7 +105,7 @@ export function SelectionActions({
     },
     { separator: true },
     ...MORE_LAYERS.map(run).filter((item): item is NonNullable<typeof item> => item !== null),
-    ...elevationMenuItems(board, widgets, selectedIds, writeBlocked, t),
+    ...(showElevation ? elevationMenuItems(board, widgets, selectedIds, writeBlocked, t) : []),
     { separator: true },
     {
       label: t("inspector.nudge"),

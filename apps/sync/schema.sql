@@ -1931,5 +1931,54 @@ create index if not exists boards_org_updated_idx on boards (org_id, updated_at 
 create index if not exists boards_org_created_idx on boards (org_id, created_at desc);
 create index if not exists boards_title_trgm_idx on boards using gin (title gin_trgm_ops);
 
-insert into schema_meta (id, version) values (1, 40)
+-- Installation-wide operator copy; each published revision is immutable (ADR-269).
+create table if not exists hint_texts (
+  slot_id text not null,
+  lang text not null check (lang in ('ru','en')),
+  variant_key text not null,
+  intent text not null check (intent in ('action','benefit','together')),
+  fields jsonb not null,
+  enabled boolean not null,
+  status text not null check (status in ('draft','published')),
+  version integer not null check (version > 0),
+  updated_by uuid references users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (slot_id,lang,status,version,variant_key)
+);
+create index if not exists hint_texts_public_idx on hint_texts(lang,slot_id,version desc) where status='published';
+
+-- One replaceable preview per room, behind the existing room RLS policies (ADR-285).
+-- Dirty dates follow document writes. Opening an unchanged room does not enqueue a render.
+alter table boards add column if not exists cover_data bytea
+  check (octet_length(cover_data) <= 153600);
+alter table boards add column if not exists cover_source_at timestamptz;
+alter table boards add column if not exists cover_next_at timestamptz not null default '-infinity';
+alter table boards add column if not exists cover_claim uuid;
+alter table boards add column if not exists cover_dirty_at timestamptz not null default now();
+
+create or replace function remo_dirty_cover_updates() returns trigger language plpgsql as $$
+begin
+  update boards set cover_dirty_at = clock_timestamp()
+   where id in (select distinct board_id from inserted_updates);
+  return null;
+end;
+$$;
+drop trigger if exists cover_after_updates on board_updates;
+create trigger cover_after_updates after insert on board_updates
+  referencing new table as inserted_updates for each statement execute function remo_dirty_cover_updates();
+
+create or replace function remo_dirty_cover_snapshot() returns trigger language plpgsql as $$
+begin
+  new.cover_dirty_at := clock_timestamp();
+  return new;
+end;
+$$;
+drop trigger if exists cover_snapshot_changed on boards;
+create trigger cover_snapshot_changed before update of snapshot on boards
+  for each row when (old.snapshot is distinct from new.snapshot) execute function remo_dirty_cover_snapshot();
+create index if not exists boards_cover_due_idx on boards (cover_next_at, id)
+  where owner_id is not null and archived_at is null
+    and (cover_source_at is null or cover_source_at < cover_dirty_at);
+
+insert into schema_meta (id, version) values (1, 42)
 on conflict (id) do update set version = excluded.version, updated_at = now();

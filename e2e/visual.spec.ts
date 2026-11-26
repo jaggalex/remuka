@@ -1,5 +1,4 @@
-import { 
-readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import {
   addSticky,
@@ -67,7 +66,9 @@ async function capture(
   // is masked with it: a fresh context picks a new colour every run (ADR-078).
   const people = page.locator(".people-trigger");
   const peopleFaces = page.locator(".people-list .rm-avatar");
-  await expect(target).toHaveScreenshot(`${name}.png`, {
+  // A pixel mismatch still fails the test. Continue to independent checks such as
+  // the exported PNG, dark theme, and editing gestures later in the same scenario.
+  await expect.soft(target).toHaveScreenshot(`${name}.png`, {
     maxDiffPixels: MAX_DIFF_PIXELS,
     threshold: PIXEL_THRESHOLD,
     mask: [...(maskAvatar ? [avatar, people, peopleFaces] : []), ...mask],
@@ -81,7 +82,7 @@ async function captureClip(page: Page,
   mask: ReturnType<Page["locator"]>[] = [],
 ) {
   if (!linuxBrowser) return;
-  await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixels: MAX_DIFF_PIXELS, threshold: PIXEL_THRESHOLD, clip, mask });
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, { maxDiffPixels: MAX_DIFF_PIXELS, threshold: PIXEL_THRESHOLD, clip, mask });
 }
 
 /** Calm animations: no cursor spring, no breathing over an agent plan (ADR-265 §4.2). */
@@ -272,14 +273,14 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
   await capture(page, page.locator("body"), "board");
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await expect(page.locator(".export-dialog")).toBeVisible();
   expect(await page.locator(".export-dialog .export-choice").count()).toBeGreaterThanOrEqual(5);
   expect(await fits()).toBe(true);
-  const exportDialog = page.getByRole("dialog", { name: "Export" });
+  const exportDialog = page.getByRole("dialog", { name: "Take a copy" });
   await capture(page, exportDialog, "export");
   // The header close of Dialog comes first; the footer has its own "Close".
-  await exportDialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await exportDialog.getByRole("button", { name: "Cancel", exact: true }).first().click();
 
   await openFacilitation(page);
   await page.getByRole("menuitem", { name: /Timer/ }).click();
@@ -309,9 +310,15 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
 
 test("a card with fields is readable", async ({ page }) => {
   await freshBoard(page, "visual-card");
-  // ADR-197: the helper opens the inspector, then selects a placed card and waits
-  // for the selection to land, so a resize cannot leave the click on a stale point.
-  await selectKanbanCard(page);
+  // Fix the reader's date so the relative due-date sentence stays reproducible.
+  await page.clock.setFixedTime(new Date("2026-11-26T12:00:00Z"));
+  await ensureProperties(page);
+  await expect.poll(() => page.evaluate(() => (window as unknown as {
+    __remo: { selectedIds: string[] }
+  }).__remo.selectedIds)).toEqual([]);
+  // With nothing selected, the HUD fits both frames to the canvas beside the inspector.
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  const cardId = await selectKanbanCard(page);
 
   const fields = page.locator(".card-fields");
   await fields.locator("select").first().selectOption("in_progress");
@@ -353,6 +360,24 @@ test("a card with fields is readable", async ({ page }) => {
     expect(date.clipped, "a date field shows its whole date").toBeLessThanOrEqual(0);
   }
 
+  await expect(page.locator(".card-record")).toContainText("Define the scope");
+  await expect(page.locator(".card-record")).toContainText("The due date was 26 days ago.");
+  await expect.poll(() => page.evaluate(() => {
+    const { camera, selectedIds, layouts, widgets } = (window as unknown as { __remo: {
+      camera: { x: number; zoom: number }; selectedIds: string[];
+      layouts: { left: number; width: number; lanes: { title: string }[] }[];
+      widgets: { type: string; x: number; width: number }[];
+    } }).__remo;
+    const board = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+    const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+    const projectX = (x: number) => board.left + board.width / 2 + (x - camera.x) * camera.zoom;
+    const spans = [
+      ...layouts.map(layout => [layout.left, layout.left + layout.width]),
+      ...widgets.filter(widget => widget.type === "frame").map(frame => [frame.x - frame.width / 2, frame.x + frame.width / 2]),
+    ];
+    return { selectedIds, lanes: layouts.flatMap(layout => layout.lanes.map(lane => lane.title)),
+      clear: spans.every(([left, right]) => projectX(left) > rail.right && projectX(right) < board.right) };
+  })).toEqual({ selectedIds: [cardId], lanes: ["Product", "Platform"], clear: true });
   await capture(page, page.locator(".layer.board"), "card-fields");
   await fields.locator('input[type="date"]').nth(1).blur();
   await capture(page, fields, "card-fields-panel");
@@ -409,12 +434,10 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
     y: origin.y - 150,
     text: "Note",
   });
-  // The hint is a first-use plate: show it for this frame, whatever ran before.
-  await page.evaluate(() => window.localStorage.removeItem("remo.canvas.hint"));
+  // ADR-268 rotates this copy by visit. The baseline depicts the first-visit action.
+  await page.evaluate(() => localStorage.setItem("remuka.hints.canvas.doubleClickEdit", JSON.stringify({ done: 0, visits: 0 })));
   await page.reload();
-  // The plate is a six-second first-use hint: wait for it, not for the document. Waiting
-  // for the ack first made the measurement race the hint's own timer on a slow run.
-  await expect(page.locator(".canvas-hint")).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator(".canvas-hint")).toContainText("Double-click to edit");
 
   const frame = () =>
     page.evaluate(() => {
@@ -598,7 +621,7 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
   // Both themes: the rail is a panel, not a strip of icons on the canvas edge.
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAccount(page);
-  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Escape");
   // The same counters in the dark theme: the plate, the accent of my vote and the
@@ -615,11 +638,30 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
  * the viewport rather than clipped by its right edge.
  */
 test("the header stays on one row and its menus fit the viewport", async ({ page }) => {
-  await freshBoard(page, "visual-header");
+  await freshBoard(page, "visual-header", { user: "Alex Bone" });
+  // The account card prints the real handle. Registration normally derives it from a
+  // unique test email, so set the mockup's handle through the profile API for capture.
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const headers = { "X-CSRF-Token": me.csrfToken };
+  const saved = await page.request.patch("/api/auth/me", { headers, data: { handle: "aka-jag" } });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  try {
+    await captureHeaderMenus(page);
+  } finally {
+    const restored = await page.request.patch("/api/auth/me", { headers, data: { handle: me.user.handle } });
+    expect(restored.ok(), await restored.text()).toBeTruthy();
+  }
+});
+
+async function captureHeaderMenus(page: Page) {
   // The first-use hint hides itself after six seconds, so whether it is in a capture
   // depended on how fast the run got there. This test is about the header: open the
   // room as a returning visitor, who has already seen the hint.
-  await page.evaluate(() => window.localStorage.setItem("remo.canvas.hint", "seen"));
+  await page.evaluate(() => {
+    window.localStorage.setItem("remo.canvas.hint", "seen");
+    const identity = JSON.parse(window.localStorage.getItem("remo.identity")!);
+    window.localStorage.setItem("remo.identity", JSON.stringify({ ...identity, color: "#1a6ad8" }));
+  });
   await page.reload();
   await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.locator(".canvas-hint")).toHaveCount(0);
@@ -669,10 +711,10 @@ test("the header stays on one row and its menus fit the viewport", async ({ page
 
   // Both themes, with a menu open: the header is one surface, the menu another.
   await openAccount(page);
-  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await capture(page, page.locator(".app"), "topbar-dark");
-});
+}
 
 /**
  * The brand sign on every surface a new person meets (ADR-272, spec §3.8).
@@ -686,7 +728,7 @@ test("the room header, home, help and sign-in carry the same mark in both themes
 }) => {
   await page.goto("/?lang=en");
   await page.locator(".home-empty").getByRole("button", { name: "Sign in", exact: true }).click();
-  await capture(page, page.locator(".rm-dialog"), "brand-sign-in");
+  await capture(page, page.locator(".auth-page"), "brand-sign-in");
   await page.keyboard.press("Escape");
 
   const account = await freshBoard(page, "visual-brand");
@@ -712,32 +754,7 @@ test("the room header, home, help and sign-in carry the same mark in both themes
 test("a kanban room and its export show the same picture", async ({ page }, testInfo) => {
   await freshBoard(page, "visual-kanban");
   await capture(page, page.locator(".app"), "board-kanban");
-
-  await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
-  await expect(page.locator(".export-dialog")).toBeVisible();
-  await page.locator(".export-dialog .export-choice", { hasText: "Whole room" }).click();
-  const download = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
-  const png = await download;
-  // The Linux browser runs remotely, where a download has no local path until saved.
-  const file = testInfo.outputPath("kanban-export.png");
-  await png.saveAs(file);
-  const bytes = await readFile(file);
-  await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
-  await page.locator(".export-dialog").getByRole("button", { name: "Close", exact: true }).first().click();
-
-  await page.evaluate(async (data) => {
-    const image = new Image();
-    image.id = "export-picture";
-    image.src = `data:image/png;base64,${data}`;
-    await image.decode();
-    // Above every layer of the app; the capture is of the picture alone.
-    image.style.cssText =
-      "position:fixed;left:0;top:0;max-width:1200px;height:auto;z-index:2147483647;background:#ffffff";
-    document.body.append(image);
-  }, bytes.toString("base64"));
-  await capture(page, page.locator("#export-picture"), "board-kanban-export", [], false);
+  await exportRoom(page, testInfo, "board-kanban-export", [5316, 1496], "kanban-export.png");
 });
 
 /**
@@ -750,17 +767,19 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
   await agentBoard(page, "visual-plan");
   await openAgentMenu(page);
   await page.getByRole("menuitem", { name: /Ask the agent/ }).click();
-  const agents = page.getByRole("dialog", { name: "AI agents in this room" });
+  const agents = page.getByRole("dialog", { name: "New task" });
   await expect(agents).toBeVisible();
+  await agents.getByRole("button", {name: "Agent settings"}).click();
   await agents.getByRole("combobox", { name: "Agent", exact: true }).selectOption({
     label: "Planner",
   });
-  await agents.getByRole("combobox", { name: "Skill", exact: true }).selectOption("brief-to-board");
+  await agents.getByRole("button", {name: "Agent settings"}).click();
+  await agents.locator('.agent-skill-picker label:has(input[value="brief-to-board"])').click();
 
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Соедини две заметки FAKE_PLAN_CONNECTED");
-  await page.getByRole("button", { name: "Ask the agent", exact: true }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -794,7 +813,7 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
  * note text and the block title are identical on every run.
  */
 test("the tidy preview shows before and after and fits the viewport", async ({ page }) => {
-  const board = await agentBoard(page, "visual-tidy");
+  await agentBoard(page, "visual-tidy");
   const rows = [
     { x: -520, y: 260, text: "US-3: pay" },
     { x: 80, y: -180, text: "US-1: browse" },
@@ -802,15 +821,9 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     { x: 260, y: 60, text: "US-2: cart" },
     { x: -320, y: -420, text: "US-5: ship" },
   ];
-  for (const row of rows) {
-    const response = await page.request.post(`/api/boards/${board.boardId}/commands`, {
-      headers: { "Idempotency-Key": `visual-tidy-${row.text}-${Date.now()}` },
-      data: {
-        command: "board.item.create",
-        input: { type: "sticky_note", x: row.x, y: row.y, width: 160, height: 180, content: row.text },
-      },
-    });
-    expect(response.ok(), await response.text()).toBeTruthy();
+  // The visible paper tilt is keyed by ID, so these five notes need repeatable identities.
+  for (const [index, row] of rows.entries()) {
+    await seedStableNote(page, { id: `visual-tidy-note-${index}`, ...row, width: 160, height: 180 });
   }
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(5);
   // The board fits itself to the seeded content after the sync lands; ask for the whole
@@ -847,7 +860,7 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
   const tidy = page.getByRole("dialog", { name: "Tidy up selection" });
   await expect(tidy).toBeVisible();
   await tidy.getByRole("button", { name: "Tidy up", exact: true }).click();
-  const plan = page.getByRole("dialog", { name: "Agent plan" });
+  const plan = page.locator(".agent-task-panel[data-tidy]");
   await expect(plan).toBeVisible({ timeout: 20_000 });
   await expect(plan).toContainText("Moves: 5");
   await expect(plan).toContainText("Blocks: US");
@@ -862,6 +875,28 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
+
+  const clearance = () => page.evaluate(() => {
+    const surface = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+    const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+    const panel = document.querySelector(".agent-task-panel[data-tidy]")!.getBoundingClientRect();
+    const hud = document.querySelector(".canvas-hud")!.getBoundingClientRect();
+    const { camera, proposal } = window.__remo;
+    const bounds = proposal!.bounds!;
+    const x = surface.left + surface.width / 2 + (bounds.x - camera.x) * camera.zoom;
+    const y = surface.top + surface.height / 2 + (bounds.y - camera.y) * camera.zoom;
+    return Math.min(x - rail.right, panel.left - x - bounds.width * camera.zoom,
+      y - surface.top, hud.top - y - bounds.height * camera.zoom);
+  });
+  // The automatic fit and the explicit Fit action keep both the original notes and
+  // the preview clear of the rail, the HUD and the task panel.
+  await expect.poll(clearance).toBeGreaterThan(4);
+  const fitted = await page.evaluate(() => window.__remo.camera);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__remo.camera.zoom)).toBeGreaterThan(fitted.zoom);
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__remo.camera)).toEqual(fitted);
+  await expect.poll(clearance).toBeGreaterThan(4);
 
   // The pointer last clicked a dialog button where the bar now stands; park it so a
   // hover state cannot become part of the picture.
@@ -941,17 +976,40 @@ test("the section panel shows the table and its axes", async ({ page }) => {
   await expect(layoutDialog).toBeVisible();
   await layoutDialog.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(panel.locator(".section-axis-row")).toHaveCount(3);
-  // A selected section fits one screen at 900 px, without scrolling (ADR-236, sketch D4).
-  const inspectorBox = page.locator("aside.inspector");
-  const overflow = await inspectorBox.evaluate((el) => el.scrollHeight - el.clientHeight);
-  expect(overflow, "the section panel needs no scrolling").toBeLessThanOrEqual(0);
   await page.getByRole("button", { name: "Columns: Column 1" }).click();
   await expect(panel.getByLabel("Axis name")).toHaveValue("Column 1");
+  // Under D4 (ADR-237) the selected section, including the open axis editor, fits at 900px.
+  const body = page.locator("aside.inspector .inspector-body");
+  expect(await body.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  const moveRight = panel.getByRole("button", {name: "Move right"});
+  const deleteSection = panel.getByRole("button", {name: "Delete section", exact: true});
+  const tags = body.locator(".tags-fold > summary");
+  for (const control of [moveRight, deleteSection, tags]) {
+    await expect(control).toBeInViewport({ratio: 1});
+    expect(await control.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+  }
   // An empty header size is Auto, named by the field itself rather than a bare unit.
   const headerHeight = panel.getByRole("spinbutton", { name: "Header height" });
   await expect(headerHeight).toHaveAttribute("placeholder", "Auto");
   await expect(panel.locator(".table-header-size .rm-input-affix")).toHaveCount(0);
-  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  const fitSectionClearOfRail = async () => {
+    await page.getByRole("button", { name: "Fit", exact: true }).click();
+    await expect.poll(() => page.evaluate(id => {
+      const { camera, widgets } = (window as unknown as { __remo: {
+        camera: { x: number; zoom: number }; widgets: { id: string; x: number; width: number }[];
+      }}).__remo;
+      const section = widgets.find(widget => widget.id === id)!;
+      const canvas = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+      const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+      const left = canvas.left + canvas.width / 2 + (section.x - section.width / 2 - camera.x) * camera.zoom;
+      // The left header holds Row 1. The entire section must clear the rail and the inspector.
+      return left > rail.right && left + section.width * camera.zoom < canvas.right;
+    }, frameId)).toBe(true);
+  };
+  await fitSectionClearOfRail();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
@@ -959,10 +1017,30 @@ test("the section panel shows the table and its axes", async ({ page }) => {
   await page.waitForTimeout(300);
   await capture(page, page.locator(".app"), "section-panel");
 
-  // The header group sits below the fold of the panel: its spacing and Auto need their own picture.
+  // The header fields and Auto labels also have their own picture.
   const headerGroup = panel.locator(".table-header-group");
   await headerGroup.scrollIntoViewIfNeeded();
   await capture(page, headerGroup, "section-panel-header");
+  // A deliberate zoom survives closing and reopening the inspector.
+  await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+  const currentCamera = () => page.evaluate(() => (window as unknown as {
+    __remo: { camera: { x: number; y: number; zoom: number } };
+  }).__remo.camera);
+  const chosenCamera = await currentCamera();
+  await page.getByRole("button", { name: "Hide the panel" }).click();
+  await expect(panel).toBeHidden();
+  await ensureProperties(page);
+  await expect(panel).toBeVisible();
+  expect(await currentCamera()).toEqual(chosenCamera);
+  await page.setViewportSize({width: 1440, height: 600});
+  expect(await body.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
+  await tags.focus();
+  await expect(tags).toBeFocused();
+  await expect(tags).toBeInViewport({ratio: 1});
+  expect(await body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Hide the panel" }).click();
+  await fitSectionClearOfRail();
 });
 
 /** World point → client point for the canvas, the same inverse the handlers use. */
@@ -1033,7 +1111,7 @@ test("a block selection shows one box and its composition", async ({ page }) => 
   );
   expect(selected).toBe(3);
   await expect(page.locator(".selection-badge")).toContainText("3 objects");
-  await expect(page.locator(".selection-badge")).toContainText("3 change size");
+  await expect(page.locator(".selection-badge")).toContainText("3 can be resized");
   await capture(page, page.locator(".canvas-wrap"), "selection-block");
 
   const notes = await page.evaluate(() => {
@@ -1216,12 +1294,7 @@ test("cardboard casts a hard shadow in light and falls back to floating in dark"
   await expect(page.locator(".inline-editor")).toHaveCount(0);
 
   await ensureProperties(page);
-  await openFold(page, "More settings");
-  const more = page.locator("aside.inspector").getByRole("button", { name: "More actions", exact: true });
-  await more.click();
-  await page.getByRole("menu", { name: "More actions" })
-    .getByRole("menuitemcheckbox", { name: "Cardboard", exact: true })
-    .click();
+  await page.getByRole("combobox", { name: "Lift", exact: true }).selectOption("cardboard");
   await page.keyboard.press("Escape");
   await zoomInToReadable(page);
   await page.keyboard.press("Escape");
@@ -1229,7 +1302,7 @@ test("cardboard casts a hard shadow in light and falls back to floating in dark"
   await capture(page, page.locator(".canvas-wrap"), "elevation");
 
   await openAccount(page);
-  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   // Close the account menu: its handle carries a per-run account suffix, and the
   // screenshot is about the canvas, not about that random string.
@@ -1682,6 +1755,8 @@ test("the image states are readable in both themes", async ({ page }) => {
   await bar.getByRole("button", { name: "Open" }).click();
   const lightbox = page.locator(".rm-lightbox");
   await expect(lightbox).toBeVisible();
+  await expect(lightbox.getByRole("heading", { name: "upload.png", exact: true })).toBeVisible();
+  await expect(lightbox.getByRole("button", { name: "Download", exact: true })).toHaveText("Download");
   const picture = lightbox.locator(".image-lightbox-picture");
   await expect(picture).toBeVisible();
   // A visible `<img>` can still be empty: wait for the decoded w2048 bitmap.
@@ -1722,9 +1797,31 @@ test("the image states are readable in both themes", async ({ page }) => {
  * quota bar. `pnpm baselines` covers the image states above.
  */
 test("the storage tab shows the organisation's pictures", async ({ page }) => {
-  await freshBoard(page, "visual-storage", { template: "empty" });
+  test.skip(process.env.E2E_BILLING !== "1", "the storage tab needs REMO_BILLING=on");
+  test.setTimeout(75_000);
+  const title = "visual-storage board";
+  const account = await freshBoard(page, "visual-storage", { template: "empty", title });
+  // Publish the initial empty-room cover first. The worker throttles subsequent
+  // renders; uploading before its first pass used to count different cover sizes.
+  const boardPath = `/api/boards/${account.boardId}`;
+  const coverPath = `${boardPath}/cover`;
+  await expect.poll(async () => (await page.request.get(coverPath)).status(), {
+    timeout: 47_000, intervals: [500, 1000, 2000],
+  }).toBe(200);
+  const cover = await page.request.get(coverPath);
+  expect(cover.headers()["content-type"]).toBe("image/webp");
+  const coverBytes = (await cover.body()).length;
+  expect(coverBytes).toBeGreaterThan(0);
   const png = await makePng(page, 600, 400);
+  const uploaded = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `${boardPath}/files` && response.request().method() === "POST");
   await uploadImage(page, png, "stored.png");
+  const receipt = await uploaded;
+  expect(receipt.status()).toBe(201);
+  const { file } = await receipt.json() as {file: {variants: Record<string, {bytes: number}>}};
+  const variants = Object.values(file.variants);
+  expect(variants.length).toBeGreaterThan(0);
+  const expectedBytes = variants.reduce((bytes, variant) => bytes + variant.bytes, png.length + coverBytes);
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -1738,22 +1835,35 @@ test("the storage tab shows the organisation's pictures", async ({ page }) => {
   await page.getByRole("button", { name: /^Account and interface/ }).click();
   await page.getByRole("button", { name: "Organisation and people" }).click();
   await expect(page.locator(".org-dialog")).toBeVisible();
-  // The tab list arrives after the billing catalogue answers; counting too early reads
-  // as "billing is off" and skips a screen that exists.
-  await expect(page.getByRole("tab").first()).toBeVisible();
   const storage = page.getByRole("tab", { name: "Storage" });
-  test.skip((await storage.count()) === 0, "the storage tab needs REMO_BILLING=on");
+  await expect(storage).toBeVisible();
+  const ranking = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `/api/orgs/${account.orgId}/storage` && response.request().method() === "GET");
   await storage.click();
+  const rankingResponse = await ranking;
+  expect(rankingResponse.status()).toBe(200);
+  expect(await rankingResponse.json()).toMatchObject({
+    usedBytes: expectedBytes, rooms: [{boardId: account.boardId, title, bytes: expectedBytes}],
+  });
   const panel = page.locator(".storage-panel");
-  await expect(panel).toBeVisible();
-  // The picture uploaded above is the one this tab counts.
-  await expect(panel).toContainText(/kB/);
+  const row = panel.getByRole("listitem");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByRole("link", {name: title, exact: true})).toHaveAttribute("href", `?room=${account.boardId}`);
+  const displayed = new Intl.NumberFormat("en-GB", {
+    style: "unit", unit: "kilobyte", maximumFractionDigits: 1,
+  }).format(expectedBytes / 1024);
+  await expect(row.locator(".storage-room-bytes")).toHaveText(displayed);
+  await expect(panel.locator(".storage-summary")).toHaveText(`Used ${displayed}, no limit`);
   // The footer names the account, and every scenario registers a fresh one. The whole
   // footer is masked, not just the email: a mask's own width follows its text.
   const foot = page.locator(".org-foot");
-  await capture(page, page.locator(".org-dialog"), "image-storage", [foot]);
+  const dialog = page.locator(".org-dialog");
+  await expect(dialog).toBeInViewport({ratio: 1});
+  const bounds = await dialog.boundingBox();
+  await capture(page, dialog, "image-storage", [foot]);
   await setTheme(page, "dark");
-  await capture(page, page.locator(".org-dialog"), "image-storage-dark", [foot]);
+  expect(await dialog.boundingBox()).toEqual(bounds);
+  await capture(page, dialog, "image-storage-dark", [foot]);
 });
 
 /* ------------------------------------------------------------- ink on paper --- */
@@ -1801,40 +1911,43 @@ async function widgetCentre(page: Page, id: string) {
   }, id);
 }
 
-/** The whole room as a PNG, shown in the page so the picture itself is the baseline. */
+/** Decode the downloaded file in a blank page so a fractional last row can only reveal white. */
 async function exportRoom(
   page: Page,
   testInfo: { outputPath: (name: string) => string },
   name: string,
+  dimensions: [number, number],
+  filename = `${name}.png`,
 ): Promise<void> {
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await expect(page.locator(".export-dialog")).toBeVisible();
-  await page.locator(".export-dialog .export-choice", { hasText: "Whole room" }).click();
+  await page.locator(".export-dialog .export-scopes .export-choice", { hasText: "Whole room" }).click();
   const download = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PNG", exact: true }).click();
   const png = await download;
-  const file = testInfo.outputPath(`${name}.png`);
+  const file = testInfo.outputPath(filename);
   await png.saveAs(file);
   await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
-  await page
-    .locator(".export-dialog")
-    .getByRole("button", { name: "Close", exact: true })
-    .first()
-    .click();
+  const sheet = page.getByRole("dialog").filter({ has: page.locator(".export-dialog") });
+  await sheet.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(sheet).toBeHidden();
   const bytes = await readFile(file);
-  await page.evaluate(async (data) => {
-    document.querySelector("#ink-export-picture")?.remove();
-    const image = new Image();
-    image.id = "ink-export-picture";
-    image.src = `data:image/png;base64,${data}`;
-    await image.decode();
-    image.style.cssText =
-      "position:fixed;left:0;top:0;max-width:1200px;height:auto;z-index:2147483647;background:#ffffff";
-    document.body.append(image);
-  }, bytes.toString("base64"));
-  await capture(page, page.locator("#ink-export-picture"), name, [], false);
-  await page.evaluate(() => document.querySelector("#ink-export-picture")?.remove());
+  expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  const preview = await page.context().newPage();
+  try {
+    await preview.setContent('<!doctype html><style>html,body{margin:0;background:white}img{display:block;max-width:1200px;height:auto}</style><img alt="Exported room">');
+    const picture = preview.getByRole("img", { name: "Exported room" });
+    const naturalSize = await picture.evaluate(async (image: HTMLImageElement, data) => {
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      return [image.naturalWidth, image.naturalHeight];
+    }, bytes.toString("base64"));
+    expect(naturalSize).toEqual(dimensions);
+    await capture(preview, picture, name, [], false);
+  } finally {
+    await preview.close();
+  }
 }
 
 /**
@@ -1915,12 +2028,12 @@ test("ink: a frame, a table, stickies and a caption are the same in the export",
   });
 
   await capture(page, page.locator(".app"), "ink-objects-light");
-  await exportRoom(page, testInfo, "ink-objects-export-light");
+  await exportRoom(page, testInfo, "ink-objects-export-light", [3498, 1797]);
 
   await setTheme(page, "dark");
   await page.getByRole("button", { name: "Fit", exact: true }).click();
   await capture(page, page.locator(".app"), "ink-objects-dark");
-  await exportRoom(page, testInfo, "ink-objects-export-dark");
+  await exportRoom(page, testInfo, "ink-objects-export-dark", [3498, 1797]);
 });
 
 /**
@@ -1974,7 +2087,7 @@ test("rotation: the canvas and its export draw the same turned objects", async (
     .toEqual([]);
 
   await capture(page, page.locator(".app"), "rotation");
-  await exportRoom(page, testInfo, "rotation-export");
+  await exportRoom(page, testInfo, "rotation-export", [1151, 515]);
 });
 
 /**

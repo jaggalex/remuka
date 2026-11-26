@@ -3,17 +3,19 @@ import type { Widget } from "@remo/model";
 import { CARD_FACE_TAGS, drawCardMeta, faceTags } from "./cardMeta";
 import { DEFAULT_PALETTE } from "./palette";
 
-/** Records the font in force at every fillText. */
-function fonts() {
-  const seen: string[] = [];
+/** Records text geometry and the font used to measure it in world units. */
+function recordText() {
+  const seen: Array<{ label: string; x: number; y: number; font: string; align: unknown }> = [];
   const state: Record<string | symbol, unknown> = {};
   const ctx = new Proxy(state, {
     get(target, key) {
       if (key in target) return target[key];
-      if (key === "measureText") return () => ({ width: 10 });
-      return () => {
-        if (key === "fillText") seen.push(String(target.font));
-      };
+      if (key === "measureText") return (label: string) => ({ width: label.length * 6 });
+      if (key === "fillText") {
+        return (label: string, x: number, y: number) =>
+          seen.push({ label, x, y, font: String(target.font), align: target.textAlign });
+      }
+      return () => {};
     },
     set(target, key, value) {
       target[key] = value;
@@ -26,7 +28,7 @@ function fonts() {
 describe("card small print (ADR-235)", () => {
   it("is drawn in world units, so it scales with the card like its title", () => {
     const card = { id: "c", type: "card", status: "in_progress", dueAt: "2026-10-31" } as unknown as Widget;
-    const { ctx, seen } = fonts();
+    const { ctx, seen } = recordText();
     drawCardMeta(ctx, 0, 0, 250, 70, card, {
       fontFamily: "Inter",
       palette: DEFAULT_PALETTE,
@@ -34,7 +36,7 @@ describe("card small print (ADR-235)", () => {
       statusLabel: { todo: "To do", in_progress: "In progress", done: "Done" },
     });
     expect(seen.length).toBeGreaterThan(0);
-    for (const font of seen) expect(font).toMatch(/^9\.5px /);
+    for (const { font } of seen) expect(font).toMatch(/^9\.5px /);
   });
 });
 
@@ -123,5 +125,68 @@ describe("the card face is paper and ink (ADR-267 §2.1)", () => {
     expect(strokes.every((colour) => colour === "#1e2136")).toBe(true);
     expect(texts).toContain("АП");
     expect(texts).toContain("Важно");
+  });
+});
+
+describe("card footer layout (App-Kanban/card-fields)", () => {
+  function paint(fields: Partial<Widget>, width: number, height = 79) {
+    const { ctx, seen } = recordText();
+    const card: Widget = { id: "c", type: "card", parentId: null, x: 0, y: 0, width, height, ...fields };
+    const titleY = drawCardMeta(ctx, 0, 0, width, height, card, {
+      fontFamily: "Inter",
+      palette: DEFAULT_PALETTE,
+      ink: { color: "#1e2136", halo: null },
+      statusLabel: { todo: "To do", in_progress: "In progress", done: "Done" },
+      tags: new Map([
+        ["a", { name: "Важно", color: "red" }],
+        ["b", { name: "UX", color: "blue" }],
+        ["c", { name: "Q4", color: "green" }],
+      ]),
+    });
+    function at(label: string) {
+      const item = seen.find(item => item.label === label);
+      expect(item, label).toBeDefined();
+      return item!;
+    }
+    return { at, seen, titleY };
+  }
+
+  it("keeps the tag on the left and the due date immediately before the rightmost avatar", () => {
+    const { at } = paint({ tagIds: ["a"], dueAt: "1999-06-30", assigneeName: "Аня Петрова", status: "todo" }, 240);
+    const tag = at("Важно"), date = at("! 06.30"), avatar = at("АП");
+    expect(tag.y).toBe(date.y);
+    expect(date.y).toBe(avatar.y);
+    expect(tag.x + tag.label.length * 6).toBeLessThan(date.x - date.label.length * 6);
+    expect(date.align).toBe("right");
+    expect(date.x).toBeLessThan(avatar.x - 7);
+    expect(avatar.align).toBe("center");
+    expect(avatar.x + 7).toBe(240 - 12);
+    expect(at("To do").y).toBeLessThan(tag.y);
+  });
+
+  it("wraps a prefix of tags without covering the title, dates, or initials", () => {
+    const { at, titleY } = paint({ tagIds: ["a", "b", "c"], startAt: "2099-06-01", dueAt: "2099-06-30", assigneeName: "Илья" }, 170);
+    const first = at("Важно"), second = at("UX"), last = at("Q4");
+    const date = at("06.01 — 06.30");
+    expect(first.y).toBe(second.y);
+    expect(first.x).toBeLessThan(second.x);
+    expect(first.y - 7).toBeGreaterThan(titleY + 12);
+    expect(first.y + 14).toBeLessThanOrEqual(last.y);
+    expect(last.y).toBe(date.y);
+    expect(last.x + 2 * 6 + 6).toBeLessThan(date.x - date.label.length * 6);
+    expect(at("И").y).toBe(date.y);
+  });
+
+  it("uses the full row for a date range that cannot fit beside the avatar", () => {
+    const { at } = paint({ startAt: "2099-06-01", dueAt: "2099-06-30", assigneeName: "Илья" }, 112);
+    const date = at("06.01 — 06.30");
+    expect(date.x - date.label.length * 6).toBeGreaterThanOrEqual(12);
+    expect(date.y).toBeLessThan(at("И").y);
+  });
+
+  it("requires no empty date slot when only an assignee is present", () => {
+    const { at } = paint({ assigneeName: "Илья" }, 65, 48);
+    expect(at("И").x + 7).toBe(65 - 12);
+    expect(paint({}, 65, 48).titleY).toBe(24);
   });
 });

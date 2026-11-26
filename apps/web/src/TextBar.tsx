@@ -118,7 +118,7 @@ export function TextBar({
   ];
 
   return (
-    <ObjectBar placement={placement} label={t("sticky.properties")}>
+    <ObjectBar placement={placement} label={t("sticky.properties")} className="text-selection-bar">
       <div className="sb-group" role="group" aria-label={t("sticky.styles")}>
         {marks.map(({ mark, icon, key }) => {
           const label = t(key);
@@ -158,12 +158,11 @@ export function TextBar({
         </Tooltip>
       </div>
 
-      <span className="sb-divider" aria-hidden="true" />
-
       <span className="sb-anchor">
         <Tooltip label={t("sticky.link")}>
           <IconButton
             icon="link"
+            iconSize={18}
             size="compact"
             label={t("sticky.link")}
             selected={Boolean(caret.href)}

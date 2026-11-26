@@ -1,11 +1,13 @@
 /* REMO component tokens and density — generated from tokens.json by scripts/build-tokens.mjs. Do not edit. */
 :root {
+  --control-command-esc: 21px;
   --control-compact: 28px;
   --control-default: 32px;
   --control-padding-x: var(--space-3);
   --dialog-padding: var(--space-5);
   --panel-gutter: var(--space-4);
   --topbar-height: 52px;
+  --panel-room-menu-width: 318px;
   --toolbar-width: 60px;
   --inspector-width: 340px;
   --dialog-sm: 420px;

@@ -1,5 +1,11 @@
 /* REMO primitives — generated from tokens.json by scripts/build-tokens.mjs. Do not edit. */
 :root {
+  --neutral-825: #262a40;
+  --neutral-750: #3a3d55;
+  --paper-cream-250: #cfc8b8;
+  --paper-cream-550: #a9a393;
+  --violet-200: #dcc2ff;
+  --alpha-violet-16: rgba(198,155,255,0.16);
   --neutral-0: #ffffff;
   --neutral-25: #fbfbfa;
   --neutral-50: #f3f2f0;
@@ -8,6 +14,7 @@
   --neutral-200: #d4d1cc;
   --neutral-300: #bfb9b1;
   --neutral-400: #8a8781;
+  --neutral-450: #757575;
   --neutral-500: #62657a;
   --neutral-600: #58534e;
   --neutral-700: #3f4256;
@@ -27,12 +34,16 @@
   --danger-500: #d4321f;
   --danger-600: #b42318;
   --danger-700: #8f1c13;
+  --danger-650: #a3300a;
   --success-50: #e9f5ee;
   --success-100: #c8e8d4;
   --success-300: #74c493;
   --success-500: #1f8a4c;
   --success-600: #17733f;
   --success-700: #115a31;
+  --yellow-50: #fff6dc;
+  --yellow-dark-raised: #423e41;
+  --yellow-dark-canvas: #332c2e;
   --warning-50: #fbf3df;
   --warning-100: #f4e0a8;
   --warning-300: #e3b84f;
@@ -64,6 +75,7 @@
   --alpha-ink-20: rgba(23,23,22,0.2);
   --alpha-black-45: rgba(0,0,0,0.45);
   --alpha-black-60: rgba(0,0,0,0.6);
+  --alpha-brand-ink-28: rgba(30,33,54,0.28);
   --alpha-ink-32: rgba(23,23,22,0.32);
   --alpha-black-56: rgba(0,0,0,0.56);
   --alpha-ink-84: rgba(23,23,22,0.84);
@@ -73,6 +85,7 @@
   --alpha-accent-light-18: rgba(141,182,240,0.18);
   --alpha-danger-light-18: rgba(240,138,122,0.18);
   --alpha-success-light-18: rgba(116,196,147,0.18);
+  --alpha-yellow-14: rgba(242,185,74,0.14);
   --alpha-warning-light-18: rgba(227,184,79,0.18);
   --alpha-violet-18: rgba(198,155,255,0.18);
   --green-teal-100: #c4e6df;
@@ -115,6 +128,7 @@
   --space-12: 48px;
   --space-13: 56px;
   --radius-xs: 2px;
+  --radius-paper-sample: 3px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -141,7 +155,10 @@
   --elev-hard-m-light: 3px 3px 0 #1e2136;
   --elev-hard-l-light: 5px 5px 0 #1e2136;
   --elev-hard-xl-light: 8px 8px 0 #1e2136;
-  --elev-hard-dark: none;
+  --elev-hard-s-dark: 2px 2px 0 #06070d;
+  --elev-hard-m-dark: 3px 3px 0 #06070d;
+  --elev-hard-l-dark: 5px 5px 0 #06070d;
+  --elev-hard-xl-dark: 8px 8px 0 #06070d;
   --z-canvas: 1;
   --z-canvas-overlay: 10;
   --z-bar: 100;
@@ -150,9 +167,11 @@
   --z-toast: 400;
   --dur-1: 120ms;
   --dur-2: 180ms;
+  --dur-progress: 1200ms;
   --dur-quiet: 150ms;
   --dur-quiet-back: 200ms;
-  --dur-reaction: 1600ms;
+  --dur-reaction-flash: 450ms;
+  --dur-reaction: 2400ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-3: 220ms;

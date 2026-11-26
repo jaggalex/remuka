@@ -21,13 +21,14 @@ export class ApiError extends Error {
 
 export async function call<T>(
   path: string,
-  init: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
+  init: { method?: string; body?: unknown; headers?: Record<string, string>; keepalive?: boolean } = {},
 ): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const token = method === "GET" || method === "HEAD" ? null : csrfToken();
   const response = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",
+    keepalive: init.keepalive,
     headers: {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(token ? { "X-CSRF-Token": token } : {}),

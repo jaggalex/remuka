@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { HintCopy } from "./HintCopy";
+import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
   api,
@@ -17,23 +18,15 @@ import { planLimitFrom } from "./apiBilling";
 import { useOrgBilling } from "./useOrgBilling";
 import { PlanNotice } from "./PlanNotice";
 import { OrganisationTeams } from "./OrganisationTeams";
-import { Button, Checkbox, Dialog, Input, Tabs } from "@remo/ui";
+import { OrganisationHeading } from "./OrganisationHeading";
+import { organisationHref, organisationTab, type OrganisationTab } from "./organisationRoute";
+import { Button, Checkbox, Input, Tabs } from "@remo/ui";
 import { useI18n } from "./i18n";
 import { EmailVerificationNeeded, InviteSent } from "./InviteFeedback";
 import { HelpLink } from "./help/HelpLink";
 import { ABOUT, aboutLabel } from "./about";
 
-/**
- * The organisation screen: who is here, what they administer, and what happened.
- *
- * It is one dialog with two tabs rather than a settings area, because an organisation
- * in v1 has exactly two questions — "who is in it" and "what has been done" — and both
- * are read from the same place. What the caller may do is decided by the server on
- * every mutation; the screen only hides what would be refused (spec/IAM-v1.md §3).
- *
- * People with the `member` relation see the list. Guests see only that they are a
- * guest: the people directory of an organisation is not theirs to read (IAM-09).
- */
+/** Organisation membership, teams and billing share a single page and permission model (ADR-275). */
 export function OrganisationDialog({
   open,
   me,
@@ -48,7 +41,7 @@ export function OrganisationDialog({
   /** The organisation chosen in the directory (ADR-166); null means "pick one". */
   initialOrgId?: string | null;
   /** Which tab the caller wants first; the room agent settings open "agents". */
-  initialTab?: "people" | "audit" | "agents" | "billing";
+  initialTab?: OrganisationTab;
   /** The directory list changed: a new organisation or a new name. */
   onOrgsChanged?: () => void | Promise<void>;
   onClose: () => void;
@@ -73,8 +66,16 @@ export function OrganisationDialog({
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [invitations, setInvitations] = useState<OrgInvitation[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
-  const [tab, setTab] = useState<"people" | "audit" | "agents" | "billing" | "storage">(initialTab);
-  const openedTab = useRef<"people" | "audit" | "agents" | "billing" | "storage">(initialTab);
+  const [tab, changeTab] = useState<OrganisationTab>(initialTab);
+  const setTab = (next: OrganisationTab) => {
+    if (next !== tab) history.pushState(null, "", organisationHref(next, org?.slug ?? initialOrgId));
+    changeTab(next);
+  };
+  useEffect(() => {
+    const follow = () => changeTab(organisationTab(location.pathname) ?? "people");
+    window.addEventListener("popstate", follow);
+    return () => window.removeEventListener("popstate", follow);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +132,6 @@ export function OrganisationDialog({
   /** The organisation list is re-read every time the screen opens: invitations change it. */
   useEffect(() => {
     if (!open) return;
-    openedTab.current = initialTab;
     let alive = true;
     setError(null);
     void api
@@ -139,9 +139,7 @@ export function OrganisationDialog({
       .then(({ orgs: next }) => {
         if (!alive) return;
         setOrgId(() => {
-          if (initialOrgId && next.some((candidate) => candidate.id === initialOrgId)) {
-            return initialOrgId;
-          }
+          if (initialOrgId) return next.find(candidate => candidate.id === initialOrgId || candidate.slug === initialOrgId)?.id ?? null;
           const first =
             next.find((candidate) => candidate.relation === "member" && candidate.state === "active") ??
             next[0];
@@ -202,7 +200,6 @@ export function OrganisationDialog({
     setOrgNameDraft("");
     setError(null);
     setPlanNotice(null);
-    setTab("people");
     void load(orgId);
   }, [open, orgId, load]);
 
@@ -212,10 +209,11 @@ export function OrganisationDialog({
   }, [billing.available, tab]);
 
   useEffect(() => {
-    if (!open || !orgId) return;
-    setTab(openedTab.current);
-    openedTab.current = "people";
-  }, [open, orgId]);
+    if (org && org.id === orgId) history.replaceState(null, "", organisationHref(tab, org.slug));
+  }, [org, orgId, tab]);
+  useEffect(() => {
+    if (org && !loading && tab === "audit" && !seesAudit) setTab("people");
+  }, [org, loading, seesAudit, tab]);
 
   if (!open) return null;
 
@@ -397,6 +395,7 @@ export function OrganisationDialog({
     try {
       const created = await api.createOrg(newOrgName.trim());
       await onOrgsChanged?.();
+      changeTab("people");
       setOrgId(created.org.id);
       setCreatingOrg(false);
       setNewOrgName("");
@@ -409,15 +408,24 @@ export function OrganisationDialog({
 
   const manageable = members.filter((member) => member.relation === "member" && member.state !== "suspended");
 
+  const orgTabs = (<Tabs
+    label={t("org.title")}
+    tabs={[
+      { id: "people", label: t("org.people") },
+      { id: "teams", label: t("org.teams") },
+      { id: "agents", label: t("org.agents") },
+      ...(seesAudit ? [{ id: "audit", label: t("org.audit") }] : []),
+      ...(billing.available ? [{ id: "storage", label: t("storage.tab") }, { id: "billing", label: t("billing.tab") }] : []),
+    ]}
+    value={tab}
+    onChange={(id) => setTab(id as typeof tab)}
+  />);
   return (
-    <Dialog
-      title={org?.name ?? t("org.title")}
-      description={isGuest ? t("org.guestBody") : t("org.memberCount", { n: members.length })}
-      size="lg"
-      onClose={onClose}
-    >
-      <section className="org-dialog">
-        <div className="org-head">
+    <main className="org-page"><section className="org-dialog">
+        {(isGuest || tab !== "agents") && <OrganisationHeading billingView={tab === "billing"} name={org?.name ?? t("org.title")} slug={org?.slug} billing={isGuest ? null : billing.seed}
+          description={isGuest ? t("org.guestBody") : t("org.memberCount", { n: members.length })}
+          onBilling={() => setTab("billing")} />}
+        {tab === "people" && <div className="org-head">
           {renamingOrg && org ? (
             <form className="org-rename" onSubmit={renameOrg}>
               <Input
@@ -463,9 +471,9 @@ export function OrganisationDialog({
             onClick={() => setCreatingOrg((value) => !value)}>
             + {t("org.newOrg")}
           </Button>
-        </div>
+        </div>}
 
-        {creatingOrg && (
+        {tab === "people" && creatingOrg && (
           <form className="org-create" onSubmit={createOrg}>
             <Input
               autoFocus
@@ -481,22 +489,11 @@ export function OrganisationDialog({
           </form>
         )}
 
-        {!isGuest && (
-          <Tabs
-            label={t("org.title")}
-            tabs={[
-              { id: "people", label: t("org.people") },
-              { id: "agents", label: t("org.agents") },
-              ...(seesAudit ? [{ id: "audit", label: t("org.audit") }] : []),
-              ...(billing.available ? [{ id: "storage", label: t("storage.tab") }, { id: "billing", label: t("billing.tab") }] : []),
-            ]}
-            value={tab}
-            onChange={(id) => setTab(id as typeof tab)}
-          />
-        )}
+        {!isGuest && tab !== "agents" && orgTabs}
 
         {planNotice ? (
           <PlanNotice
+            orgId={orgId}
             notice={planNotice}
             onSeePlans={billing.available ? () => { setPlanNotice(null); setTab("billing"); } : undefined}
             onDismiss={() => setPlanNotice(null)}
@@ -506,12 +503,12 @@ export function OrganisationDialog({
         ) : null}
         {!orgId && !error && <p className="muted">{t("org.noOrg")}</p>}
 
-        {!isGuest && tab === "people" && (
-          <>
-            {orgId && (
+            {!isGuest && tab === "teams" && orgId && (
               <OrganisationTeams
                 orgId={orgId}
                 teams={teams}
+                lockedPlan={billing.seed && !billing.seed.features.includes("roles.advanced") ? billing.seed.featurePlans?.["roles.advanced"] : undefined}
+                onPlanLimit={setPlanNotice}
                 members={members}
                 canManage={isOrgAdmin}
                 onChanged={() => load(orgId)}
@@ -519,6 +516,8 @@ export function OrganisationDialog({
               />
             )}
 
+        {!isGuest && tab === "people" && (
+          <>
             {isUserAdmin && (
               <form
                 className="org-invite"
@@ -744,7 +743,7 @@ export function OrganisationDialog({
         )}
 
         {!isGuest && tab === "agents" && orgId && (
-          <AgentsPanel
+          <AgentsPanel orgName={org?.name ?? ""} slug={org?.slug} navigation={orgTabs}
             orgId={orgId}
             isOrgAdmin={isOrgAdmin}
             canReadJournal={seesAudit}
@@ -783,7 +782,7 @@ export function OrganisationDialog({
                 </li>
               );
             })}
-            {!audit.length && <li className="muted">{t("org.auditEmpty")}</li>}
+            {!audit.length && <li className="muted"><HintCopy slot="journal.empty" text="org.auditEmpty" /></li>}
           </ul>
         )}
 
@@ -795,6 +794,6 @@ export function OrganisationDialog({
           </Button>
         </footer>
       </section>
-    </Dialog>
+    </main>
   );
 }

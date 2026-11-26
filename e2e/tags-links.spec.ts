@@ -12,9 +12,14 @@ test("a tag and a safe external link survive a reload", async ({ page }) => {
   await tags.locator(".tag-add input").fill("Priority");
   await tags.locator(".tag-add button").click();
   await expect(tags.locator(".tag-assign .tag-chip")).toHaveText("Priority");
+  const rename = tags.locator(".tag-name-input input, input.tag-name-input").first();
+  await rename.fill("Cancelled");
+  await rename.press("Escape");
+  await expect(rename).toHaveValue("Priority");
+  await expect(tags.locator(".tag-assign .tag-chip")).toHaveText("Priority");
   await tags.locator(".tag-assign input[type=checkbox]").first().check();
   // The folded row says what it holds without opening it.
-  await expect(page.locator(".tags-fold .rm-disclosure-value")).toHaveText("Priority");
+  await expect(page.locator(".card-tags > summary .tag-chip")).toHaveText("Priority");
 
   const link = page.locator(".link-panel");
   await link.locator('input[type="url"]').fill("https://example.com");

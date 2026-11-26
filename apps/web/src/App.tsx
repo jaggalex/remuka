@@ -1,5 +1,8 @@
+import { OrganisationPage } from "./OrganisationPage";
+import { organisationTab } from "./organisationRoute";
 import { BoardApp } from "./BoardApp";
 import { CookiePolicyPage } from "./CookiePolicyPage";
+import { AccountSettingsPage } from "./AccountSettingsPage";
 import { LegalDocumentsPage } from "./legal/LegalDocumentsPage";
 import { LegalProvider } from "./legal/LegalProvider";
 import { FakePaymentPage } from "./FakePaymentPage";
@@ -56,6 +59,13 @@ export function App() {
         </LegalProvider>
       </Contained>
     );
+  }
+
+  const orgSection = organisationTab(location.pathname);
+  if (orgSection) return <Contained scope="panel"><LegalProvider><OrganisationPage tab={orgSection} /></LegalProvider></Contained>;
+
+  if (params.get("account") === "1") {
+    return <Contained scope="panel"><LegalProvider><AccountSettingsPage /></LegalProvider></Contained>;
   }
 
   // The fake provider's redirect lands before any workspace: completing a test payment

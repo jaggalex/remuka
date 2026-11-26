@@ -97,6 +97,7 @@ function describeDocument(root, entry, origin) {
     // The letter names the document in the recipient's language; the public wire shape
     // (`legalConfig`) deliberately drops the title.
     title: entry.title ?? {},
+    ...(entry.changes ? { changes: entry.changes } : {}),
     required: entry.required,
     reaccept: entry.reaccept,
     status: entry.status,
@@ -165,6 +166,7 @@ export function legalConfig(legal) {
         reaccept,
         status,
         withdrawable,
+        changes,
         url,
       }) => ({
         doc,
@@ -176,6 +178,7 @@ export function legalConfig(legal) {
         reaccept,
         status,
         withdrawable,
+        ...(changes ? { changes } : {}),
         url,
       }),
     ),

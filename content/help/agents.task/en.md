@@ -5,7 +5,7 @@ An agent does a task in the room on your behalf. There are four scenarios, and t
 - **Plan** (the Brief to room skill): the agent proposes a structure, you read the preview and press Apply. The room does not change before that, and one ⌘Z removes the whole structure.
 - **Diagram** (the Diagram from a description skill): the agent writes shapes and connectors immediately, with no preview; ⌘Z does not undo that write.
 - **Cards** (the Cards from a selection skill): the agent builds a package from the selection. Preview job shows the card count, Run job creates them; ⌘Z does not undo the package.
-- **Tidy up** (the Tidy up selection skill): the agent lays the selection out in even columns. You choose the layout in the before/after preview and press Apply; one ⌘Z puts every object back.
+- **Tidy up** (the Tidy up selection skill): the agent lays the selection out in even columns. You choose the layout in the preview and click Tidy up; one ⌘Z puts every object back.
 
 ## Who can ask
 
@@ -33,6 +33,8 @@ A key is access to the provider budget. Create a separate key for Remuka with a 
 3. **Apply.** You read the plan and press Apply. All objects and connectors are written in one gesture.
 4. **Undo.** One ⌘Z removes the whole plan: objects and connectors alike.
 5. **Opening it again.** The plan shows the result and a "Show in room" button instead of Apply. If the same plan was open in two tabs, the tab that applies it second gets the server's "already applied" answer and writes nothing; it shows no ⌘Z hint, because it wrote nothing.
+
+If the brief does not say who is responsible for a step, the agent can flag it in the plan. For example, a refund step may need an approver. You can apply the draft and clarify the role with your team.
 
 ## Steps
 
@@ -65,8 +67,8 @@ A package can be stopped with Stop and resumed with Resume: progress is kept bet
 1. Select sticky notes in the room. Press Tidy up in the context menu or on the selection bar.
 2. Choose a layout: Auto, By prefix, By type, Grid or By meaning. Natural order puts `US-2` before `US-10`.
 3. Wait for the preview: dashed lines in the room show where objects move and where blocks appear, and warnings name locked objects and foreign frames that stay put.
-4. Change the layout under Details if needed: block labels are kept and coordinates are recomputed.
-5. Press Apply. Sizes, texts and lines do not change; one ⌘Z puts everything back.
+4. To try another layout, choose it under Layout. The dashed outlines update.
+5. Click Tidy up. Sizes, texts and lines do not change; one ⌘Z puts everything back.
 
 If a frame is selected, its contents are laid out inside it and the frame itself does not move. Blocks are frames, never groups. The 50-object limit is counted after groups and the selected frame are expanded: a larger set is refused before a plan is stored. A kanban card stays in place with a warning: its cell decides where it stands, and the plan applies to the remaining objects.
 

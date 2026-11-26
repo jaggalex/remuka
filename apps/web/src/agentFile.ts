@@ -1,70 +1,29 @@
+import { prepareTaskFile, TASK_INPUT_LIMITS, TaskInputError } from "@remo/agent-plan/task-input";
+import type { TaskFileKind } from "@remo/agent-plan/task-input";
 import type { TranslationKey } from "./i18n";
 
-/**
- * The file half of a `brief-to-board` task, checked before it is sent.
- *
- * The server repeats every rule (`apps/sync/task-file.mjs`); this copy exists so a
- * person sees a sentence next to the field instead of a 422 after pressing Run. The
- * limits and codes are the same, and the file is sent as UTF-8 text — the original
- * bytes are never stored (ADR-142 "Untrusted content").
- */
-
-export const TASK_FILE_LIMITS = Object.freeze({
-  bytes: 100_000,
-  chars: 20_000,
-  name: 120,
-});
-
-export type TaskFileKind = "md" | "txt" | "csv";
-
+export { TASK_INPUT_LIMITS as TASK_FILE_LIMITS, TaskInputError as TaskFileError };
 export interface TaskFile {
   name: string;
   kind: TaskFileKind;
   content: string;
+  modelText: string;
   bytes: number;
   chars: number;
 }
 
-export class TaskFileError extends Error {
-  constructor(readonly code: TaskFileErrorCode, message = code) {
-    super(message);
-    this.name = "TaskFileError";
-  }
-}
-
-export type TaskFileErrorCode =
-  | "BAD_FILE"
-  | "BAD_FILE_NAME"
-  | "BAD_FILE_TYPE"
-  | "BAD_FILE_ENCODING"
-  | "FILE_TOO_LARGE";
-
-const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
-
-export function taskFileKind(name: string): TaskFileKind | null {
-  const match = /\.([a-z0-9]+)$/i.exec(name);
-  const kind = match?.[1]?.toLowerCase() ?? "";
-  return kind === "md" || kind === "txt" || kind === "csv" ? kind : null;
-}
-
-/** UTF-8 bytes, measured exactly as the server does after decoding. */
 export function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
+/** Keep the upload unchanged. The preview uses the server's CSV and truncation rules. */
 export function prepareAgentFile(name: string, content: string): TaskFile {
-  const base = String(name ?? "").trim().split(/[\\/]/).pop() ?? "";
-  if (!base) throw new TaskFileError("BAD_FILE");
-  if (base.length > TASK_FILE_LIMITS.name) throw new TaskFileError("BAD_FILE_NAME");
-  const kind = taskFileKind(base);
-  if (!kind) throw new TaskFileError("BAD_FILE_TYPE");
-  if (content.includes("\uFFFD") || CONTROL.test(content)) {
-    throw new TaskFileError("BAD_FILE_ENCODING");
-  }
-  const text = content.startsWith("\uFEFF") ? content.slice(1) : content;
-  const bytes = utf8Bytes(text);
-  if (bytes > TASK_FILE_LIMITS.bytes) throw new TaskFileError("FILE_TOO_LARGE");
-  return { name: base, kind, content: text, bytes, chars: text.length };
+  const file = prepareTaskFile({ name, content });
+  const original = content.startsWith("\uFEFF") ? content.slice(1) : content;
+  return {
+    name: file.name, kind: file.kind, bytes: file.bytes, content: original, chars: original.length,
+    modelText: file.content.slice(0, TASK_INPUT_LIMITS.chars),
+  };
 }
 
 const FILE_ERROR_KEYS: Record<string, TranslationKey> = {
@@ -82,7 +41,7 @@ export function taskFileErrorText(
   code: string,
   t: (key: TranslationKey) => string,
 ): string {
-  return t(FILE_ERROR_KEYS[code as TaskFileErrorCode] ?? "agents.file.bad");
+  return t(FILE_ERROR_KEYS[code] ?? "agents.file.bad");
 }
 
 /** Human size for the field summary: no dependency, one decimal at most. */

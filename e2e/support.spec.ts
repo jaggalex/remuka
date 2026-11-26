@@ -19,6 +19,8 @@
  * the configured origin — but only when that origin is a loopback address, so a developer
  * who pointed the run at a real installation never has their widget replaced by this file.
  */
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 import { register } from "./helpers";
 
@@ -152,30 +154,71 @@ test("the help centre offers support only to a signed-in reader", async ({ page 
   await expect(page.getByRole("button", { name: "Write to support" })).toBeVisible();
 });
 
-test("chatwoot mode frames only the configured origin", async ({ page }) => {
-  const config = await supportMode(page);
-  test.skip(config.provider !== "chatwoot", "run with E2E_SUPPORT_PROVIDER=chatwoot");
-  expect(config.origin).toBeTruthy();
-  test.skip(!isLoopback(config.origin!), `not a loopback origin: ${config.origin}`);
+for (const lang of ["ru", "en"] as const) {
+  test.describe(`Remuka interface ${lang}`, () => {
+    test.use({ locale: lang === "ru" ? "en-US" : "ru-RU" });
 
-  await fakeWidget(page, config.origin!);
-  await register(page, "support-widget");
+    test("chatwoot mode frames only the configured origin", async ({ page }) => {
+      const config = await supportMode(page);
+      test.skip(config.provider !== "chatwoot", "run with E2E_SUPPORT_PROVIDER=chatwoot");
+      expect(config.origin).toBeTruthy();
+      test.skip(!isLoopback(config.origin!), `not a loopback origin: ${config.origin}`);
+
+      await fakeWidget(page, config.origin!);
+      await register(page, "support-widget");
+      await page.goto(`/?lang=${lang}`);
+      await page.locator(".account-button").click();
+      await page.getByRole("button", { name: lang === "ru" ? "Помощь и поддержка" : "Help and support" }).click();
+
+      const panel = page.locator(".support-panel");
+      await expect(panel).toBeVisible();
+      const frame = panel.locator("iframe");
+      await expect(frame).toHaveAttribute("src", `${config.origin}/widget.html?lang=${lang}&theme=light`);
+      await expect(frame).toHaveAttribute("referrerpolicy", "no-referrer");
+      await expect(frame).toHaveAttribute("sandbox", /allow-scripts/);
+
+      // The identity arrives as a message pinned to the one configured origin.
+      await expect.poll(async () => (await relayed(page)).length).toBeGreaterThan(0);
+      const first = await relayed(page);
+      expect(first[0]?.from).toBe(new URL(page.url()).origin);
+      expect(first[0]?.relay).toMatchObject({ type: "remo:support:identity", identity: { attributes: { lang } } });
+    });
+  });
+}
+
+test("the embedded Website SDK follows Remuka theme changes without reloading the draft", async ({ page, baseURL }) => {
+  const config = await supportMode(page);
+  test.skip(config.provider !== "chatwoot" || !config.origin || !isLoopback(config.origin));
+  const origin = config.origin!;
+  const assets = resolve(__dirname, "../deploy/support");
+  const html = (await readFile(resolve(assets, "widget.html"), "utf8"))
+    .replace("__REMO_APP_ORIGIN__", new URL(baseURL!).origin)
+    .replace("__CHATWOOT_BASE_URL__", origin)
+    .replace("__CHATWOOT_WEBSITE_TOKEN__", "fixture");
+  await page.route(origin + "/widget.html?*", route => route.fulfill({ contentType: "text/html", body: html }));
+  await page.route(origin + "/widget.js", route => route.fulfill({ path: resolve(assets, "widget.js") }));
+  await page.route(origin + "/packs/js/sdk.js", route => route.fulfill({
+    contentType: "application/javascript",
+    body: `window.chatwootSDK = {run() {
+      document.body.innerHTML = '<textarea></textarea>';
+      document.body.dataset.initial = window.chatwootSettings.darkMode;
+      window.$chatwoot = {setUser(){}, setCustomAttributes(){}, toggle(){},
+        setColorScheme(value){ document.body.dataset.scheme = value; }};
+      window.dispatchEvent(new Event('chatwoot:ready'));
+    }};`,
+  }));
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.addInitScript(() => localStorage.setItem("remo.theme", "dark"));
+  await register(page, "support-theme");
   await page.goto("/?lang=en");
   await openAccountMenu(page);
   await page.getByRole("button", { name: "Help and support" }).click();
-
-  const panel = page.locator(".support-panel");
-  await expect(panel).toBeVisible();
-  const frame = panel.locator("iframe");
-  await expect(frame).toHaveAttribute("src", `${config.origin}/widget.html?lang=en`);
-  await expect(frame).toHaveAttribute("referrerpolicy", "no-referrer");
-  await expect(frame).toHaveAttribute("sandbox", /allow-scripts/);
-
-  // The identity arrives as a message pinned to the one configured origin.
-  await expect.poll(async () => (await relayed(page)).length).toBeGreaterThan(0);
-  const first = await relayed(page);
-  expect(first[0]?.from).toBe(new URL(page.url()).origin);
-  expect(first[0]?.relay).toMatchObject({ type: "remo:support:identity" });
+  const widget = page.frameLocator(".support-panel-frame");
+  await expect(widget.locator("body")).toHaveAttribute("data-initial", "dark");
+  await widget.locator("textarea").fill("draft");
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+  await expect(widget.locator("body")).toHaveAttribute("data-scheme", "light");
+  await expect(widget.locator("textarea")).toHaveValue("draft");
 });
 
 test("technical information is opt-in and carries the client errors", async ({ page }) => {

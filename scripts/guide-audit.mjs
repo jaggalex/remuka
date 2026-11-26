@@ -143,6 +143,20 @@ try {
     pass("AI files", `llms.txt maps all ${expectedPages.length} pages, llms-full.txt contains every page`);
   }
 
+  for (const locale of ["ru", "en"]) {
+    const map = await fetch(`${base}/guide/llms.${locale}.txt`);
+    const full = await fetch(`${base}/guide/llms-full.${locale}.txt`);
+    const mapBody = await map.text(), fullBody = await full.text();
+    const header = locale === "en" ? "Source" : "Источник";
+    const complete = expectedPages.every(id => {
+      const url = `https://${BRAND.domains.docs}/guide/${locale}/${id}.html`;
+      return mapBody.includes(`](${url})`) && fullBody.includes(`${header}: ${url}\n`);
+    });
+    if (!complete || !map.ok || !full.ok || ![map,full].every(response =>
+      response.headers.get("etag") && /text\/plain; charset=utf-8/i.test(response.headers.get("content-type"))) ||
+      (locale === "en" && fullBody !== llmsFullText)) fail(`AI export failed: ${locale}`);
+  }
+
   const aiPage = await open("/guide/ru/overview/ai.html");
   const aiState = await aiPage.evaluate(() => ({
     topLink: document.querySelector(".ai-link")?.textContent?.trim(),

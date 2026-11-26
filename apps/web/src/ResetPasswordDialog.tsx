@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button, Dialog, Input } from "@remo/ui";
+import { Button, Input } from "@remo/ui";
+import { AuthScreen } from "./AuthScreen";
 import { ApiError } from "./apiCall";
 import { resetPassword } from "./apiMail";
 import { useI18n } from "./i18n";
@@ -55,8 +56,14 @@ export function ResetPasswordDialog({
     }
   };
 
+  const score = Math.min(
+    4,
+    (password.length >= 10 ? 2 : password.length >= 6 ? 1 : 0) +
+      Number(/\d/.test(password)) +
+      Number(/[^\p{L}\d]/u.test(password)),
+  );
   return (
-    <Dialog title={t("mail.resetTitle")} description={t("mail.resetBody")} size="sm" onClose={onClose}>
+    <AuthScreen step="reset" title={t("mail.resetTitle")} onBack={onClose}>
       {refusal ? (
         <div className="dialog-stack">
           <p className="auth-error">
@@ -71,29 +78,50 @@ export function ResetPasswordDialog({
         </div>
       ) : (
         <form className="dialog-stack" onSubmit={submit}>
-          <Input
-            label={t("mail.newPassword")}
-            type={show ? "text" : "password"}
-            required
-            minLength={10}
-            value={password}
-            autoComplete="new-password"
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          <div className="auth-actions">
-            <Button type="button" size="compact" variant="ghost" selected={show} onClick={() => setShow((value) => !value)}>
+          <div className="auth-password">
+            <Input
+              label={t("auth.password")}
+              type={show ? "text" : "password"}
+              required
+              minLength={10}
+              value={password}
+              autoComplete="new-password"
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <Button
+              className="access-link access-forgot"
+              type="button"
+              size="compact"
+              variant="ghost"
+              selected={show}
+              onClick={() => setShow((value) => !value)}
+            >
               {show ? t("mail.hide") : t("mail.show")}
             </Button>
           </div>
-          {error && <p className="auth-error">{error}</p>}
-          <div className="auth-actions">
-            <Button onClick={onClose}>{t("auth.cancel")}</Button>
-            <Button type="submit" variant="primary" disabled={busy || !password}>
-              {busy ? t("auth.working") : t("mail.savePassword")}
-            </Button>
+          <div className="auth-strength" aria-hidden="true">
+            {[1, 2, 3, 4].map((n) => (
+              <span key={n} className={n <= score ? "is-filled" : ""} />
+            ))}
           </div>
+          <p>
+            {t(
+              !password
+                ? "access.strengthEmpty"
+                : password.length < 10
+                  ? "access.strengthShort"
+                  : score >= 3
+                    ? "access.strengthGood"
+                    : "access.strengthFair",
+            )}
+          </p>
+          {error && <p className="auth-error">{error}</p>}
+          <Button type="submit" variant="primary" className="signup-submit" disabled={busy}>
+            {busy ? t("auth.working") : t("mail.savePassword")}
+          </Button>
+          <p className="auth-reset-foot">{t("access.resetFoot")}</p>
         </form>
       )}
-    </Dialog>
+    </AuthScreen>
   );
 }

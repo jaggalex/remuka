@@ -13,9 +13,11 @@ import { useI18n } from "./i18n";
 export function CardFilterPanel({
   widgets,
   setSelectedIds,
+  onNotice,
 }: {
   widgets: Widget[];
   setSelectedIds: (ids: string[]) => void;
+  onNotice: (message: string) => void;
 }) {
   const { t } = useI18n();
   const [assigneeId, setAssigneeId] = useState("");
@@ -27,6 +29,7 @@ export function CardFilterPanel({
     const matches = cardsMatching(widgets, { assigneeId, due });
     setFound(matches.length);
     setSelectedIds(matches.map((widget) => widget.id));
+    onNotice(t("filter.found", { count: matches.length }));
   };
 
   return (
@@ -60,7 +63,7 @@ export function CardFilterPanel({
       </div>
       {found !== null && (
         <p className="muted">
-          {found ? t("filter.found", { count: found }) : t("filter.empty")}
+          {t("filter.found", { count: found })}
         </p>
       )}
     </div>

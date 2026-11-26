@@ -33,7 +33,7 @@ import { legalAcceptanceProblem, legalAcceptanceRows, legalIpPolicy } from "./le
 import { enqueueMail, pickLocale } from "./mail.mjs";
 import { queueMfaLetter } from "./mfa-mail.mjs";
 import { issueMfaChallenge, answerMfaChallenge } from "./mfa-signin.mjs";
-import { MFA_HOURLY_FAILURES } from "./mfa.mjs";
+import { MFA_HOURLY_FAILURES, mfaIssuer } from "./mfa.mjs";
 import { MFA_LOGINS_TOTAL } from "./metrics.mjs";
 import { kekFromEnv } from "./secrets.mjs";
 
@@ -286,6 +286,7 @@ export async function handleAuthRoutes(ctx) {
       const issued = await issueMfaChallenge(store, { userId: found.id, purpose: "login" });
       json(response, 202, {
         mfaRequired: true,
+        issuer: mfaIssuer(),
         challenge: issued.challenge,
         expiresAt: issued.expiresAt.toISOString(),
       });
@@ -464,6 +465,13 @@ export async function handleAuthRoutes(ctx) {
         preferences: user.preferences,
       },
     });
+    return true;
+  }
+
+  if (url.pathname === "/auth/sessions" && method === "DELETE" && url.searchParams.get("others") === "1") {
+    if (!session?.sessionId) return fail(response, 401, "AUTH_REQUIRED", "sign in first"), true;
+    const revoked = await store.revokeOtherSessions(user.id, session.sessionId, request.headers["x-request-id"] ?? null);
+    json(response, 200, { revoked });
     return true;
   }
 

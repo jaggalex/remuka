@@ -16,11 +16,11 @@
     "capabilities/canvas",
     "capabilities/connectors"
   ],
-  "updated": "2026-11-22",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:7f4798f891e16bdaf75ef975ad0c20259425b701c1bd832042a9fbc26774c3f1",
-      "targetHash": "sha256:ff43c015162b0ee647e886d34d26604ed0e8273ccfb52d230e552679f86f96cf"
+      "sourceHash": "sha256:a5791622bd8f65b974be194e4f4941974702626e4360aefbea134739cd6d9309",
+      "targetHash": "sha256:c00de318aa5b5be0286cd7872ac4439ed798304c94027df00c53eeb30e4a7dd0"
     }
   }
 }

@@ -5,6 +5,8 @@ import {
   ensureProperties,
   applyDefaultTableLayout,
   openBoard,
+  settleCamera,
+  waitForBoardEditor,
   PASSWORD,
   register,
   seedNote,
@@ -42,12 +44,6 @@ async function widgets(page: Page): Promise<ProbeWidget[]> {
   );
 }
 
-async function waitForWidget(page: Page, id: string): Promise<void> {
-  await expect
-    .poll(async () => (await widgets(page)).some((widget) => widget.id === id))
-    .toBe(true);
-}
-
 async function screenPoint(page: Page, world: { x: number; y: number }) {
   return page.evaluate(({ x, y }) => {
     const probe = (window as unknown as {
@@ -60,6 +56,25 @@ async function screenPoint(page: Page, world: { x: number; y: number }) {
       y: rect.top + rect.height / 2 + (y - probe.camera.y) * probe.camera.zoom,
     };
   }, world);
+}
+
+async function selectSeededFrame(page: Page, frameId: string): Promise<void> {
+  await waitForBoardEditor(page);
+  await page.waitForFunction((id) => (window as unknown as {
+    __remo?: { widgets: ProbeWidget[] };
+  }).__remo?.widgets.some((widget) => widget.id === id), frameId);
+  // The initial fit can still change the projection after widgets arrive over the socket.
+  await settleCamera(page);
+  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
+  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
+  await page.mouse.click(point.x, point.y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([frameId]);
 }
 
 /** A frame with one note inside, opened as a two-column table. */
@@ -85,18 +100,7 @@ async function openTable(page: Page, tag: string, second = false) {
     ? await seedNote(page, account.boardId, { x: 200, y: 0 }, { width: 80, height: 80 }, "Second", frameId)
     : null;
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
-      ),
-    )
-    .toEqual([frameId]);
+  await selectSeededFrame(page, frameId);
   await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
@@ -105,6 +109,14 @@ async function openTable(page: Page, tag: string, second = false) {
   return { account, frameId, noteId, secondId, panel };
 }
 
+async function makeRoomForTableEdges(page: Page) {
+  const zoom = page.locator(".rm-zoom-value");
+  const zoomOut = page.getByRole("button", { name: "Zoom out", exact: true });
+  const percent = async () => Number.parseInt(await zoom.innerText(), 10);
+  // Allow space for an added axis while the properties panel is open.
+  for (let step = 0; step < 12 && await percent() > 100; step++) await zoomOut.click();
+  await expect.poll(percent).toBeLessThanOrEqual(100);
+}
 
 
 /**
@@ -148,18 +160,7 @@ test("turns a section into a table and deletes it without its objects", async ({
   );
 
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
-      ),
-    )
-    .toEqual([frameId]);
+  await selectSeededFrame(page, frameId);
 
   await ensureProperties(page);
   const panel = page.locator(".section-panel");
@@ -206,18 +207,7 @@ test("deleting an axis with objects asks and moves them to a neighbour", async (
   );
 
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
-      ),
-    )
-    .toEqual([frameId]);
+  await selectSeededFrame(page, frameId);
 
   await ensureProperties(page);
   const panel = page.locator(".section-panel");
@@ -231,7 +221,8 @@ test("deleting an axis with objects asks and moves them to a neighbour", async (
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Delete column");
   await expect(dialog).toContainText("The column holds 1 object");
-  await dialog.getByRole("button", { name: /Move right/ }).click();
+  await dialog.getByRole("radio", { name: /Move right/ }).check();
+  await dialog.getByRole("button", { name: "Delete column", exact: true }).click();
 
   await expect(columnGroup.locator(".section-axis-row")).toHaveCount(1);
   await expect(columnGroup.locator(".section-axis-row").first()).toHaveAttribute(
@@ -264,18 +255,7 @@ test("a table header edits its title and opens the axis menu", async ({ page }) 
   );
 
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
-      ),
-    )
-    .toEqual([frameId]);
+  await selectSeededFrame(page, frameId);
 
   await ensureProperties(page);
   const panel = page.locator(".section-panel");
@@ -299,39 +279,59 @@ test("a table header edits its title and opens the axis menu", async ({ page }) 
   let nowHeader = page.getByRole("button", { name: "Columns: Now" });
   if ((await nowHeader.getAttribute("aria-pressed")) !== "true") await nowHeader.click();
   await nowHeader.click();
-  const menu = page.getByRole("menu", { name: /Columns: Now/ });
+  const menu = page.getByRole("menu", { name: "Column “Now”", exact: true });
+  await expect(menu).toBeVisible();
+  await expect(menu.locator(".rm-menu-heading")).toHaveText("Column “Now”");
+  await expect(menu.getByRole("menuitem", { name: /^Rename/ })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(editor).toHaveValue("Now");
+  await editor.press("Escape");
+  await nowHeader.press("Shift+F10");
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Insert column right", exact: true }).click();
   await expect(columnGroup.locator(".section-axis-row")).toHaveCount(3);
 
   nowHeader = page.getByRole("button", { name: "Columns: Now" });
-  if ((await nowHeader.getAttribute("aria-pressed")) !== "true") await nowHeader.click();
-  await nowHeader.click();
-  await page
-    .getByRole("menu", { name: /Columns: Now/ })
-    .getByRole("menuitem", { name: /^Size/ })
-    .click();
+  await nowHeader.press("Shift+F10");
+  const moves = menu.locator(".rm-menu-pair");
+  await expect(moves.getByRole("menuitem", { name: "Move left", exact: true })).toBeDisabled();
+  const moveRight = moves.getByRole("menuitem", { name: "Move right", exact: true });
+  await menu.getByRole("menuitem", { name: "Insert column right", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(moveRight).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await expect(nowHeader).toBeFocused();
+  await expect(columnGroup.locator(".section-axis-row").nth(1)).toContainText("Now");
+
+  await nowHeader.press("Shift+F10");
+  await expect(menu.getByRole("menuitem", { name: /^Size/ })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem", { name: /^Rename/ })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(nowHeader).toBeFocused();
+  await expect(panel.getByLabel("Axis name")).toHaveValue("Now");
+  await panel.locator(".axis-size-anchor").getByRole("button").click();
   const sizeDialog = page.getByRole("dialog").filter({ hasText: "Width of column" });
   await expect(sizeDialog).toBeVisible();
   await sizeDialog.getByRole("radio", { name: "Wide", exact: true }).click();
   await expect(panel.locator(".axis-size-anchor").getByRole("button")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await nowHeader.click();
+  await nowHeader.press("Shift+F10");
   await page
-    .getByRole("menu", { name: /Columns: Now/ })
+    .getByRole("menu", { name: "Column “Now”", exact: true })
     .getByRole("menuitemcheckbox", { name: "Vertical header", exact: true })
     .click();
   await expect(panel.getByRole("checkbox", { name: "Vertical header" })).toBeChecked();
 
-  await nowHeader.click();
-  await page
-    .getByRole("menu", { name: /Columns: Now/ })
-    .getByRole("menuitem", { name: "Delete column", exact: true })
-    .click();
+  await nowHeader.press("Shift+F10");
+  await expect(menu.getByRole("menuitem", { name: /^Delete column…/ })).toHaveAttribute("aria-keyshortcuts", "Delete");
+  await expect(menu.getByRole("menuitem", { name: /^Rename/ })).toBeFocused();
+  await page.keyboard.press("Delete");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("The column holds 1 object");
-  await dialog.getByRole("button", { name: /Move right/ }).click();
+  await dialog.getByRole("radio", { name: /Move right/ }).check();
+  await dialog.getByRole("button", { name: "Delete column", exact: true }).click();
   await expect(columnGroup.locator(".section-axis-row")).toHaveCount(2);
   expect((await widgets(page)).find((widget) => widget.id === noteId)!.parentId).toBe(frameId);
 });
@@ -352,34 +352,37 @@ test("drops an object into another cell and undoes it in one step", async ({ pag
   await page.getByRole("button", { name: "Columns: Column 1" }).click();
   await expect(live).toContainText("Column 1");
 
+  const columnAssignment = async () => {
+    const all = await widgets(page);
+    const frame = all.find((widget) => widget.id === frameId);
+    const note = all.find((widget) => widget.id === noteId);
+    return {
+      columns: frame?.layout?.columns?.map((column) => column.id),
+      columnId: note?.cell?.columnId,
+    };
+  };
   const before = (await widgets(page)).find((widget) => widget.id === noteId)!;
-  const header = page.getByRole("button", { name: "Columns: Column 2" });
-  const box = (await header.boundingBox())!;
+  const { columns } = await columnAssignment();
+  expect(columns).toEqual([expect.any(String), expect.any(String)]);
+  const [firstColumn, secondColumn] = columns!;
+  expect(before.cell?.columnId).toBe(firstColumn);
+  await settleCamera(page);
   const from = await screenPoint(page, { x: before.x, y: before.y });
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  // Just under the header: inside the first row at any zoom (the row is as tall as the note).
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height + 12, { steps: 12 });
+  const target = await cellPoint(page, frameId, 0, 1);
+  await page.mouse.move(target.x, target.y, { steps: 12 });
+  const preview = page.locator(".table-drop-cell");
+  await expect(preview).toBeVisible();
+  const bounds = (await preview.boundingBox())!;
+  expect(Math.abs(bounds.x + bounds.width / 2 - target.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(bounds.y + bounds.height / 2 - target.y)).toBeLessThanOrEqual(2);
   await page.mouse.up();
 
-  await expect
-    .poll(async () => {
-      const all = await widgets(page);
-      const frame = all.find((widget) => widget.id === frameId)!;
-      const note = all.find((widget) => widget.id === noteId)!;
-      return note.cell?.columnId === frame.layout?.columns?.[1]?.id;
-    })
-    .toBe(true);
+  await expect.poll(columnAssignment).toEqual({ columns, columnId: secondColumn });
 
   await page.keyboard.press("Meta+z");
-  await expect
-    .poll(async () => {
-      const all = await widgets(page);
-      const frame = all.find((widget) => widget.id === frameId)!;
-      const note = all.find((widget) => widget.id === noteId)!;
-      return note.cell?.columnId === frame.layout?.columns?.[0]?.id;
-    })
-    .toBe(true);
+  await expect.poll(columnAssignment).toEqual({ columns, columnId: firstColumn });
 });
 
 test("moves a selected object to a named cell from the panel", async ({ page }) => {
@@ -474,6 +477,7 @@ test("the section is its table and the table grows from its own edges (ADR-201)"
   page,
 }) => {
   const { frameId } = await openTable(page, "table-edges");
+  await makeRoomForTableEdges(page);
   const section = async () => (await widgets(page)).find((widget) => widget.id === frameId)!;
   const before = await section();
   const corner = { x: before.x - before.width / 2, y: before.y - before.height / 2 };
@@ -544,10 +548,13 @@ test("deletes an empty axis without asking about zero objects", async ({ page })
   const rowHeader = page.getByRole("button", { name: "Rows: Row 2" });
   if ((await rowHeader.getAttribute("aria-pressed")) !== "true") await rowHeader.click();
   await rowHeader.click();
-  await page
-    .getByRole("menu", { name: /Rows: Row 2/ })
-    .getByRole("menuitem", { name: "Delete row", exact: true })
-    .click();
+  const menu = page.getByRole("menu", { name: "Row “Row 2”", exact: true });
+  await expect(menu.getByRole("menuitem", { name: /^Rename/ })).toBeFocused();
+  await page.keyboard.down("Delete");
+  await expect(rowGroup.locator(".section-axis-row")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Rows: Row 1" })).toBeFocused();
+  await page.keyboard.down("Delete");
+  await page.keyboard.up("Delete");
 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(rowGroup.locator(".section-axis-row")).toHaveCount(1);
@@ -583,13 +590,12 @@ test("auto size can be turned off and back on", async ({ page }) => {
     })
     .toBe(frozen);
 
-  let firstHeader = page.getByRole("button", { name: "Columns: Column 1" });
-  if ((await firstHeader.getAttribute("aria-pressed")) !== "true") await firstHeader.click();
+  const firstHeader = page.getByRole("button", { name: "Columns: Column 1" });
+  await expect(firstHeader).toHaveAttribute("aria-pressed", "false");
   await firstHeader.click();
-  await page
-    .getByRole("menu", { name: /Columns: Column 1/ })
-    .getByRole("menuitem", { name: /^Size/ })
-    .click();
+  await expect(firstHeader).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByLabel("Axis name")).toHaveValue("Column 1");
+  await panel.locator(".axis-size-anchor").getByRole("button").click();
   await page
     .getByRole("dialog").filter({ hasText: "Width of column" })
     .getByText("Auto", { exact: true })
@@ -825,11 +831,7 @@ test("turning a section with material into a table asks how to lay it out", asyn
   const third = await seedNote(page, account.boardId, { x: 300, y: 0 }, undefined, "Three", frameId);
 
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
+  await selectSeededFrame(page, frameId);
   await ensureProperties(page);
   const panel = page.locator(".section-panel");
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
@@ -871,11 +873,7 @@ test("cancelling the layout dialog leaves the section free", async ({ page }) =>
   });
   await seedNote(page, account.boardId, { x: 0, y: 0 }, undefined, "One", frameId);
   await openBoard(page, account.boardId);
-  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
-  await waitForWidget(page, frameId);
-  const frame = (await widgets(page)).find((widget) => widget.id === frameId)!;
-  const point = await screenPoint(page, { x: frame.x, y: frame.y - frame.height / 2 + 24 });
-  await page.mouse.click(point.x, point.y);
+  await selectSeededFrame(page, frameId);
   await ensureProperties(page);
   await page
     .locator(".section-panel")
@@ -962,6 +960,7 @@ test("a multiline axis name edits in the panel", async ({ page }) => {
 
 test("header lines, vertical rows and manual header size", async ({ page }) => {
   const { frameId, panel } = await openTable(page, "table-header-lines");
+  await makeRoomForTableEdges(page);
   const header = page.getByRole("button", { name: "Columns: Column 1" });
   await header.focus();
   await page.keyboard.press("F2");
@@ -991,7 +990,7 @@ test("header lines, vertical rows and manual header size", async ({ page }) => {
   if ((await rowHeader.getAttribute("aria-pressed")) !== "true") await rowHeader.click();
   await rowHeader.click();
   await page
-    .getByRole("menu", { name: /Rows: Row 1/ })
+    .getByRole("menu", { name: "Row “Row 1”", exact: true })
     .getByRole("menuitemcheckbox", { name: "Vertical header", exact: true })
     .click();
   await expect
@@ -1017,7 +1016,7 @@ test("duplicates a column from the header menu", async ({ page }) => {
   if ((await header.getAttribute("aria-pressed")) !== "true") await header.click();
   await header.click();
   await page
-    .getByRole("menu", { name: /Columns: Column 1/ })
+    .getByRole("menu", { name: "Column “Column 1”", exact: true })
     .getByRole("menuitem", { name: "Duplicate column", exact: true })
     .click();
   await expect
@@ -1108,6 +1107,7 @@ test("the header corner sizes the band and the strip, and the grip resets both",
   page,
 }) => {
   const { frameId } = await openTable(page, "table-band-corner");
+  await makeRoomForTableEdges(page);
   const layout = () =>
     widgets(page).then((all) => all.find((widget) => widget.id === frameId)!.layout as {
       headerHeight?: number;

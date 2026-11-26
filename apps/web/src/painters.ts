@@ -414,7 +414,7 @@ export function paintOverlayLayer(input: OverlayPaintInput): void {
   ctx.scale(camera.zoom, camera.zoom);
   ctx.translate(-camera.x, -camera.y);
 
-  if (proposal) drawProposal(ctx, proposal, camera.zoom, palette, input.proposalAlpha ?? 1);
+  if (proposal) drawProposal(ctx, proposal, camera.zoom, palette, input.proposalAlpha ?? 1, theme.fontFamily);
 
   // The cell tint is a card-drop affordance: while a note is being dragged or
   // resized, a highlight left over from an earlier hover would just sit on top.

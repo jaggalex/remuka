@@ -20,8 +20,7 @@ test("creates a board from the board list and opens the chosen template", async 
   await goAllRooms(page);
   await page.getByRole("button", { name: "New room" }).click();
   await page.locator(".new-board-dialog input").first().fill("M0 launch");
-  await page.locator(".new-board-dialog").getByRole("radio", { name: /With an example/ }).check();
-  await page.locator(".new-board-dialog select").selectOption("kanban-framework");
+  await page.locator(".new-board-dialog").getByRole("radio", { name: /kanban/i }).check();
   await page.locator(".new-board-dialog").getByRole("button", { name: "Create room" }).click();
 
   await expect(page).toHaveURL(/room=m0-launch/);
@@ -161,14 +160,15 @@ test("switches the organisation and leaves the previous board", async ({ page })
   await page.getByRole("button", { name: "+ New organisation" }).click();
   await page.locator(".org-create input").first().fill("Second team");
   await page.getByRole("button", { name: "Create organisation" }).click();
-  await expect(page.getByRole("dialog", { name: "Second team" })).toBeVisible();
-  await page.getByRole("dialog", { name: "Second team" }).getByRole("button", { name: "Close", exact: true }).first().click();
+  const organisation = page.getByRole("main");
+  await expect(organisation.getByRole("heading", {name:"Second team", level:1})).toBeVisible();
 
   // A board in that organisation, so the filter has something to switch between.
-  await goAllRooms(page);
-  await page.getByRole("button", { name: "New room" }).click();
+  await organisation.getByRole("link", { name: "All rooms" }).click();
+  await page.locator("header").getByRole("button", { name: "New room", exact: true }).click();
   const create = page.locator(".new-board-dialog");
   await create.locator("input").first().fill("Second org board");
+  await create.locator("summary").click();
   await create.getByLabel("Organisation").selectOption({ label: "Second team" });
   await create.getByRole("button", { name: "Create room", exact: true }).click();
   await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
@@ -282,6 +282,7 @@ test("a public-link viewer cannot add kanban columns or replace the board", asyn
   const viewer = await context.newPage();
   try {
     await viewer.goto(`/?room=${account.boardId}&lang=en`);
+    await viewer.getByRole("button", { name: "Enter room", exact: true }).click();
     await expect(viewer.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
     // Kanban state is the selected kanban's (ADR-236): open the room with it selected.
     await expect.poll(() => objectCount(viewer, "kanban")).toBeGreaterThan(0);
@@ -301,7 +302,7 @@ test("a public-link viewer cannot add kanban columns or replace the board", asyn
     await expect(inspector.getByRole("button", { name: "+ column" })).toBeDisabled();
     await expect(inspector.getByRole("button", { name: "+ swimlane" })).toBeDisabled();
     // Replacing the room lives in the room menu (ADR-236), off for a viewer.
-    await openBoardMenu(viewer);
+    await openBoardMenu(viewer, "more");
     await expect(viewer.getByRole("menuitem", { name: /^Replace room/ })).toHaveAttribute("aria-disabled", "true");
   } finally {
     await context.close();

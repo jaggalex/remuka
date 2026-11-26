@@ -1,7 +1,8 @@
 import { Button, IconButton, Select, Tooltip } from "@remo/ui";
-import { FILL_LEVELS, type StickySize, type Widget } from "@remo/model";
+import { elevationOf, FILL_LEVELS, type StickySize, type Widget } from "@remo/model";
 import { paletteChoices } from "../commands";
 import { useI18n } from "../i18n";
+import { ELEVATION_LABEL_KEY, ELEVATION_LEVELS } from "../elevationMenu";
 import type { StickyBarActions } from "./stickyTypes";
 
 /**
@@ -128,6 +129,22 @@ export function PropertiesFrequent({
         </span>
       </section>
 
+      {widget.type === "shape" && (
+        <Select
+          size="compact"
+          label={t("inspector.shapeLift")}
+          options={ELEVATION_LEVELS.map((level) => ({
+            value: level ?? "none",
+            label: t(ELEVATION_LABEL_KEY[level ?? "none"]!),
+          }))}
+          value={elevationOf(widget) ?? "none"}
+          disabled={disabled || widget.locked}
+          onChange={(event) => {
+            const level = ELEVATION_LEVELS.find((value) => value === event.target.value);
+            actions.setElevation(level ?? null);
+          }}
+        />
+      )}
       {widget.type === "sticky_note" && (
         <section className="properties-group">
           <h3 className="properties-heading">{t("properties.stickySize")}</h3>

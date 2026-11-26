@@ -1,3 +1,5 @@
+import { pinWorld } from "./commentGeometry";
+import type { CommentAnchor } from "./commentsApi";
 import {
   drawKanban,
   drawTable,
@@ -43,9 +45,7 @@ export type ExportScope = "selection" | "frame" | "board";
  */
 export interface ExportCommentThread {
   id: string;
-  anchor:
-    | { kind: "widget"; widgetId: string }
-    | { kind: "point"; x: number; y: number };
+  anchor: CommentAnchor;
   resolvedAt: string | null;
   /** The author's account, so the pin carries the same colour as on the canvas (ADR-267). */
   createdBy?: string | null;
@@ -167,11 +167,16 @@ export async function preloadExportImages(
   return { image, unavailable, failed };
 }
 
-/** A frame selected directly, or the frame that contains the selected object. */
+/** A selected frame or its selected child takes precedence. With no selection, only
+ * a room with exactly one frame has an unambiguous frame scope (ADR-301). */
 export function frameForSelection(
   widgets: readonly Widget[],
   selectedIds: readonly string[],
 ): Widget | null {
+  if (selectedIds.length === 0) {
+    const frames = widgets.filter((widget) => widget.type === "frame");
+    return frames.length === 1 ? frames[0]! : null;
+  }
   const byId = new Map(widgets.map((widget) => [widget.id, widget]));
   for (const id of selectedIds) {
     let current = byId.get(id);
@@ -348,16 +353,8 @@ function commentPoint(
   byId: Map<string, Widget>,
   layouts: Map<string, KanbanLayout>,
 ): { x: number; y: number } | null {
-  if (thread.anchor.kind === "point") {
-    return { x: thread.anchor.x, y: thread.anchor.y };
-  }
-  const widget = byId.get(thread.anchor.widgetId);
-  if (!widget) return null;
-  const placement = placementOfCard(layouts, widget.id);
-  const x = placement ? placement.x : widget.x;
-  const y = placement ? placement.y : widget.y;
-  const height = placement ? placement.height : widget.height;
-  return { x, y: y - height / 2 };
+  const anchor = thread.anchor;
+  return pinWorld(anchor, anchor.kind === "widget" ? byId.get(anchor.widgetId) : undefined, layouts);
 }
 
 /** Unresolved threads whose anchor falls inside the exported scope. */
@@ -463,58 +460,12 @@ function paintWatermark(
   ctx.restore();
 }
 
-const MAX_PIXELS = 16_000_000;
-
-/**
- * Paint the scope on a fresh canvas.
- *
- * A huge board is capped by total pixels rather than by refusing the export: the
- * person gets a smaller but complete picture, not a failed job with no explanation.
- */
-export function renderScope(input: ExportRenderInput): ExportRenderResult | null {
-  const scoped = scopeWidgets(input.widgets, input.selectedIds, input.scope);
-  if (!scoped.length) return null;
-
-  const layouts = layoutsFor(input.widgets, input.kanbanStates);
-  const box = scopeBounds(scoped, layouts);
-  if (!box) return null;
-
-  let scale = Math.max(0.5, input.scale ?? 2);
-  while (box.width * scale * box.height * scale > MAX_PIXELS && scale > 0.5) {
-    scale *= 0.8;
-  }
-
-  const byId = new Map(input.widgets.map((widget) => [widget.id, widget]));
-  const threads = input.includeComments
-    ? commentsInScope(input.comments ?? [], scoped, box, layouts)
-    : [];
-  const width = Math.max(1, Math.ceil(box.width * scale));
-  const boardHeight = Math.max(1, Math.ceil(box.height * scale));
-  const extra = legendHeight(threads);
-  const height = boardHeight + extra;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-
+/** One painter for full-size exports and server-generated room covers (ADR-285). */
+export function paintExportObjects(ctx: CanvasRenderingContext2D,
+  input: Pick<ExportRenderInput, "widgets" | "theme" | "image" | "imageUnavailable">,
+  scoped: Widget[], layouts: Map<string, KanbanLayout>, byId: Map<string, Widget>, scale: number,
+): void {
   const { palette } = input.theme;
-  ctx.fillStyle = palette.canvas;
-  ctx.fillRect(0, 0, width, boardHeight);
-  if (extra) {
-    ctx.fillStyle = palette.panel;
-    ctx.fillRect(0, boardHeight, width, extra);
-    ctx.strokeStyle = ink(palette.panel, "line");
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, boardHeight + 0.5);
-    ctx.lineTo(width, boardHeight + 0.5);
-    ctx.stroke();
-  }
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.translate(-box.x, -box.y);
-
   const cardTitles = new Map<string, string>();
   const cards = new Map<string, Widget>();
   for (const widget of input.widgets) {
@@ -574,6 +525,61 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
       });
     }
   }
+}
+
+const MAX_PIXELS = 16_000_000;
+
+/**
+ * Paint the scope on a fresh canvas.
+ *
+ * A huge board is capped by total pixels rather than by refusing the export: the
+ * person gets a smaller but complete picture, not a failed job with no explanation.
+ */
+export function renderScope(input: ExportRenderInput): ExportRenderResult | null {
+  const scoped = scopeWidgets(input.widgets, input.selectedIds, input.scope);
+  if (!scoped.length) return null;
+
+  const layouts = layoutsFor(input.widgets, input.kanbanStates);
+  const box = scopeBounds(scoped, layouts);
+  if (!box) return null;
+
+  let scale = Math.max(0.5, input.scale ?? 2);
+  while (box.width * scale * box.height * scale > MAX_PIXELS && scale > 0.5) {
+    scale *= 0.8;
+  }
+
+  const byId = new Map(input.widgets.map((widget) => [widget.id, widget]));
+  const threads = input.includeComments
+    ? commentsInScope(input.comments ?? [], scoped, box, layouts)
+    : [];
+  const width = Math.max(1, Math.ceil(box.width * scale));
+  const boardHeight = Math.max(1, Math.ceil(box.height * scale));
+  const extra = legendHeight(threads);
+  const height = boardHeight + extra;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const { palette } = input.theme;
+  ctx.fillStyle = palette.canvas;
+  ctx.fillRect(0, 0, width, boardHeight);
+  if (extra) {
+    ctx.fillStyle = palette.panel;
+    ctx.fillRect(0, boardHeight, width, extra);
+    ctx.strokeStyle = ink(palette.panel, "line");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, boardHeight + 0.5);
+    ctx.lineTo(width, boardHeight + 0.5);
+    ctx.stroke();
+  }
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(-box.x, -box.y);
+
+  paintExportObjects(ctx, input, scoped, layouts, byId, scale);
 
   // Numbered pins are part of the picture, but not of the board: they use the same
   // points as the rows in the legend below.

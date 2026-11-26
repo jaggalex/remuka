@@ -1,6 +1,8 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { enLegal } from "../i18n/en-legal";
+import { ruLegal } from "../i18n/ru-legal";
 import { LegalConsentView } from "./LegalConsent";
 import type { LegalDocumentConfig } from "./legalConfig";
 
@@ -18,10 +20,6 @@ const T: Record<string, string> = {
   "legal.consent.consentMiddle": " — имени и почты — на условиях ",
   "legal.consent.privacyLink": "Политики",
   "legal.consent.consentAfter": "",
-  "legal.consent.termsBefore": "Принимаю ",
-  "legal.consent.termsLink": "Условия использования",
-  "legal.consent.termsMiddle": " и ",
-  "legal.consent.termsAfter": ".",
   "legal.consent.genericBefore": "Принимаю ",
   "legal.consent.genericAfter": "",
   "legal.doc.offer": "Договор-оферта",
@@ -76,6 +74,24 @@ function render(checked: Record<string, boolean> = {}, error?: string): string {
 }
 
 describe("the registration consent (ADR-256 §3, §7)", () => {
+  it.each([
+    [enLegal, "I accept the Terms of Service. Learn how we handle your data in our Privacy Policy."],
+    [ruLegal, "Принимаю Условия использования. Как мы работаем с данными, читайте в Политике конфиденциальности."],
+  ] as const)("requires only the Terms and links separately to the Privacy Policy", (labels, sentence) => {
+    const terms = document({ doc: "terms", url: "https://app.example.com/legal/terms" });
+    const policy = { ...privacy, url: "https://app.example.com/legal/privacy" };
+    const messages: Record<string, string> = labels;
+    const html = renderToStaticMarkup(h(LegalConsentView, {
+      documents: [terms], all: [terms, policy], checked: {}, onChange: () => {},
+      t: key => messages[key] ?? key,
+    }));
+    expect(html.match(/type="checkbox"/g)).toHaveLength(1);
+    expect(html).toContain('name="terms"');
+    expect(html).toContain(`href="${terms.url}"`);
+    expect(html).toContain(`href="${policy.url}"`);
+    expect(html.replace(/<[^>]*>/g, "")).toContain(sentence);
+  });
+
   it("renders two empty checkboxes with the three document links", () => {
     const html = render();
     expect(html.match(/type="checkbox"/g)).toHaveLength(2);

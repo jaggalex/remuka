@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import {
   DEFAULT_LINE_PRESET,
   DEFAULT_SHAPE_PRESET,
@@ -220,7 +221,7 @@ export function createConnectedNote(
       ...(type === "shape" ? { shapeKind: source.shapeKind ?? "rectangle" } : {}),
       style: { ...source.style },
     };
-    board.widgets.set(note.id, note);
+    insertNewWidget(board.widgets, note);
     seedTextField(board, note, "");
 
     const connector: Widget = {
@@ -242,7 +243,7 @@ export function createConnectedNote(
         ...(connectorStyle.strokeStyle ? { strokeStyle: connectorStyle.strokeStyle } : {}),
       },
     };
-    board.widgets.set(connector.id, connector);
+    insertNewWidget(board.widgets, connector);
     created = note.id;
   });
 

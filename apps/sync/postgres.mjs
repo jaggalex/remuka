@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { currentTenantClient, withTenant, withoutTenant } from "./tenant.mjs";
+import { coverMethods } from "./pg/room-covers.mjs";
 import { boardMethods } from "./pg/boards.mjs";
 import { roomMethods } from "./pg/rooms.mjs";
 import { iamUserMethods } from "./pg/iam-users.mjs";
@@ -397,6 +398,7 @@ Object.assign(
   PostgresStore.prototype,
   boardMethods,
   roomMethods,
+  coverMethods,
   iamUserMethods,
   accountMethods,
   consentMethods,

@@ -128,8 +128,12 @@ const STICKERS = ["neutral", "yellow", "green", "blue", "pink", "violet", "orang
 /** Every pair the system promises, with its floor (4.5 text, 3 for marks and borders). */
 export const PAIRS = [
   ...TEXT.flatMap((f) => GROUNDS.map((g) => [f, g, 4.5])),
+  ["text-instruction", "bg-canvas", 4.5], ["text-code-placeholder", "bg-panel", 4.5],
+  ["text-instruction", "bg-dialog", 4.5], ["text-brand-danger", "bg-canvas", 4.5],
   ["text-accent", "accent-soft", 4.5], ["text-danger", "danger-soft", 4.5], ["text-agent", "agent-soft", 4.5], ["state-success", "success-soft", 4.5], ["state-warning", "warning-soft", 4.5], ["text-primary", "accent-soft", 4.5],
-  ["text-on-accent", "accent", 4.5], ["text-on-accent", "accent-hover", 4.5], ["text-on-cta", "accent-cta", 4.5], ["text-primary", "accent-chosen", 4.5], ["text-on-cta", "accent-cta-hover", 4.5], ["text-primary", "bg-dialog", 4.5], ["text-secondary", "bg-dialog", 4.5], ["text-on-danger", "danger", 4.5], ["text-on-danger", "danger-hover", 4.5], ["text-inverse", "bg-inverse", 4.5],
+  ["text-column-menu-heading", "bg-panel", 4.5], ["text-brand-danger", "bg-panel", 4.5], ["text-brand-danger", "bg-hover", 4.5],
+  ["text-on-accent", "accent", 4.5], ["text-on-accent", "accent-hover", 4.5], ["text-on-cta", "accent-cta", 4.5], ["text-on-chosen", "accent-chosen", 4.5], ["text-on-cta", "accent-cta-hover", 4.5], ["text-primary", "bg-dialog", 4.5], ["text-secondary", "bg-dialog", 4.5], ["text-on-danger", "danger", 4.5], ["text-on-danger", "danger-hover", 4.5], ["text-inverse", "bg-inverse", 4.5],
+  ["text-agent", "bg-panel", 4.5], ["text-on-agent", "agent", 4.5], ["border-ink", "bg-panel", 3],
   ["border-strong", "bg-panel", 3], ["border-strong", "bg-raised", 3], ["border-focus", "bg-panel", 3], ["border-focus", "bg-canvas", 3], ["border-focus", "bg-raised", 3],
   ["selection-stroke", "bg-canvas", 3], ["accent", "bg-panel", 3],
   // The mark's smile on both themes' paper (ADR-272): the owner chose graphite over ink
@@ -138,6 +142,11 @@ export const PAIRS = [
   ...[1, 2, 3, 4, 5, 6].map((i) => ["text-on-presence", `presence-${i}`, 4.5]),
   ...[1, 2, 3, 4, 5, 6].map((i) => [`presence-${i}`, "bg-canvas", 3]),
   ...STICKERS.map((c) => ["sticker-ink", `sticker-${c}`, 6.8]),
+  ["agent-on-paper", "sticker-violet", 3],
+  ["text-primary", "bg-choice-selected", 4.5], ["text-secondary", "bg-choice-selected", 4.5],
+  ["sticker-ink", "bg-save-confirmed", 4.5],
+  ["text-primary", "bg-offline-notice", 4.5],
+  ["text-primary", "bg-offline-chip", 4.5],
   // The bright 300 row of ADR-267 (§1): ink on every fill is at least 6.8:1, orange 300
   // being the darkest at 6.81. The 100 row is the sticker set above.
   ...STICKERS.map((c) => [

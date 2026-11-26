@@ -27,11 +27,23 @@ export function createConnections({ store, accessForBoard, log = console, sweepM
   const liveConnections = new Map();
   /** The decision taken at upgrade time, so the connection handler does not query twice. */
   const authBySocket = new WeakMap();
+  // A short-lived affinity signal for home news, scoped to this sync installation.
+  // There is intentionally no durable board-visit journal (ADR-268 §3).
+  const visits = new Map();
+  const week = 7 * 24 * 3_600_000;
+  function rememberVisit(boardId, record) {
+    if (!record.userId || !record.orgId) return;
+    const key = [record.orgId, record.userId, boardId].join(":");
+    visits.delete(key);
+    visits.set(key, Date.now());
+    if (visits.size > 12_000) visits.delete(visits.keys().next().value);
+  }
 
   function registerConnection(boardId, record) {
     if (!boardId) return;
     const set = liveConnections.get(boardId) ?? new Set();
     set.add(record);
+    rememberVisit(boardId, record);
     liveConnections.set(boardId, set);
   }
 
@@ -39,6 +51,7 @@ export function createConnections({ store, accessForBoard, log = console, sweepM
     const set = liveConnections.get(boardId);
     if (!set) return;
     set.delete(record);
+    rememberVisit(boardId, record);
     if (!set.size) liveConnections.delete(boardId);
   }
 
@@ -163,6 +176,23 @@ export function createConnections({ store, accessForBoard, log = console, sweepM
   return {
     sweepOnce,
     authBySocket,
+    // An account in two tabs is one person. Anonymous sockets have no team identity.
+    recentlyVisited(orgId, userId, boardId) {
+      return (visits.get([orgId, userId, boardId].join(":")) ?? 0) > Date.now() - week;
+    },
+    homePresence(orgId, self) {
+      const rooms = new Map();
+      for (const [id, records] of liveConnections) {
+        const people = new Map();
+        for (const record of records) {
+          if (record.socket.readyState === 1 && record.orgId === orgId && record.userId && record.userId !== self) {
+            people.set(record.userId, record.userName);
+          }
+        }
+        if (people.size) rooms.set(id, [...people.values()]);
+      }
+      return rooms;
+    },
     registerConnection,
     unregisterConnection,
     refreshBoardAccess,

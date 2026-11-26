@@ -26,7 +26,7 @@ Participants spread a limited number of votes across the chosen objects right in
 ## What you see
 
 - On the Manage tab, three numbers: time left, how many people voted and how many votes were cast.
-- The session's objects with bars and totals; "Show in the room" selects an object and brings the camera to it.
+- Below the three totals you can see how many votes you have left. Select **Show session objects in the room** to bring them all into view. To find one object, use the eye button next to its name.
 - Totals per object — no names when the session is anonymous. With an anonymous session only totals are visible: nobody sees who voted for what, including the facilitator.
 
 ## Ending and results

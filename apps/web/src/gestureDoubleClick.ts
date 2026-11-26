@@ -16,7 +16,7 @@ import { markHintDone } from "./hints";
    * double-click on a card inside the kanban still goes through the matrix, because
    * cards are not pickable as widgets.
    */
-export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasElement>) {
+export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLElement>) {
   const { camera, settings, widgets, layouts, selectedIds, isCardOfKanban, toWorld, worldToScreenPoint, onSelect, onAddCard, onDeleteWaypoint, onEdit, readOnly, widgetById } = env;
   const world = toWorld(event);
   const hit = pick(widgets, world, isCardOfKanban);
@@ -41,6 +41,10 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   }
 
   if (readOnly) return;
+  if (widgets.length === 0 && !env.creationTool) {
+    env.onCreateFirstSticker(world);
+    return;
+  }
   if (hit && layouts.has(hit.id)) {
     const layout = layouts.get(hit.id)!;
     const placement = placementAt(layout, world);
@@ -49,7 +53,7 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
       return;
     }
     // A column's or a lane's title opens its field on the kanban (ADR-244).
-    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily);
+    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily, camera.zoom);
     if (title) {
       openKanbanTitleEdit({ kanbanId: hit.id, kind: title.kind, id: title.id });
       return;

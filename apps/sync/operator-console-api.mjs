@@ -17,6 +17,7 @@ import { MFA_HOURLY_FAILURES } from "./mfa.mjs";
 import { answerMfaChallenge, issueMfaChallenge } from "./mfa-signin.mjs";
 import { readOperatorPulse } from "./operator-pulse.mjs";
 import { handleOperatorAction, matchOperatorAction } from "./operator-console-actions.mjs";
+import { operatorWords } from "./hints/api.mjs";
 import { handlePulseExport } from "./pulse-export.mjs";
 import { kekFromEnv } from "./secrets.mjs";
 import { resolveSupportConfig } from "./support.mjs";
@@ -119,9 +120,12 @@ export async function handleOperatorConsole({
   const method = (request.method ?? "GET").toUpperCase();
   const path = url.pathname.replace(/\/+$/, "") || "/operator";
   const action = matchOperatorAction(path, method);
+  const wordsAction = method === "GET" && path === "/operator/words" ? (url.searchParams.has("slot") ? "read" : "index")
+    : method === "POST" ? /^\/operator\/words\/(draft|publish|rollback)$/.exec(path)?.[1] : null;
+  const publishWords = wordsAction === "publish" || wordsAction === "rollback";
   const confirmRoute = path === "/operator/session/confirm" && method === "POST";
   const known =
-    confirmRoute ||
+    wordsAction || confirmRoute ||
     action !== null ||
     (path === "/operator/session" && method === "GET") ||
     (path === "/operator/pulse" && method === "GET") ||
@@ -153,8 +157,9 @@ export async function handleOperatorConsole({
   // A changing route is a different window from a read: fifteen minutes, not twelve hours
   // (`spec/totp.md` §6). The refusal is the same prompt the console already knows, so an
   // action after a timeout simply raises the code dialog and repeats itself.
-  if (action) {
+  if (action || publishWords) {
     try {
+      if (publishWords && session.mfaFactor !== "totp") throw new Error("TOTP required");
       assertOperatorStepUp(session, now().getTime());
     } catch {
       const operatorView = {
@@ -191,6 +196,10 @@ export async function handleOperatorConsole({
         stepUpMs: OPERATOR_STEP_UP_MS,
         readHours: OPERATOR_READ_HOURS,
       });
+      return true;
+    }
+    if (publishWords) {
+      await operatorWords({ request, response, store, session, url, metricsStore }, wordsAction);
       return true;
     }
     await handleOperatorAction({
@@ -249,6 +258,10 @@ export async function handleOperatorConsole({
     return true;
   }
 
+  if (wordsAction) {
+    await operatorWords({ request, response, store, session, url, metricsStore }, wordsAction);
+    return true;
+  }
   if (path === "/operator/session" && method === "GET") {
     json(response, 200, {
       operator: { id: session.user.id, email: session.user.email, name: session.user.name },

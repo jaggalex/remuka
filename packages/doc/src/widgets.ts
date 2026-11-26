@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import { expandGroups, minimumSizeOf, scalesInBlock, type Rect, type Widget } from "@remo/model";
 import type { BoardDocument } from "./board";
 import { connectorsTo } from "./connectors";
@@ -26,7 +27,7 @@ export function createWidget(board: BoardDocument, widget: Widget): void {
       ...(board.author && !widget.createdBy ? { createdBy: board.author } : {}),
       ...(widget.createdAt ? {} : { createdAt: Date.now() }),
     };
-    board.widgets.set(widget.id, stamped);
+    insertNewWidget(board.widgets, stamped);
     seedTextField(board, stamped, stamped.title ?? stamped.content ?? "");
   });
 }

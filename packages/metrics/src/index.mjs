@@ -4,6 +4,8 @@
  * One envelope and one event list for web and sync. The recorder never throws into the
  * product: a metrics sink is best-effort, and a missing/disabled sink is a no-op.
  */
+export const NEWS_TYPES = Object.freeze(["mention", "agent", "live", "joined"]);
+
 export const METRIC_NAMES = Object.freeze([
   "session.started",
   "org.created",
@@ -31,6 +33,9 @@ export const METRIC_NAMES = Object.freeze([
   "billing.subscription_started",
   "pulse.viewed",
   "chrome.used",
+  "news.clicked",
+  "hint.shown",
+  "hint.acted",
 ]);
 
 export const ACTOR_TYPES = Object.freeze(["user", "agent", "visitor"]);
@@ -53,7 +58,9 @@ export const CHROME_CONTROLS = Object.freeze([
   { id: "canvas.addTable", where: "menu" },
   { id: "canvas.addKanban", where: "menu" },
   { id: "canvas.addComment", where: "menu" },
+  { id: "home.open", where: "header" },
   { id: "room.rename", where: "menu" },
+  { id: "room.appearance", where: "menu" },
   { id: "room.settings", where: "menu" },
   { id: "room.properties", where: "menu" },
   { id: "room.access", where: "menu" },
@@ -73,9 +80,11 @@ export const CHROME_CONTROLS = Object.freeze([
   { id: "agent.ask", where: "menu" },
   { id: "agent.settings", where: "menu" },
   { id: "invite.open", where: "header" },
+  { id: "account.settings", where: "menu" },
   { id: "account.allRooms", where: "menu" },
   { id: "account.theme.light", where: "menu" },
   { id: "account.theme.dark", where: "menu" },
+  { id: "account.theme.system", where: "menu" },
   { id: "account.motion.calm", where: "menu" },
   { id: "account.lang.ru", where: "menu" },
   { id: "account.lang.en", where: "menu" },
@@ -132,6 +141,9 @@ export const METRIC_CATALOG = Object.freeze({
   // One control from the closed registry list, first use per organisation per UTC day
   // (ADR-266 §9). No room, person or session id belongs here: the aggregate answers
   // "which element is used", not "who used it where".
+  "hint.shown": { required: ["slot", "variant"], optional: [], purpose: "A hint was displayed this visit" },
+  "hint.acted": { required: ["slot", "variant"], optional: [], purpose: "The suggested action was taken this visit" },
+  "news.clicked": { required: ["type"], optional: [], purpose: "A team news action was used" },
   "chrome.used": { required: ["control"], optional: [], purpose: "A chrome command ran; first use per organisation per day" },
 });
 
@@ -179,6 +191,14 @@ export function metricEvent({
   }
   // `chrome.used` is the one event whose only property is a control from a closed list.
   // An extra key could smuggle a room or a person into the stream, so it is refused.
+  if ((name === "hint.shown" || name === "hint.acted") &&
+      (Object.keys(props).length !== 2 || ![props.slot, props.variant].every(value =>
+        typeof value === "string" && /^[a-z][a-zA-Z0-9.]{0,63}$/.test(value)))) {
+    throw new Error("Hint metrics accept only a slot and variant identifier");
+  }
+  if (name === "news.clicked" && (!NEWS_TYPES.includes(props?.type) || Object.keys(props).length !== 1)) {
+    throw new Error("metric news.clicked: expected one registered news type");
+  }
   if (name === "chrome.used") {
     const extra = Object.keys(props ?? {}).filter((key) => key !== "control");
     if (extra.length) {

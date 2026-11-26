@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   addSticky,
   freshBoard,
+  register,
   openBoard,
   openFacilitation,
   openPeople,
@@ -23,10 +24,15 @@ test("the shared timer counts down, pauses and resumes", async ({ page }) => {
   await page.waitForTimeout(1_500);
   await expect(chip).not.toHaveText(first);
   await chip.click();
+  const preset = page.getByRole("button", { name: "5 min", exact: true });
+  await expect(preset).toHaveCount(0);
   await page.getByRole("button", { name: "Pause" }).click();
+  await expect(preset).toHaveCount(0);
   await expect(page.locator(".timer-face")).toContainText("Paused by");
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.locator(".timer-face")).toContainText("Set by");
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(preset).toBeVisible();
 });
 
 test("the board timer repaints while nothing else changes", async ({ page }) => {
@@ -65,12 +71,13 @@ test("the server caps votes and publishes the tally", async ({ page }) => {
   const panel = page.getByRole("dialog", { name: "Voting session" });
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("2 votes per person");
+  await expect(panel).toContainText("You have 2 of 2 votes left");
   // §9.14: the panel manages the session; votes are cast on the object (ADR-117).
   await expect(panel.getByRole("button", { name: /Vote for/ })).toHaveCount(0);
   await expect(page.locator(".vote-board-bar")).toContainText("you have 2 of 2");
 
-  // The panel is a dialog over the board: to vote, close it and use the object itself.
-  await panel.getByRole("button", { name: "Close" }).click();
+  await panel.getByRole("button", { name: "Show session objects in the room" }).click();
+  await expect(panel).toHaveCount(0);
   await page.locator(".vote-chip").first().getByRole("button", { name: /Vote for/ }).click();
   await expect(page.locator(".vote-board-bar")).toContainText("you have 1 of 2");
 
@@ -80,6 +87,7 @@ test("the server caps votes and publishes the tally", async ({ page }) => {
   // The line above the board opens the panel; «Завершить сейчас…» is one act with a
   // question, not a neighbour of «+1 min».
   await page.locator(".vote-board-bar").click();
+  await expect(panel).toContainText("You have 1 of 2 votes left");
   await panel.getByRole("button", { name: "End now…" }).click();
   const confirm = page.getByRole("alertdialog");
   await expect(confirm).toContainText("End voting for everyone?");
@@ -96,8 +104,32 @@ test("the server caps votes and publishes the tally", async ({ page }) => {
   expect(body.sessions[0].publishedAt).toBeTruthy();
 });
 
-test("the tally refreshes on its own, without touching the board", async ({ page }) => {
-  const account = await freshBoard(page, "vote-live");
+test("the tally refreshes on its own, without touching the board", async ({ page, browser }) => {
+  const account = await freshBoard(page, "vote-live", { user: "Session host" });
+  const oldObject = await addSticky(page);
+  const previous = await page.request.post(`/api/boards/${account.boardId}/vote-sessions`, {
+    data: { objectIds: [oldObject], votesPerSubject: 1, minutes: 10, anonymous: false },
+  });
+  expect(previous.status()).toBe(201);
+  const previousId = (await previous.json()).session.id as string;
+  // The host is identified even in an anonymous session. Use a different person
+  // for the earlier named ballot so a leaked voter is distinguishable from the host.
+  const peer = await browser.newPage({ baseURL: new URL(page.url()).origin });
+  try {
+    const voter = await register(peer, "vote-prior", { user: "Prior voter" });
+    const invitation = await page.request.post(`/api/boards/${account.boardId}/invitations`, {
+      data: { email: voter.email, role: "viewer" },
+    });
+    expect(invitation.ok()).toBe(true);
+    const token = new URL((await invitation.json()).url).searchParams.get("invite");
+    expect((await peer.request.post("/api/invitations/accept", { data: { token } })).ok()).toBe(true);
+    expect((await peer.request.post(`/api/vote-sessions/${previousId}/votes`, {
+      data: { objectId: oldObject },
+    })).ok()).toBe(true);
+  } finally {
+    await peer.close();
+  }
+  expect((await page.request.post(`/api/vote-sessions/${previousId}/end`)).ok()).toBeTruthy();
   const created = await page.request.post(`/api/boards/${account.boardId}/vote-sessions`, {
     data: { objectIds: ["obj-a", "obj-b"], votesPerSubject: 2, minutes: 10, anonymous: true },
   });
@@ -107,6 +139,15 @@ test("the tally refreshes on its own, without touching the board", async ({ page
   await page.getByRole("menuitem", { name: /Voting/ }).click();
   await expect(page.locator(".vote-board-bar")).toContainText("you have 2 of 2");
   await expect(page.locator(".vote-list li")).toHaveCount(2);
+  // An earlier session still has a live object and a named voter in this very room.
+  // Neither becomes part of the anonymous session or enables its camera command.
+  await expect(page.getByRole("button", { name: "Show session objects in the room" })).toBeDisabled();
+  await expect(page.locator(".vote-session")).not.toContainText("Prior voter");
+  await page.getByRole("tab", { name: "Results", exact: true }).click();
+  await expect(page.locator(".vote-results .vote-summary")).toContainText("Prior voter");
+  await expect(page.locator(".vote-results .vote-results-list > li")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Show session objects in the room" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Manage", exact: true }).click();
 
   // A vote arrives from another screen. Nobody moves the camera or the board: the
   // panel has to poll, because a vote is not a document change (ADR-074).

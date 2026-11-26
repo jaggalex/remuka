@@ -37,7 +37,7 @@ A sticky note has no transparency: its sheet is the object, and an invisible sti
 
 ## Where to change a colour
 
-- **Rail.** The caret beside the **Sticky note** tool opens the palette for a new sticky note: 14 fills (100 and 300) plus White and Black. Yellow is marked as the default.
+- **A new sticky note.** Open the arrow beside the Sticky note tool and choose one of seven light colours. Your first note is yellow. The tool remembers your choice for the next note.
 - **Object bar.** Click the colour sample: a sticky note offers **Sheet colour** and **Text**, a shape offers presets, **Fill**, **Border** and **Text**, text offers the **Text** role, and a connector offers **Line** and **Text** (the connector label).
 - **Context menu.** Right-click a sticky note, a shape or a connector: **Colour ▸** opens the same grid with a ring on the current value. The title of the menu names the object: "Sticky note", "3 objects", "Canvas".
 - **Selection bar.** With several objects selected, the sample shows their shared fill or line. Mixed colours means the objects disagree: pick a colour to set one for all.
@@ -69,7 +69,7 @@ When an object stores a value outside the palette — an old room's colour, for 
 
 ## Check the result
 
-- The rail and the sticky note window show the same 14 fills in the same order, with White and Black in a separate column.
+- To use a stronger shade, white or black, select the note and open Sheet colour in its properties.
 - The name on the sample matches the name of the chosen swatch in the window.
 - After pressing 4, a sticky note becomes pink on its previous level instead of jumping to another row.
 - An object with Custom colour stays that way until you pick a colour from the palette.

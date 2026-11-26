@@ -25,7 +25,7 @@ Fifteen scenarios: **a process map**, **a sprint or phase plan**, **requirements
 3. Write the request and choose a kind: Process map, Sprint or phase, Requirements, MVP, Retrospective, Decision, Meeting actions, Prioritisation, Competitors, Architecture decision, Ideas, Dependencies, User flow, Architecture or Problem map.
 4. Check how many sources will be sent and press Create draft.
 5. Wait for Draft ready. An ordinary editable frame appears in the room; Show on canvas moves the camera to it.
-6. Discuss and edit it like any other objects. A refinement in the same thread creates a new frame beside the previous one; the previous version keeps all manual edits.
+6. When the first draft appears on the canvas, your team can edit it. To ask for another version, send a follow-up in the same conversation. The agent adds a new frame beside the previous one and keeps your edits. You can send follow-ups while at least one draft frame from the conversation remains on the canvas. If the first attempt fails or stops before a draft appears, start a new task.
 
 ## Undo
 

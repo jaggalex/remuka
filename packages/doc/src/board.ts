@@ -1,3 +1,5 @@
+import { creationLayers, withLayer } from "@remo/model/stacking";
+import { paintOrder } from "@remo/model";
 import * as Y from "yjs";
 import { deltaOf, linesOf, plainOf, runsOf, seedTextField, withMaterializedText } from "./text";
 import { readKanban, writeKanbanState } from "./kanbanState";
@@ -104,6 +106,15 @@ export class BoardDocument {
   /** kanbanId → { columns, swimlanes, cards, columnWidth, headerHeight } */
   readonly kanbans: Y.Map<Y.Map<unknown>>;
   readonly undo: Y.UndoManager;
+
+  private initialText: { id: string; step: Y.UndoManager["undoStack"][number] } | null = null;
+
+  /** ADR-268: first typing belongs to the placed object while its creation is the latest local step. */
+  editPlacedText(id: string | null): void {
+    const step = this.undo.undoStack.at(-1);
+    if (this.initialText) this.undo.stopCapturing();
+    this.initialText = id && step ? { id, step } : null;
+  }
 
   private listeners = new Set<Listener>();
   private cache: BoardSnapshot | null = null;
@@ -234,26 +245,34 @@ export class BoardDocument {
    * issued back to back never collapse into a single undo — only typing does, via
    * `setWidgetText`, which passes `merge: true`.
    */
-  transact(fn: () => void, origin: string = LOCAL_ORIGIN, options: { merge?: boolean } = {}): void {
+  transact(fn: () => void, origin: string = LOCAL_ORIGIN, options: { merge?: boolean; textId?: string } = {}): void {
     if (!options.merge) this.undo.stopCapturing();
-    this.doc.transact((transaction) => {
-      this.depth += 1;
-      try {
-        fn();
-      } finally {
-        this.depth -= 1;
-      }
-      // The outermost call settles tables once; nested commands share it (ADR-201).
-      if (this.depth > 0) return;
-      const changed = transaction.changed.get(this.widgets as never);
-      if (!changed?.size) return;
-      this.depth += 1;
-      try {
-        settleTables(this, [...changed].filter((key): key is string => key !== null));
-      } finally {
-        this.depth -= 1;
-      }
-    }, origin);
+    const initial = this.initialText;
+    const keepPlacement = initial && options.textId === initial.id && this.undo.undoStack.at(-1) === initial.step;
+    const typingTimeout = this.undo.captureTimeout;
+    if (keepPlacement) this.undo.captureTimeout = Infinity;
+    try {
+      this.doc.transact((transaction) => {
+        this.depth += 1;
+        try {
+          fn();
+        } finally {
+          this.depth -= 1;
+        }
+        // The outermost call settles tables once; nested commands share it (ADR-201).
+        if (this.depth > 0) return;
+        const changed = transaction.changed.get(this.widgets as never);
+        if (!changed?.size) return;
+        this.depth += 1;
+        try {
+          settleTables(this, [...changed].filter((key): key is string => key !== null));
+        } finally {
+          this.depth -= 1;
+        }
+      }, origin);
+    } finally {
+      this.undo.captureTimeout = typingTimeout;
+    }
   }
 
   private depth = 0;
@@ -339,7 +358,7 @@ export function loadBoard(
   board: BoardDocument,
   template: Board,
   kanbanStates: Record<string, KanbanState>,
-  options: { title?: string } = {},
+  options: { title?: string; newLayers?: boolean } = {},
 ): void {
   board.transact(() => {
     board.widgets.clear();
@@ -349,8 +368,9 @@ export function loadBoard(
     board.tags.clear();
     board.presentation.delete(0, board.presentation.length);
 
+    const layers = options.newLayers ? creationLayers(board, paintOrder(template.widgets)) : null;
     for (const widget of template.widgets) {
-      board.widgets.set(widget.id, widget);
+      board.widgets.set(widget.id, layers ? withLayer(widget, layers.get(widget.id)!) : widget);
       seedTextField(board, widget, widget.title ?? widget.content ?? "");
     }
 
@@ -389,4 +409,16 @@ export function loadBoard(
   }, IMPORT_ORIGIN);
 
   board.undo.clear();
+}
+
+/** Read a detached snapshot with exactly the same migrations and text handling as the client. */
+export function snapshotFromUpdate(bytes: Uint8Array): BoardSnapshot & { coverFrameId: string | null } {
+  const board = new BoardDocument();
+  try {
+    Y.applyUpdate(board.doc, bytes);
+    const frame = board.meta.get("coverFrameId");
+    return { ...board.snapshot(), coverFrameId: typeof frame === "string" ? frame : null };
+  } finally {
+    board.doc.destroy();
+  }
 }

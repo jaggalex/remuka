@@ -153,62 +153,49 @@ test("a note offers White and Black beside the grid, and no transparency", async
   await expect(grid.getByRole("radio")).toHaveCount(14);
 });
 
-test("the rail and the colour window show the same fourteen fills in the same order", async ({
+test("the rail offers seven quick sticky colours and properties offer the full palette", async ({
   page,
 }) => {
   await freshBoard(page, "object-panel-one-palette", { template: "empty" });
   const rail = page.getByRole("toolbar", { name: "Tools" });
 
-  // The rail's quick choice: seven tonal columns × the 100/300 rows, the window's grid.
   await rail.getByRole("button", { name: "Sticky note colours" }).click();
   const flyout = page.getByRole("group", { name: "Sticky note colours" });
-  const railSwatches = flyout.locator(".tool-swatch");
-  await expect(railSwatches).toHaveCount(14);
-  const railHexes = await railSwatches.evaluateAll((nodes) =>
-    nodes.map((node) => node.getAttribute("data-hex")),
-  );
-  const railWords = await railSwatches.evaluateAll((nodes) =>
-    nodes.map((node) => node.getAttribute("aria-label")),
-  );
-  // The marked swatch is exactly what the sticky tool creates (ADR-129).
-  await expect(flyout.locator(".tool-swatch.is-default")).toHaveAttribute(
-    "data-hex",
-    "#f4e0a8",
-  );
-  // White and Black are named swatches in a column to the left, in the model's order.
-  const railExtras = flyout.locator(".tool-flyout-extras .cw-swatch");
-  await expect(railExtras).toHaveCount(2);
-  expect(
-    await railExtras.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label"))),
-  ).toEqual(["White", "Black"]);
-  const railExtraBox = (await railExtras.first().boundingBox())!;
-  const railGridBox = (await railSwatches.first().boundingBox())!;
-  expect(railExtraBox.width).toBe(34);
-  expect(railGridBox.width).toBe(34);
-  expect((await flyout.locator(".tool-flyout-extras").boundingBox())!.x).toBeLessThan(
-    (await flyout.locator(".tool-flyout-swatches").boundingBox())!.x,
-  );
+  const choices = flyout.getByRole("button");
+  await expect(choices).toHaveCount(7);
+  const railColours = await choices.evaluateAll((buttons) => buttons.map((button) => ({
+    hex: button.getAttribute("data-hex"), name: button.getAttribute("aria-label"),
+  })));
+  expect(railColours.map(({ hex }) => hex)).toEqual([
+    "#f4e0a8", "#c8e8d4", "#cddff8", "#f9d3cd", "#f3e8ff", "#ffdcc6", "#f3f1ec",
+  ]);
+  await expect(choices.first()).toHaveAttribute("aria-pressed", "true");
+  const first = (await choices.first().boundingBox())!;
+  const fourth = (await choices.nth(3).boundingBox())!;
+  const fifth = (await choices.nth(4).boundingBox())!;
+  expect(first.width).toBe(40);
+  expect(first.height).toBe(40);
+  expect(fourth.y).toBe(first.y);
+  expect(fifth.y).toBe(first.y + 48);
+  expect(fifth.x).toBe(first.x);
   await page.keyboard.press("Escape");
   await expect(flyout).toHaveCount(0);
 
-  // The window: the same values, order and words, so nothing has to be learned twice.
   await addSticky(page);
   const bar = page.getByRole("toolbar", { name: "Object properties" });
   await bar.getByRole("button", { name: /Sheet colour/ }).click();
   const grid = page.getByRole("radiogroup", { name: "Sheet colour" });
   const windowSwatches = grid.getByRole("radio");
   await expect(windowSwatches).toHaveCount(14);
-  expect(
-    await windowSwatches.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-hex"))),
-  ).toEqual(railHexes);
-  expect(
-    await windowSwatches.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label"))),
-  ).toEqual(railWords);
+  const fullColours = await windowSwatches.evaluateAll((buttons) => buttons.map((button) => ({
+    hex: button.getAttribute("data-hex"), name: button.getAttribute("aria-label"),
+  })));
+  expect(fullColours).toEqual(expect.arrayContaining(railColours));
   await expect(grid.getByRole("radio", { name: "Yellow", exact: true })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  // The window draws the same two swatches, so the rail is a shortcut, not a second list.
+  // Named fills remain available in properties.
   const windowExtras = page
     .getByRole("dialog", { name: "Sheet colour" })
     .locator(".cw-extras .cw-swatch");
@@ -297,7 +284,9 @@ test("a shape's one sample opens presets, fill, border and text in that order", 
   await expect(
     presets.getByRole("button", { name: "Outline" }).locator(".cw-aa-chip"),
   ).toHaveClass(/checkerboard/);
-  await expect(bar.locator(".sb-aa-preview")).toHaveClass(/checkerboard/);
+  await expect(
+    bar.getByRole("button", { name: "Shape style: Outline" }).locator(".sb-paint-sample"),
+  ).toHaveClass(/checkerboard/);
   // A transparent fill is the checkerboard alone; only an absent border is crossed out.
   const transparentSwatch = fillExtras.getByRole("button", { name: "Transparent" });
   await expect(transparentSwatch).toHaveClass(/checkerboard/);
@@ -513,38 +502,25 @@ test("a shape is lifted off the board from More actions, one level for the selec
   await freshBoard(page, "object-panel-elevation", { template: "empty" });
   await createShape(page, "Rectangle");
   const shape = (await widgets(page)).find((widget) => widget.type === "shape")!;
-  // ADR-197: the inspector starts closed for a fresh person. The selection row lives
-  // inside «More settings» since T8.
   await ensureProperties(page);
-  await openFold(page, "More settings");
-
-  const more = page.locator("aside.inspector").getByRole("button", { name: "More actions", exact: true });
-  const menu = page.getByRole("menu", { name: "More actions" });
-  const level = (name: string) => menu.getByRole("menuitemcheckbox", { name, exact: true });
-
-  await more.click();
-  await expect(level("None")).toHaveAttribute("aria-checked", "true");
-  await level("Floating").click();
+  const level = page.getByRole("combobox", { name: "Lift", exact: true });
+  await expect(level).toHaveValue("none");
+  await level.selectOption("floating");
   await expect.poll(async () => (await styleOf(page, shape.id)).elevation).toBe("floating");
-  await more.click();
-  await expect(level("Floating")).toHaveAttribute("aria-checked", "true");
-  await page.keyboard.press("Escape");
-
-  // One undo step, back to flat; "None" deletes the field instead of storing a value.
   await page.getByRole("button", { name: /^Undo/ }).first().click();
   await expect.poll(async () => (await styleOf(page, shape.id)).elevation).toBeUndefined();
-  await more.click();
-  await level("Raised").click();
+  await expect(level).toHaveValue("none");
+  await level.selectOption("raised");
   await expect.poll(async () => (await styleOf(page, shape.id)).elevation).toBe("raised");
-  await more.click();
-  await level("None").click();
+  await level.selectOption("none");
   await expect.poll(async () => "elevation" in (await styleOf(page, shape.id))).toBe(false);
 
-  // A note keeps its own paper shadow: the levels are not offered for it.
-  await addSticky(page);
   await openFold(page, "More settings");
-  await more.click();
-  await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(0);
+  await page.locator("aside.inspector").getByRole("button", { name: "More actions", exact: true }).click();
+  await expect(page.getByRole("menu", { name: "More actions" }).getByRole("menuitemcheckbox")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await addSticky(page);
+  await expect(level).toHaveCount(0);
 });
 
 /**

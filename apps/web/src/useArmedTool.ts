@@ -1,49 +1,64 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ShapeKind } from "@remo/model";
+import { markHintDone } from "./hints";
 
-/**
- * A creation tool that waits for a gesture (ADR-271).
- *
- * Choosing a shape tool no longer creates at once: it *arms* the tool, and the next
- * press on the canvas either draws the object at size or, as a click, creates the
- * default (ADR-119). One state serves the rail, the keys and the canvas, so the three
- * cannot disagree about what is armed.
- *
- * `series` is the double-click lock: the tool stays armed after every creation until
- * Escape. T12 reuses the same state for the sticky-note series (ADR-268) instead of
- * growing a second "active tool" flag.
- */
 export type ArmedToolName = "shape" | "sticky" | "text";
+type Mode = "single" | "held" | "last" | "locked";
 
 export interface ArmedTool {
   tool: ArmedToolName;
-  /** The variety chosen in the flyout: a shape kind now, a note fill for T12. */
   variant: string;
-  /** A double-click locked the tool until Escape. */
-  series: boolean;
+  mode: Mode;
+  code?: string;
 }
 
-export function useArmedTool() {
+/** The rail, keyboard and gestures share one armed tool (ADR-268, ADR-271). */
+export function useArmedTool(onTap: (tool: "sticky" | "text") => void, blocked: boolean) {
   const [armed, setArmed] = useState<ArmedTool | null>(null);
-
-  const arm = useCallback((tool: ArmedToolName, variant: string, series = false) => {
-    setArmed({ tool, variant, series });
-  }, []);
-
+  const placements = useRef(0);
+  const arm = (tool: ArmedToolName, variant: string, mode: Mode, code?: string) => {
+    placements.current = 0;
+    setArmed({ tool, variant, mode, code });
+  };
   const disarm = useCallback(() => setArmed(null), []);
+  const finish = () => {
+    placements.current++;
+    if (armed?.tool === "sticky" && placements.current === 2) markHintDone("sticky.series");
+    if (armed?.mode !== "held" && armed?.mode !== "locked") disarm();
+  };
 
-  /**
-   * A creation finished. A series stays armed; a single tool goes back to Select.
-   * Kept here rather than in the gesture so the rail and the canvas agree.
-   */
-  const finish = useCallback(() => {
-    setArmed((current) => (current && !current.series ? null : current));
-  }, []);
+  useEffect(() => {
+    if (!armed) return;
+    if (blocked) { disarm(); return; }
+    const keyUp = (event: KeyboardEvent) => {
+      if (armed.mode !== "held" || event.code !== armed.code) return;
+      if (placements.current > 0) setArmed({ ...armed, mode: "last" });
+      else if (armed.tool === "shape") setArmed({ ...armed, mode: "single" });
+      else { disarm(); onTap(armed.tool); }
+    };
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.repeat && armed.mode === "held" && event.code === armed.code) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      // A placed note has the caret. Its editor still handles Escape to finish the text.
+      if (event.key === "Escape" && event.target instanceof Element && event.target.closest(".inline-editor")) disarm();
+    };
+    // The release can arrive over an editor or another window.
+    const blur = () => { if (armed.mode === "held") disarm(); };
+    window.addEventListener("keydown", keyDown, true);
+    window.addEventListener("keyup", keyUp, true);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", keyDown, true);
+      window.removeEventListener("keyup", keyUp, true);
+      window.removeEventListener("blur", blur);
+    };
+  }, [armed, blocked, disarm, onTap]);
 
   return { armed, arm, disarm, finish };
 }
 
-/** The shape kind an armed state carries, when it is the shape tool. */
 export function armedShapeKind(armed: ArmedTool | null): ShapeKind | null {
   return armed?.tool === "shape" ? (armed.variant as ShapeKind) : null;
 }

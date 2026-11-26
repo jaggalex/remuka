@@ -32,6 +32,9 @@ import {
  *
  * Reports and traces stay out of git.
  */
+// Keep failure screenshots in disk-limited runs. For a diagnostic rerun, omit the flag.
+const recording = process.env.REMO_E2E_LOW_DISK === "1" ? "off" : "retain-on-failure";
+
 export default defineConfig({
   testDir: "./e2e",
   // `*.test.ts` in this directory is a Vitest regression test, not a browser scenario.
@@ -54,13 +57,13 @@ export default defineConfig({
     locale: "en-US",
     // The product's design target; 1280 still overflows the topbar (recorded in Q2).
     viewport: { width: 1440, height: 900 },
-    trace: "retain-on-failure",
+    trace: recording,
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: recording,
   },
   webServer: [
     {
-      command: "node scripts/e2e-db.mjs && node apps/sync/server.mjs",
+      command: "node apps/web/build-room-cover.mjs && node scripts/e2e-db.mjs && node apps/sync/server.mjs",
       url: `http://localhost:${SYNC_PORT}/health`,
       timeout: 60_000,
       reuseExistingServer: false,

@@ -38,6 +38,7 @@ export function deletionDueAt(requestedAt) {
 export const USER_REFERENCES = {
   // The author of a room stays its author; the column keeps pointing at the tombstone.
   "boards.created_by": "keep",
+  "hint_texts.updated_by": "keep",
   "sessions.user_id": "delete",
   "auth_tokens.user_id": "delete",
   // The second factor belongs to the account alone and is destroyed with it (ADR-260 §3):

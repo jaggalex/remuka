@@ -1,10 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { hashToken } from "./iam.mjs";
+import { Metrics, serveMetrics } from "./metrics.mjs";
 import { PostgresStore } from "./postgres.mjs";
+import { applyRls, inspectRls } from "./rls-admin.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 import { testPostgresUrl } from "../../scripts/test-environment.mjs";
 
@@ -326,6 +328,73 @@ suite("row-level security (ADR-178 stage 2)", () => {
       expect(drained.seen).toBeGreaterThanOrEqual(1);
     } finally {
       await appStore.close().catch(() => {});
+    }
+  });
+
+  it("adds both organisations to the storage gauge and reads their separate totals under forced RLS", async () => {
+    // Only this suite's private database changes. Use the installed role without
+    // assigning a password, changing role attributes or granting cluster membership.
+    const role = await store.pool.query(
+      "select rolsuper, rolbypassrls from pg_roles where rolname = 'remo_app'",
+    );
+    expect(role.rows).toEqual([{ rolsuper: false, rolbypassrls: false }]);
+    await applyRls(store.pool);
+    await store.pool.query("grant usage on schema public to remo_app");
+    await store.pool.query("grant select on files, boards to remo_app");
+    const policies = await inspectRls(store.pool, "remo_app");
+    for (const table of ["boards", "files"]) {
+      expect(policies.rows.find(row => row.relname === table)).toMatchObject({
+        rls: true, forced: true, policy: true, app_access: true,
+      });
+    }
+
+    const appUrl = new URL(database.url);
+    appUrl.searchParams.set("options", "-c role=remo_app");
+    const app = new PostgresStore({
+      connectionString: appUrl.toString(), migrationConnectionString: database.url,
+      log: { log() {}, error() {} },
+    });
+    try {
+      await app.connect();
+      const gauge = async () => {
+        let output;
+        await serveMetrics({
+          request: { headers: { authorization: `Bearer ${process.env.REMO_METRICS_TOKEN ?? ""}` } },
+          response: { writeHead(status) { expect(status).toBe(200); }, end(body) { output = body; } },
+          store: app, metrics: new Metrics(), startedAt: Date.now(), mailConfig: {driver: "disabled"},
+        });
+        const sample = /^remo_files_stored_bytes (\d+)$/m.exec(output);
+        expect(sample, "the scrape must contain the unlabelled installation gauge").not.toBeNull();
+        return Number(sample[1]);
+      };
+      const before = await gauge();
+      const { orgA, orgB, boardA, boardB } = await seed();
+      const fixtures = [
+        { org: orgA, room: boardA, title: "A", file: 100, cover: 5 },
+        { org: orgB, room: boardB, title: "B", file: 200, cover: 6 },
+      ];
+      let delta = 0;
+      for (const { org, room, file, cover } of fixtures) {
+        await store.withTenant(org, async () => {
+          await store.createFile({
+            id: randomUUID(), orgId: org, boardId: room, sha256: randomBytes(32).toString("hex"),
+            mime: "image/png", bytes: 10, storedBytes: file, width: 1, height: 1, variants: {},
+          });
+          await store.pool.query("update boards set cover_data = $2 where id = $1", [room, Buffer.alloc(cover)]);
+        });
+        delta += file + cover;
+        expect(await gauge() - before).toBe(delta);
+      }
+      for (const { org, room, title, file, cover } of fixtures) {
+        await app.withTenant(org, async () => {
+          const identity = await app.pool.query("select current_user as role, current_setting('app.org_id') as org");
+          expect(identity.rows).toEqual([{ role: "remo_app", org }]);
+          expect(await app.storedBytesForOrg(org)).toBe(file + cover);
+          expect(await app.storageByRoom(org, 5)).toEqual([{ boardId: room, title, bytes: file + cover }]);
+        });
+      }
+    } finally {
+      await app.close();
     }
   });
 });

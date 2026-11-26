@@ -62,6 +62,7 @@ export interface OrgBilling {
   status: "active" | "trialing" | "past_due" | "suspended";
   limits: BillingLimits;
   features: string[];
+  featurePlans?: Record<string, string>;
   usage: BillingUsage;
   /**
    * The organisation's image storage (§7, `spec/images.md` §9.8): what the files hold and
@@ -73,6 +74,7 @@ export interface OrgBilling {
   currency: string | null;
   /** Rooms the plan cannot keep active. Empty until the chooser ships (server §6). */
   frozenRooms: string[];
+  frozenCount?: number;
   /** The organisation is past its seat grace: every room is read-only (§2.5). */
   readOnly: boolean;
   // The money module owns these two. A server without it simply omits them, and the
@@ -277,10 +279,10 @@ export const billingApi = {
     call<{ ok: true }>(`/orgs/${encodeURIComponent(orgId)}/billing/resume`, {
       method: "POST",
     }),
-  setFrozenRooms: (orgId: string, boardIds: string[]) =>
+  setFrozenRooms: (orgId: string, boardIds: string[], scope?: string[]) =>
     call<{ activeRooms: number }>(
       `/orgs/${encodeURIComponent(orgId)}/billing/frozen-rooms`,
-      { method: "PUT", body: { boardIds } },
+      { method: "PUT", body: { boardIds, scope } },
     ),
 };
 

@@ -1,6 +1,7 @@
+import type { FacilitationTab } from "./FacilitationPanel";
+import { homeAction } from "./homeAction";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BoardDocument,
   useBoard,
   type BoardFragment,
   type ConnectorOptions,
@@ -8,6 +9,7 @@ import {
 } from "@remo/doc";
 import { rigidWaypoints } from "@remo/model";
 import { useBoardContextMenu } from "./useBoardContextMenu";
+import { recordChromeUse } from "./chromeUse";
 import { useBoardHeader } from "./useBoardHeader";
 import { currentRoom, loadIdentity, type Identity } from "./identity";
 import { useCursorIdentity } from "./useCursorIdentity";
@@ -22,7 +24,7 @@ import { useBoardVote } from "./useBoardVote";
 import { useFollowAttention } from "./useFollowAttention";
 import { useBoardAccess } from "./useBoardAccess";
 import { useBoardKeyboard } from "./useBoardKeyboard";
-import { useBoardSession } from "./useBoardSession";
+import { useBoardSession, useRoomDocument } from "./useBoardSession";
 import { useBoardTemplates } from "./useBoardTemplates";
 import { useBoardNavigation } from "./useBoardNavigation";
 import { useNewObjectEditing } from "./useNewObjectEditing";
@@ -48,8 +50,6 @@ import { DEFAULT_SETTINGS, loadSettings, type BoardSettings } from "./settings";
  * hooks, in the same order, called once per mounted board.
  */
 export function useBoardAppState() {
-  const board = useMemo(() => new BoardDocument(), []);
-  const { widgets, kanbanStates, title, groupNames, tags, allowBringEveryone } = useBoard(board);
   const { t, count, typeName, lang, setLang } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [focusedWaypoint, setFocusedWaypoint] = useState<{
@@ -68,7 +68,7 @@ export function useBoardAppState() {
   const [settings, setSettings] = useState<BoardSettings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [templateRequest, setTemplateRequest] = useState(0);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(() => Boolean(homeAction("invite")));
   const [exportOpen, setExportOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountTab, setAccountTab] = useState<"people" | "audit" | "agents">("people");
@@ -76,21 +76,30 @@ export function useBoardAppState() {
     setAccountTab(tab);
     setAccountOpen(true);
   }, []);
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(() => Boolean(homeAction("agent")));
   const roomId = currentRoom();
   const tidy = useTidyCommand({ openAgents: () => setAgentOpen(true) });
-  const [timerOpen, setTimerOpen] = useState(false);
-  const [followOpen, setFollowOpen] = useState(false);
+  const [facilitationTab, setFacilitationTab] = useState<FacilitationTab | null>(null);
+  const toggleFacilitation = useCallback((tab: FacilitationTab, open: boolean) => {
+    setFacilitationTab(current => open ? tab : current === tab ? null : current);
+  }, []);
+  const timerOpen = facilitationTab === "timer", followOpen = facilitationTab === "follow";
+  const voteOpen = facilitationTab === "vote", presentOpen = facilitationTab === "show";
+  const setTimerOpen = useCallback((open: boolean) => toggleFacilitation("timer", open), [toggleFacilitation]);
+  const setFollowOpen = useCallback((open: boolean) => toggleFacilitation("follow", open), [toggleFacilitation]);
+  const setVoteOpen = useCallback((open: boolean) => toggleFacilitation("vote", open), [toggleFacilitation]);
+  const setPresentOpen = useCallback((open: boolean) => toggleFacilitation("show", open), [toggleFacilitation]);
   const [appsOpen, setAppsOpen] = useState(false);
   /** A counter, not a boolean: the rail asks the comments panel to start placement. */
   const [commentRequest, setCommentRequest] = useState(0);
   const {
-    me, setMe, sessionReady,
+    me, setMe, sessionReady, linkOnly,
     orgs,
     refreshOrgs,
     access,
     refreshAccess,
     boardOrgId,
+    boardTeam, boardIcon,
     boardTitle,
     authOpen,
     setAuthOpen,
@@ -103,8 +112,9 @@ export function useBoardAppState() {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
   } = useBoardAccess();
+  const board = useRoomDocument(roomId, access, me?.id ?? null);
+  const { widgets, kanbanStates, title, groupNames, tags, allowBringEveryone } = useBoard(board);
   const { renameSelf, forgetAccountName } = useCursorIdentity({ accountName: me?.name, setIdentity });
   const { openBoard, copyObjectLink, revealWidget } = useBoardNavigation({
     widgets,
@@ -114,20 +124,24 @@ export function useBoardAppState() {
     t,
   });
   /** Leave the board for the organisation home: the board unmounts with the address. */
-  const openHome = useCallback(() => {
-    const slug = orgs.find((org) => org.id === boardOrgId)?.slug;
-    window.location.assign(slug ? `${window.location.pathname}?org=${encodeURIComponent(slug)}` : window.location.pathname);
-  }, [boardOrgId, orgs]);
+  const orgSlug = orgs.find(org => org.id === boardOrgId)?.slug;
+  const homeParams = new URLSearchParams();
+  if (orgSlug) homeParams.set("org", orgSlug);
+  const homeHref = location.pathname + (homeParams.size ? "?" + homeParams.toString() : "");
+  if (orgSlug && boardTeam) homeParams.set("team", boardTeam.id);
+  const teamHref = location.pathname + (homeParams.size ? "?" + homeParams.toString() : "");
+  const openHome = useCallback(() => window.location.assign(homeHref), [homeHref]);
 
-  const readOnly = !(access?.allowed === true && access.capabilities.includes("board.edit"));
   const {
     connection,
     status,
     synced,
     saveState,
     visiblePresence,
+    authorised,
   } = useBoardSession({ board, identity, accountId: me?.id ?? null, accountHandle: me?.handle ?? null, access, refreshAccess,
-    setNotice: showNotice, t });
+    setNotice: showNotice, setAuthOpen, t });
+  const readOnly = !authorised || !access?.capabilities.includes("board.edit");
   // Two different reasons stop writes: access, and the offline queue limit.
   const writeBlocked = readOnly || saveState.blocked;
   const roomAgent = useRoomAgent({
@@ -138,7 +152,7 @@ export function useBoardAppState() {
     openSettings: () => openAccount("agents"),
   });
   /** One voting session, shared by the panel and the chips on the board (ADR-115). */
-  const { vote, open: voteOpen, setOpen: setVoteOpen, cast, withdraw } = useBoardVote({
+  const { vote, cast, withdraw } = useBoardVote({
     boardId: currentRoom(),
     connection,
     t,
@@ -259,8 +273,6 @@ export function useBoardAppState() {
   });
 
   const {
-    presentOpen,
-    setPresentOpen,
     commentsOpen,
     setCommentsOpen,
     setCommentsUnread,
@@ -355,7 +367,7 @@ export function useBoardAppState() {
     [connection],
   );
 
-  const { undo, redo, forceRender } = useBoardHistory(board);
+  const { undo, redo, forceRender, pinUndo, pinRedo } = useBoardHistory(board);
   const { info, openInfo, closeInfo } = useInfoCard(typeName, t);
 
   const gatherSelection = useGatherSelection({
@@ -446,15 +458,15 @@ export function useBoardAppState() {
     setEditingId,
   });
 
-  const { rail, run: runTool, cancelArmed, drawShape } = useBoardTools({
+  const { rail, run: runTool, cancelArmed, creationTool, suggestSeries } = useBoardTools({
     widgets,
     selectedIds,
     kanbanStates,
     writeBlocked,
     blockedHint,
     canComment: Boolean(access?.capabilities.includes("board.comment")),
-    canUndo: board.canUndo,
-    canRedo: board.canRedo,
+    canUndo: (!writeBlocked && board.canUndo) || pinUndo,
+    canRedo: (!writeBlocked && board.canRedo) || pinRedo,
     undo,
     redo,
     canConnect: canJoinSelection,
@@ -530,7 +542,8 @@ export function useBoardAppState() {
     board,
     writeBlocked,
     onTool: runTool,
-    armedShape: rail.armedShape,
+    onHome: () => { recordChromeUse("home.open"); openHome(); },
+    toolArmed: rail.activeTool !== null,
     onCancelTool: cancelArmed,
     onTone: applyTone,
     onLineBlock: applyLineBlock,
@@ -551,7 +564,7 @@ export function useBoardAppState() {
   });
 
   /** The armed shape tool as the canvas sees it (ADR-271). */
-  const shapeTool = rail.armedShape ? { kind: rail.armedShape, onDraw: drawShape } : null;
+
 
   /** Take an unprotected room: the first signed-in visitor becomes its owner. */
   const claimBoard = useCallback(async () => {
@@ -631,6 +644,7 @@ export function useBoardAppState() {
     access,
     refreshAccess,
     boardOrgId,
+    boardTeam, boardIcon,
     boardTitle,
     authOpen,
     setAuthOpen,
@@ -643,11 +657,11 @@ export function useBoardAppState() {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
+    anonymousLink: Boolean(sessionReady && !me && access?.allowed && linkOnly),
     renameSelf,
     openBoard,
     revealWidget,
-    openHome,
+    openHome, homeHref, teamHref,
     readOnly,
     connection,
     status,
@@ -684,6 +698,7 @@ export function useBoardAppState() {
     extend,
     reset,
     header,
+    facilitationTab, setFacilitationTab,
     presentOpen,
     setPresentOpen,
     commentsOpen,
@@ -728,7 +743,7 @@ export function useBoardAppState() {
     addTable,
     addKanban,
     rail,
-    shapeTool,
+    creationTool, suggestSeries,
     editWidget,
     claimBoard,
     menu,

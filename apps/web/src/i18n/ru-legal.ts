@@ -7,6 +7,7 @@
  * name comes from `@remo/brand` through the i18n interpolation.
  */
 export const ruLegal = {
+  "legal.changes": "Что изменилось в документе «{document}»",
   "legal.documents": "Документы",
 
   "legal.doc.offer": "Договор-оферта",
@@ -54,7 +55,8 @@ export const ruLegal = {
   "legal.consent.consentAfter": "",
   "legal.consent.termsBefore": "Принимаю ",
   "legal.consent.termsLink": "Условия использования",
-  "legal.consent.termsMiddle": " и ",
+  "legal.consent.termsMiddle": ". Как мы работаем с данными, читайте в ",
+  "legal.consent.termsPrivacyLink": "Политике конфиденциальности",
   "legal.consent.termsAfter": ".",
   "legal.consent.genericBefore": "Принимаю ",
   "legal.consent.genericAfter": "",

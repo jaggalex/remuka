@@ -16,7 +16,7 @@ This differs from a plan preview: there the room does not change until Apply, wh
 1. **Assignment.** The owner picks their own active agent and assigns it to the room. The agent belongs to a person and has no rights of its own: a task acts for the owner and cannot exceed those rights.
 2. **Request.** The owner or a selected editor selects the material, opens the agent avatar in the header, writes the request and chooses a kind.
 3. **Draft.** The server validates the plan, finds free space and writes the frame, its objects and connectors in one transaction. Draft ready appears after the write is confirmed.
-4. **Teamwork.** The frame is edited like any other. A refinement in the thread creates a new version beside the previous one; the previous version keeps manual edits.
+4. **Teamwork.** When the first draft appears on the canvas, your team can edit it. To ask for another version, send a follow-up in the same conversation. The agent adds a new frame beside the previous one and keeps your edits. You can send follow-ups while at least one draft frame from the conversation remains on the canvas. If the first attempt fails or stops before a draft appears, start a new task.
 
 ## Fifteen scenarios
 

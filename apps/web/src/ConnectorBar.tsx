@@ -1,4 +1,4 @@
-import { Button, IconButton, Popover, Segmented } from "@remo/ui";
+import { Button, Icon, IconButton, Popover, Segmented } from "@remo/ui";
 import { LINE_PRESETS, type ConnectorRouting, type LinePreset } from "@remo/model";
 import { usePopover } from "./usePopover";
 import { useI18n } from "./i18n";
@@ -118,13 +118,12 @@ export function ConnectorBar({
         <Button
           variant="ghost"
           size="compact"
-          iconEnd="chevron-down"
           aria-label={`${t("line.type")}: ${t(routing.label)}`}
           title={t("line.type")}
           aria-expanded={open === "type"}
           onClick={() => setOpen(open === "type" ? null : "type")}
         >
-          {t(routing.label)}
+          <Icon name={`connector-${routing.value}`} size={20} />
         </Button>
         {open === "type" && (
           <PanelWindow>
@@ -147,6 +146,7 @@ export function ConnectorBar({
         <Button
           variant="ghost"
           size="compact"
+          className="sb-width"
           aria-label={`${t("line.widthLabel")}: ${target.strokeWidth}`}
           aria-expanded={open === "width"}
           onClick={() => setOpen(open === "width" ? null : "width")}
@@ -186,7 +186,7 @@ export function ConnectorBar({
           aria-expanded={open === "dash"}
           onClick={() => setOpen(open === "dash" ? null : "dash")}
         >
-          <span className={`sb-dash ${target.strokeStyle}`} aria-hidden="true" />
+          <Icon name="text-strike" size={20} />
         </Button>
         {open === "dash" && (
           <PanelWindow>
@@ -264,7 +264,6 @@ export function ConnectorBar({
           variant="ghost"
           size="compact"
           className="sb-colour sb-line-colour"
-          iconEnd="chevron-down"
           aria-label={colourLabel}
           title={colourLabel}
           aria-haspopup="dialog"
@@ -272,7 +271,7 @@ export function ConnectorBar({
           selected={open === "colour"}
           onClick={() => setOpen(open === "colour" ? null : "colour")}
         >
-          <LineSample target={target} />
+          <span className="sb-paint-sample" aria-hidden="true" style={{ background: target.strokeColor }} />
         </Button>
         {open === "colour" && (
           <ColorWindow title={t("line.colour")} onClose={() => setOpen(null)}>
@@ -341,16 +340,15 @@ export function ConnectorBar({
         )}
       </span>
 
-      <Button
-        variant="ghost"
+      <span className="sb-divider" aria-hidden="true" />
+      <IconButton
+        icon="text"
         size="compact"
-        aria-label={t("line.label")}
+        label={t("line.label")}
         title={t("line.label")}
         selected={target.hasLabel}
         onClick={onEditLabel}
-      >
-        Aa
-      </Button>
+      />
 
       <IconButton
         icon="more"
@@ -404,29 +402,6 @@ function LineChip({ preset }: { preset: LinePreset }) {
       {preset.arrow === "start" || preset.arrow === "both" ? (
         <path d="M8 1.5 1 5 8 8.5z" fill={preset.color ?? "currentColor"} />
       ) : null}
-    </svg>
-  );
-}
-
-/** The bar's sample: the line as it is painted, head included. */
-function LineSample({ target }: { target: ConnectorBarTarget }) {
-  const width = Math.min(target.strokeWidth, 4);
-  const dash =
-    target.strokeStyle === "normal" ? undefined : target.strokeStyle === "dashed" ? "4 3" : "1 3";
-  const start = target.arrow === "start" || target.arrow === "both";
-  const end = target.arrow === "end" || target.arrow === "both";
-  return (
-    <svg width="30" height="12" viewBox="0 0 30 12" aria-hidden="true">
-      <path
-        d="M2 6h22"
-        stroke={target.strokeColor}
-        strokeWidth={width}
-        strokeDasharray={dash}
-        strokeLinecap="round"
-        fill="none"
-      />
-      {end && <path d="M22 2 29 6l-7 4z" fill={target.strokeColor} />}
-      {start && <path d="M8 2 1 6l7 4z" fill={target.strokeColor} />}
     </svg>
   );
 }

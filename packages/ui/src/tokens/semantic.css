@@ -1,11 +1,21 @@
 /* REMO semantic roles that do not depend on the theme — generated from tokens.json by scripts/build-tokens.mjs. Do not edit. */
 :root {
+  --bg-export-progress: var(--paper-green-300);
+  --bg-save-confirmed: var(--success-100);
+  --state-save-confirmed: var(--success-500);
+  --state-save-blocked: var(--danger-650);
+  --bg-auth-verified: var(--paper-green-300);
+  --bg-room-notice-session: var(--danger-100);
+  --bg-room-notice-moved: var(--accent-100);
+  --bg-room-notice-full: var(--paper-orange-100);
+  --state-offline: var(--orange-600);
   --sticker-neutral: var(--paper-grey-100);
   --sticker-yellow: var(--paper-yellow-100);
   --sticker-green: var(--paper-green-100);
   --sticker-blue: var(--paper-blue-100);
   --sticker-pink: var(--paper-pink-100);
   --sticker-violet: var(--paper-violet-100);
+  --agent-on-paper: var(--violet-600);
   --sticker-orange: var(--paper-orange-100);
   --sticker-chip: var(--alpha-white-72);
   --sticker-sheen: var(--alpha-white-55);
@@ -14,13 +24,23 @@
   --sticker-cast: var(--alpha-umber-60);
   --brand-mark-circle: var(--orange-300);
   --brand-mark-square: var(--blue-300);
+  --type-empty-room-heading: 800 clamp(34px, 4.4vw, 52px)/1.04 var(--font-sans);
+  --type-empty-room-intro: 400 19px/1.5 var(--font-sans);
+  --type-empty-room-action: 700 17px/1.25 var(--font-sans);
   --type-page-hero: 800 56px/57px var(--font-sans);
   --type-hero: 800 40px/42px var(--font-sans);
   --type-display: 800 28px/32px var(--font-sans);
+  --type-export-title: 800 30px/1.45 var(--font-sans);
   --type-title-lg: 800 28px/32px var(--font-sans);
   --type-section: 800 26px/30px var(--font-sans);
   --type-title: 800 22px/28px var(--font-sans);
+  --type-page-step: 800 36px/38px var(--font-sans);
+  --type-action-emphasis: 700 16px/24px var(--font-sans);
+  --type-action-strong: 800 18px/24px var(--font-sans);
   --type-path: 400 18px/24px var(--font-sans);
+  --type-reading: 400 16px/24px var(--font-sans);
+  --type-palette-title: 700 13px/18px var(--font-sans);
+  --type-form-label: 700 14px/21px var(--font-sans);
   --type-subtitle: 500 15px/22px var(--font-sans);
   --type-body: 400 14px/20px var(--font-sans);
   --type-label: 600 13px/18px var(--font-sans);

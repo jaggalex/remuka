@@ -10886,6 +10886,8 @@ them, and without data on what people use, would trade noise for confusion.
   Invite (the primary button), account. Everything else becomes a registry command in a menu.
 - Status only when abnormal: no save indicator while saved; "Saving…" after 2 s; offline and
   stopped input at once. Zero counters are hidden; viewers fold into the people group.
+  Once the room has synchronized, an interrupted connection keeps its offline notice through
+  retries until synchronization resumes. The first connection still starts in `connecting`.
 - One side panel at a time; hints until the action is learned (`useOnceHint`); chrome fades to
   35 % and ignores the pointer during canvas gestures; "calm animations" is an account setting.
 - A `chrome.used` event (first use per organisation per day) and a Pulse section show what is
@@ -12044,3 +12046,152 @@ filesystem dependencies are separate gates. A prepared tree is not a passed rele
 **Consequences.** Runtime build inputs may remain under legacy spec/design paths until
 a separately tested relocation; a directory name alone does not decide publication.
 Infrastructure runbooks need sanitization before their public/internal split is accepted.
+
+## ADR-296: publish localized guide exports and a signed knowledge artifact
+
+**Context.** The support service must answer from the installed product release in Russian
+and English. A live URL alone establishes neither provenance nor release compatibility.
+
+**Decision.** The portal builds language-specific indexes and full texts alongside the
+existing addresses. A release job packages the reviewed public guide and help Markdown
+as a bounded gzip JSON file map. An Ed25519 signature binds a canonical manifest to
+each file hash, release, commit and schema. The public key is provisioned independently
+on each support installation. The signing key is available only to the release job.
+
+**Consequences.** Public guide builds remain possible without a signing key. Support
+imports only signed artifacts for the configured product revision. Rebuilding an index
+never requires access to product accounts, rooms, private repositories or a live portal.
+
+## ADR-297 — Customer surveys follow the Remuka interface language
+
+**Context.** A visitor can use Remuka and the browser in different languages. Chatwoot
+stores its native star prompt per inbox, while the resolution survey is sent per conversation.
+
+**Decision.** Pass the active Remuka interface language as the contact attribute `lang`.
+For each new survey prefer that attribute, then the older `remo_lang` if available,
+then the conversation browser language. Use English if neither source supplies Russian
+or English. Pin the resolution survey language for its follow-up messages. In configured
+Remuka Website inboxes localize the native CSAT question when Chatwoot creates it.
+
+**Consequences.** This supersedes the bilingual inbox wording in ADR-290. Existing messages,
+native ratings and survey eligibility retain their original semantics.
+
+## ADR-298 — The embedded support chat follows the Remuka theme
+
+**Context.** The Website widget has its own document and SDK. A person may choose a different
+theme in Remuka from the one used by their operating system.
+
+**Decision.** Pass the active light or dark theme in the widget URL on open. Forward changes
+through the existing origin-checked message channel and Chatwoot's setColorScheme API.
+The Website inbox owns the brand color for message bubbles and controls.
+
+**Consequences.** Changing theme preserves the open conversation and its draft. Operators
+can match the inbox accent to the product without customizing the Chatwoot build.
+
+## ADR-299 — Seven quick sticky colours in the tool rail
+
+**Context.** The full fill grid in the sticky tool diverged from the approved seven-sample design.
+
+**Decision.** The rail offers the 100-level yellow, green, blue, pink, violet, orange and grey fills in that order, four per row. The object properties window retains the full fill grid and its named colours. Both surfaces use the same model values and accessible colour names.
+
+**Consequences.** This supersedes the rail palette choice in ADR-292. Existing objects and remembered fills keep their stored values. The rail marks a remembered fill only when it appears among the seven choices.
+
+## ADR-300 — Keep the room header within eight controls and the shape toolbar within seven
+
+**Context.** In a team room, separate links to the organisation and team directories are both needed. A dedicated discussion button brought the resting desktop header to nine controls and the working screen to thirteen. The written T8 shape checklist also differed from the seven-button App-ToolsBars design.
+
+**Decision.** On 25 November 2026 the owner retained the limits of eight header controls and twelve permanent actions across the working screen. Move discussion to the room menu. The menu entry opens the existing comments panel and identifies unread comments. Keep direct access to both directories. The selected shape has seven toolbar buttons including More. Lift is available from More.
+
+**Consequences.** Opening discussion takes one additional action on desktop. Keyboard users can reach it through the room menu. Opening a comment pin still takes the user directly to its thread. Shape lift keeps the existing permission check, model command and undo behaviour. This decision revises the earlier placement of the two actions in ADR-266.
+
+## ADR-301 — Offer the room’s only frame for export when nothing is selected
+
+**Context.** A person exporting a PNG or PDF from a room with one frame previously had to close the export dialog and select the frame to make its scope available.
+
+**Decision.** With an empty selection, offer the frame scope when the room contains exactly one frame. Whole room remains selected on opening the dialog. The person chooses Frame to export the frame and its contents. With zero or multiple frames and an empty selection, the frame option stays unavailable. An explicit selection keeps its existing meaning: use the selected frame or the enclosing frame of a selected object. Selecting an object outside every frame does not nominate another frame.
+
+**Consequences.** The scope preview and the exported file resolve the same frame. Empty selection stays empty. The whole-room backup and restore keep their existing scope.
+
+## ADR-302 — Dismiss the new sticky note palette from the rail
+
+**Context.** The App-ToolsBars palette offers seven colours for the next note. The product also added a close button in its title and a help link inside the hint.
+
+**Decision.** On 26 November 2026 the owner approved the artboard layout for this palette. Its interactive content consists of the seven colour choices. Escape closes the palette and returns focus to its disclosure button. The same button toggles the palette. Clicking outside dismisses it and lets the clicked control perform its usual action.
+
+**Consequences.** The full colour guide remains available through Help. Other popovers continue to use their existing controls.
+
+## ADR-303 — Summarise team news and give every visible update its own card
+
+**Context.** With three updates the organisation home used one as an actionable greeting and displayed the other two as cards. The approved App-Home design puts a short summary under the greeting and all three actionable updates together.
+
+**Decision.** Use the visible updates returned for this person and organisation, after local dismissals. Show a short, read-only summary and one card per visible update, up to three. Mention live collaboration and a pending agent proposal together when both are present, as in the design. Otherwise summarise up to two of the highest-ranked updates. Each card keeps its action and dismissal. The server's access checks, ranking and limit apply as before.
+
+**Consequences.** Dismissing an update immediately removes it from the summary and the cards. The summary uses only the people, room titles and event types already returned. The event is measured once at its card. When a successful load returns no visible updates, keep the personal hint below the greeting and show “It’s quiet on your team” as the section heading with no cards. A pending or failed request does not confirm that the team is quiet.
+
+## ADR-304 — Clarify a room task once its shared draft is on the canvas
+
+**Context.** The room agent previously accepted follow-ups immediately after a first request. Colleagues could receive a second pending task before they had a shared result to review.
+
+**Decision.** The owner approved clarifications for conversations that have at least one published draft frame still present on the room canvas. The requester and room owner retain their existing permissions. Publication is identified by the agent's stored frame identifiers, including an applied task's result, and by the frame in the board document. This includes frames published before this decision and earlier frames when a later frame was removed.
+
+**Consequences.** Queuing, running, failure or cancellation of the first attempt alone does not open clarifications. A requester can start a new task. Removing the last published frame closes clarifications until a published frame of that conversation is present again. Admission is checked under the existing room-agent lock. Retrying an already accepted request with its idempotency key returns its existing task.
+
+## ADR-305 — Present the selected card's record first in Properties
+
+The App-Kanban card-fields artboard puts the selected card's title, status, assignee, dates, tags and fill together. The previous inspector buried fields below general object actions. Its menu already supported inheriting the column colour or storing a personal fill.
+
+For one selected card, Properties shows the editable status beside the heading, the text of the card, its assignee, paired start and due dates, the room tag editor and its fill. The panel and card context menu use the same fill palette and document operation. The card’s own status stays independent of its column. Rare object actions are available after the card record. A due date before the viewer’s local calendar day gets a localized relative description, following the same due-date rule as the face and filter. No fields or permissions change.
+
+## ADR-306 — Show the next action in room connection notices
+
+The App-States artboard offers sign-in after session expiry and immediate navigation when a retired address provides a destination. Transient canvas messages previously showed only a sentence. The room now offers its existing sign-in dialog in place, keeping the room and its local document mounted. For a move, the button uses the same validated URL as the scheduled navigation in ADR-254. An older server that supplies no destination still shows the explanatory notice. Access decisions and transport retry rules continue to belong to their existing handlers.
+
+## ADR-307 — Keep the password visibility toggle on the reset screen
+
+**Decision (2026-11-26).** The owner approved the existing password visibility toggle on the T15 reset screen as an exception to App-Auth/reset. New passwords are initially masked. The visible labels remain “Показать” and “Скрыть” in Russian and “Show” and “Hide” in English. The toggle changes the display of the entered value. Only the separate save action submits the form.
+
+**Acceptance.** This decision covers the toggle on the reset screen at both design widths and in both themes. The other controls, copy and geometry remain subject to the T15 comparison.
+
+## ADR-308 — Show the original filename in the image viewer to people with download access
+
+**Decision (2026-11-26).** The viewer uses the object's chosen name first. When the object has no name, someone with `board.export` sees the filename that downloading the original would provide. Everyone else sees the image description, falling back to the localised object type. The same fallback applies when the file or its metadata is unavailable. The download action has a visible localised label.
+
+Opening the viewer requests headers from the original-file route. The route checks current board access, export capability, organisation, file status, room usage and the presence of the stored original. The response is private and uncached. Only a download streams the file and records `file.downloaded_original`. The filename stays out of the shared room document and image variants. Within one organisation, deduplicated uploads use the filename of the stored original, matching the attachment a user can download.
+
+## ADR-309 — Keep the main room menu short and put additional commands under More
+
+**Decision (2026-11-26).** The owner approved a second level in the room-title menu for additional commands. The main level follows the App-RoomTidy room actions: Rename, Properties and access, Export, Copy link, and Move to trash. The accepted T5 scope explicitly excludes the prototype’s Change history row. More opens the additional commands available to this role. Properties and access opens the existing properties and access actions with their existing permission checks. The command palette continues to dispatch the same actions directly.
+
+**Consequences.** The two levels occupy the same space on desktop and mobile. Each submenu supports a visible Back control and restores focus to its opener. Existing confirmations still protect replacing and trashing a room. There is currently no room-scoped change-history view. The organisation security audit and local undo stack have different scope and remain separate. The design's illustrative shortcuts do not introduce global keyboard bindings.
+
+## ADR-310 — Let a brief-to-board plan flag an unresolved role
+
+**Context (2026-11-26).** A brief may describe a step without identifying who is responsible. A person reviewing the proposed diagram needs to see that question before applying it.
+
+**Decision.** The skill may return an optional bounded list of uncertainties alongside its creation operations. The first kind, `missing_role`, must identify a proposed object by temporary ID. Optional source IDs must name objects in the task selection actually sent to the model. The server validates references, takes the label from the validated object and supplies the warning code. Unknown fields, unsupported kinds and invalid references refuse the entire reply. Repeated valid findings about one object produce one warning.
+
+**Consequences.** The preview describes the question in the reader's language and allows approval. Existing critical geometry findings still block approval. Old replies containing only operations and previously saved plans retain their meaning. No schema migration, external source lookup or additional model call is needed.
+
+## ADR-311 — Group column movement and open table sizing from Properties
+
+**Decision (2026-11-26).** The owner approved a single row for each pair of movement commands in the table axis and kanban column menus. Each direction has its own button and remains separately reachable with the menu's arrow keys. A direction that is unavailable at the edge retains its disabled state. The table axis menu drops the Size entry. Select an axis and use Size in table Properties to open the size control.
+
+**Consequences.** The moves still invoke their original commands with the same permission checks. Resizing directly on the canvas with a header boundary remains available. The layout and data format stay the same.
+
+## ADR-312 — Expose the table axis delete shortcut in the open menu
+
+**Decision (2026-11-26).** Delete from an open table axis menu invokes that menu's delete action. An occupied axis displays an ellipsis and opens the existing confirmation. An empty axis keeps the immediate action from ADR-201. The shortcut is handled inside the menu, where it cannot also delete canvas objects or reset a divider. The canvas delete command ignores repeated keydown events from a key that is still held after the menu closes.
+
+## ADR-313 — Use the published Figma frame for matching acceptance states
+
+**Decision (2026-11-26).** The owner approved Figma as the visual source for matching screen, state, viewport and theme combinations. Preserve the existing references for combinations without a matching frame and retain evidence from previous runs.
+
+**Consequences.** Pin each imported PNG and its control zones together with the Figma frame identifier. Match the new visuals while preserving access rules and previously approved interactions, including the distinct keyboard commands in ADR-311 and ADR-312.
+
+## ADR-314 — Recover pending room edits after the same editor signs in again
+
+**Context (2026-11-26).** A socket closed after session expiry can leave edits in the current tab that the server has not acknowledged. Reconnecting with a reset sequence permits the client to announce “Saved” while the write is still in flight. The room route also stays open when a person signs in as a different account.
+
+**Decision.** Keep a room document and its unacknowledged sequence in the current tab for the account that made the edits. Resume it only after a fresh server decision confirms the same account and its edit permission for that room. Validate the resumed transport against that session before it can exchange document data. A guest, viewer, different account or denied request cannot receive or transmit that document. The new connection reports outstanding work until the server acknowledges persistence.
+
+**Consequences.** The old document and its undo state are isolated in the tab. They do not become data for a different principal or a tab-local broadcast. A compatible non-browser client can still use the existing socket contract. The guarantee applies to the current tab before it is closed or refreshed. There is no database migration or new persistent browser store.

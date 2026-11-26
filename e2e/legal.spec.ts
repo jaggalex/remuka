@@ -24,6 +24,7 @@ interface LegalDoc {
   zone: string;
   version: number;
   sha256: string;
+  changes?: Partial<Record<"en" | "ru", string>>;
   required: "signup" | "none";
   reaccept: boolean;
   withdrawable: boolean;
@@ -103,6 +104,10 @@ test("the documents page shows what was accepted and withdraws only the consent"
   expect(registered.ok(), await registered.text()).toBeTruthy();
 
   await page.goto(`/?legal=documents&lang=${zone === "ru" ? "ru" : "en"}`);
+  for (const document of documentsHere) {
+    const summary = document.changes?.[zone === "ru" ? "ru" : "en"];
+    if (summary) await expect(page.locator(".legal-doc .legal-changes", { hasText: summary })).toBeVisible();
+  }
   await expect(page.locator(".legal-doc")).toHaveCount(documentsHere.length);
   await expect(page.locator(".legal-doc-status.is-accepted").first()).toContainText(
     text(zone, "Принято", "Accepted"),
@@ -280,7 +285,7 @@ test("an account with no journal rows is blocked until it accepts the current re
 
   await page.goto(`/?lang=${zone === "ru" ? "ru" : "en"}`);
   await page.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).first().click();
-  const login = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const login = page.getByRole("main").filter({ has: page.locator('input[type="email"]') });
   await login.locator('input[type="email"]').fill(email);
   await login.locator('input[type="password"]').fill(PASSWORD);
   await login.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).click();
@@ -289,6 +294,10 @@ test("an account with no journal rows is blocked until it accepts the current re
     name: text(zone, "Документы обновились", "Documents have been updated"),
   });
   await expect(sheet).toBeVisible({ timeout: 20_000 });
+  for (const document of pendingDocs) {
+    const summary = document.changes?.[zone === "ru" ? "ru" : "en"];
+    if (summary) await expect(sheet.locator(".legal-changes", { hasText: summary })).toBeVisible();
+  }
   // §5: no close button and Escape does nothing; only the two named actions exist.
   await expect(sheet.getByRole("button", { name: text(zone, "Выйти", "Sign out") })).toBeVisible();
   const accept = sheet.getByRole("button", { name: text(zone, "Принять", "Accept"), exact: true });

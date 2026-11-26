@@ -192,6 +192,46 @@
   margin: 2px 0 var(--space-3);
 }
 
+/* A table has two related tasks: choose an axis, then edit it. On a wide screen
+   they share a row, keeping both tasks visible without shortening input controls. */
+@media (min-width: 1080px) {
+  .app:not(.no-inspector):has(.section-panel[data-table]) {
+    --inspector-width: min(44vw, 34rem);
+  }
+  .properties-more:has(.section-panel[data-table]) > .rm-disclosure-body { gap: var(--space-2); }
+  .section-panel[data-table] { margin-top: var(--space-1); }
+  .section-panel[data-table] .section-view {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .section-panel[data-table] .section-view h3 { margin: 0; }
+  .section-panel[data-table] .section-view .rm-segmented { flex: 1; }
+  .section-panel[data-table] .section-axes:has(.section-axis-detail) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-4);
+    align-items: start;
+  }
+  .section-panel[data-table] .section-axes > * { min-width: 0; }
+  .section-panel[data-table] .section-axes > :not(.section-axis-detail) { grid-column: 1; }
+  .section-panel[data-table] .section-axis-detail {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin-top: 0;
+    gap: var(--space-2);
+  }
+  .section-panel[data-table] .section-group-head { flex-wrap: wrap; }
+  .section-panel[data-table] .section-remove {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1) var(--space-4);
+    margin-top: var(--space-2);
+  }
+  .section-panel[data-table] .section-remove .rm-btn { grid-row: 1; justify-self: start; }
+  .section-panel[data-table] .section-caption { margin: 0; }
+}
+
 /* ------------------------------------------------------- table headers --- */
 
 .table-headers {
@@ -247,11 +287,6 @@
   color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   outline: none;
-}
-
-.table-axis-menu {
-  position: fixed;
-  z-index: var(--z-popover);
 }
 
 /* A cell the dragged selection would land in. */
@@ -443,23 +478,9 @@
   border-top-width: 1.5px;
 }
 
-/* The delete-axis choices wrap instead of clipping a long neighbour name. */
-.axis-delete-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.axis-delete-actions .rm-btn {
-  max-width: 100%;
-}
-
-.axis-delete-actions .rm-btn-label {
-  overflow: visible;
-  text-overflow: clip;
+.axis-delete-sheet .rm-btn-label {
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------- axis size --- */
@@ -623,10 +644,10 @@
 
 .section-view-badge {
   pointer-events: auto;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 22px;
   padding: 0 var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
@@ -712,3 +733,11 @@
   white-space: pre-wrap;
   line-height: 1.25;
 }
+.axis-delete-choices { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+.axis-delete-choices legend { margin-block-end: var(--space-3); font: var(--type-label); }
+.axis-delete-choices .rm-radio {
+  padding: var(--space-3);
+  border: var(--panel-border-width) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.axis-delete-choices .rm-radio:has(input:checked) { border-color: var(--border-ink); background: var(--bg-canvas); }

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type { AgentPlan, AppliedAgentPlan, PlanWarning, TidyStrategy } from "@remo/doc";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import type { AgentPlan, AppliedAgentPlan, BoardDocument, PlanWarning, TidyStrategy } from "@remo/doc";
+import { useMediaQuery } from "./useMediaQuery";
 import type { Widget } from "@remo/model";
 import { Badge, Banner, Button, IconButton } from "@remo/ui";
 import { AgentPlanObjects } from "./AgentPlanObjects";
@@ -11,6 +12,7 @@ import {
   planStatusName,
   uniqueWarnings,
 } from "./agentPlanText";
+import { canUndoDraft, draftUndoAfterWrite, type DraftUndo } from "./draftUndo";
 import { HelpLink } from "./help/HelpLink";
 import { useI18n, type TranslationKey } from "./i18n";
 import { proposalStore } from "./proposalStore";
@@ -41,6 +43,11 @@ const TIDY_STRATEGIES: TidyStrategy[] = ["auto", "grid", "prefix", "type", "mean
 
 export function AgentPlanPanel({
   taskId,
+  roomTags,
+  history,
+  agentOwnerName,
+  undoManager,
+  onNewTask,
   canEdit,
   onClose,
   onApplied,
@@ -48,6 +55,11 @@ export function AgentPlanPanel({
   onApply,
 }: {
   taskId: string;
+  roomTags: ReactNode;
+  history?: ReactNode;
+  agentOwnerName?: string;
+  undoManager?: BoardDocument["undo"];
+  onNewTask?: () => void;
   canEdit: boolean;
   onClose: () => void;
   /** The plan changed state; the agents dialog reloads its history. */
@@ -61,6 +73,7 @@ export function AgentPlanPanel({
   ) => AppliedAgentPlan;
 }) {
   const { t, count } = useI18n();
+  const mobileSheet = useMediaQuery("(max-width: 640px)");
   const [data, setData] = useState<AgentTaskPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -78,6 +91,31 @@ export function AgentPlanPanel({
   const applied = useRef<AppliedAgentPlan | null>(null);
   /** A ref, because two clicks in one tick both read the state before it updates. */
   const running = useRef(false);
+  const [localApply, setLocalApply] = useState<DraftUndo>();
+  const [undoAvailable, setUndoAvailable] = useState(false);
+  useEffect(() => {
+    if (!undoManager || !localApply) return;
+    const sync = () => setUndoAvailable(canUndoDraft(undoManager, taskId, localApply));
+    sync();
+    undoManager.on("stack-item-added", sync);
+    const onPopped = (event: { type: string; stackItem: DraftUndo["item"] }) => {
+      sync();
+      if (event.type === "undo" && event.stackItem === localApply.item &&
+          taskId === localApply.taskId && undoManager === localApply.manager) onShowOnBoard();
+    };
+    undoManager.on("stack-item-popped", onPopped);
+    undoManager.on("stack-cleared", sync);
+    return () => {
+      undoManager.off("stack-item-added", sync);
+      undoManager.off("stack-item-popped", onPopped);
+      undoManager.off("stack-cleared", sync);
+    };
+  }, [localApply, undoManager, taskId, onShowOnBoard]);
+  const undoDraft = () => {
+    if (!canEdit || !undoManager || !canUndoDraft(undoManager, taskId, localApply)) return;
+    undoManager.undo();
+  };
+  const [canvasOpen, setCanvasOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -111,13 +149,19 @@ export function AgentPlanPanel({
     [estimate?.warnings, data?.plan?.warnings],
   );
   const counts = data?.plan?.counts;
+  const selected = data?.selection?.counts?.selected;
+  const subtitle = isTidy
+    ? selected != null && t("tidy.selection", { objects: selected })
+    : data && (agentOwnerName
+      ? t("agents.panel.identity", { agent: data.agent.name, name: agentOwnerName })
+      : data.agent.name);
   const critical = warnings.filter(isCriticalWarning);
   const emptyPlan =
     objects.length === 0 && connectors.length === 0 && (counts?.placements ?? 0) === 0;
   // Anything to read before deciding — a warning, a cut file or selection — opens the
   // details once, so the panel never hides what the dialog used to show up front.
   const needsReading =
-    warnings.length > 0 || Boolean(data?.file?.truncated) || Boolean(data?.selection?.truncated);
+    (!isTidy && warnings.length > 0) || Boolean(data?.file?.truncated) || Boolean(data?.selection?.truncated);
   const opened = useRef(false);
   useEffect(() => {
     if (!data || opened.current) return;
@@ -134,12 +178,16 @@ export function AgentPlanPanel({
       return;
     }
     const panel = panelRef.current?.getBoundingClientRect();
+    const phonePlan = !isTidy && window.matchMedia("(max-width: 640px)").matches;
+    const atBottom = !phonePlan && panel && panel.width >= window.innerWidth - 1;
     proposalStore.set({
       key: `${taskId}:${++published.current}`,
       plan,
-      bottomInset: panel ? Math.max(0, window.innerHeight - panel.top) : 0,
+      kind: isTidy ? "tidy" : "agent",
+      bottomInset: atBottom ? panel.height : 0,
+      rightInset: panel && !atBottom && !phonePlan ? panel.width : 0,
     });
-  }, [plan, taskId]);
+  }, [plan, taskId, isTidy]);
   useEffect(() => () => proposalStore.set(null), []);
 
   // A non-modal panel takes the focus once, so a keyboard user lands on the plan, and
@@ -224,6 +272,8 @@ export function AgentPlanPanel({
           }
         }
         setPhase("write");
+        const previousUndo = undoManager?.undoStack.at(-1);
+        undoManager?.stopCapturing();
         applied.current = onApply(
           data.plan,
           {
@@ -234,6 +284,10 @@ export function AgentPlanPanel({
           },
           data.selection?.ids?.length ? { allowedIds: data.selection.ids } : undefined,
         );
+        if (undoManager) {
+          undoManager.stopCapturing();
+          setLocalApply(draftUndoAfterWrite(undoManager, taskId, previousUndo));
+        }
       }
       setPhase("record");
       await agentPlanApi.applied(taskId, {
@@ -280,23 +334,25 @@ export function AgentPlanPanel({
     }
   };
 
+  const showDraftUndo = undoAvailable && canUndoDraft(undoManager, taskId, localApply);
   const footer = !data ? (
     <Button variant="secondary" onClick={onClose} disabled={busy}>
       {t("agents.plan.close")}
     </Button>
   ) : status === "applied" ? (
     <>
-      {!appliedElsewhere && (
+      {!appliedElsewhere && (isTidy || showDraftUndo) && (
         <span className="rm-foot-start agent-plan-undo-hint">
           {isTidy ? t("tidy.undoHint") : t("agents.plan.undoHint")}
         </span>
       )}
-      <Button variant="secondary" onClick={onClose} disabled={busy}>
-        {t("agents.plan.close")}
+      <Button variant="secondary" id={showOnBoardId} onClick={onShowOnBoard}>
+        {t(isTidy ? "agents.plan.showOnBoard" : "agents.panel.showOnCanvas")}
       </Button>
-      <Button variant="primary" id={showOnBoardId} onClick={onShowOnBoard}>
-        {t("agents.plan.showOnBoard")}
-      </Button>
+      {!isTidy && canEdit && showDraftUndo && (
+        <Button variant="secondary" onClick={undoDraft}>{t("agents.panel.undoDraft")}</Button>
+      )}
+      {onNewTask && <Button variant="primary" disabled={busy} onClick={onNewTask}>{t("agents.panel.new")}</Button>}
     </>
   ) : open ? (
     <>
@@ -307,9 +363,6 @@ export function AgentPlanPanel({
       )}
       {canEdit ? (
         <>
-          <Button variant="secondary" onClick={() => void reject()} disabled={busy}>
-            {t("agents.plan.reject")}
-          </Button>
           <Button
             variant="primary"
             onClick={() => void apply()}
@@ -317,7 +370,10 @@ export function AgentPlanPanel({
             disabled={busy || Boolean(blockedReason)}
             aria-describedby={blockedReason ? blockedId : undefined}
           >
-            {t("agents.plan.apply")}
+            {t(isTidy ? "tidy.run" : "agents.plan.apply")}
+          </Button>
+          <Button variant="secondary" onClick={() => void reject()} disabled={busy}>
+            {t(isTidy ? "tidy.cancel" : "agents.plan.reject")}
           </Button>
         </>
       ) : (
@@ -334,34 +390,25 @@ export function AgentPlanPanel({
 
   const closable = !busy;
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    // After Apply, focus moves to "Show on canvas". The advertised shortcut
+    // can undo that very draft without closing the panel first.
+    const target = event.target as HTMLElement;
+    const editing = target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
+    if (showDraftUndo && canEdit && !editing && !event.altKey && !event.shiftKey &&
+        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      event.stopPropagation();
+      undoDraft();
+      return;
+    }
     if (event.key === "Escape" && closable) {
       event.stopPropagation();
       onClose();
     }
   };
 
-  return (
-    <section
-      ref={panelRef}
-      className={`agent-task-panel${expanded ? " is-expanded" : ""}`}
-      role="dialog"
-      aria-labelledby={titleId}
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-    >
-      <div className="agent-task-panel-head">
-        <div className="agent-task-panel-heading">
-          <h2 id={titleId} className="agent-task-panel-title">
-            {t("agents.plan.title")}
-          </h2>
-          {data?.task.intent && <p className="agent-task-panel-intent">{data.task.intent}</p>}
-        </div>
-        {data && <HelpLink topicId={isTidy ? "agents.tidy" : "agents.task"} />}
-        {closable && (
-          <IconButton icon="close" label={t("agents.plan.close")} size="compact" onClick={onClose} />
-        )}
-      </div>
-
+  const content = (
+    <>
       {loading && <p className="muted">{t("agents.plan.loading")}</p>}
       {error && (
         <Banner tone="danger" title={t("agents.plan.failedTitle")}>
@@ -369,11 +416,41 @@ export function AgentPlanPanel({
         </Banner>
       )}
 
-      {data && (
+      {isTidy && open && (
+        <section className="agent-plan-section" aria-label={t("tidy.strategy")}>
+          <strong>{t("tidy.strategy")}</strong>
+          <div className="tidy-strategy" role="group" aria-label={t("tidy.strategy")}>
+            {TIDY_STRATEGIES.map((option) => (
+              <Button
+                key={option}
+                variant="secondary"
+                size="compact"
+                disabled={!canEdit || relayouting || status !== "proposed"}
+                selected={strategy === option}
+                onClick={() => void changeStrategy(option)}
+              >
+                {t(`tidy.strategy.${option}` as "tidy.strategy.auto")}
+              </Button>
+            ))}
+          </div>
+          <p className="muted">{t("tidy.strategyHint")}</p>
+          {relayouting && (
+            <p className="muted" role="status" aria-live="polite">
+              {t("tidy.loading")}
+            </p>
+          )}
+        </section>
+      )}
+
+      {isTidy && open && (
+        <p className="tidy-fallback-note" role="note">{t("tidy.fallbackNote")}</p>
+      )}
+      {data && (isTidy || status !== "applied") && (
         <div className="agent-task-panel-summary">
-          <Badge tone={status === "rejected" ? "danger" : status === "applied" ? "success" : "accent"}>
+          {!isTidy && <h3>{t("agents.plan.title")}</h3>}
+          {(isTidy || !open) && <Badge tone={status === "rejected" ? "danger" : status === "applied" ? "success" : "accent"}>
             {planStatusName(status, t)}
-          </Badge>
+          </Badge>}
           <p className="muted agent-plan-counts">
             {isTidy
               ? t("tidy.plan.counts", {
@@ -387,7 +464,7 @@ export function AgentPlanPanel({
                   actions: counts?.actions ?? objects.length + connectors.length,
                 })}
           </p>
-          {bounds && (
+          {bounds && (expanded || isTidy) && (
             <p className="muted">
               {t("agents.plan.bounds", {
                 width: Math.round(bounds.width),
@@ -440,90 +517,121 @@ export function AgentPlanPanel({
         </p>
       )}
 
-      <div className="agent-task-panel-foot">
-        {data && (
-          <Button
-            variant="ghost"
-            size="compact"
-            aria-expanded={expanded}
-            aria-controls={detailsId}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded ? t("agents.plan.hideDetails") : t("agents.plan.details")}
-          </Button>
+      {data && !isTidy && open && (
+        <>
+          <AgentPlanWarnings warnings={warnings} />
+          <details className="agent-input-disclosure">
+            <summary>{t("agents.plan.objects", {total: objects.length})}</summary>
+            <AgentPlanObjects objects={objects} />
+          </details>
+          <p className="agent-plan-confirm">{t("agents.plan.applyConfirm", {
+            objects: count("objects", objects.length), connectors: count("connectors", connectors.length),
+          })}</p>
+        </>
+      )}
+      {isTidy && <AgentPlanWarnings warnings={warnings} summary />}
+    </>
+  );
+
+  const detailsToggle = data && (
+    <Button
+      variant="ghost"
+      size="compact"
+      aria-expanded={expanded}
+      aria-controls={detailsId}
+      onClick={() => setExpanded((value) => !value)}
+    >
+      {expanded ? t("agents.plan.hideDetails") : t("agents.plan.details")}
+    </Button>
+  );
+
+  const details = data && expanded && (
+    <div className="agent-plan agent-task-panel-details" id={detailsId}>
+
+      {data.file && (
+        <p className="muted agent-plan-file">
+          {t("agents.plan.file", {
+            name: data.file.name,
+            kind: data.file.kind,
+            chars: data.file.chars,
+          })}
+        </p>
+      )}
+      {data.file?.truncated && (
+        <Banner tone="warning" title={t("agents.plan.truncatedTitle")}>
+          {t("agents.plan.truncated")}
+        </Banner>
+      )}
+      {data.selection?.truncated && (
+        <Banner tone="warning" title={t("agents.plan.selectionTruncatedTitle")}>
+          {t("agents.plan.selectionTruncated")}
+        </Banner>
+      )}
+
+      {open && canEdit && isTidy && (
+        <p className="muted agent-plan-confirm">
+          {isTidy
+            ? t("tidy.body")
+            : t("agents.plan.applyConfirm", {
+                objects: count("objects", objects.length),
+                connectors: count("connectors", connectors.length),
+              })}
+        </p>
+      )}
+
+      {isTidy && <AgentPlanWarnings warnings={warnings} />}
+      {(isTidy || !open) && <AgentPlanObjects objects={objects} />}
+
+      {warnings.length === 0 && (
+        <p className="muted agent-plan-ok">{t("agents.plan.noWarnings")}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <section
+      ref={panelRef}
+      className={`agent-task-panel${expanded ? " is-expanded" : ""}`}
+      data-board-plan={isTidy ? undefined : true}
+      data-tidy={isTidy || undefined}
+      data-canvas-open={canvasOpen || undefined}
+      role="dialog"
+      aria-label={t(isTidy ? "tidy.title" : "agents.plan.title")}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+    >
+      <div className="agent-task-panel-head">
+        <div className="agent-task-panel-heading">
+          <h2 id={titleId} className="agent-task-panel-title">
+            {t(isTidy ? "tidy.title" : status === "applied" ? "agents.panel.applied" : open ? "agents.panel.ready" : "agents.plan.title")}
+          </h2>
+          {subtitle && <p className="agent-task-panel-intent">{subtitle}</p>}
+        </div>
+        {data && <HelpLink topicId={isTidy ? "agents.tidy" : "agents.task"} />}
+        {closable && (
+          <IconButton icon="close" label={t("agents.plan.close")} size="compact" onClick={onClose} />
         )}
-        <div className="agent-task-panel-actions">{footer}</div>
       </div>
 
-      {data && expanded && (
-        <div className="agent-plan agent-task-panel-details" id={detailsId}>
-
-          {data.file && (
-            <p className="muted agent-plan-file">
-              {t("agents.plan.file", {
-                name: data.file.name,
-                kind: data.file.kind,
-                chars: data.file.chars,
-              })}
-            </p>
-          )}
-          {data.file?.truncated && (
-            <Banner tone="warning" title={t("agents.plan.truncatedTitle")}>
-              {t("agents.plan.truncated")}
-            </Banner>
-          )}
-          {data.selection?.truncated && (
-            <Banner tone="warning" title={t("agents.plan.selectionTruncatedTitle")}>
-              {t("agents.plan.selectionTruncated")}
-            </Banner>
-          )}
-
-          {isTidy && (
-            <section className="agent-plan-section" aria-label={t("tidy.strategy")}>
-              <strong>{t("tidy.strategy")}</strong>
-              <div className="tidy-strategy" role="group" aria-label={t("tidy.strategy")}>
-                {TIDY_STRATEGIES.map((option) => (
-                  <Button
-                    key={option}
-                    variant={strategy === option ? "primary" : "secondary"}
-                    size="compact"
-                    disabled={!open || !canEdit || relayouting || status !== "proposed"}
-                    aria-pressed={strategy === option}
-                    onClick={() => void changeStrategy(option)}
-                  >
-                    {t(`tidy.strategy.${option}` as "tidy.strategy.auto")}
-                  </Button>
-                ))}
-              </div>
-              <p className="muted">{t("tidy.strategyHint")}</p>
-              {relayouting && (
-                <p className="muted" role="status" aria-live="polite">
-                  {t("tidy.loading")}
-                </p>
-              )}
-            </section>
-          )}
-
-          {open && canEdit && (
-            <p className="muted agent-plan-confirm">
-              {isTidy
-                ? t("tidy.body")
-                : t("agents.plan.applyConfirm", {
-                    objects: count("objects", objects.length),
-                    connectors: count("connectors", connectors.length),
-                  })}
-            </p>
-          )}
-
-          <AgentPlanWarnings warnings={warnings} />
-
-          <AgentPlanObjects objects={objects} />
-
-          {warnings.length === 0 && (
-            <p className="muted agent-plan-ok">{t("agents.plan.noWarnings")}</p>
-          )}
+      {!isTidy && open && data && <Button className="agent-mobile-preview" size="compact"
+        aria-pressed={canvasOpen} onClick={() => setCanvasOpen(!canvasOpen)}>
+        {t(canvasOpen ? "agents.panel.return" : "agents.panel.preview")}
+      </Button>}
+      {isTidy ? (
+        <div className="tidy-plan-body" role="region" aria-label={t("agents.plan.title")} tabIndex={0}>
+          {content}
+          {mobileSheet && roomTags}
+          {detailsToggle}
+          {details}
         </div>
-      )}
+      ) : content}
+      <div className="agent-task-panel-foot">
+        {!isTidy && detailsToggle}
+        <div className="agent-task-panel-actions" data-tidy-decision={isTidy && open && canEdit || undefined}>{footer}</div>
+      </div>
+      {isTidy && !mobileSheet && roomTags}
+      {!isTidy && details}
+      {history && !busy && history}
     </section>
   );
 }

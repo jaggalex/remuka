@@ -12,7 +12,7 @@ You know how a personal organisation differs from a shared one, can rename the o
 
 1. Open the account menu → **Organisation and people**.
 2. To rename the organisation, click **Rename**, enter the name and save. An organisation administrator can do this.
-3. In the **Teams** block, create a team: enter a name and click **+ Create team**.
+3. On the **Teams** tab, enter a name and select **+ Create team**.
 4. In a team row, rename or delete it. A team can be deleted only when no room or grant refers to it; otherwise the product shows the room and grant counts.
 5. Expand the team members, add a person from the organisation and choose a role: team admin or member. Remove a member in the same place.
 

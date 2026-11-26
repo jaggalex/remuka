@@ -7,7 +7,7 @@
  * the task budget before anybody is asked to approve it.
  */
 import { withinBudget } from "./agents.mjs";
-import { boardSnapshot, briefPrompt, parseBriefReply } from "./agent-brief.mjs";
+import { boardSnapshot, briefPrompt, briefSelection, parseBriefReply } from "./agent-brief.mjs";
 import { callAgentModel } from "./agent-call.mjs";
 import { decide, finite } from "./agent-context.mjs";
 import { validateAgentPlan } from "./agent-plan.mjs";
@@ -33,18 +33,8 @@ export async function runBriefAuthoring({
     typeof store.listAgentTaskInputs === "function"
       ? await store.listAgentTaskInputs(task.id)
       : [];
-  const selectionRow = inputs.find((input) => input.source === "selection");
-  let selectionIds = [];
-  if (selectionRow?.content) {
-    try {
-      const parsed = JSON.parse(selectionRow.content);
-      selectionIds = Array.isArray(parsed?.objects)
-        ? parsed.objects.map((object) => String(object.id ?? "")).filter(Boolean)
-        : [];
-    } catch {
-      selectionIds = [];
-    }
-  }
+  const selection = briefSelection(inputs);
+  const selectionIds = selection?.objects.map(object => String(object.id ?? "")).filter(Boolean) ?? [];
   const origin = {
     x: finite(task.input?.origin?.x),
     y: finite(task.input?.origin?.y),
@@ -99,9 +89,9 @@ export async function runBriefAuthoring({
     return fail("AGENT_DENIED", recheck.decision.reason);
   }
 
-  let operations;
+  let reply;
   try {
-    operations = parseBriefReply(completion.json);
+    reply = parseBriefReply(completion.json);
   } catch (error) {
     return fail(error?.code ?? "BRIEF_SCHEMA", error?.message ?? String(error));
   }
@@ -110,7 +100,8 @@ export async function runBriefAuthoring({
   try {
     validated = validateAgentPlan({
       ydoc,
-      operations,
+      operations: reply.operations,
+      briefFindings: { uncertainties: reply.uncertainties, selectionIds },
       origin,
       maxActions: budget.maxActions,
       // The brief may create; it may never move an existing object. `place_widgets`

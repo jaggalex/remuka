@@ -1,6 +1,10 @@
 import type { Board, KanbanState, Tag, TextDeltaOp, Widget } from "@remo/model";
 
 export function backupFilename(disposition: string): string {
+  return attachmentFilename(disposition) ?? "board.remuka-backup.json";
+}
+
+export function attachmentFilename(disposition: string): string | null {
   const encoded = /(?:^|;)\s*filename\*=UTF-8'[^']*'([^;\s]+)/i.exec(disposition)?.[1];
   if (encoded) {
     try {
@@ -9,7 +13,7 @@ export function backupFilename(disposition: string): string {
       // A malformed extended filename can still have a usable ASCII fallback.
     }
   }
-  return /(?:^|;)\s*filename="([^"]+)"/i.exec(disposition)?.[1] ?? "board.remuka-backup.json";
+  return /(?:^|;)\s*filename="([^"]+)"/i.exec(disposition)?.[1] ?? null;
 }
 
 /**

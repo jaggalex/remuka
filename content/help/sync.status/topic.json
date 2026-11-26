@@ -6,8 +6,8 @@
     "en": "Save status and offline"
   },
   "summary": {
-    "ru": "Индикатора в сохранённой комнате нет. Что значат «Сохраняем…», «Нет связи» и «Всё сохранено» и что происходит с правками без связи.",
-    "en": "A saved room has no indicator. What “Saving…”, “No connection” and “All saved” mean, and what happens to edits without a connection."
+    "ru": "Индикатора в сохранённой комнате нет. Что значат «Сохраняем…», «Нет связи» и «Сохранено» и что происходит с правками без связи.",
+    "en": "A saved room has no indicator. What “Saving…”, “No connection” and “Saved” mean, and what happens to edits without a connection."
   },
   "related": [
     "connectors.create",
@@ -18,8 +18,8 @@
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:9f7d14ba30b475832d0d9153f5e595d849ba220911eaea740a7b5da276fbf644",
-      "targetHash": "sha256:6442d5927aa4ccfea54a6daecdf6811b3f6c84b61471f195b0f5b5b61bd291c2"
+      "sourceHash": "sha256:27250c5bba0d088771535cfa698ef561106fa3fd5a98b595a1f112c49b4028ab",
+      "targetHash": "sha256:d8fcbe3b0ca3c72f122f3f7a3b7bdfba7988c98ddc28b4034bfb88bb662731f3"
     }
   }
 }

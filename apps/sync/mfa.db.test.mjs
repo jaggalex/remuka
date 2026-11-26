@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMfaReset } from "../../scripts/mfa-reset.mjs";
@@ -48,7 +49,7 @@ async function seedSession(userId) {
 describe.skipIf(!store)("second factor (ADR-260)", () => {
   beforeAll(async () => {
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(40);
+    expect(rows[0].version).toBe(SCHEMA_VERSION);
   });
 
   afterAll(async () => {

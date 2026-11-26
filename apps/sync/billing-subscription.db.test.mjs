@@ -356,6 +356,52 @@ suite("billing subscription routes (ADR-247 §3.4, §6)", () => {
     }
   });
 
+  it("counts only this organisation's files and covers in storage and billing", async () => {
+    const tenants = [await organisation("storage-first"), await organisation("storage-second")];
+    const fixtures = tenants.map((tenant, i) => ({
+      ...tenant,
+      boardId: randomUUID(),
+      title: `Storage ${i + 1}`,
+      stored: 100 * (i + 1),
+      cover: i + 5,
+    }));
+    try {
+      for (const { org, boardId, title, stored, cover } of fixtures) {
+        await store.withTenant(org.id, async () => {
+          await store.pool.query(
+            "insert into boards (id, org_id, title, cover_data) values ($1, $2, $3, $4)",
+            [boardId, org.id, title, Buffer.alloc(cover)],
+          );
+          await store.createFile({
+            id: randomUUID(),
+            orgId: org.id,
+            boardId,
+            sha256: randomBytes(32).toString("hex"),
+            mime: "image/png",
+            bytes: 10,
+            storedBytes: stored,
+            width: 1,
+            height: 1,
+            variants: {},
+          });
+        });
+      }
+      for (const { org, boardId, title, stored, cover, adminCookie, memberCookie } of fixtures) {
+        const view = await call(`/orgs/${org.id}/storage`, { cookie: adminCookie });
+        expect(view.status).toBe(200);
+        expect(view.body.usedBytes).toBe(stored + cover);
+        expect(view.body.rooms).toEqual([{ boardId, title, bytes: stored + cover }]);
+        const plan = await call(`/orgs/${org.id}/billing`, { cookie: memberCookie });
+        expect(plan.body.storage.usedBytes).toBe(stored + cover);
+        expect((await call(`/orgs/${org.id}/storage`, { cookie: memberCookie })).status).toBe(403);
+      }
+    } finally {
+      for (const { org, boardId } of fixtures) {
+        await store.withTenant(org.id, () => store.pool.query("delete from boards where id = $1", [boardId]));
+      }
+    }
+  });
+
   it("lets a member read the plan without the card, and refuses admin actions with 403", async () => {
     const { org, adminCookie, memberCookie } = await organisation("member");
     await operatorPlan(org.id);
@@ -365,12 +411,7 @@ suite("billing subscription routes (ADR-247 §3.4, §6)", () => {
     expect(summary.status).toBe(200);
     // §3.2: a member sees the plan and the limits, never the payer's card.
     expect(summary.body.paymentMethod).toBeNull();
-    // The same summary carries storage (§7 of the image spec). The install-wide sum is
-    // restricted to one organisation by the policies `db:rls:enable` installs, which the
-    // test database does not run, so this proves the shape and the plan's ceiling; the
-    // exact number is pinned by the store double in `payment-providers.test.mjs`.
-    expect(summary.body.storage).toMatchObject({ limitBytes: null });
-    expect(Number.isInteger(summary.body.storage.usedBytes)).toBe(true);
+    expect(summary.body.storage).toEqual({ usedBytes: 0, limitBytes: null });
     const adminView = await call(`/orgs/${org.id}/billing`, { cookie: adminCookie });
     expect(adminView.body.paymentMethod.last4).toBe("4242");
 

@@ -8,6 +8,7 @@ import {
 import type { IconName } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 import { CHROME_COMMANDS } from "./commandsChrome";
+import { KANBAN_COMMANDS, type KanbanCommand } from "./commandsKanban";
 import { colorName } from "./object-panel/colorWindowData";
 
 // The chrome list lives in its own module for the size ratchet; this file remains the
@@ -299,6 +300,7 @@ export function commandById(id: string): Command | undefined {
  */
 const CHROME_GROUP: Record<string, string> = {
   "room.rename": "main",
+  "room.appearance": "main",
   "room.settings": "main",
   "room.properties": "main",
   "room.access": "main",
@@ -322,17 +324,20 @@ const CHROME_GROUP: Record<string, string> = {
   "agent.ask": "main",
   "agent.settings": "main",
   "invite.open": "main",
+  "account.settings": "main",
   "account.allRooms": "main",
+  "home.open": "main",
   "header.agent": "main",
   "header.comments": "main",
   "account.theme.light": "view",
   "account.theme.dark": "view",
+  "account.theme.system": "view",
   "account.motion.calm": "view",
   "account.lang.ru": "view",
   "account.lang.en": "view",
   "account.sessions": "people",
   "account.security": "people",
-  "account.org": "people",
+  "account.org": "main",
   "account.support": "people",
   "account.help": "help",
   "help.resetHints": "help",
@@ -406,8 +411,8 @@ export function reactionCommands(): ChromeCommand[] {
 }
 
 /** One registry entry by id, object or chrome. */
-export function registryCommand(id: string): Command | ChromeCommand | undefined {
-  return commandById(id) ?? CHROME_COMMANDS.find((command) => command.id === id);
+export function registryCommand(id: string): Command | ChromeCommand | KanbanCommand | undefined {
+  return commandById(id) ?? CHROME_COMMANDS.find((command) => command.id === id) ?? KANBAN_COMMANDS.find(command => command.id === id);
 }
 
 /** The command that owns this key press, or null. */

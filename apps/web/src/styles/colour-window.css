@@ -116,7 +116,7 @@
 }
 
 /* "None" is the absence of a border or a line: the checkerboard is crossed out. */
-.cw-swatch.is-none::after {
+:is(.cw-swatch, .sb-paint-sample).is-none::after {
   content: "";
   position: absolute;
   inset: 0;

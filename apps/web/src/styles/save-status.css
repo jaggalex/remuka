@@ -1,0 +1,94 @@
+.topbar-save {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Silence is the saved state (ADR-266 §3): the empty element takes no room. */
+.save-state {
+  display: none;
+  align-items: center;
+  min-width: 0;
+}
+
+.save-state:not(:empty) {
+  display: inline-flex;
+}
+
+.save-state-text {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.save-state.is-blocked .save-state-text {
+  background: var(--danger-soft);
+  color: var(--text-danger);
+  white-space: normal;
+  max-width: 280px;
+}
+
+.save-state:is(.is-saved, .is-offline) .save-state-text {
+  box-sizing: border-box;
+  height: 33px;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border: var(--panel-border-width) solid var(--border-ink);
+  font: var(--type-palette-title);
+}
+
+.save-state:is(.is-saved, .is-offline) .save-state-text::before {
+  content: "";
+  inline-size: 9px;
+  block-size: 9px;
+  flex: none;
+  border-radius: var(--radius-pill);
+}
+
+.save-state.is-saved .save-state-text {
+  background: var(--bg-save-confirmed);
+  color: var(--sticker-ink);
+}
+
+.save-state.is-saved .save-state-text::before {
+  background: var(--state-save-confirmed);
+}
+
+.save-state.is-offline .save-state-text {
+  background: var(--bg-offline-chip);
+  color: var(--text-primary);
+}
+
+.save-state.is-offline .save-state-text::before {
+  background: var(--state-offline);
+}
+
+/* The stopped queue uses a steady marker on the same orange paper in both themes. */
+@media (min-width: 900px) {
+  .save-state.is-blocked .save-state-text {
+    box-sizing: border-box;
+    min-height: calc(var(--space-8) + 1px);
+    height: auto;
+    gap: calc(var(--space-3) / 2);
+    padding: 0 var(--space-3);
+    border: var(--panel-border-width) solid var(--border-ink);
+    background: var(--sticker-orange);
+    color: var(--sticker-ink);
+    font: var(--type-palette-title);
+  }
+
+  .save-state.is-blocked .save-state-text::before {
+    content: "";
+    inline-size: calc(var(--space-9) / 4);
+    block-size: calc(var(--space-9) / 4);
+    flex: none;
+    border-radius: var(--radius-pill);
+    background: var(--state-save-blocked);
+  }
+}

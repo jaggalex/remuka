@@ -1,3 +1,4 @@
+import { PAINT_RANK } from "./stacking.mjs";
 import type { InkRole } from "./ink";
 import type { WidgetType } from "./types";
 
@@ -99,7 +100,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   frame: {
     ink: { ground: "container", roles: ["text", "muted", "line", "lineStrong"] },
     // Frames sit at the back: their contents must never be covered by their plate.
-    rank: 0,
+    rank: PAINT_RANK.frame,
     text: false,
     richBlocks: false,
     connectable: false,
@@ -117,7 +118,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   kanban: {
     ink: { ground: "ownFill", roles: ["text", "muted", "icon", "line", "lineStrong"] },
-    rank: 1,
+    rank: PAINT_RANK.kanban,
     text: false,
     richBlocks: false,
     connectable: false,
@@ -129,7 +130,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   shape: {
     ink: { ground: "ownFill", roles: ["text", "lineStrong"] },
-    rank: 2,
+    rank: PAINT_RANK.shape,
     text: true,
     richBlocks: true,
     connectable: true,
@@ -144,7 +145,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   image: {
     ink: { ground: "ownFill", roles: ["icon", "muted", "line"] },
-    rank: 2,
+    rank: PAINT_RANK.image,
     text: false,
     richBlocks: false,
     connectable: true,
@@ -159,7 +160,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   unsupported: {
     ink: { ground: "canvas", roles: ["muted", "lineStrong"] },
-    rank: 2,
+    rank: PAINT_RANK.unsupported,
     text: false,
     richBlocks: false,
     connectable: false,
@@ -172,7 +173,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   connector: {
     ink: { ground: "canvas", roles: ["text", "lineStrong"] },
     // A line sits above the objects it joins; its label is painted on top of it.
-    rank: 3,
+    rank: PAINT_RANK.connector,
     text: true,
     richBlocks: false,
     // No anchor on a line: a connector between connectors is not a diagram.
@@ -193,7 +194,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
    */
   group: {
     ink: { ground: "canvas", roles: ["lineStrong"] },
-    rank: 5,
+    rank: PAINT_RANK.group,
     text: false,
     richBlocks: false,
     connectable: false,
@@ -206,7 +207,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   timer: {
     ink: { ground: "ownFill", roles: ["text", "muted"] },
     // Above notes and cards: a countdown nobody can see is not a shared timer.
-    rank: 7,
+    rank: PAINT_RANK.timer,
     richBlocks: false,
     // The painter draws the countdown itself: the object has no editable text and is
     // configured from its own controls, not by typing into it (ADR-075).
@@ -220,7 +221,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   stamp: {
     ink: { ground: "ownFill", roles: ["muted"] },
-    rank: 4,
+    rank: PAINT_RANK.stamp,
     text: false,
     richBlocks: false,
     connectable: true,
@@ -232,7 +233,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   sticky_note: {
     ink: { ground: "ownFill", roles: ["text", "muted", "line"] },
-    rank: 5,
+    rank: PAINT_RANK.sticky_note,
     text: true,
     richBlocks: true,
     connectable: true,
@@ -244,7 +245,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   },
   card: {
     ink: { ground: "ownFill", roles: ["text", "muted"] },
-    rank: 6,
+    rank: PAINT_RANK.card,
     richBlocks: false,
     // A card's text is its title, typed in place.
     text: true,
@@ -261,7 +262,7 @@ export const WIDGET_KINDS: Record<WidgetType, KindSpec> = {
   text: {
     ink: { ground: "canvas", roles: ["text"] },
     // Text blocks sit above everything: a caption is never covered.
-    rank: 9,
+    rank: PAINT_RANK.text,
     text: true,
     richBlocks: true,
     connectable: true,

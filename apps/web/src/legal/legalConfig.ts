@@ -13,6 +13,7 @@ export type LegalStatus = "draft" | "published";
 
 export interface LegalDocumentConfig {
   readonly doc: string;
+  readonly changes?: Partial<Record<"ru" | "en", string>>;
   readonly zone: string;
   readonly version: number;
   readonly sha256: string;
@@ -57,7 +58,15 @@ function documentOf(value: unknown): LegalDocumentConfig | null {
   if (!url) return null;
   const effective =
     typeof raw.effective === "string" && DATE.test(raw.effective) ? raw.effective : null;
+  const changes: Partial<Record<"ru" | "en", string>> = {};
+  if (raw.changes && typeof raw.changes === "object") {
+    for (const lang of ["ru", "en"] as const) {
+      const text = (raw.changes as Record<string, unknown>)[lang];
+      if (typeof text === "string" && text.trim()) changes[lang] = text;
+    }
+  }
   return {
+    ...(changes.ru || changes.en ? { changes } : {}),
     doc: raw.doc,
     zone: raw.zone,
     version: raw.version as number,

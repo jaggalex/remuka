@@ -76,6 +76,47 @@ test("Escape closes the search and gives focus back to the bottom panel", async 
   await expect(page.getByRole("button", { name: /^Account and interface/ })).toBeFocused();
 });
 
+test("a returning browser shows a scrollable palette and Enter on Esc never runs a command", async ({page}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await freshBoard(page, "command-search-recent");
+  await page.evaluate(() => localStorage.setItem("remo.commands.recent",
+    JSON.stringify(["run.timer", "run.vote", "run.presentation", "run.follow", "room.export"])));
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({width, height: 900});
+    await page.keyboard.press("Control+k");
+    const search = dialog(page);
+    const rows = search.getByRole("option");
+    await expect(rows).toHaveCount(8);
+    await expect(rows.locator("strong")).toHaveText([
+      "Timer", "Voting", "Start presentation", "Follow along", "Export…", "Like", "Love", "Fire",
+    ]);
+    const box = (await search.boundingBox())!;
+    expect(Math.abs(box.width - (width === 390 ? 316 : 562))).toBeLessThanOrEqual(2);
+    expect(Math.abs(box.height - 411)).toBeLessThanOrEqual(2);
+    expect((await rows.first().boundingBox())!.height).toBe(54);
+    const close = search.getByRole("button", {name: "Close the search"});
+    await expect(page.locator(".rm-command-scrim")).toHaveCSS("background-color", "rgba(30, 33, 54, 0.28)");
+    await expect(field(page)).toBeFocused();
+    await expect(field(page)).toHaveCSS("outline-style", "solid");
+    await expect(field(page)).toHaveCSS("outline-width", "2px");
+    await expect(search.locator(".command-search-field")).toHaveCSS("border-bottom-color", "rgb(230, 220, 196)");
+    await expect(close).toHaveCSS("height", "21px");
+    expect(await close.evaluate(button => {
+      const { left, top, width } = button.getBoundingClientRect();
+      return document.elementFromPoint(left + width / 2, top - 2) === button;
+    })).toBe(true);
+    await field(page).press("End");
+    await expect(rows.last()).toHaveAttribute("aria-selected", "true");
+    await expect(rows.last()).toBeInViewport();
+    await field(page).fill("export");
+    await field(page).press("Tab");
+    await expect(close).toBeFocused();
+    await close.press("Enter");
+    await expect(search).toHaveCount(0);
+    await expect(page.locator(".export-dialog")).toHaveCount(0);
+  }
+});
+
 test("an unavailable command is shown with its reason and does not run", async ({ page }) => {
   await freshBoard(page, "command-search-unavailable");
   const before = await objectCount(page);
@@ -104,8 +145,8 @@ test("the agent line opens a task with the words and runs nothing", async ({ pag
   await expect(agentLine).toContainText("Ask the agent: plan a sprint");
 
   await agentLine.click();
-  const agent = page.getByRole("dialog", { name: "AI agents in this room" });
+  const agent = page.getByRole("dialog", { name: "New task" });
   await expect(agent).toBeVisible();
-  await expect(agent.getByLabel("What should it draw?")).toHaveValue("plan a sprint");
+  await expect(agent.getByLabel("What should it create?")).toHaveValue("plan a sprint");
   expect(await objectCount(page)).toBe(before);
 });

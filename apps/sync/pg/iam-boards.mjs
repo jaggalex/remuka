@@ -178,7 +178,7 @@ async setBoardIcon(boardId, icon) {
 
 async getIamBoard(boardId) {
   const { rows } = await this.pool.query(
-    `select id, title, icon, org_id, team_id, owner_id, visibility, acl_version,
+    `select id, title, icon, cover_source_at, org_id, team_id, owner_id, visibility, acl_version,
             archived_at, frozen_at, agents_enabled,
             claim_token_hash is not null as has_claim_token, updated_at
        from boards where id = $1`,

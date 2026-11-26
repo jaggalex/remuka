@@ -31,6 +31,7 @@ const document = (overrides = {}) => ({
   zone: "ru",
   version: 2,
   title: { ru: "Согласие", en: "Consent" },
+  changes: { ru: "Обновили сроки.", en: "We updated the deadlines." },
   status: "published",
   reaccept: true,
   effective: EFFECTIVE,
@@ -110,6 +111,7 @@ describe("the daily pass (§5)", () => {
 
     expect(first).toBe(2);
     expect(second).toBe(0);
+    expect(store.queued.map(row => row.params.changes)).toEqual(["Обновили сроки.", "We updated the deadlines."]);
     expect(store.queued).toHaveLength(2);
     expect(store.queued.map((row) => row.params.dedupe).sort()).toEqual([
       "legal:consent:2:u-1",

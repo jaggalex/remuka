@@ -18,6 +18,7 @@ import {
   seedObject,
   seedStableNote,
   selectKanbanCard,
+  waitForBoardEditor,
   zoomInTo,
 } from "./helpers";
 
@@ -91,7 +92,7 @@ test("the four header menus have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "people menu");
   await page.keyboard.press("Escape");
 
-  await openBoardMenu(page);
+  await openBoardMenu(page, "more");
   await page.getByRole("menuitem", { name: "Templates…" }).click();
   await expectNoSerious(page, "templates popover");
   await page.keyboard.press("Escape");
@@ -147,10 +148,10 @@ test("dialogs have no serious accessibility violations", async ({ page }) => {
   await freshBoard(page, "a11y-dialogs");
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await expect(page.locator(".export-dialog")).toBeVisible();
   await expectNoSerious(page, "export dialog");
-  await page.getByRole("dialog", { name: "Export" }).getByRole("button", { name: "Close", exact: true }).first().click();
+  await page.getByRole("dialog", { name: "Take a copy" }).getByRole("button", { name: "Close", exact: true }).first().click();
 
   await openFacilitation(page);
   await page.getByRole("menuitem", { name: /Voting/ }).click();
@@ -208,7 +209,7 @@ test("the named voters of an open session have no serious violations", async ({ 
   await expect(row).toHaveAttribute("aria-expanded", "false");
   await row.click();
   await expect(vote.locator(".vote-voters")).toContainText("Alice");
-  await expectNoSerious(page, "open vote results", ".rm-dialog");
+  await expectNoSerious(page, "open vote results", ".facilitation-panel");
 });
 
 
@@ -265,17 +266,17 @@ test("modal dialogs keep the keyboard inside and return focus", async ({ page })
   await freshBoard(page, "a11y-dialog-keys");
   const cases: Array<{ name: string; open: () => Promise<void>; opener: () => ReturnType<Page["locator"]> }> = [
     {
-      name: "Export",
+      name: "Take a copy",
       open: async () => {
         await openBoardMenu(page);
-        await page.getByRole("menuitem", { name: "Export…" }).click();
+        await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
       },
       opener: () => page.getByRole("button", { name: /^Room menu:/ }),
     },
     {
       name: "Room settings",
       open: async () => {
-        await openBoardMenu(page);
+        await openBoardMenu(page, "more");
         await page.getByRole("menuitem", { name: "Room settings" }).click();
       },
       opener: () => page.getByRole("button", { name: /^Room menu:/ }),
@@ -407,13 +408,12 @@ test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", asy
   await freshBoard(page, "a11y-header-icons");
   await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
-  // Icon-only controls keep a name: the mark, the discussion icon, the account face
+  // Icon-only controls keep a name: the mark, the account face
   // and the zoom's Fit. Named buttons ("Run", "Invite", "Agent") carry their word.
-  const mark = page.getByRole("button", { name: "Remuka: account and rooms", exact: true });
-  const discussion = page.getByRole("button", { name: /^Comments/ });
+  const mark = page.locator(".topbar").getByRole("link", { name: "All rooms", exact: true });
   const account = page.getByRole("button", { name: /^Account and interface/ });
   const fit = page.getByRole("button", { name: "Fit", exact: true });
-  for (const control of [mark, discussion, fit]) {
+  for (const control of [mark, fit]) {
     await expect(control).toBeVisible();
     await expect(control).not.toContainText(/\w/);
   }
@@ -421,16 +421,14 @@ test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", asy
   await expect(account).toHaveAttribute("aria-label", /^Account and interface/);
 
   // Hover shows the name; focus shows it at once.
-  await discussion.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^Comments$/ })).toBeVisible();
-  await page.keyboard.press("Shift");
-  await discussion.focus();
-  await expect(
-    page.getByRole("tooltip").filter({ hasText: /^Comments$/ }),
-  ).toBeVisible({ timeout: 300 });
-  await expect(mark).toHaveAttribute("aria-label", "Remuka: account and rooms");
   await fit.hover();
   await expect(page.getByRole("tooltip").filter({ hasText: /selection/ })).toBeVisible();
+  await page.keyboard.press("Shift");
+  await fit.focus();
+  await expect(
+    page.getByRole("tooltip").filter({ hasText: /selection/ }),
+  ).toBeVisible({ timeout: 300 });
+  await expect(mark).toHaveAttribute("aria-label", "All rooms");
 
   // Saved is silence: the protocol attribute is there, the indicator is not.
   await expect(page.locator(".save-state")).toBeHidden();
@@ -501,8 +499,32 @@ test("the character screens have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "team home");
 
   await openBoard(page, account.boardId);
+  await waitForBoardEditor(page);
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Invite to the room" });
   await expect(dialog).toBeVisible();
   await expectNoSerious(page, "invite dialog");
+});
+
+test("Tab wraps at the closed restore disclosure and at its visible button when expanded", async ({ page }) => {
+  await freshBoard(page, "a11y-disclosure-trap");
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Take a copy" });
+  const summary = dialog.locator(".export-import summary");
+  const action = dialog.locator(".export-import button").first();
+  const first = dialog.locator(".rm-dialog-head :is(button:not([disabled]), a[href])").first();
+  await expect(action).toBeHidden();
+  await summary.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(action).toBeVisible();
+  await action.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(action).toBeFocused();
 });

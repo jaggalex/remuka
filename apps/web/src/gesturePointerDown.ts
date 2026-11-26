@@ -26,18 +26,44 @@ import {
 } from "./tableCellSelection";
 import { measureText } from "./KanbanTitleEditor";
 
-export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanvasElement>) {
-  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setRotationHover, setTableHover, setTableRefused, settings, shapeTool, toWorld, widgetById, widgets, worldToScreenPoint } = env;
+export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLElement>) {
+  const { anchorPressRef, beginWidgetDrag, camera, cardPreviewRef, connectDraftRef, connectPendingRef, connectorLabelAt, dragRef, isCardOfKanban, layouts, marqueeRef, onAddCard, onConnect, onSelect, onToggleCheck, readOnly, selectedIds, setConnectDraft, setConnectPending, setDragPreview, setMarquee, setRotationHover, setTableHover, setTableRefused, settings, creationTool, toWorld, widgetById, widgets, worldToScreenPoint } = env;
   const world = toWorld(event);
   setRotationHover(false);
+
+  function hitAtPoint() {
+    const labelFrame = frameLabelAt(widgets, world, {
+      measureText: (text) => ({ width: measureText(text, frameLabelFont(settings.text.fontFamily)) }),
+    });
+    const hit = pick(widgets, world, isCardOfKanban) ?? labelFrame;
+    const connector = pickConnector(widgets, world, 8 / camera.zoom, widgetById, {
+      max: settings.connectors.stubMax,
+      ratio: settings.connectors.stubRatio,
+    });
+    const target = connector && (!hit || layerKey(connector) > layerKey(hit)) ? connector : hit;
+    return { hit, target };
+  }
 
   // The armed shape tool owns the canvas: a press starts a draw, and the release
   // either commits the box or, if the pointer never travelled, the default shape
   // (ADR-271). Alt is "from the centre" here, not panning.
-  if (!readOnly && shapeTool && event.button === 0) {
+  if (!readOnly && creationTool && event.button === 0) {
+    const target = creationTool.series ? hitAtPoint().target : null;
+    if (target) {
+      const layout = layouts.get(target.id);
+      const card = layout && placementAt(layout, world);
+      creationTool.cancel();
+      onSelect([card?.cardId ?? target.id]);
+      return;
+    }
+    if (creationTool.tool !== "shape") {
+      dragRef.current = { mode: "place", start: world };
+      capture(event);
+      return;
+    }
     dragRef.current = {
       mode: "shape",
-      kind: shapeTool.kind,
+      kind: creationTool.kind,
       start: world,
       startScreen: { x: event.clientX, y: event.clientY },
       moved: false,
@@ -336,10 +362,7 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
   // selectable (the kanban is only reached where nothing else covers it).
   // A frame's label is above its box, so it is hit-tested as a part of the frame: the
   // plate is the frame's handle (ADR-267).
-  const labelFrame = frameLabelAt(widgets, world, {
-    measureText: (text) => ({ width: measureText(text, frameLabelFont(settings.text.fontFamily)) }),
-  });
-  const hit = pick(widgets, world, isCardOfKanban) ?? labelFrame;
+  const { hit, target } = hitAtPoint();
 
   // ⌘/Ctrl+click on a link opens it; a plain click still selects the object (§8). The
   // address has already passed the document's scheme gate, so only http(s) and mailto
@@ -375,11 +398,7 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
   // painted above them covers the point (rank 3: above shapes and kanbans, below
   // notes, cards and text). Without this a connector could be created but never
   // selected — and so never deleted.
-  const connector = pickConnector(widgets, world, 8 / camera.zoom, widgetById, {
-    max: settings.connectors.stubMax,
-    ratio: settings.connectors.stubRatio,
-  });
-  const target = connector && (!hit || layerKey(connector) > layerKey(hit)) ? connector : hit;
+
 
   if (target?.type === "connector") {
     onSelect([target.id]);
@@ -410,7 +429,7 @@ export function pointerDown(env: GestureEnv, event: React.PointerEvent<HTMLCanva
 
     // A column's or lane's title carries that column or lane (ADR-244); the rest of
     // the header band still moves the kanban. A press that does not move is a click.
-    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily);
+    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily, camera.zoom);
     if (title) {
       onSelect(expandGroups(widgets, [hit.id]));
       dragRef.current = {

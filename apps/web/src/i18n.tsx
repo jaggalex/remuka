@@ -1,3 +1,5 @@
+import { useHintCatalog, catalogueStrings, emptyCatalog, type Catalog } from "./hintCatalog";
+import { hintStrings } from "./hintSlots";
 import {
   createContext,
   useCallback,
@@ -63,6 +65,7 @@ import { enMfa } from "./i18n/en-mfa";
 import { ruMfa } from "./i18n/ru-mfa";
 
 const en = {
+  ...hintStrings("en"),
   ...enCore,
   ...enHome,
   ...enChrome,
@@ -86,6 +89,7 @@ type Key = keyof typeof en;
 export type TranslationKey = Key;
 
 const ru: Record<Key, string> = {
+  ...hintStrings("ru"),
   ...ruCore,
   ...ruHome,
   ...ruChrome,
@@ -144,7 +148,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     widgets: ["{n} widget", "{n} widgets", "{n} widgets"],
     grants: ["{n} grant", "{n} grants", "{n} grants"],
     selected: ["{n} selected", "{n} selected", "{n} selected"],
-    scalable: ["{n} changes size", "{n} change size", "{n} change size"],
+    scalable: ["{n} can be resized", "{n} can be resized", "{n} can be resized"],
     pinned: ["{n} pinned", "{n} pinned", "{n} pinned"],
     cards: ["{n} card", "{n} cards", "{n} cards"],
     columns: ["{n} column", "{n} columns", "{n} columns"],
@@ -164,7 +168,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     widgets: ["{n} объект", "{n} объекта", "{n} объектов"],
     grants: ["{n} доступ", "{n} доступа", "{n} доступов"],
     selected: ["Выбрано: {n}", "Выбрано: {n}", "Выбрано: {n}"],
-    scalable: ["{n} меняет размер", "{n} меняют размер", "{n} меняют размер"],
+    scalable: ["{n} можно масштабировать", "{n} можно масштабировать", "{n} можно масштабировать"],
     pinned: ["{n} закреплён", "{n} закреплены", "{n} закреплены"],
     cards: ["{n} карточка", "{n} карточки", "{n} карточек"],
     columns: ["{n} колонка", "{n} колонки", "{n} колонок"],
@@ -327,6 +331,8 @@ function initialLang(): Lang {
 
 interface I18nValue {
   lang: Lang;
+  hints: Catalog;
+  hintsReady: boolean;
   setLang: (lang: Lang) => void;
   /** The installation's own name from `REMO_PRODUCT_NAME`, or `null` for the brand. */
   productName: string | null;
@@ -361,6 +367,10 @@ const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
+  const catalogue = useHintCatalog(lang);
+  const hintsReady = catalogue !== null;
+  const hints = catalogue ?? emptyCatalog;
+  const wording = useMemo(() => catalogueStrings(hints), [hints]);
   // One image serves every installation, so the instance's own name arrives from the
   // service rather than from the build (ADR-254 §3). Until it answers, the brand shows.
   const [productName, setProductName] = useState<string | null>(null);
@@ -445,6 +455,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<I18nValue>(
     () => ({
+      hints, hintsReady,
       lang,
       setLang,
       productName,
@@ -455,7 +466,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       docsOrigin,
       refreshLegal,
       t: (key, vars) =>
-        interpolate(STRINGS[lang][key], {
+        interpolate(wording[key] ?? STRINGS[lang][key], {
           product: brandName({ locale: lang, productName }),
           ...vars,
         }),
@@ -478,7 +489,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         locale: lang === "ru" ? "ru-RU" : "en-US",
       },
     }),
-    [lang, setLang, productName, stage, move, compliance, legal, docsOrigin, refreshLegal],
+    [hints, hintsReady, wording, lang, setLang, productName, stage, move, compliance, legal, docsOrigin, refreshLegal],
   );
 
   return (

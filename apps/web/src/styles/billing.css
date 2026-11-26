@@ -228,3 +228,26 @@
   color: var(--state-warning);
   font: var(--type-caption);
 }
+
+.billing-status-card {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: var(--space-3); padding: var(--space-5); background: var(--bg-panel);
+  border: var(--panel-border-width) solid var(--border-panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-bar);
+}
+.billing-status-card strong { font: var(--type-section); }
+.billing-status-card p { margin: var(--space-2) 0 0; }
+.billing-status-card[data-status="past-due"], .billing-status-card[data-status="read-only"],
+.billing-status-card[data-status="suspended"] { background: var(--warning-soft); }
+.billing-promo-disclosure > summary { cursor: pointer; font: var(--type-label); }
+.billing-promo-disclosure[open] > summary { margin-bottom: var(--space-2); }
+.paid-feature-plan { margin-inline-start: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--accent-chosen); color: var(--text-on-chosen); text-transform: capitalize; }
+.billing-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--space-4); }
+.billing-summary { display: grid; min-width: 0; gap: var(--space-3); }
+.billing-summary, .billing-choose { border: var(--panel-border-width) solid var(--border-panel); border-radius: var(--radius-lg); padding: var(--space-5); background: var(--bg-panel); }
+.billing-summary { box-shadow: var(--shadow-bar); }
+.billing-summary .billing-status-card { box-shadow: none; }
+.billing-usage-rows span { display: grid; gap: var(--space-1); }
+.billing-usage-rows progress { width: 100%; accent-color: var(--state-success); }
+@media (min-width: 850px) {
+  .billing-layout:has(.billing-choose) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -2,7 +2,7 @@ import type { GestureEnv } from "./gestureEnv";
 import { useGestureEnv } from "./gestureEnv";
 import { pointerDown } from "./gesturePointerDown";
 import { pointerMove } from "./gesturePointerMove";
-import { pointerUp } from "./gesturePointerUp";
+import { pointerCancel, pointerUp } from "./gesturePointerUp";
 import { doubleClick } from "./gestureDoubleClick";
 import type { GestureDeps, Gestures } from "./gestureTypes";
 import { useQuietWhileGesturing } from "./quietChrome";
@@ -56,6 +56,7 @@ export function useGestures(deps: GestureDeps): Gestures {
     onPointerDown: (event) => pointerDown(env, event),
     onPointerMove: (event) => pointerMove(env, event),
     onPointerUp: () => pointerUp(env),
+    onPointerCancel: event => pointerCancel(env, event),
     onDoubleClick: (event) => doubleClick(env, event),
     startConnect: (fromId, side, client) => {
       // The press already travelled past the click threshold on the "+", so this is a

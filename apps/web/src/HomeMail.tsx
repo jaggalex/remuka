@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Banner } from "@remo/ui";
+import { Banner, Button, Icon } from "@remo/ui";
 import type { SessionUser } from "./api";
 import { ApiError } from "./apiCall";
 import { authCapabilities, restoreAccount, verifyEmail } from "./apiMail";
+import { AuthScreen } from "./AuthScreen";
 import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
 import { ResetPasswordDialog } from "./ResetPasswordDialog";
 import { clearMailParams, stripMailTokens, type MailLinks } from "./mailLinks";
@@ -166,6 +167,18 @@ export function HomeMail({
   /** The account the reminder belongs to; null when there is nothing to remind. */
   const remindUserId = me?.emailVerified === false ? me.id : null;
 
+  if (verification === "ok") {
+    return (
+      <AuthScreen step="verified" title={t("access.doneTitle")} onBack={() => setVerification("idle")}>
+        <span className="auth-symbol" aria-hidden="true"><Icon name="check" size={42} /></span>
+        <p role="status">{t("access.verifiedBody")}</p>
+        <Button variant="primary" className="signup-submit" onClick={() => {
+          setVerification("idle");
+          if (!me) onOpenLogin("");
+        }}>{t("access.rooms")}</Button>
+      </AuthScreen>
+    );
+  }
   return (
     <>
       {/* The move notice belongs above the mail answers: it is about the address the
@@ -184,7 +197,7 @@ export function HomeMail({
           )}
           {!showRestore && showBanner && (
             <Banner
-              tone={verification === "ok" ? "success" : "danger"}
+              tone="danger"
               onClose={() => setVerification("idle")}
             >
               {verifyText}
@@ -209,7 +222,7 @@ export function HomeMail({
         </div>
       )}
 
-      <ForgotPasswordDialog open={forgotOpen} onClose={onForgotClose} />
+      {forgotOpen && <ForgotPasswordDialog open onClose={() => { onForgotClose(); onOpenLogin(""); }} />}
 
       {resetToken && (
         <ResetPasswordDialog

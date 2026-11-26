@@ -490,6 +490,7 @@ describe("saving a BYOK key through the gateway", () => {
     expect(checked[0].init.headers.Authorization).toBe("Bearer gateway-token");
     expect(checked[0].init.allowPrivate).toBe(true);
     expect(checked.every(({ url }) => url.startsWith(gateway.url))).toBe(true);
+    expect(checked[0].init.ca).toBeUndefined();
   });
 
   it("stores the key when the registry knows the base URL", async () => {
@@ -500,12 +501,16 @@ describe("saving a BYOK key through the gateway", () => {
         baseUrl: "https://listed.example/v1",
         secret: "sk-test",
       },
-      fetchImpl: async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({ allowed: true, provider: "listed" }),
-        text: async () => JSON.stringify({ allowed: true, provider: "listed" }),
-      }),
+      fetchImpl: async (url, init) => {
+        expect(new URL(url).origin).toBe(new URL(gateway.url).origin);
+        expect(init.ca).toBe("test-gateway-ca");
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ allowed: true, provider: "listed" }),
+          text: async () => JSON.stringify({ allowed: true, provider: "listed" }),
+        };
+      },
       store: {
         getAiPolicy: async () => ({ keyMode: "either", providers: [], models: [] }),
         createAiCredential: async (row) => {
@@ -521,6 +526,7 @@ describe("saving a BYOK key through the gateway", () => {
       },
     });
 
+    ctx.env = { ...saveEnv, REMO_AI_GATEWAY_CA: "test-gateway-ca" };
     expect(await handleAiCredentials(ctx)).toBe(true);
     expect(ctx.response.status).toBe(201);
     expect(stored).toMatchObject({ provider: "custom", baseUrl: "https://listed.example/v1", model: null });

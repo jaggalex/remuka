@@ -141,7 +141,9 @@ test("the arrow keys and Enter pick a colour from the grid", async ({ page }) =>
   await openMenuOn(page, "context-menu-keys-note");
   const menu = page.getByRole("menu", { name: "Стикер" });
   await expect(menu).toBeVisible();
-  // The first row is the object's own action; → opens its grid and focuses a swatch.
+  // The primary action for a note is editing. The next row opens its palette.
+  await expect(page.locator(":focus")).toHaveAccessibleName("Править текст");
+  await page.keyboard.press("ArrowDown");
   await expect(page.locator(":focus")).toHaveAccessibleName("Цвет");
   await page.keyboard.press("ArrowRight");
   const grid = page.getByRole("menu", { name: "Цвет", exact: true });
@@ -158,13 +160,15 @@ test("the arrow keys and Enter pick a colour from the grid", async ({ page }) =>
   // Escape closes the grid first and leaves focus on the row that opened it.
   await openMenuOn(page, "context-menu-keys-note");
   await expect(menu).toBeVisible();
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowRight");
   await expect(grid).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(grid).toHaveCount(0);
   await expect(page.locator(":focus")).toHaveAccessibleName("Цвет");
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator(":focus")).toHaveAccessibleName("Править текст");
   await page.keyboard.press("ArrowDown");
-  await expect(page.locator(":focus")).toHaveAccessibleName("Изменить текст");
   await page.keyboard.press("ArrowDown");
   await expect(page.locator(":focus")).toHaveAccessibleName("Очистить содержимое");
   await page.keyboard.press("Escape");

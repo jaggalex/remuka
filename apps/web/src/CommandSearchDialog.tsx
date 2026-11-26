@@ -1,3 +1,5 @@
+import { HintCopy } from "./HintCopy";
+import { actedOnHint, countHint } from "./hintCatalog";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { Button, CommandPalette, Icon } from "@remo/ui";
 import type { CommandContext } from "./commands";
@@ -73,6 +75,7 @@ function CommandSearchDialog({
   const { t } = useI18n();
   const chrome = useChromeSurface();
   const [query, setQuery] = useState("");
+  useEffect(() => { if (!query) countHint("hint.shown", "search.first", "action"); }, [query]);
   const [active, setActive] = useState(-1);
   const [recent, setRecent] = useState<string[]>(() => readRecentCommands());
 
@@ -125,8 +128,9 @@ function CommandSearchDialog({
     entry.run();
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const rows = entries.rows;
+    if (!rows.length) return;
     const last = rows.length - 1;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -155,10 +159,9 @@ function CommandSearchDialog({
       onClose={closeCommandSearch}
       returnFocusTo={commandSearchOpener()}
     >
-      <div className="command-search-body" onKeyDown={onKeyDown}>
-        <label className="command-search-field">
+      <div className="command-search-body">
+        <div className="command-search-field">
           <Icon name="search" size={18} />
-          <span className="rm-visually-hidden">{t("search.input")}</span>
           <input
             className="command-search-input"
             type="search"
@@ -172,7 +175,8 @@ function CommandSearchDialog({
             spellCheck={false}
             placeholder={t("search.placeholder")}
             value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
+            onKeyDown={onKeyDown}
+            onChange={(event) => { actedOnHint("search.first"); actedOnHint("search.empty"); setQuery(event.currentTarget.value); }}
           />
           <Button
             variant="secondary"
@@ -183,7 +187,7 @@ function CommandSearchDialog({
           >
             Esc
           </Button>
-        </label>
+        </div>
         <div
           className="command-search-list"
           id="command-search-list"
@@ -227,7 +231,7 @@ function CommandSearchDialog({
           })}
           {entries.empty && (
             <p className="command-search-empty" role="presentation">
-              {t("search.empty")}
+              <HintCopy slot="search.empty" text="search.empty" />
             </p>
           )}
         </div>

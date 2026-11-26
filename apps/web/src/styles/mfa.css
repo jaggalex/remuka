@@ -99,3 +99,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+.stepup-sheet { width: min(480px, 100%); }
+.stepup-cells { border: 0; margin: 0; padding: 0; min-width: 0; }
+.stepup-cells legend { padding: 0; margin-bottom: var(--space-2); font: var(--type-label); }
+.stepup-cells > div { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-2); }
+.stepup-cells .rm-input { padding: 0; }
+.stepup-cells input { text-align: center; font: var(--type-section); }

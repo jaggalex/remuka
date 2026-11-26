@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { PlanNotice } from "./PlanNotice";
+import { planLimitFrom, type PlanLimitNotice } from "./apiBilling";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark, Button, Icon, Input, Select } from "@remo/ui";
 import { brandName } from "@remo/brand";
 import type { TemplateKey } from "@remo/model";
-import { api, type OrgSummary, type SessionUser } from "./api";
+import { api, type OrgSummary } from "./api";
 import {
   boardDirectory,
-  setBoardIcon,
   type BoardDirectoryPage,
   type BoardTile,
 } from "./boardDirectory";
@@ -13,12 +14,14 @@ import { AuthDialog } from "./AuthDialog";
 import { BoardDeleteDialog } from "./BoardDeleteDialog";
 import { ConsentLink } from "./ConsentProvider";
 import { HomeMail, resetVerificationBanner } from "./HomeMail";
+import { actedOnHint } from "./hintCatalog";
+import { HomeQuiet, InviteNewsRoom, NewsItem, NewsSummary, useHomeNews } from "./HomeNews";
 import { HomeRooms, type HomeSort } from "./HomeRooms";
 import { HomeTemplates } from "./HomeTemplates";
 import { greetingKey } from "./homeGreeting";
 import { InviteDialog } from "./InviteDialog";
 import { NewBoardDialog } from "./NewBoardDialog";
-import { OrganisationDialog } from "./OrganisationDialog";
+import { OrganisationEntry } from "./OrganisationPage";
 import { SessionsDialog } from "./SessionsDialog";
 import { AccountDeletionBanner } from "./AccountDeletion";
 import type { DeletionSchedule } from "./accountDeletionApi";
@@ -46,8 +49,8 @@ function readSort(value: string | null): Sort {
  * The greeting, "Now in the team", "Start from ready-made" and "Team rooms" are the four
  * blocks of the mockup. The directory (search, sort, pages, the tile menu) is still one
  * mechanism and still appears only when there is more than one page or a filter (ADR-197);
- * its search lives in the header, where the mockup puts it. News is a place, not a promise:
- * without data the block says the team is quiet, and T14 fills it.
+ * its search lives in the header, where the mockup puts it. Team news is scoped to
+ * the active account and organisation and exists only when there is something to show.
  */
 export function WorkspaceHome({
   inviteToken,
@@ -57,7 +60,7 @@ export function WorkspaceHome({
   mail: MailLinks;
 }) {
   const { t, lang, setLang, productName } = useI18n();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolved, setTheme } = useTheme();
   const { calm, setCalm } = useCalmMotion();
   const { me, setMe, orgs, refreshOrgs, sessionReady } = useBoardAccess(null);
   useAccountPreferences({ me, theme, setTheme, lang, setLang, calm, setCalm });
@@ -74,6 +77,8 @@ export function WorkspaceHome({
     params.get("dir") === "asc" ? "asc" : "desc",
   );
   const [page, setPage] = useState(() => Math.max(Number(params.get("page") ?? 1), 1));
+  const allRooms = location.pathname === "/rooms";
+  const [restoreLimit, setRestoreLimit] = useState<PlanLimitNotice | null>(null);
   const [trash, setTrash] = useState(() => params.get("trash") === "1");
   const [data, setData] = useState<BoardDirectoryPage | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -98,6 +103,7 @@ export function WorkspaceHome({
   const [creating, setCreating] = useState(false);
   const [templatePreset, setTemplatePreset] = useState<"empty" | TemplateKey>("empty");
   const startNew = (template: "empty" | TemplateKey = "empty") => {
+    actedOnHint("home.quiet");
     setTemplatePreset(template);
     setCreating(true);
   };
@@ -110,11 +116,15 @@ export function WorkspaceHome({
   const [emojiBoard, setEmojiBoard] = useState<string | null>(null);
 
   const requestedSlug = params.get("org");
+  const team = params.get("team") ?? undefined;
   const activeOrg: OrgSummary | null =
     orgs.find((org) => org.slug === requestedSlug) ??
     orgs.find((org) => org.kind === "personal") ??
     orgs[0] ??
     null;
+
+  const news = useHomeNews(me?.id, activeOrg?.id);
+  const [choosingRoom, setChoosingRoom] = useState(false);
 
   // The address always names the organisation on screen. A missing or stale `org` is
   // replaced without a history entry: it is a repair, not a navigation step.
@@ -125,7 +135,9 @@ export function WorkspaceHome({
     window.history.replaceState(null, "", `${window.location.pathname}?${next.toString()}`);
   }, [activeOrg, requestedSlug]);
 
+  const requestNumber = useRef(0);
   const load = useCallback(async () => {
+    const number = ++requestNumber.current;
     if (!me || !activeOrg) {
       setData(null);
       setStatus("idle");
@@ -136,6 +148,7 @@ export function WorkspaceHome({
     try {
       const result = await boardDirectory({
         org: activeOrg.slug,
+        team,
         q: query.trim() || undefined,
         sort,
         dir,
@@ -143,20 +156,30 @@ export function WorkspaceHome({
         limit: PAGE_SIZE,
         trash,
       });
+      if (number !== requestNumber.current) return;
       setData(result);
       setStatus("idle");
       const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
       if (page > totalPages) setPage(totalPages);
     } catch (failure) {
+      if (number !== requestNumber.current) return;
       setStatus("error");
       setError(failure instanceof Error ? failure.message : t("home.failed"));
     }
-  }, [activeOrg, dir, me, page, query, sort, t, trash]);
+  }, [activeOrg, dir, me, page, query, sort, t, team, trash]);
 
   useEffect(() => {
     if (!me || !activeOrg) return;
     const timer = window.setTimeout(() => void load(), query.trim() ? 200 : 0);
-    return () => window.clearTimeout(timer);
+    const refresh = () => { if (!document.hidden) void load(); };
+    const interval = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      ++requestNumber.current;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [load, me, activeOrg, query, reloadKey]);
 
   // Search, sort and page are shareable: the address is the state (ADR-168).
@@ -182,7 +205,7 @@ export function WorkspaceHome({
   const pageSize = data?.pageSize ?? PAGE_SIZE;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   // ADR-197: the directory appears only when there is more than one page to direct.
-  const directory = total > PAGE_SIZE || Boolean(query.trim()) || trash || page > 1;
+  const directory = allRooms || total > PAGE_SIZE || Boolean(query.trim()) || trash || page > 1;
 
   const switchOrg = (slug: string) => {
     // A different organisation is a different context: no board, no stale filters.
@@ -210,33 +233,24 @@ export function WorkspaceHome({
     const next = new URLSearchParams({ room: boardId });
     if (template) next.set("template", template);
     if (title) next.set("name", title);
-    window.location.assign(`${window.location.pathname}?${next.toString()}`);
+    window.location.assign(`/?${next.toString()}`);
   };
 
-  const setIcon = async (board: BoardTile, icon: string) => {
-    setEmojiBoard(null);
-    try {
-      const result = await setBoardIcon(board.id, icon);
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              boards: current.boards.map((row) =>
-                row.id === board.id ? { ...row, icon: result.board.icon } : row,
-              ),
-            }
-          : current,
-      );
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("home.failed"));
-    }
+  const setIcon = (board: BoardTile, icon: string) => {
+    setData((current) => current && {
+      ...current,
+      boards: current.boards.map((row) => row.id === board.id ? { ...row, icon } : row),
+    });
   };
 
   const restoreBoard = async (board: BoardTile) => {
+    setRestoreLimit(null);
     try {
       await api.restoreBoard(board.id);
       setReloadKey((value) => value + 1);
     } catch (failure) {
+      const limit = planLimitFrom(failure);
+      if (limit) { setRestoreLimit(limit); return; }
       setError(failure instanceof Error ? failure.message : t("home.failed"));
     }
   };
@@ -378,7 +392,6 @@ export function WorkspaceHome({
             roleLine={null}
             identityName={identity.name}
             onRenameSelf={renameSelf}
-            onAccountRenamed={(user: SessionUser) => setMe(user)}
             onOrg={() => {
               setAccountOpen(false);
               openOrg();
@@ -387,7 +400,7 @@ export function WorkspaceHome({
               setAccountOpen(false);
               setSessionsOpen(true);
             }}
-            onAllRooms={() => setAccountOpen(false)}
+            onAllRooms={() => location.assign("/rooms" + location.search)}
             theme={theme} setTheme={setTheme} calm={calm} setCalm={setCalm}
             lang={lang} setLang={setLang} withView={false}
             onDeleteScheduled={(schedule) => {
@@ -401,7 +414,7 @@ export function WorkspaceHome({
             }}
             onSignOut={() => void signOut()}
           />
-          <InterfaceToggles theme={theme} onTheme={setTheme} />
+          <InterfaceToggles theme={resolved} onTheme={setTheme} />
         </nav>
         </div>
       </header>
@@ -438,7 +451,8 @@ export function WorkspaceHome({
         </section>
       ) : (
         <main className="home-content">
-          <section className="home-hero">
+          {allRooms ? <header className="org-page-heading"><div><a href={"/?org=" + encodeURIComponent(activeOrg.slug)}>{activeOrg.name}</a><h1>{t("board.allBoards")}</h1></div>
+            {canCreate && <Button variant="primary" onClick={() => startNew()}>{t("boards.new")}</Button>}</header> : <section className="home-hero">
             <div className="home-hero-text">
               <h1>
                 {greeting}{" "}
@@ -454,7 +468,8 @@ export function WorkspaceHome({
                   <span className="home-name-text">{displayName}</span>
                 </span>
               </h1>
-              <p className="home-lead">{t("home.leadEmpty")}</p>
+              {news.items.length > 0 ? <NewsSummary items={news.items} /> :
+                <HomeQuiet ready={news.ready} canCreate={canCreate} />}
             </div>
             <Button
               variant="primary"
@@ -465,17 +480,23 @@ export function WorkspaceHome({
             >
               {t("boards.new")}
             </Button>
-          </section>
+          </section>}
 
-          <section className="home-now" aria-labelledby="home-now-title">
-            <h2 id="home-now-title">{t("home.nowQuiet")}</h2>
-          </section>
+          {!allRooms && news.ready && <section className="home-now" aria-labelledby="home-now-title">
+            <h2 id="home-now-title">{t(news.items.length ? "home.nowTitle" : "home.nowQuiet")}</h2>
+            {news.items.length > 0 && <div className="home-news-grid">{news.items.map(item =>
+              <NewsItem key={item.id} item={item} orgId={activeOrg.id} hide={news.hide} invite={() => setChoosingRoom(true)} />
+            )}</div>}
+          </section>}
+          {choosingRoom && <InviteNewsRoom slug={activeOrg.slug} onClose={() => setChoosingRoom(false)} />}
 
-          <section className="home-start" aria-labelledby="home-start-title">
+          {!allRooms && <section className="home-start" aria-labelledby="home-start-title">
             <h2 id="home-start-title">{t("home.startTitle")}</h2>
             <HomeTemplates disabled={!canCreate} onStart={(template) => startNew(template)} />
-          </section>
+          </section>}
 
+          {team && <Button variant="ghost" onClick={() => switchOrg(activeOrg.slug)}>{t("board.allBoards")}</Button>}
+          {restoreLimit && <PlanNotice orgId={activeOrg.id} notice={restoreLimit} onDismiss={() => setRestoreLimit(null)} onSeePlans={() => openOrg("billing", activeOrg.id)} />}
           <HomeRooms
             data={data}
             status={status}
@@ -514,7 +535,7 @@ export function WorkspaceHome({
             onDuplicate={(board) => void duplicateBoard(board)}
             onDelete={setPendingDelete}
             onEmoji={setEmojiBoard}
-            onIcon={(board, icon) => void setIcon(board, icon)}
+            onIcon={setIcon}
             onNew={() => startNew()}
             onRetry={() => setReloadKey((value) => value + 1)}
           />
@@ -551,7 +572,7 @@ export function WorkspaceHome({
       )}
 
       {me && (
-        <OrganisationDialog
+        <OrganisationEntry
           open={orgOpen}
           me={me}
           initialOrgId={orgTargetId ?? activeOrg?.id ?? null}

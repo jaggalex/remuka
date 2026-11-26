@@ -125,6 +125,40 @@
   font: var(--type-caption);
 }
 
+.room-connection-notice {
+  inset: auto var(--space-6) var(--space-6);
+  transform: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  max-width: none;
+  padding: var(--space-3) var(--space-4);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font: var(--type-body);
+}
+.room-connection-notice > span { flex: 1 1 16rem; }
+.room-connection-notice[data-kind="session"] { background: var(--bg-room-notice-session); }
+.room-connection-notice[data-kind="moved"] { background: var(--bg-room-notice-moved); }
+.room-connection-notice[data-kind="full"] { background: var(--bg-room-notice-full); }
+.room-connection-notice:not([data-kind="access"]) { color: var(--canvas-object-ink); }
+
+/* A persistent notice leaves the bottom controls usable while editing offline. */
+.room-connection-notice:is(.offline-notice, .offline-blocked) {
+  bottom: calc(var(--space-6) + var(--control-compact) + var(--space-3));
+  box-sizing: border-box;
+  min-height: 50px;
+  background: var(--bg-offline-notice);
+  color: var(--text-primary);
+}
+.room-connection-notice.offline-blocked {
+  background: var(--bg-room-notice-full);
+  color: var(--canvas-object-ink);
+}
+
 /*
  * The operator's measure on this room (ADR-259 §4): one sentence, the same plate idiom as
  * a system message, never a dialog. It stays until the measure is reverted or the page

@@ -1,5 +1,6 @@
-import type { Rect, Widget } from "@remo/model";
+import { ink, type Rect, type Widget } from "@remo/model";
 import { edgePoint } from "./anchor";
+import { ellipsize } from "./labelLayout";
 import type { CanvasPalette } from "./palette";
 
 /**
@@ -22,6 +23,7 @@ export interface ProposalPlan {
 
 export interface ProposalBox {
   key: string;
+  title?: string;
   type: string;
   x: number;
   y: number;
@@ -112,13 +114,21 @@ function union(boxes: readonly ProposalBox[]): Rect | null {
 export function proposalLayout(
   plan: ProposalPlan | null | undefined,
   resolve: (id: string) => Widget | undefined,
+  labelGroups = false,
 ): ProposalLayout {
   const objects: Centred[] = [];
+  const blocks: ProposalBox[] = [];
   (Array.isArray(plan?.objects) ? plan.objects : []).forEach((value, index) => {
     const object = readObject(value, index);
-    if (object) objects.push(object);
+    if (!object) return;
+    objects.push(object);
+    const block = box(object, `new-${object.id}`);
+    const title = record(value)?.title;
+    if (labelGroups && object.type === "frame" && typeof title === "string") {
+      block.title = title.trim();
+    }
+    blocks.push(block);
   });
-  const blocks = objects.map((object) => box(object, `new-${object.id}`));
   const rank = (type: string) => (type === "frame" ? 0 : 1);
   blocks.sort((first, second) => rank(first.type) - rank(second.type));
 
@@ -190,9 +200,10 @@ export function drawProposal(
   zoom: number,
   palette: CanvasPalette,
   alpha = 1,
+  fontFamily = "sans-serif",
 ): void {
   if (layout.empty && !layout.lines.length) return;
-  const ink = palette.agent;
+  const agentColor = palette.agent;
   const px = 1 / zoom;
   ctx.save();
   // The hull "breathes" while a person considers it (ADR-265 §4.2): the caller owns the
@@ -200,17 +211,17 @@ export function drawProposal(
   ctx.globalAlpha = alpha;
   ctx.lineWidth = PROPOSAL_HULL.width * px;
   ctx.setLineDash(PROPOSAL_HULL.dash.map((step) => step * px));
-  ctx.strokeStyle = ink;
+  ctx.strokeStyle = agentColor;
 
   for (const item of layout.moves) {
     roundedRect(ctx, item, PROPOSAL_HULL.leafCorner);
-    tint(ctx, ink, alpha);
+    tint(ctx, agentColor, alpha);
     ctx.stroke();
   }
   for (const item of layout.blocks) {
     const hull = item.type === "frame";
     roundedRect(ctx, item, hull ? PROPOSAL_HULL.corner : PROPOSAL_HULL.leafCorner);
-    if (!hull) tint(ctx, ink, alpha);
+    if (!hull) tint(ctx, agentColor, alpha);
     ctx.stroke();
   }
   // A planned connector is a 2 px dashed line of the agent's colour (ADR-267 §2): the
@@ -221,6 +232,35 @@ export function drawProposal(
     ctx.moveTo(line.x1, line.y1);
     ctx.lineTo(line.x2, line.y2);
     ctx.stroke();
+  }
+  for (const item of layout.blocks) {
+    if (!item.title) continue;
+    // The group name belongs to the preview, like its dashed outline. Paint in
+    // screen pixels and limit it to its own hull so adjacent names never overlap.
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.scale(px, px);
+    ctx.font = `700 12px ${fontFamily}`;
+    const room = item.width * zoom - 20;
+    if (room >= ctx.measureText("…").width) {
+      const text = ctx.measureText(item.title).width <= room ? item.title : ellipsize(ctx, item.title, room);
+      const width = ctx.measureText(text).width + 20;
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") ctx.roundRect(0, -28, width, 24, [8, 8, 8, 0]);
+      else ctx.rect(0, -28, width, 24);
+      ctx.fillStyle = palette.panel;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = ink(palette.panel, "text");
+      ctx.stroke();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 10, -16);
+    }
+    ctx.restore();
   }
   ctx.restore();
 }

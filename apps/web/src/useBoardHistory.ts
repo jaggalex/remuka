@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+import { hasPinHistory, pinHistoryVersion, replayPin, subscribePinHistory } from "./commentHistory";
 import type { BoardDocument } from "@remo/doc";
 
 /**
@@ -8,14 +9,15 @@ import type { BoardDocument } from "@remo/doc";
  * button is outside the canvas that observes the document.
  */
 export function useBoardHistory(board: BoardDocument) {
+  useSyncExternalStore(useCallback(fn => subscribePinHistory(board, fn), [board]), () => pinHistoryVersion(board));
   const [, forceRender] = useState(0);
   const undo = useCallback(() => {
-    board.undoOnce();
+    if (!replayPin(board, false)) board.undoOnce();
     forceRender((n) => n + 1);
   }, [board]);
   const redo = useCallback(() => {
-    board.redoOnce();
+    if (!replayPin(board, true)) board.redoOnce();
     forceRender((n) => n + 1);
   }, [board]);
-  return { undo, redo, forceRender };
+  return { undo, redo, forceRender, pinUndo: hasPinHistory(board, false), pinRedo: hasPinHistory(board, true) };
 }

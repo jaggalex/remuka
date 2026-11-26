@@ -25,9 +25,11 @@ its room are left behind instead of becoming a filter over an open canvas.
 4. Tiles flow left to right, then top to bottom, 24 per page. Page numbers sit below.
 5. A tile shows the team (or the organisation when the room has no team), the author `Name @handle` and the dates. Author means creator;
    handing over ownership does not rewrite it.
-6. The tile menu changes the emoji, duplicates or trashes the room by permission.
+6. Open **⋯ → Cover and icon** on any tile. Search for an emoji by name and select it. Inside the room, open the title menu for the same picker. Choose **No emoji** to remove the icon.
 7. **New room** creates a room in the chosen organisation.
 8. **Trash** beside **Rooms** shows deleted rooms; **Restore** puts a room back in the list.
+
+The cover shows the canvas. To feature a frame, open its context menu and choose **Make cover**. Choose **Use whole room as cover** in the same menu to restore the canvas view. After an edit, the preview refreshes automatically at most once every ten minutes, even when the room is closed.
 
 ## Example
 
@@ -37,7 +39,6 @@ shows only the work organisation's rooms, and the chosen room opens at `?room=�
 
 ## Limits
 
-- The icon is one emoji. Images and uploaded icons need storage and come in a later step.
 - Creation dates of old rooms were restored from the update date and may be approximate.
 - Search is by room name, not by canvas content.
 - There is no "all organisations at once" mode: the directory always belongs to one

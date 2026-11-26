@@ -70,7 +70,7 @@ export async function waitForBoardEditor(page: Page): Promise<void> {
 }
 
 /** Wait until the camera and the canvas size are the same on two reads 80 ms apart. */
-async function settleCamera(page: Page): Promise<void> {
+export async function settleCamera(page: Page): Promise<void> {
   let previous = "";
   for (let attempt = 0; attempt < 25; attempt += 1) {
     const current = await page.evaluate(() => {
@@ -127,8 +127,7 @@ export async function selectKanbanCard(page: Page, cardId?: string): Promise<str
   await expect.poll(() => page.evaluate(
     () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
   )).toEqual([point.id]);
-  // T8: the card's fields live under «More settings» in the one properties panel.
-  await openFold(page, "More settings");
+  await expect(page.locator(".card-record")).toBeVisible();
   return point.id;
 }
 
@@ -215,8 +214,9 @@ export async function agentBoard(page: Page, tag: string): Promise<AgentBoard> {
  * The header's menus (ADR-266). They are DS menus: opening one moves focus inside,
  * Escape closes it and returns focus to the trigger.
  */
-export async function openBoardMenu(page: Page): Promise<void> {
+export async function openBoardMenu(page: Page, group?: "more" | "propertiesAccess"): Promise<void> {
   await page.getByRole("button", { name: /^(?:Room menu|Меню комнаты):/ }).click();
+  if (group) await page.getByRole("menu").locator(`[data-command="room.${group}"]`).click();
 }
 
 /** "Run" is the old Facilitation menu: timer, voting, presentation, follow. */
@@ -247,7 +247,7 @@ export async function openAccount(page: Page): Promise<void> {
 
 /** The room menu now carries the right panel; the header has no Properties icon. */
 export async function openProperties(page: Page): Promise<void> {
-  await openBoardMenu(page);
+  await openBoardMenu(page, "propertiesAccess");
   await page.getByRole("menuitem", { name: /^(?:Properties|Свойства)$/ }).click();
 }
 
@@ -258,10 +258,9 @@ export async function ensureProperties(page: Page): Promise<void> {
   await expect(page.locator("aside.inspector")).toBeVisible();
 }
 
-/** The room list lives in the account menu now (the old "All rooms" icon is gone). */
+/** The room logo links back to the list of rooms. */
 export async function goAllRooms(page: Page): Promise<void> {
-  await openAccount(page);
-  await page.getByRole("button", { name: "All rooms", exact: true }).click();
+  await page.locator(".topbar").getByRole("link", { name: /^(?:All rooms|Все комнаты)$/ }).click();
 }
 
 /**
@@ -269,7 +268,8 @@ export async function goAllRooms(page: Page): Promise<void> {
  * count, so the locator matches the start of it.
  */
 export async function openComments(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^(?:Comments|Комментарии)/ }).click();
+  await openBoardMenu(page, "more");
+  await page.locator('[data-command="header.comments"]').click();
 }
 
 export async function startPresentation(page: Page): Promise<void> {
@@ -368,11 +368,14 @@ export async function savedAfterEdit(page: Page): Promise<void> {
 /** Place a comment on an empty point of the board and submit the composer. */
 export async function addComment(page: Page, text: string): Promise<void> {
   await page.getByRole("button", { name: "New comment" }).click();
-  const canvas = page.locator(".layer.overlay");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas not visible");
-  await page.mouse.click(box.x + 40, box.y + box.height - 60);
   const composer = page.locator(".comment-composer textarea");
+  const placement = page.locator(".comment-placement");
+  await expect(composer.or(placement)).toBeVisible();
+  if (await placement.isVisible()) {
+    const box = await placement.boundingBox();
+    if (!box) throw new Error("comment placement surface is missing");
+    await page.mouse.click(box.x + 40, box.y + box.height - 60);
+  }
   await expect(composer).toBeVisible();
   // The composer is a Dialog; its text field asked for focus and keeps it.
   await expect(composer).toBeFocused();
@@ -527,15 +530,16 @@ export async function objectCount(page: Page, type?: string): Promise<number> {
  * open row would close it, so it is opened only when closed.
  */
 export async function openFold(page: Page, name: string | RegExp): Promise<void> {
-  // T8: the rare groups live inside «More settings»; open the outer row first.
-  const outer = page.locator("aside.inspector details.properties-more");
-  if ((await outer.getAttribute("open")) === null) await outer.locator("summary").first().click();
-  await expect(outer).toHaveAttribute("open", "");
   const fold = page
     .locator("aside.inspector details.rm-disclosure")
     .filter({ has: page.locator("summary", { hasText: name }) })
     // An outer fold contains its children's summaries; the innermost is the target.
     .last();
-  if ((await fold.getAttribute("open")) === null) await fold.locator("summary").click();
+  const summary = fold.locator(":scope > summary");
+  if (!await summary.isVisible()) {
+    const outer = page.locator("aside.inspector details.properties-more");
+    await outer.locator(":scope > summary").click();
+  }
+  if ((await fold.getAttribute("open")) === null) await summary.click();
   await expect(fold).toHaveAttribute("open", "");
 }

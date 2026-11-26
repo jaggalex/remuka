@@ -6,6 +6,7 @@ import { useI18n } from "./i18n";
 import { LegalConsent } from "./legal/LegalConsent";
 import { signupLegalDocuments } from "./legal/legalConfig";
 import { announceLegalSession } from "./legal/legalSession";
+import { AuthScreen } from "./AuthScreen";
 import { Shake } from "./Shake";
 
 /**
@@ -79,32 +80,11 @@ export function SignUpScreen() {
     }
   };
 
-  return (
-    <div className="signup-screen screen-motion">
-      <aside className="signup-aside" aria-hidden="true">
-        <BrandMark size={34} wordmark={brandName({ locale: lang, productName })} />
-        <div className="signup-illustration">
-          <span className="signup-sticker is-green">{t("signup.noteOne")}</span>
-          <span className="signup-sticker is-yellow">{t("signup.noteTwo")}</span>
-          <span className="signup-sticker is-pink">{t("signup.noteThree")}</span>
-          <span className="signup-cursor">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 3l16 7-7 2-2 7z" className="signup-cursor-arrow" />
-            </svg>
-            <span className="signup-cursor-name">{t("signup.youSoon")}</span>
-          </span>
-        </div>
-        <p className="signup-aside-foot">
-          {t("signup.free")}
-          {dataLine}
-        </p>
-      </aside>
-
-      <main className="signup-main">
-        <Shake token={shake} className="signup-form-wrap">
-          <form className="signup-form" aria-labelledby="signup-title" onSubmit={submit}>
+  const form = (
+<Shake token={shake} className="signup-form-wrap">
+          <form className="signup-form" aria-labelledby={zone === "eu" ? "access-heading" : "signup-title"} onSubmit={submit}>
             <div className="signup-heading">
-              <h1 id="signup-title">{t("signup.title")}</h1>
+              {zone !== "eu" && <h1 id="signup-title">{t("signup.title")}</h1>}
               <p>
                 {t("signup.haveAccount")}{" "}
                 <a className="signup-signin" href="/?signin=1">
@@ -195,6 +175,32 @@ export function SignUpScreen() {
             )}
           </form>
         </Shake>
+  );
+  if (zone === "eu") return <AuthScreen step="eu" title={t("signup.title")}>{form}</AuthScreen>;
+
+  return (
+    <div className="signup-screen screen-motion">
+      <aside className="signup-aside" aria-hidden="true">
+        <BrandMark size={34} wordmark={brandName({ locale: lang, productName })} />
+        <div className="signup-illustration">
+          <span className="signup-sticker is-green">{t("signup.noteOne")}</span>
+          <span className="signup-sticker is-yellow">{t("signup.noteTwo")}</span>
+          <span className="signup-sticker is-pink">{t("signup.noteThree")}</span>
+          <span className="signup-cursor">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 3l16 7-7 2-2 7z" className="signup-cursor-arrow" />
+            </svg>
+            <span className="signup-cursor-name">{t("signup.youSoon")}</span>
+          </span>
+        </div>
+        <p className="signup-aside-foot">
+          {t("signup.free")}
+          {dataLine}
+        </p>
+      </aside>
+
+      <main className="signup-main">
+        {form}
       </main>
     </div>
   );

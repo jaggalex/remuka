@@ -1,149 +1,62 @@
-import { Button, Select } from "@remo/ui";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, type AiChainCheck, type AiRun } from "./api";
-import { formatMoment } from "./format";
-import { HelpLink } from "./help/HelpLink";
+import { useEffect, useState } from "react";
+import { Button, Link } from "@remo/ui";
+import { api, type AiChainCheck } from "./api";
+import { call } from "./apiCall";
 import { useI18n } from "./i18n";
 
-/**
- * The evidential journal, as an administrator sees it.
- *
- * It shows parameters, not prompts: provider, model, key fingerprint, tokens, cost and
- * whether the hash chain still verifies. Recomputing the chain is a button, not a
- * background guess, because the answer is a claim about the record itself. Filters are
- * client-side: the journal is an organisation's own history and the list is already
- * bounded by the API.
- */
+/** Show the current UTC month. The historical journal stays available as a streamed download. */
 export function AiJournal({ orgId }: { orgId: string }) {
-  const { t, lang } = useI18n();
-  const [runs, setRuns] = useState<AiRun[]>([]);
-  const [anchor, setAnchor] = useState<AiChainCheck["anchor"]>(null);
-  const [check, setCheck] = useState<AiChainCheck | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [skill, setSkill] = useState("all");
-  const [outcome, setOutcome] = useState<"all" | "ok" | "error">("all");
+  return <JournalSummary key={orgId} orgId={orgId} />;
+}
 
-  const load = useCallback(async () => {
-    try {
-      const result = await api.aiRuns(orgId);
-      setRuns(result.runs);
-      setAnchor(result.anchor);
-      setError(null);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("aiLog.failed"));
-    }
-  }, [orgId, t]);
+function readSummary(orgId: string) {
+  return call<{ calls: number; costUsd: string }>(`/orgs/${encodeURIComponent(orgId)}/ai/runs/summary`);
+}
+
+function JournalSummary({ orgId }: { orgId: string }) {
+  const { lang, t } = useI18n();
+  const [summary, setSummary] = useState<Awaited<ReturnType<typeof readSummary>> | null>(null);
+  const [check, setCheck] = useState<AiChainCheck | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    readSummary(orgId).then(data => {
+      if (active) setSummary(data);
+    }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [orgId]);
 
-  const verify = async () => {
+  async function verify() {
     setBusy(true);
+    setFailed(false);
     try {
+      const data = await readSummary(orgId);
+      setSummary(data);
       setCheck(await api.verifyAiRuns(orgId));
-      setError(null);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("aiLog.failed"));
+    } catch {
+      setFailed(true);
     } finally {
       setBusy(false);
     }
-  };
+  }
 
-  const skills = useMemo(
-    () => [...new Set(runs.map((run) => run.skill).filter((value): value is string => !!value))],
-    [runs],
-  );
-
-  const visible = useMemo(
-    () =>
-      runs.filter((run) => {
-        if (skill !== "all" && run.skill !== skill) return false;
-        const failed = !!run.error_code || run.status === "failed";
-        if (outcome === "ok" && failed) return false;
-        if (outcome === "error" && !failed) return false;
-        return true;
-      }),
-    [runs, skill, outcome],
-  );
-
+  const amount = summary && new Intl.NumberFormat(lang, {
+    style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 8,
+  }).format(Number(summary.costUsd));
   return (
-    <div className="ai-journal">
-      <div className="org-agents-head">
-        <div>
-          <strong>
-            {t("aiLog.title")} <HelpLink topicId="agents.journal" />
-          </strong>
-          <p className="muted">{t("aiLog.body")}</p>
-        </div>
-        <Button disabled={busy} onClick={() => void verify()}>
-          {t("aiLog.verify")}
-        </Button>
+    <section className="ai-journal" aria-label={t("aiLog.title")}>
+      {summary && <p>{t("aiLog.month", { n: summary.calls, amount: amount ?? "" })}</p>}
+      {check && <p role="status">{check.ok ? t("aiLog.ok", { n: check.checked })
+        : t("aiLog.broken", { seq: check.brokenAt ?? 0, reason: check.reason ?? "" })}</p>}
+      {failed && <p role="alert">{t("aiLog.failed")}</p>}
+      <div className="action-row">
+        <Button variant="ghost" size="compact" loading={busy} onClick={() => void verify()}>{t("aiLog.verify")}</Button>
+        <Link href={"/api/orgs/" + encodeURIComponent(orgId) + "/ai/runs/export.csv"} download="remuka-ai-journal.csv">
+          {t("aiLog.exportCsv")}
+        </Link>
       </div>
-
-      {error && <p className="auth-error">{error}</p>}
-
-      {check && (
-        <p className={check.ok ? "muted ai-log-ok" : "auth-error"}>
-          {check.ok
-            ? t("aiLog.ok", { n: check.checked })
-            : t("aiLog.broken", { seq: check.brokenAt ?? "?", reason: check.reason ?? "" })}
-        </p>
-      )}
-      {anchor && (
-        <p className="muted">
-          {t("aiLog.anchor", {
-            seq: anchor.seq,
-            date: formatMoment(anchor.created_at, lang),
-            where: anchor.destination,
-          })}
-        </p>
-      )}
-
-      <div className="ai-log-filters">
-        <Select
-          size="compact"
-          label={t("aiLog.filterSkill")}
-          options={[
-            { value: "all", label: t("aiLog.allSkills") },
-            ...skills.map((value) => ({ value, label: value })),
-          ]}
-          value={skill}
-          onChange={(event) => setSkill(event.target.value)}
-        />
-        <Select
-          size="compact"
-          label={t("aiLog.filterOutcome")}
-          options={[
-            { value: "all", label: t("aiLog.allOutcomes") },
-            { value: "ok", label: t("aiLog.onlyOk") },
-            { value: "error", label: t("aiLog.onlyErrors") },
-          ]}
-          value={outcome}
-          onChange={(event) => setOutcome(event.target.value as typeof outcome)}
-        />
-        <span className="muted">{t("aiLog.shown", { n: visible.length, total: runs.length })}</span>
-      </div>
-
-      <ul className="ai-log-list">
-        {visible.slice(0, 20).map((run) => (
-          <li key={run.id}>
-            <span className="agent-status applied">#{run.seq}</span>
-            <div>
-              <span>
-                {run.skill ?? t("aiLog.noSkill")} · {run.model ?? "—"}
-              </span>
-              <span className="muted">
-                {run.provider ?? "—"} · {run.prompt_tokens + run.completion_tokens} tok · $
-                {Number(run.cost_usd).toFixed(4)} · {formatMoment(run.finished_at ?? run.started_at ?? "", lang)}
-                {run.error_code ? ` · ${run.error_code}` : ""}
-              </span>
-            </div>
-          </li>
-        ))}
-        {!visible.length && <li className="muted">{t("aiLog.emptyFiltered")}</li>}
-      </ul>
-    </div>
+    </section>
   );
 }

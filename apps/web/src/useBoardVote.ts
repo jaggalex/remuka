@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { BoardConnection } from "@remo/doc";
 import { api } from "./api";
 import { useVoteSessions } from "./useVoteSessions";
@@ -19,7 +19,6 @@ export function useBoardVote({
   t: (key: "facilitation.vote.failed") => string;
 }) {
   const vote = useVoteSessions({ boardId, connection, t });
-  const [open, setOpen] = useState(false);
 
   const cast = useCallback(
     (objectId: string) => {
@@ -37,5 +36,5 @@ export function useBoardVote({
     [vote],
   );
 
-  return { vote, open, setOpen, cast, withdraw };
+  return { vote, cast, withdraw };
 }

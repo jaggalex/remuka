@@ -17,6 +17,13 @@ export function todayIso(now = new Date()): string {
   return local.toISOString().slice(0, 10);
 }
 
+/** Both arguments are calendar dates. Comparing UTC ordinals avoids 23/25-hour DST days. */
+export function daysPastDue(due: string | undefined, today: string): number {
+  if (!due || due >= today) return 0;
+  const days = (Date.parse(today) - Date.parse(due)) / 86_400_000;
+  return Number.isFinite(days) ? days : 0;
+}
+
 export function cardsMatching(
   widgets: readonly Widget[],
   filter: CardFilter,

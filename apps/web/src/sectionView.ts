@@ -20,7 +20,7 @@ export function setSectionView(
 ): string | null {
   const layout = tableLayoutOf(board, frameId);
   if (view === "table") {
-    if (!layout) {
+    if (!layout || (!layout.columns.length && !layout.rows.length)) {
       return addAxis(board, frameId, "column", {
         title: t("section.axis.placeholderColumn", { n: 2 }),
         firstTitle: t("section.axis.placeholderColumn", { n: 1 }),

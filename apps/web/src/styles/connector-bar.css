@@ -108,3 +108,8 @@
 }
 
 /* ------------------------------------------------------- shared palette --- */
+/* The single-row bar aligns its colour sample with the start of the button.
+   The button keeps its full hit area; the wrapped phone bar centres the sample. */
+@media (min-width: 641px) {
+  .connector-bar .sb-line-colour { justify-content: flex-start; }
+}

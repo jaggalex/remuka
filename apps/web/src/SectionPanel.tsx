@@ -338,11 +338,11 @@ export function SectionPanel({
       : t("section.axis.deleteColumn");
 
   return (
-    <section className="section-panel" aria-label={t("section.title")}>
+    <section className="section-panel" data-table={active || undefined} aria-label={t("section.title")}>
       {/* The panel header names the section and its view (ADR-236). */}
       {frame.locked && <p className="muted">{t("section.locked")}</p>}
 
-      <div className="section-group">
+      <div className="section-group section-view">
         <h3>{t("section.view")}</h3>
         <Segmented
           label={t("section.view")}
@@ -402,7 +402,7 @@ export function SectionPanel({
         </div>
       )}
 
-      <div className="section-group">
+      <div className="section-group section-axes">
         <div className="section-group-head">
           <h3>{t("section.axes")}</h3>
           <div className="section-axis-add">

@@ -8,6 +8,8 @@ import { useI18n } from "./i18n";
 import { setSectionView } from "./sectionView";
 import { closeFrameLabelEdit, useFrameLabelEdit } from "./frameLabelEditStore";
 
+const VIEW_BADGE_HEIGHT = 22;
+
 /**
  * The section title and the view badge on the canvas (ADR-207).
  *
@@ -120,13 +122,17 @@ export function SectionTitleLayer({
           // The control sits exactly over the painted plate (ADR-267): the canvas draws
           // the name in the export, and this invisible button gives it focus and a field.
           const labelHeight = FRAME_LABEL.height * camera.zoom;
-          const labelTop = top - (FRAME_LABEL.height - FRAME_LABEL.gap) * camera.zoom;
+          const stripHeight = Math.max(labelHeight, 20);
+          const labelOffset = (FRAME_LABEL.height - FRAME_LABEL.gap) * camera.zoom;
+          const labelTop = top - labelOffset;
+          // The fixed-size badge must sit above the table header even when the plate shrinks.
+          const badgeOverlap = Math.max(0, (stripHeight + VIEW_BADGE_HEIGHT) / 2 - labelOffset);
           const turnedStyle = angle
             ? {
                 left: 0,
                 top: 0,
                 transformOrigin: "0 0",
-                transform: `translate(${centreX}px, ${centreY}px) rotate(${angle}deg) translate(${((-frame.width / 2) * camera.zoom).toFixed(2)}px, ${((-frame.height / 2 - (FRAME_LABEL.height - FRAME_LABEL.gap)) * camera.zoom).toFixed(2)}px)`,
+                transform: `translate(${centreX}px, ${centreY}px) rotate(${angle}deg) translate(${((-frame.width / 2) * camera.zoom).toFixed(2)}px, ${(-frame.height / 2 * camera.zoom - labelOffset).toFixed(2)}px)`,
               }
             : { left, top: labelTop };
           return (
@@ -135,7 +141,7 @@ export function SectionTitleLayer({
               className={`section-title-strip${selected ? " is-selected" : ""}`}
               style={{
                 ...turnedStyle,
-                height: Math.max(labelHeight, 20),
+                height: stripHeight,
                 // The placeholder sits above the frame, on the canvas ground (ADR-273).
                 ["--ink" as string]: inkOn(palette.canvas, "muted"),
               }}
@@ -182,6 +188,7 @@ export function SectionTitleLayer({
                 <button
                   type="button"
                   className="section-view-badge"
+                  style={{ height: VIEW_BADGE_HEIGHT, transform: `translateY(${-badgeOverlap}px)` }}
                   disabled={readOnly || Boolean(frame.locked)}
                   aria-haspopup="menu"
                   aria-expanded={menu?.frame.id === frame.id}

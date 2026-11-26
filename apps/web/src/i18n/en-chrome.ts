@@ -24,8 +24,6 @@ export const enChrome = {
   "search.action": "Find an action",
   "search.title": "Command search",
   "search.input": "What to do",
-  "search.placeholder": "What do you want to do? Try timer, export, theme",
-  "search.empty": "Nothing like that yet. Try another word — or ask the agent.",
   "search.askAgent": "Ask the agent: {query}",
   "search.close": "Close the search",
   "search.roomOnly": "Search lives in a room",
@@ -39,5 +37,6 @@ export const enChrome = {
   "search.needTwo": "Select two objects",
   "search.notGrouped": "Nothing is grouped in the selection",
   "account.motion": "Calm animations",
+  "account.helpShortcuts": "Help and keyboard shortcuts",
   "hints.reset": "Show the hints again",
 };

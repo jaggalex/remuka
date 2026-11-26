@@ -14,13 +14,13 @@
     "room.colours",
     "text.format"
   ],
-  "verifiedAgainst": "2026-11-24",
+  "verifiedAgainst": "2026-11-25",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:fd7746a37a1435ffc20c03b9cc56162d9480ec80ae03f604edc5ff66412a99a1",
-      "targetHash": "sha256:40f8a72a948d3d4ac7cd55da1b02d6ac56cd6ca6827b173d98d197f9aa2303b1"
+      "sourceHash": "sha256:f4af3c3a165272b3c2d65330c5a649d79934b4d62968fd39175cdb9d2da66a3b",
+      "targetHash": "sha256:8d881654383b0f861f46dfd28da17f8f332d9107bbd909f7f9503ac25fc00b33"
     }
   }
 }

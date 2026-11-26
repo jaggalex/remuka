@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MutableRefObject } from "react";
 import type { Presence, SaveState } from "@remo/doc";
-import { BrandMark, Button, ConfirmDialog, Icon, IconButton, Menu, Popover, Tooltip } from "@remo/ui";
+import { BrandMark, Button, ConfirmDialog, Icon, Menu, Popover, Tooltip } from "@remo/ui";
 import type { SessionUser } from "./api";
 import type { FollowState } from "./follow";
 import { formatRemaining, TEMPLATE_KEYS, type TemplateKey } from "@remo/model";
@@ -11,17 +11,21 @@ import type { Identity } from "./identity";
 import type { Theme } from "./useTheme";
 import { useMediaQuery } from "./useMediaQuery";
 import { TEMPLATE_LABEL_KEY } from "./templateLabels";
-import { menuCommands, reactionCommands, type ChromeCommand, type ChromeContext } from "./commands";
+import { CHROME_COMMANDS, menuCommands, reactionCommands, type ChromeCommand, type ChromeContext } from "./commands";
+import { recordChromeUse } from "./chromeUse";
 import { useChromeSurfaceRegistration } from "./chromeSurfaces";
 import { openCommandSearch } from "./commandSearchStore";
+import { RoomAppearance } from "./RoomAppearance";
 import { BoardTitleMenu } from "./topbar/BoardTitleMenu";
 import { AccountMenu } from "./topbar/AccountMenu";
 import { PeopleMenu } from "./topbar/PeopleMenu";
 import { SaveLine } from "./topbar/SaveLine";
-import { menuItemsFrom } from "./topbar/registryItems";
+import { menuItemsFrom, roomMenuRows } from "./topbar/registryItems";
 import { useMenuFocus } from "./useMenuFocus";
 import { SessionsDialog } from "./SessionsDialog";
 import { REACTIONS } from "./reactions";
+
+const inviteCommand = CHROME_COMMANDS.find(command => command.id === "invite.open")!;
 
 /** Which top-bar surface is open. One at a time: they share the same screen edge. */
 type MenuView = "board" | "people" | "run" | "agent" | "templates" | "account" | null;
@@ -30,12 +34,13 @@ type MenuView = "board" | "people" | "run" | "agent" | "templates" | "account" |
  * The room's header: eight things, not sixteen (ADR-266 §2).
  *
  * Logo and account open the account menu; the room's name opens its own menu; faces
- * open the people list; Run, Agent, Comments, Invite and Account are the rest. The
+ * open the people list; Run, Agent, Invite and Account are the rest. The
  * timer and vote chips are states, not items: they exist only while a session runs
  * and open "Run" at their section. Every menu row comes from the chrome registry
  * (`commands.ts`), so a control that is not in the registry cannot be here.
  */
 export interface BoardTopbarProps {
+  anonymousLink?: boolean;
   title: string;
   titleDraft: string | null;
   setTitleDraft: (value: string | null) => void;
@@ -51,11 +56,17 @@ export interface BoardTopbarProps {
   planFrozen: boolean;
   onOpenBilling: () => void;
   onOpenHome: () => void;
+  homeHref: string;
+  teamHref: string;
+  teamName?: string;
+  boardIcon: string;
+  onAppearanceSaved: () => void;
   canShare: boolean;
   copied: boolean;
   copyShareLink: () => void;
   setShareOpen: (value: boolean) => void;
   canExport: boolean;
+  canExportPdf: boolean;
   canBackup: boolean;
   canImport: boolean;
   canDuplicate: boolean;
@@ -96,7 +107,6 @@ export interface BoardTopbarProps {
   identity: Identity;
   roleLine: string | null;
   renameSelf: (value: string) => void;
-  onAccountRenamed: (user: SessionUser) => void;
   theme: Theme;
   setTheme: (value: Theme) => void;
   /** "Calm animations" is an account preference, like the theme (ADR-266 §8). */
@@ -123,6 +133,7 @@ export function BoardTopbar(props: BoardTopbarProps) {
   const [menu, setMenu] = useState<MenuView>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   // Opening a menu moves focus inside it, so Escape and the arrow keys work; closing
   // returns focus to the trigger (ADR-124).
@@ -138,7 +149,7 @@ export function BoardTopbar(props: BoardTopbarProps) {
     timerHint, timerLeft, setVoteOpen, setTimerOpen, setFollowOpen, setAgentOpen,
     roomAgent, canAssignAgent, hasRoomAgentHistory, onOpenRoomAgent, onOpenAgentSettings,
     setAppsOpen, onReact, toggleFollow, myFollowers, visiblePresence, me,
-    identity, roleLine, renameSelf, onAccountRenamed, theme, setTheme, calm, setCalm, setAccountOpen,
+    identity, roleLine, renameSelf, theme, setTheme, calm, setCalm, setAccountOpen,
     setAuthOpen, onSignOut, saveState, toggleInspector, setPresentOpen, commentsOpen, setCommentsOpen, commentsUnread, addTemplate,
     templateRequest,
   } = props;
@@ -171,6 +182,8 @@ export function BoardTopbar(props: BoardTopbarProps) {
    * that knows which panel opens; the menu builder calls `ctx.run(id)`.
    */
   const actions: Record<string, () => void> = {
+    "home.open": onOpenHome,
+    "room.appearance": () => { close(); setAppearanceOpen(true); },
     "room.rename": () => {
       close();
       setRenaming(true);
@@ -182,6 +195,10 @@ export function BoardTopbar(props: BoardTopbarProps) {
     "room.properties": () => {
       close();
       toggleInspector();
+    },
+    "header.comments": () => {
+      close();
+      setCommentsOpen(!commentsOpen);
     },
     "room.access": () => {
       close();
@@ -281,7 +298,10 @@ export function BoardTopbar(props: BoardTopbarProps) {
   // every handler; this menu owns the room, Run, Agent and Invite rows (T7).
   useChromeSurfaceRegistration("topbar", ctx);
 
-  const roomCommands = menuCommands(["room"], ctx);
+  const unreadLabel = commentsUnread ? t("board.unreadComments", { n: commentsUnread }) : undefined;
+  const roomItems = roomMenuRows(ctx, t, unreadLabel, commentsOpen, {
+    png: canExport, pdf: props.canExportPdf, backup: canBackup,
+  });
   const runCommands = menuCommands(["run"], ctx);
   const agentCommands = menuCommands(["agent"], ctx);
   const isLive = voteRunning || timerRunning;
@@ -289,26 +309,22 @@ export function BoardTopbar(props: BoardTopbarProps) {
 
   return (
     <>
+      {appearanceOpen && <RoomAppearance boardId={boardId} onClose={() => setAppearanceOpen(false)}
+        onSaved={props.onAppearanceSaved} />}
       <header
       className={`topbar${narrow ? " is-narrow" : ""}${quiet ? " is-quiet" : ""}`}
     >
-        <button
-          type="button"
-          className="topbar-mark topbar-wide-only"
-          aria-label={t("board.markMenu")}
-          aria-haspopup="dialog"
-          aria-expanded={menu === "account"}
-          onClick={() => setMenu(menu === "account" ? null : "account")}
-        >
+        <a href={props.homeHref} onClick={() => recordChromeUse("home.open")} className="topbar-mark topbar-wide-only"
+          aria-label={t("board.allBoards")} title={t("board.allBoards") + " · G R"}>
           <BrandMark size={24} />
-        </button>
+        </a>
 
         <div className="topbar-left">
           <BoardTitleMenu
-            title={title}
-            path={orgName}
+            title={title} icon={props.boardIcon}
+            path={props.teamName ?? orgName}
+            pathHref={props.teamHref}
             renaming={renaming}
-            onRenaming={setRenaming}
             draft={titleDraft ?? title}
             onDraft={setTitleDraft}
             onCommit={commitTitle}
@@ -320,7 +336,9 @@ export function BoardTopbar(props: BoardTopbarProps) {
             open={menu === "board"}
             onOpen={(open) => setMenu(open ? "board" : null)}
             readOnly={writeBlocked}
-            items={menuItemsFrom(roomCommands, ctx, t)}
+            items={roomItems}
+            unreadCount={commentsUnread}
+            unreadLabel={unreadLabel}
           />
           <SaveLine saveState={saveState} readOnly={readOnly} />
         </div>
@@ -444,28 +462,6 @@ export function BoardTopbar(props: BoardTopbarProps) {
           )}
 
           <Tooltip
-            label={
-              commentsUnread
-                ? t("board.unreadComments", { n: commentsUnread })
-                : t("board.discussion")
-            }
-            align="end"
-          >
-            <IconButton
-              icon="comment"
-              className="topbar-wide-only"
-              label={
-                commentsUnread
-                  ? t("board.unreadComments", { n: commentsUnread })
-                  : t("board.discussion")
-              }
-              count={commentsUnread || undefined}
-              selected={commentsOpen}
-              onClick={() => setCommentsOpen(!commentsOpen)}
-            />
-          </Tooltip>
-
-          <Tooltip
             label={copied ? t("board.copied") : canShare ? t("share.title") : t("board.copyLinkTitle")}
             align="end"
           >
@@ -474,12 +470,18 @@ export function BoardTopbar(props: BoardTopbarProps) {
               icon={copied ? "check" : "share"}
               className="topbar-invite"
               aria-label={t("board.share")}
-              onClick={() => (canShare ? setShareOpen(true) : void copyShareLink())}
+              onClick={() => inviteCommand.run(ctx)}
             >
               <span className="topbar-invite-label">{t("board.share")}</span>
             </Button>
           </Tooltip>
 
+          {props.anonymousLink && (
+            <>
+              <span className="guest-you">{t("guest.you", { name: identity.name })}</span>
+              <a className="guest-signup" href={`/?signup=1&lang=${lang}`}>{t("guest.signup")}</a>
+            </>
+          )}
           <AccountMenu
             open={menu === "account"}
             onOpen={(open) => setMenu(open ? "account" : null)}
@@ -491,7 +493,6 @@ export function BoardTopbar(props: BoardTopbarProps) {
             roleLine={roleLine}
             identityName={identity.name}
             onRenameSelf={renameSelf}
-            onAccountRenamed={onAccountRenamed}
             onSessions={() => setSessionsOpen(true)}
             onSignIn={() => setAuthOpen(true)}
             onSignOut={onSignOut}
@@ -506,7 +507,6 @@ export function BoardTopbar(props: BoardTopbarProps) {
             narrow={narrow}
             agentAvailable={agentVisible}
             onAgent={onOpenRoomAgent}
-            onComments={() => setCommentsOpen(!commentsOpen)}
             onSearch={(returnTo) => openCommandSearch(returnTo)}
           />
         </div>

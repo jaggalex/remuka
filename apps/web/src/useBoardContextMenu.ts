@@ -41,7 +41,7 @@ export function useBoardContextMenu({
   count: (key: "objects", n: number) => string;
   onNotice?: (text: string) => void;
 }) {
-  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [menu, setMenu] = useState<(MenuState & { column?: Extract<ContextTarget, {kind: "column"}> }) | null>(null);
 
   const openMenu = useCallback(
     (
@@ -64,7 +64,7 @@ export function useBoardContextMenu({
       });
       if (result.select) setSelectedIds(result.select);
       if (result.point) menuPoint.current = result.point;
-      setMenu(result.menu);
+      setMenu(result.menu && target.kind === "column" ? { ...result.menu, column: target } : result.menu);
     },
     [
       board,

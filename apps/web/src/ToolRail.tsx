@@ -1,17 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
 import type { ConnectorRouting, ShapeKind } from "@remo/model";
-import { Icon, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
+import { Button, Icon, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
 import type { IconName } from "@remo/ui";
 import { useI18n, type TranslationKey } from "./i18n";
 import { useChromeQuiet } from "./quietChrome";
-import { COLOR_WINDOW_WIDTH, ColorSwatch } from "./object-panel/ColorWindow";
-import {
-  defaultStickerFill,
-  type NamedFillChoice,
-  type NoteFillChoice,
-} from "./object-panel/palette";
+import type { NoteFillChoice } from "./object-panel/palette";
 import { ShapeKindList } from "./object-panel/ShapeKindPicker";
-import { HelpLink } from "./help/HelpLink";
 
 /** A rail tool. Select is not a creation tool; it only drops the selection. */
 export type RailTool =
@@ -80,9 +74,8 @@ export function ToolRail({
   canConnect,
   canAddCard,
   noteColors,
-  noteExtras,
   noteFill,
-  armedShape,
+  armedShape, activeTool, lockedTool, onPointSeries,
   defaultShape,
   onShapeSeries,
   connectorRouting,
@@ -112,12 +105,13 @@ export function ToolRail({
   canConnect: boolean;
   canAddCard: boolean;
   noteColors: readonly NoteFillChoice[];
-  /** The named chips beside the grid — White and Black (ADR-140). */
-  noteExtras: readonly NamedFillChoice[];
   /** The fill the next note takes; it is what the flyout rings (ADR-266 §10a). */
   noteFill: string;
   /** The shape waiting for a drag on the canvas (ADR-271). */
   armedShape: ShapeKind | null;
+  activeTool: "sticky" | "shape" | "text" | null;
+  lockedTool: "sticky" | "shape" | "text" | null;
+  onPointSeries: (tool: "sticky" | "text") => void;
   /** The kind a click arms: the last one chosen in this browser (ADR-266 §10a). */
   defaultShape: ShapeKind;
   /** A double-click on the tool keeps it armed for a series until Escape. */
@@ -131,21 +125,34 @@ export function ToolRail({
   const { t } = useI18n();
   const quiet = useChromeQuiet();
   const rail = useRef<HTMLDivElement | null>(null);
-  const defaultFill = useMemo(() => defaultStickerFill(), []);
+  const stickyDisclosure = useRef<HTMLButtonElement | null>(null);
+  const pendingClick = useRef<number | undefined>(undefined);
+  const cancelClick = () => {
+    window.clearTimeout(pendingClick.current);
+    pendingClick.current = undefined;
+  };
+  useEffect(() => cancelClick, []);
 
   useEffect(() => {
     if (!flyout) return;
     const onDown = (event: PointerEvent) => {
-      if (!rail.current?.contains(event.target as Node)) onFlyout(null);
+      const boundary = flyout === "sticky" ? stickyDisclosure.current?.parentElement : rail.current;
+      if (!boundary?.contains(event.target as Node)) onFlyout(null);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onFlyout(null);
+      if (event.key !== "Escape") return;
+      if (flyout === "sticky") {
+        event.preventDefault();
+        event.stopPropagation();
+        stickyDisclosure.current?.focus({ preventScroll: true });
+      }
+      onFlyout(null);
     };
     document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, flyout === "sticky");
     return () => {
       document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, flyout === "sticky");
     };
   }, [flyout, onFlyout]);
 
@@ -166,6 +173,7 @@ export function ToolRail({
     reason?: string;
     disabled?: boolean;
     expanded?: boolean;
+    locked?: boolean;
     onDoubleClick?: () => void;
     onClick: () => void;
   }) => {
@@ -190,7 +198,26 @@ export function ToolRail({
           className="tool-rail-button"
           disabled={disabled}
           selected={options.expanded}
-          onClick={options.onClick}
+          aria-description={options.locked ? t("tool.seriesLocked") : undefined}
+          onMouseDown={event => {
+            // Keep an active text edit intact while distinguishing placement from tool lock.
+            if (options.onDoubleClick && document.activeElement?.closest(".inline-editor")) {
+              event.preventDefault();
+            }
+          }}
+          onClick={event => {
+            cancelClick();
+            if (!options.onDoubleClick || event.detail === 0) {
+              options.onClick();
+            } else if (event.detail === 1) {
+              pendingClick.current = window.setTimeout(() => {
+                pendingClick.current = undefined;
+                const editor = document.activeElement;
+                if (editor instanceof HTMLElement && editor.closest(".inline-editor")) editor.blur();
+                options.onClick();
+              }, 400);
+            }
+          }}
           onDoubleClick={options.onDoubleClick}
         />
       </Tooltip>
@@ -214,74 +241,56 @@ export function ToolRail({
           icon: "cursor",
           label: "tool.select",
           shortcut: "V",
-          expanded: armedShape === null && flyout === null,
+          expanded: activeTool === null && flyout === null,
           onClick: onSelect,
         })}
 
-        <div className="tool-rail-item">
+        <div className="tool-rail-item tool-rail-sticky">
           {tool({
             icon: "sticky",
             label: "tool.sticky",
             shortcut: "N",
             disabled: writeBlocked,
-            expanded: flyout === "sticky",
+            expanded: activeTool === "sticky" || flyout === "sticky",
+            locked: lockedTool === "sticky",
+            onDoubleClick: () => onPointSeries("sticky"),
             onClick: () => {
               // The active tool explains its variants; a tool that is off acts at once.
               if (flyout === "sticky") onFlyout(null);
               else onSticky(noteFill);
             },
           })}
+          {lockedTool === "sticky" && <SeriesLock />}
           <ToolDisclosure
+            triggerRef={stickyDisclosure}
             label={t("tool.stickyColors")}
             open={flyout === "sticky"}
             disabled={writeBlocked}
             onClick={() => onFlyout(flyout === "sticky" ? null : "sticky")}
           />
           {flyout === "sticky" && (
-            <Popover
-              title={t("tool.stickyColors")}
-              width={COLOR_WINDOW_WIDTH}
-              side="right"
-              onClose={() => onFlyout(null)}
-            >
-              <div className="tool-flyout-palette" role="group" aria-label={t("tool.stickyColors")}>
-                <div className="tool-flyout-extras">
-                  {noteExtras.map((extra) => (
-                    <ColorSwatch
-                      key={extra.id}
-                      hex={extra.value}
-                      word={t(extra.key)}
-                      className="tool-extra"
-                      onClick={() => {
-                        onSticky(extra.value);
-                        onFlyout(null);
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="tool-flyout-swatches">
-                  {noteColors.map((color) => (
-                    <ColorSwatch
-                      key={`${color.tone}-${color.level}`}
-                      hex={color.hex}
-                      word={t(color.key)}
-                      dataHex={color.hex}
-                      className={
-                        color.hex === noteFill
-                          ? "tool-swatch is-default"
-                          : "tool-swatch"
-                      }
+            <Popover title={t("tool.stickyPaletteTitle")} side="right">
+              <div className="tool-flyout-swatches" role="group" aria-label={t("tool.stickyColors")}>
+                {noteColors.map((color) => (
+                  <Tooltip key={color.tone} label={t(color.key)}>
+                    <Button
+                      variant="ghost"
+                      className="tool-swatch"
+                      data-hex={color.hex}
+                      aria-label={t(color.key)}
+                      selected={color.hex === noteFill}
                       onClick={() => {
                         onSticky(color.hex);
                         onFlyout(null);
                       }}
-                    />
-                  ))}
-                </div>
+                    >
+                      <span className="tool-swatch-paper" style={{ backgroundColor: color.hex }} />
+                    </Button>
+                  </Tooltip>
+                ))}
               </div>
               <p className="tool-flyout-note">
-                {noteFill === defaultFill ? t("tool.stickyDefault") : t("tool.stickyRemembered")}{" "}
-                <HelpLink topicId="room.colours" className="help-link icon-link" />
+                {t("tool.seriesHint")} {t("tool.seriesLockHint")}
               </p>
             </Popover>
           )}
@@ -294,6 +303,7 @@ export function ToolRail({
             shortcut: "R",
             disabled: writeBlocked,
             expanded: armedShape !== null || flyout === "shape",
+            locked: lockedTool === "shape",
             onClick: () => {
               // An armed tool explains its five silhouettes; a fresh one arms.
               if (armedShape !== null) onFlyout(flyout === "shape" ? null : "shape");
@@ -301,6 +311,7 @@ export function ToolRail({
             },
             onDoubleClick: () => onShapeSeries(armedShape ?? defaultShape),
           })}
+          {lockedTool === "shape" && <SeriesLock />}
           <ToolDisclosure
             label={t("tool.shapeVariants")}
             open={flyout === "shape"}
@@ -323,13 +334,19 @@ export function ToolRail({
           )}
         </div>
 
-        {tool({
+        <div className="tool-rail-item">
+          {tool({
           icon: "text",
           label: "tool.text",
           shortcut: "T",
           disabled: writeBlocked,
+          expanded: activeTool === "text",
+          locked: lockedTool === "text",
+          onDoubleClick: () => onPointSeries("text"),
           onClick: onText,
-        })}
+          })}
+          {lockedTool === "text" && <SeriesLock />}
+        </div>
 
         <div className="tool-rail-item">
           {tool({
@@ -444,9 +461,9 @@ export function ToolRail({
           <IconButton
             icon="undo"
             label={t("board.undo")}
-            iconSize={20}
-            className="tool-rail-button"
-            disabled={writeBlocked || !canUndo}
+            iconSize={18}
+            className="tool-rail-button tool-history-button"
+            disabled={!canUndo}
             onClick={onUndo}
           />
         </Tooltip>
@@ -454,9 +471,9 @@ export function ToolRail({
           <IconButton
             icon="redo"
             label={t("board.redo")}
-            iconSize={20}
-            className="tool-rail-button"
-            disabled={writeBlocked || !canRedo}
+            iconSize={18}
+            className="tool-rail-button tool-history-button"
+            disabled={!canRedo}
             onClick={onRedo}
           />
         </Tooltip>
@@ -473,11 +490,13 @@ export function ToolRail({
  * and a click on the icon still creates (Р2).
  */
 function ToolDisclosure({
+  triggerRef,
   label,
   open,
   disabled,
   onClick,
 }: {
+  triggerRef?: Ref<HTMLButtonElement>;
   label: string;
   open: boolean;
   disabled: boolean;
@@ -485,6 +504,7 @@ function ToolDisclosure({
 }) {
   return (
     <button
+      ref={triggerRef}
       type="button"
       className={`tool-rail-caret${open ? " open" : ""}`}
       aria-label={label}
@@ -492,7 +512,21 @@ function ToolDisclosure({
       aria-haspopup="dialog"
       tabIndex={disabled ? -1 : 0}
       disabled={disabled}
+      onMouseDown={event => {
+        // Browsing variants leaves the inline editor and its text selection in place.
+        if (document.activeElement?.closest(".inline-editor")) event.preventDefault();
+      }}
       onClick={onClick}
     />
+  );
+}
+
+function SeriesLock() {
+  return (
+    <span className="tool-series-lock" aria-hidden="true">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z" />
+      </svg>
+    </span>
   );
 }

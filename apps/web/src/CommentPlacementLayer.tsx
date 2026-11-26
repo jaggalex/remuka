@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { pick, type KanbanLayout } from "@remo/canvas";
+import { type KanbanLayout } from "@remo/canvas";
 import type { Camera } from "@remo/canvas";
 import type { Widget } from "@remo/model";
+import { anchorAt, fromClient } from "./commentGeometry";
 import type { CommentAnchor } from "./commentsApi";
 import { Icon } from "@remo/ui";
 import { useI18n } from "./i18n";
@@ -46,49 +47,12 @@ export function CommentPlacementLayer({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const isCardOfKanban = (widget: Widget) =>
-    widget.type === "card" && !!widget.parentId && layouts.has(widget.parentId);
-
   const placeAt = (clientX: number, clientY: number) => {
-    const canvas = document.querySelector<HTMLCanvasElement>(".layer.overlay");
-    const rect = canvas?.getBoundingClientRect();
-    if (!rect) return null;
-    const x = camera.x + (clientX - rect.left - rect.width / 2) / camera.zoom;
-    const y = camera.y + (clientY - rect.top - rect.height / 2) / camera.zoom;
-
-    for (const layout of layouts.values()) {
-      const placement = layout.placements.find(
-        (entry) =>
-          x >= entry.x - entry.width / 2 &&
-          x <= entry.x + entry.width / 2 &&
-          y >= entry.y - entry.height / 2 &&
-          y <= entry.y + entry.height / 2,
-      );
-      if (placement) {
-        const card = widgets.find((widget) => widget.id === placement.cardId);
-        if (card) {
-          return {
-            anchor: { kind: "widget" as const, widgetId: card.id },
-            screen: { x: clientX, y: clientY },
-            label: card.title || card.content || card.id,
-          };
-        }
-      }
-    }
-
-    const hit = pick(widgets, { x, y }, isCardOfKanban);
-    if (hit && hit.type !== "connector") {
-      return {
-        anchor: { kind: "widget" as const, widgetId: hit.id },
-        screen: { x: clientX, y: clientY },
-        label: hit.title || hit.content || hit.type,
-      };
-    }
-    return {
-      anchor: { kind: "point" as const, x, y },
-      screen: { x: clientX, y: clientY },
-      label: t("comments.point"),
-    };
+    const world = fromClient(clientX, clientY, camera);
+    if (!world) return null;
+    const anchor = anchorAt(world, widgets, layouts);
+    const hit = anchor.kind === "widget" ? widgets.find(w => w.id === anchor.widgetId) : null;
+    return { anchor, screen: { x: clientX, y: clientY }, label: hit?.title || hit?.content || hit?.type || t("comments.point") };
   };
 
   return (

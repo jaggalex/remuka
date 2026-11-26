@@ -52,7 +52,7 @@ function walk(directory, out = []) {
 
 function adrFacts() {
   const text = readFileSync(join(ROOT, "ADR.md"), "utf8");
-  const ids = [...text.matchAll(/^## ADR-(\d+):/gm)].map((match) => Number(match[1]));
+  const ids = [...text.matchAll(/^## ADR-(\d+)(?::| — )/gm)].map((match) => Number(match[1]));
   if (ids.length === 0) throw new Error("ADR.md has no `## ADR-N:` headings");
   return { count: ids.length, latest: Math.max(...ids) };
 }

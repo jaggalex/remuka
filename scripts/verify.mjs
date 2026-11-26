@@ -51,10 +51,12 @@ steps.push(
   { name: "ui rules", cmd: "node", args: ["scripts/ui-rules-check.mjs"] },
   { name: "typecheck", cmd: pnpm, args: ["typecheck"] },
   { name: "lint", cmd: pnpm, args: ["lint"] },
+  { name: "hint slots", cmd: "node", args: ["scripts/hint-slots.mjs", "--check"] },
   { name: "tests", cmd: pnpm, args: ["test"] },
 );
 if (withE2e) {
   steps.push({ name: "e2e", cmd: pnpm, args: ["e2e"] });
+  steps.push({ name: "hint publication", cmd: pnpm, args: ["hints:e2e"] });
   // Baselines are compared only in the Linux browser container (ADR-222).
   steps.push({ name: "visual", cmd: pnpm, args: ["e2e:visual"] });
   // The guide audit reads `docs-site/`; a clean checkout has no generated output yet.

@@ -1,26 +1,43 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CLOSE_ROOM_FULL,
+  OFFLINE_EDIT_LIMIT,
   connectBoard,
   usePresence,
   type BoardConnection,
-  type BoardDocument,
+  BoardDocument,
   type ConnectionStatus,
   type SaveState,
 } from "@remo/doc";
 import type { Access } from "./api";
 import { currentRoom, syncUrl, type Identity } from "./identity";
+import type { BoardNotice } from "./useNotice";
 import { followMoved } from "./moved";
 import { loadBrowserSession } from "./session";
 import type { TranslationKey } from "./i18n";
+
+/** A denied room renders an empty document. Only temporary reauthentication keeps
+ * the previous account's document available for the next matching edit grant. */
+export function useRoomDocument(room: string, access: Access | null, accountId: string | null) {
+  const empty = useMemo(() => new BoardDocument(), [room]);
+  const [retained, setRetained] = useState<{ key: string | null; board: BoardDocument }>({ key: null, board: empty });
+  const principal = access?.principalId === undefined ? accountId : access.principalId;
+  const key = access?.allowed ? JSON.stringify([room, principal, access.capabilities.includes("board.edit")]) : null;
+  const temporarilyClosed = !access || access.reason === "AUTH_REQUIRED";
+  if (key !== retained.key && (key !== null || !temporarilyClosed)) {
+    const next = { key, board: key === null ? empty : new BoardDocument() };
+    setRetained(next);
+    return next.board;
+  }
+  return key === null ? empty : retained.board;
+}
 
 /**
  * The board's connection to its room, and the save state the topbar shows.
  *
  * The transport is additive: the document is already the source of truth, so remote
- * edits arrive as ordinary transactions. The socket is rebuilt only for a new document
- * or a new access check; a rename, a sign-in or a language change updates awareness in
- * place (ADR-149/151).
+ * edits arrive as ordinary transactions. The socket follows the authorised document;
+ * a new cursor name or language keeps that connection (ADR-149/151).
  */
 export function useBoardSession({
   board,
@@ -30,6 +47,7 @@ export function useBoardSession({
   access,
   refreshAccess,
   setNotice,
+  setAuthOpen,
   t,
 }: {
   board: BoardDocument;
@@ -40,7 +58,8 @@ export function useBoardSession({
   accountHandle: string | null;
   access: Access | null;
   refreshAccess: () => Promise<void>;
-  setNotice: (message: string) => void;
+  setNotice: (message: BoardNotice) => void;
+  setAuthOpen: (open: boolean) => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
   // One tab is one session: its key survives a reload, a new tab gets a new one (ADR-151).
@@ -73,34 +92,38 @@ export function useBoardSession({
   const accountHandleRef = useRef(accountHandle);
   accountHandleRef.current = accountHandle;
 
-  // The socket is rebuilt when the access decision changes in a way the handshake cares
-  // about: signing in from a public link or losing edit rights. A plain refresh with the
-  // same role and capabilities must not reconnect.
-  const accessKey = access
-    ? `${access.role ?? ""}:${[...access.capabilities].sort().join(",")}:${[...access.sources].sort().join(",")}`
-    : "none";
-  /** Bumped only when an access decision changes after the socket already exists. */
-  const [connectionEpoch, setConnectionEpoch] = useState(0);
-  const lastAccessKey = useRef(accessKey);
+  const accessRef = useRef(access);
+  accessRef.current = access;
+  const [suspended, setSuspended] = useState<Access | null>(null);
+  const authorised = !!access?.allowed && access !== suspended;
+  const principal = access?.principalId === undefined ? accountId : access.principalId;
+  const mode = access?.capabilities.includes("board.edit") ? "edit" : "view";
+  const grantKey = access && [access.role, [...access.capabilities].sort().join(","), [...access.sources].sort().join(",")].join(":");
+  const checkpoints = useRef(new WeakMap<BoardDocument, { local: number; acknowledged: number }>());
 
-  useEffect(() => {
-    if (lastAccessKey.current === accessKey) return;
-    // The first decision describes the socket that already opened with this cookie.
-    // Rebuilding it here dropped this session's presence for a moment and made two
-    // same-account sessions lose their (2) label.
-    if (lastAccessKey.current === "none") {
-      lastAccessKey.current = accessKey;
+  useLayoutEffect(() => {
+    if (!authorised) {
+      setConnection(null);
+      setSynced(false);
+      setStatus("disconnected");
+      const checkpoint = checkpoints.current.get(board);
+      const pending = checkpoint ? Math.max(0, checkpoint.local - checkpoint.acknowledged) : 0;
+      setSaveState({
+        state: checkpoint ? "offline" : "connecting",
+        pending,
+        blocked: pending >= OFFLINE_EDIT_LIMIT,
+      });
       return;
     }
-    lastAccessKey.current = accessKey;
-    setConnectionEpoch((epoch) => epoch + 1);
-  }, [accessKey]);
-
-  useEffect(() => {
-    lastAccessKey.current = accessKey;
+    const checkpoint = checkpoints.current.get(board) ?? { local: 0, acknowledged: 0 };
+    checkpoints.current.set(board, checkpoint);
     const connection = connectBoard(board, {
       url: syncUrl(),
       room: currentRoom(),
+      params: { roomPrincipal: principal ?? "", roomMode: mode },
+      disableBroadcast: true,
+      pauseOnAccessChange: true,
+      checkpoint,
       user: {
         name: identityRef.current.name,
         handle: accountHandleRef.current ?? "",
@@ -110,21 +133,29 @@ export function useBoardSession({
         joinedAt: session.joinedAt,
       },
       onAccessChanged: (code) => {
-        setNotice(code === 4401 ? tRef.current("sync.sessionEnded") : tRef.current("sync.accessChanged"));
+        setSuspended(accessRef.current);
+        if (code === 4401) {
+          setNotice({ kind: "session", text: tRef.current("sync.sessionEnded"),
+            action: { label: tRef.current("auth.login"), run: () => setAuthOpen(true) } });
+        } else {
+          setNotice({ kind: "access", text: tRef.current("sync.accessChanged") });
+        }
         void refreshAccess();
       },
       // A write budget closed the socket (ADR-173); the edits stay local until it reconnects.
       onLimited: (code) => {
-        setNotice(tRef.current(code === CLOSE_ROOM_FULL ? "sync.roomFull" : "sync.rateLimited"));
+        setNotice(code === CLOSE_ROOM_FULL
+          ? { kind: "full", text: tRef.current("sync.roomFull") }
+          : tRef.current("sync.rateLimited"));
       },
       // This address is retired (ADR-254 §6): one short banner, then the same page on
       // the new origin. Reconnecting here would only be closed the same way.
       onMoved: (target) => {
-        const host = target ? new URL(target).host : "";
-        setNotice(
-          host ? tRef.current("sync.moved", { host }) : tRef.current("sync.movedUnknown"),
-        );
-        followMoved(target);
+        const url = followMoved(target);
+        setNotice(url
+          ? { kind: "moved", text: tRef.current("sync.moved", { host: new URL(url).host }),
+              action: { label: tRef.current("sync.openNow"), run: () => window.location.replace(url) } }
+          : { kind: "moved", text: tRef.current("sync.movedUnknown") });
       },
     });
     setConnection(connection);
@@ -141,7 +172,7 @@ export function useBoardSession({
       connection.disconnect();
       setConnection(null);
     };
-  }, [board, refreshAccess, session, connectionEpoch]);
+  }, [authorised, board, grantKey, mode, principal, refreshAccess, session, setNotice, setAuthOpen]);
 
   // A failed upgrade (401/403/404) reaches the browser as close 1006, not 4403, so the
   // access callback never fires. While disconnected, refresh the decision so a revoked
@@ -162,15 +193,8 @@ export function useBoardSession({
     };
   }, [status, refreshAccess]);
 
-  // A denied decision means there is nothing to reconnect to. The next allowed decision
-  // changes accessKey and rebuilds the socket.
-  useEffect(() => {
-    if (access?.allowed === false) connection?.disconnect();
-  }, [access, connection]);
-
-  // Renaming the cursor (or adopting the account name, ADR-149), signing in or changing
-  // the account is awareness, not a new room: update it in place so the socket and the
-  // document stay put. Two sessions of one account stay two entries (ADR-151).
+  // Renaming a cursor updates its current connection in place (ADR-149).
+  // Two sessions of one account stay two entries (ADR-151).
   useEffect(() => {
     connection?.setUser({
       name: identity.name,
@@ -182,5 +206,5 @@ export function useBoardSession({
     });
   }, [connection, identity.name, identity.color, accountId, accountHandle, session]);
 
-  return { connection, status, synced, saveState, presence, visiblePresence, linkVisitor };
+  return { connection, status, synced, saveState, presence, visiblePresence, linkVisitor, authorised };
 }

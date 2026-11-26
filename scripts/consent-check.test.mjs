@@ -201,6 +201,7 @@ describe("consent check: the real tree", () => {
       "remo.theme",
       "remo.canvas.hint",
       "remuka.hints.*",
+        "remuka.news.dismissed",
       "remo.motion",
       "remo.inspector",
       "remo.moveBanner.dismissed",
@@ -212,6 +213,6 @@ describe("consent check: the real tree", () => {
     ]) {
       expect(names, `${expected} is used by the code`).toContain(expected);
     }
-    expect(result.entries).toBe(23);
+    expect(result.entries).toBe(24);
   });
 });

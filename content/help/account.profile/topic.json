@@ -14,13 +14,13 @@
     "access.share",
     "comments.thread"
   ],
-  "verifiedAgainst": "2026-11-04",
+  "verifiedAgainst": "2026-11-25",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:585430da70efa45a41e765a3537857f43d3a8491df5622efd0d967c6cfd5106d",
-      "targetHash": "sha256:4a289894f78d5ab6cbae39b6f0af7ac2c3a99f4a9dfa681decc7fc91feee67d7"
+      "sourceHash": "sha256:16a2353428fef81d669e0c76eeea23db7d7cac25a50dd4573e0636c3f173c5b4",
+      "targetHash": "sha256:dd478a2ac96a37628b72a329ae8c07d3df6d9766f83f3be50d4984078c2c2411"
     }
   }
 }

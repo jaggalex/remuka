@@ -57,7 +57,6 @@ function DialogsBody({
   appsOpen,
   setAppsOpen,
   timerOpen,
-  setTimerOpen,
   timerWidget,
   timerPhase,
   timerLeft,
@@ -69,7 +68,6 @@ function DialogsBody({
   onExtendTimer,
   onResetTimer,
   followOpen,
-  setFollowOpen,
   followerNames,
   otherPeers,
   allowBringEveryone,
@@ -82,6 +80,7 @@ function DialogsBody({
   voteTimerEndsAt,
   setSelectedIds,
   onReveal,
+  onRevealSession,
   shareFallback,
   onCloseShareFallback,
   shareOpen,
@@ -114,7 +113,6 @@ function DialogsBody({
   appsOpen: boolean;
   setAppsOpen: (value: boolean) => void;
   timerOpen: boolean;
-  setTimerOpen: (value: boolean) => void;
   timerWidget: Widget | undefined;
   timerPhase: TimerPhase;
   timerLeft: number;
@@ -126,7 +124,6 @@ function DialogsBody({
   onExtendTimer: () => void;
   onResetTimer: () => void;
   followOpen: boolean;
-  setFollowOpen: (value: boolean) => void;
   followerNames: string[];
   otherPeers: number;
   allowBringEveryone: boolean;
@@ -139,6 +136,7 @@ function DialogsBody({
   voteTimerEndsAt: string | null;
   setSelectedIds: (ids: string[]) => void;
   onReveal: (widgetId: string) => void;
+  onRevealSession: (ids: readonly string[]) => boolean;
   shareFallback: string | null;
   onCloseShareFallback: () => void;
   shareOpen: boolean;
@@ -154,6 +152,7 @@ function DialogsBody({
         onSignedIn={onSignedIn}
       />
       <ExportDialog
+        orgId={boardOrgId}
         open={exportOpen}
         restoreRequest={restoreRequest}
         boardId={boardId}
@@ -191,7 +190,6 @@ function DialogsBody({
         onResume={onResumeTimer}
         onExtend={onExtendTimer}
         onReset={onResetTimer}
-        onClose={() => setTimerOpen(false)}
       />
       <FollowDialog
         open={followOpen}
@@ -202,7 +200,6 @@ function DialogsBody({
         onStopFollowers={onStopFollowers}
         onBringEveryone={onBringEveryone}
         onToggleAuto={onToggleAuto}
-        onClose={() => setFollowOpen(false)}
       />
       <VoteSurface
         open={voteOpen}
@@ -215,6 +212,7 @@ function DialogsBody({
         boardId={boardId}
         setSelectedIds={setSelectedIds}
         onReveal={onReveal}
+        onRevealSession={onRevealSession}
         onClose={() => setVoteOpen(false)}
       />
       <ShareLinkDialog link={shareFallback} onClose={onCloseShareFallback} />

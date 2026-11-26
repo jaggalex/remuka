@@ -55,7 +55,7 @@ export const BUTTON_LABELS = {
   },
 };
 
-const FONT_FAMILY = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const FONT_FAMILY = "'Golos Text',Arial,sans-serif";
 
 const HTML_ESCAPES = {
   "&": "&amp;",
@@ -130,52 +130,45 @@ export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPES[character]);
 }
 
-export function documentHtml({ lang, paragraphs, footer, link, label }) {
+/** Paragraphs, label and footer are escaped by the renderers before reaching this layout. */
+export function bodyHtml({ paragraphs, footer, highlight, link, label }) {
   const href = escapeHtml(link);
-  const rows = paragraphs
-    .map((paragraph) => `              <p style="margin:0 0 16px;">${paragraph}</p>`)
-    .join("\n");
-  const footerHtml = footer
-    ? `\n              <p style="margin:0;font-size:14px;line-height:1.5;color:#57534e;">${footer}</p>`
-    : "";
-  return `<!doctype html>
-<html lang="${lang}">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-  </head>
-  <body style="margin:0;padding:0;background-color:#f5f5f4;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f4;">
-      <tr>
-        <td align="center" style="padding:24px 12px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background-color:#ffffff;border-radius:8px;">
-            <tr>
-              <td style="padding:24px;font-family:${FONT_FAMILY};font-size:16px;line-height:1.5;color:#1c1917;">
-${rows}
-                <p style="margin:0 0 24px;">
-                  <a href="${href}" style="display:inline-block;padding:12px 20px;border-radius:6px;background-color:#1c1917;color:#ffffff;text-decoration:none;font-weight:600;">${label}</a>
-                </p>
-                <p style="margin:0 0 16px;font-size:14px;line-height:1.4;color:#57534e;word-break:break-all;">
-                  <a href="${href}" style="color:#57534e;">${escapeHtml(link)}</a>
-                </p>${footerHtml}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+  return [
+    ...paragraphs.filter((paragraph) => paragraph !== highlight).map((paragraph) => `<p style="margin:0 0 16px">${paragraph}</p>`),
+    highlight ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr><td style="background:#fff6dc;border:1.5px solid #f2b94a;border-radius:10px;padding:12px 14px">${highlight}</td></tr></table>` : "",
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr><td style="background:#ff8a57;border:2px solid #1e2136;border-radius:12px"><a href="${href}" style="display:inline-block;padding:13px 22px;font-weight:700;color:#1e2136;text-decoration:none">${label}</a></td></tr></table>`,
+    `<p style="font-size:14px;word-break:break-all"><a href="${href}" style="color:#3f4256">${href}</a></p>`,
+    footer && footer !== highlight ? `<p style="margin:14px 0;font-size:14px;color:#3f4256">${footer}</p>` : "",
+  ].join("\n");
 }
 
-export function notification(lang, { subject, body, action, notice, link, label }) {
+export function mailDocument({ lang, product, subject, body, signature, deliveryNote }) {
+  return `<!doctype html>
+<html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(subject)}</title></head>
+<body style="margin:0;background-color:#fbf3df">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fbf3df"><tr><td align="center" style="padding:28px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;font-family:${FONT_FAMILY};color:#1e2136">
+<tr><td style="padding:0 4px 14px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td aria-hidden="true" style="width:14px;height:14px;background:#ff8a57;border-radius:7px"></td><td style="width:4px"></td>
+<td aria-hidden="true" style="width:14px;height:14px;background:#78b4ff;border-radius:3px"></td><td style="width:8px"></td>
+<td style="font-size:18px;font-weight:800">${escapeHtml(product)}</td></tr></table></td></tr>
+<tr><td style="background:#fff;border:2px solid #1e2136;border-radius:14px;padding:28px;font-size:16px;line-height:1.55">
+<h1 style="margin:0 0 12px;font-size:24px;line-height:1.2">${escapeHtml(subject)}</h1>
+${body}
+<p style="margin:14px 0 0;padding-top:14px;border-top:1px solid #e6dcc4;font-size:14px;color:#3f4256">${signature}</p>
+</td></tr><tr><td style="padding:14px 4px 0;font-size:12px;color:#62657a">${escapeHtml(deliveryNote)}</td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+export function notification(lang, { subject, body, notice, link, label, emphasizeNotice = false }) {
   return {
     subject,
-    text: `${body.join(" ")} ${action} ${link}\n\n${notice}`,
-    html: documentHtml({
+    text: `${body.join(" ")} ${label}: ${link}\n\n${notice}`,
+    html: bodyHtml({
       lang,
       paragraphs: body.map(escapeHtml),
       footer: escapeHtml(notice),
+      highlight: emphasizeNotice ? escapeHtml(notice) : undefined,
       link,
       label: escapeHtml(label),
     }),

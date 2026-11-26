@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import type { BoardDocument } from "@remo/doc";
 import type { ConnectionStatus, Presence } from "@remo/doc";
-import { NAMED_COLORS, soleSelectedGroup, type KanbanState, type Widget } from "@remo/model";
+import { NAMED_COLORS, soleSelectedGroup, type KanbanState, type Tag, type Widget } from "@remo/model";
 import { api } from "./api";
 import { commandById, runCommand, type CommandContext } from "./commands";
 import { noteFontSizeFor, textCapFor, textFloorFor } from "@remo/canvas";
 import type { BoardSettings } from "./settings";
 import { DEFAULT_INK } from "./objectDefaults";
 import type { StickyBarActions } from "./object-panel/stickyTypes";
-import { addColumn, addSwimlane, groupNameOf, setColumnWip } from "@remo/doc";
+import { addColumn, addSwimlane, groupNameOf } from "@remo/doc";
 import { currentRoom } from "./identity";
+import { CardColour, CardRecord, CardStatusBadge, CardTags } from "./CardRecord";
 import { CardFilterPanel } from "./CardFilterPanel";
-import { Button, Checkbox, Disclosure, DangerZone, IconButton, Input, Select } from "@remo/ui";
+import { Button, Checkbox, Disclosure, DangerZone, IconButton, Select } from "@remo/ui";
 import { HelpLink } from "./help/HelpLink";
 
 import { useI18n } from "./i18n";
 import {
-  CardFieldsPanel,
   GroupNameField,
   ObjectLinkPanel,
   ObjectNameField,
@@ -46,6 +46,7 @@ const SYNC_DETAILS =
  */
 export interface BoardInspectorProps {
   toggleInspector: () => void;
+  onNotice: (message: string) => void;
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
   writeBlocked: boolean;
@@ -146,10 +147,10 @@ function InspectorBody(props: BoardInspectorProps) {
         : t("inspector.selection", { count: selectedIds.length });
   // One help per panel, about the subject it shows.
   const helpTopic = section ? "section.table" : card ? "cards.fields" : "room.panel";
-  const tagNames = (selectedWidget?.tagIds ?? [])
-    .map((id) => (board.tags.get(id) as { name?: string } | undefined)?.name)
-    .filter(Boolean)
-    .join(", ");
+  const assignedTags = (selectedWidget?.tagIds ?? [])
+    .map(id => board.tags.get(id) as Tag | undefined)
+    .filter((tag): tag is Tag => Boolean(tag));
+  const tagNames = assignedTags.map(tag => tag.name).join(", ");
   const nameValue = selectedWidget?.name || (selectedWidget?.link ? t("inspector.hasLink") : t("inspector.none"));
   const runs = selectedWidget?.runs?.length
     ? selectedWidget.runs
@@ -177,9 +178,20 @@ function InspectorBody(props: BoardInspectorProps) {
   const editCommand = commandById("editText");
   const lockCommand = commandById("lock");
 
+  const tagEditor = <TagsPanel board={board} widgets={widgets} selectedIds={selectedIds}
+    setSelectedIds={setSelectedIds} disabled={writeBlocked} />;
+  const tags = (
+    <Disclosure label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
+      {tagEditor}
+    </Disclosure>
+  );
+  const matrix = card?.parentId ? kanbanStates[card.parentId] : undefined;
+  const cardColumn = card && matrix?.columns.find(column => column.id === matrix.cards[card.id]?.columnId);
+  const cardDisabled = writeBlocked || Boolean(card?.locked);
+
   return (
         <aside
-          className="inspector"
+          className={card ? "inspector card-fields" : "inspector"}
           aria-label={t("inspector.overview")}
           onKeyDown={(event) => {
             if (event.key !== "Escape") return;
@@ -193,11 +205,19 @@ function InspectorBody(props: BoardInspectorProps) {
               {kicker && <span className="inspector-kicker">{kicker}</span>}
               <h2 className="inspector-title">{heading}</h2>
             </div>
+            {card && <CardStatusBadge board={board} card={card} disabled={cardDisabled} />}
             <HelpLink topicId={helpTopic} label={t("inspector.help")} className="help-link icon-link" />
             <IconButton icon="close" size="compact" label={t("inspector.hide")} onClick={toggleInspector} />
           </div>
 
           <div className="inspector-body">
+          {card && (
+            <div className="card-record">
+              <CardRecord board={board} card={card} people={people} disabled={cardDisabled} />
+              <CardTags assigned={assignedTags}>{tagEditor}</CardTags>
+              <CardColour board={board} card={card} column={cardColumn || undefined} disabled={cardDisabled} />
+            </div>
+          )}
           {subject === "room" && (
             <>
               <h3 className="inspector-group">{t("inspector.contents")}</h3>
@@ -209,7 +229,7 @@ function InspectorBody(props: BoardInspectorProps) {
                   </li>
                 ))}
               </ul>
-              <CardFilterPanel widgets={widgets} setSelectedIds={setSelectedIds} />
+              <CardFilterPanel widgets={widgets} setSelectedIds={setSelectedIds} onNotice={props.onNotice} />
             </>
           )}
 
@@ -229,11 +249,11 @@ function InspectorBody(props: BoardInspectorProps) {
                   label={t("properties.more")}
                   value={kindName ?? t("inspector.none")}
                   className="properties-more"
-                  // A card, a section or a kanban has no frequent block: its fields are
-                  // the main content, so the fold starts open (ADR-236 kept).
-                  open={Boolean(selectedWidget) && (!frequentSubject || inTable)}
+                  // The card record precedes this fold. Sections and kanbans keep their fields here.
+                  open={Boolean(selectedWidget) && ((!card && !frequentSubject) || inTable)}
                 >
                   <SelectionActions
+                    showElevation={selectedWidget.type !== "shape"}
                     commandContext={commandContext}
                     widgets={widgets}
                     selectedIds={selectedIds}
@@ -386,14 +406,6 @@ function InspectorBody(props: BoardInspectorProps) {
                       writeBlocked={writeBlocked}
                     />
                   )}
-                  {card && (
-                    <CardFieldsPanel
-                      board={board}
-                      card={card}
-                      people={people}
-                      disabled={writeBlocked}
-                    />
-                  )}
                   <Disclosure label={t("inspector.nameAndLink")} value={nameValue} className="name-link-fold">
                     <ObjectNameField board={board} widget={selectedWidget} disabled={writeBlocked} />
                     <ObjectLinkPanel
@@ -404,15 +416,7 @@ function InspectorBody(props: BoardInspectorProps) {
                       onOpenObject={onOpenObject}
                     />
                   </Disclosure>
-                  <Disclosure label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
-                    <TagsPanel
-                      board={board}
-                      widgets={widgets}
-                      selectedIds={selectedIds}
-                      setSelectedIds={setSelectedIds}
-                      disabled={writeBlocked}
-                    />
-                  </Disclosure>
+                  {!card && tags}
                 </Disclosure>
               ) : (
                 <>
@@ -450,15 +454,7 @@ function InspectorBody(props: BoardInspectorProps) {
                       {t("selection.gather")}
                     </Button>
                   )}
-                  <Disclosure label={t("tags.title")} value={tagNames || t("inspector.none")} className="tags-fold">
-                    <TagsPanel
-                      board={board}
-                      widgets={widgets}
-                      selectedIds={selectedIds}
-                      setSelectedIds={setSelectedIds}
-                      disabled={writeBlocked}
-                    />
-                  </Disclosure>
+                  {tags}
                 </>
               )}
             </>
@@ -556,24 +552,6 @@ function KanbanStatePanel({
           {t("inspector.addSwimlane")}
         </Button>
       </div>
-      <div className="wip-grid">
-        {state.columns.map((column) => (
-          <Input
-            key={column.id}
-            type="number"
-            size="compact"
-            label={column.title}
-            min={1}
-            max={999}
-            value={column.wipLimit ?? ""}
-            disabled={writeBlocked}
-            onChange={(event) =>
-              setColumnWip(board, id, column.id, event.target.value ? Number(event.target.value) : null)
-            }
-          />
-        ))}
-      </div>
-      <p className="muted">{t("inspector.wipHint")}</p>
     </div>
   );
 }

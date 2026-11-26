@@ -30,6 +30,7 @@ import { createConnections } from "./sync-connections.mjs";
 import { createSaveAcks } from "./sync-save-ack.mjs";
 import { createExportRoutes } from "./sync-export.mjs";
 import { createFilesApi } from "./files-api.mjs";
+import { createRoomCovers } from "./room-covers.mjs";
 import { createFilesGc } from "./files-gc.mjs";
 import { createFileStore } from "./files-store.mjs";
 import { attachWebSocket } from "./sync-websocket.mjs";
@@ -65,11 +66,12 @@ import { handlePublicRoutes } from "./public-api.mjs";
 import { isStage } from "./stage.mjs";
 import { handleConsentRoutes } from "./consent-api.mjs";
 import { handleOperatorConsole } from "./operator-console-api.mjs";
+import { handlePublicHints } from "./hints/api.mjs";
+import { handleHomeNews } from "./home-news.mjs";
 import { handleChromeUseRoute } from "./pulse/chrome-use.mjs";
 import { createPulseRuntime } from "./pulse-runtime.mjs";
 
 import { websocketUtils } from "./y.mjs";
-
 const { docs, getYDoc, setPersistence } = websocketUtils;
 
 // A local `.env` is a convenience for development; production passes the same values
@@ -88,7 +90,6 @@ try {
 // The fake payment provider is a development seam: a production process that carries
 // the flag stops here instead of starting with a switchable free-money button.
 assertFakeProviderGate();
-
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.REMO_DATA_DIR ?? join(HERE, ".data");
 const PORT = Number(process.env.PORT ?? 1234);
@@ -308,6 +309,7 @@ const exports = createExportRoutes({
 
 // A file no image widget points at waits a month before the collector removes it
 // (ADR-249, §5.4). A disk store has no `files` rows, so it is started only on Postgres.
+const roomCovers = createRoomCovers({ store, fileStore });
 const filesGc = createFilesGc({ store, fileStore, log: console, metrics });
 
 const agents = createAgentLoops({ store, ai, log: console });
@@ -407,7 +409,6 @@ const pulse = await createPulseRuntime({
 const metricsStore = pulse.metricsStore;
 
 setPersistence(guardPersistence(store, { metrics }));
-
 /** The disk fallback has no query layer; say so instead of returning an empty list. */
 function notSupported(response, store) {
   response.writeHead(501, { "Content-Type": "application/json" });
@@ -473,7 +474,6 @@ async function handleRequest(request, response) {
   }
   return routeRequest(request, response, url);
 }
-
 async function routeRequest(request, response, url) {
   // A fixed label per route family: a label per path would let an anonymous client
   // grow the in-memory registry without bound (the protected /metrics endpoint does
@@ -522,9 +522,9 @@ async function routeRequest(request, response, url) {
     return;
   }
 
-  // The cookie choice and its journal (ADR-255 §4); `/consent` shares no prefix with a
-  // domain route and must answer for a guest and in the `none` zone.
   if (await handleConsentRoutes({ request, response, url, store, zone: COMPLIANCE.zone, metrics, log: console })) return;
+  if (await handlePublicHints({ request, response, url, store })) return;
+  if (await handleHomeNews({ request, response, url, store, connections })) return;
   if (await handleChromeUseRoute({ request, response, url, store })) return;
   /**
    * The operator console (ADR-259 §5, stage 2). Its own prefix, answered before IAM:
@@ -632,7 +632,6 @@ async function routeRequest(request, response, url) {
     return;
   }
 
-  // Public branding and the health probe; neither needs a session (ADR-254 §3).
   const publicRoutes = { request, response, url, store, build: BUILD, productName: PRODUCT_NAME, productNameOverride: PRODUCT_NAME_OVERRIDE, move: MOVE, compliance: COMPLIANCE, legal: legal.config, docsOrigin: DOCS_ORIGIN, stage: isStage() };
   if (await handlePublicRoutes(publicRoutes)) return;
 
@@ -662,6 +661,7 @@ async function routeRequest(request, response, url) {
       }
       const page = await store.listBoardDirectory(session.user.id, {
         orgSlug,
+        teamId: url.searchParams.get("team"),
         q: url.searchParams.get("q"),
         sort: url.searchParams.get("sort") ?? "updated",
         dir: url.searchParams.get("dir") ?? "desc",
@@ -749,7 +749,7 @@ server.listen(PORT, () => {
   // Timers that only make sense once the port is open; files and billing start under
   // their own conditions below.
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.start();
-  if (databaseUrl) filesGc.start();
+  if (databaseUrl) { filesGc.start(); roomCovers.start(); }
   if (process.env.REMO_BILLING === "on") {
     billing.start();
     billingInbox.start();
@@ -772,7 +772,7 @@ const shutdown = async (signal, exitCode = 0) => {
   shuttingDown = true;
   console.log(`[sync] ${signal} received, flushing rooms`);
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.stop();
-  filesGc.stop();
+  filesGc.stop(); roomCovers.stop();
   billing.stop();
   billingInbox.stop();
   pulse.loop.stop();

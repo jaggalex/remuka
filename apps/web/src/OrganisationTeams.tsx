@@ -1,3 +1,4 @@
+import { planLimitFrom, type PlanLimitNotice } from "./apiBilling";
 import { useState } from "react";
 import { Button, ConfirmDialog, Input, Select } from "@remo/ui";
 import { api, ApiError, type OrgMember } from "./api";
@@ -25,6 +26,7 @@ export function OrganisationTeams({
   canManage,
   onChanged,
   onError,
+  lockedPlan, onPlanLimit,
 }: {
   orgId: string;
   teams: Array<{ id: string; name: string }>;
@@ -32,6 +34,8 @@ export function OrganisationTeams({
   canManage: boolean;
   onChanged: () => Promise<void> | void;
   onError: (message: string) => void;
+  lockedPlan?: string;
+  onPlanLimit: (notice: PlanLimitNotice) => void;
 }) {
   const { t } = useI18n();
   const [newName, setNewName] = useState("");
@@ -66,7 +70,8 @@ export function OrganisationTeams({
       await action();
       await onChanged();
     } catch (failure) {
-      onError(describe(failure));
+      const limit = planLimitFrom(failure);
+      if (limit) onPlanLimit(limit); else onError(describe(failure));
     } finally {
       setBusy(false);
     }
@@ -265,6 +270,7 @@ export function OrganisationTeams({
             event.preventDefault();
             if (!newName.trim()) return;
             void run(async () => {
+              if (lockedPlan) { onPlanLimit({ kind: "feature", feature: "roles.advanced" }); return; }
               await api.createTeam(orgId, newName.trim());
               setNewName("");
             });
@@ -285,7 +291,7 @@ export function OrganisationTeams({
             loading={busy}
             disabled={!newName.trim()}
           >
-            + {t("org.createTeam")}
+            + {t("org.createTeam")}{lockedPlan && <small className="paid-feature-plan">{lockedPlan}</small>}
           </Button>
         </form>
       )}

@@ -85,7 +85,7 @@ async createAgentToken({ agentId, tokenHash, label, expiresAt, createdBy }) {
   const { rows } = await this.pool.query(
     `insert into agent_tokens (agent_id, token_hash, label, expires_at, created_by)
      values ($1, $2, $3, $4, $5)
-     returning id, label, expires_at, created_at`,
+     returning id, label, left(encode(token_hash, 'hex'), 16) as fingerprint, expires_at, created_at`,
     [agentId, tokenHash, label, expiresAt, createdBy],
   );
   return rows[0];
@@ -93,7 +93,7 @@ async createAgentToken({ agentId, tokenHash, label, expiresAt, createdBy }) {
 
 async listAgentTokens(agentId) {
   const { rows } = await this.pool.query(
-    `select id, label, expires_at, revoked_at, last_used_at, created_at
+    `select id, label, left(encode(token_hash, 'hex'), 16) as fingerprint, expires_at, revoked_at, last_used_at, created_at
        from agent_tokens where agent_id = $1 order by created_at desc`,
     [agentId],
   );

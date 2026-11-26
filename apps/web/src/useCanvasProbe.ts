@@ -112,6 +112,8 @@ export function useCanvasProbe({
           centerX: c.centerX,
           width: c.width,
           accent: c.accent,
+          count: c.count,
+          wipLimit: c.wipLimit,
         })),
         lanes: layout.lanes.map((l) => ({ id: l.id, title: l.title, centerY: l.centerY, top: l.top, height: l.height })),
         placements: layout.placements,

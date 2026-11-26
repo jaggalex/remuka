@@ -183,6 +183,16 @@ describe("render", () => {
     }
   }
 
+  it.each(["ru", "en"])("puts the legal summary above the link in plain text and safe HTML (%s)", locale => {
+    const summary = "Changed <days> & rules.";
+    const params = { ...CASES.legal_update, changes: summary };
+    const mail = render("legal_update", locale, params);
+    expect(mail.text).toContain(summary);
+    expect(mail.text.indexOf(summary)).toBeLessThan(mail.text.indexOf(params.link));
+    expect(mail.html).toContain("Changed &lt;days&gt; &amp; rules.");
+    expect(mail.html.indexOf("Changed &lt;days&gt;")).toBeLessThan(mail.html.indexOf(params.link));
+  });
+
   it("escapes substitutions in HTML but not in the subject", () => {
     const mail = render("verify_email", "ru", {
       name: "<script>alert(1)</script>",

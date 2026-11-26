@@ -11,8 +11,8 @@ You need to show the result outside the product, keep a state before a big rebui
 
 ## Steps: an image or a PDF
 
-1. Open the room menu (the room’s name) and choose **Экспорт…** (export).
-2. In the **Что экспортировать** (what to export) block choose **Выделение** (selection), **Фрейм** (frame) or **Вся комната** (whole room). The selection and frame options are available only with a matching selection: select the objects or the frame first.
+1. Open the room menu (the room’s name) and choose **Экспорт** (export).
+2. Choose what to download. **Whole room** is selected when nothing is selected on the canvas. If the room has just one frame, you can choose **Frame** here. For a room with several frames, first select the one you want or an object inside it on the canvas. To export specific objects, select them on the canvas and choose **Selection**.
 3. In the **Формат** (format) block choose **PNG** or **PDF**.
 4. If needed, enable **Include comments**: a list of open threads and numbered pins appears below the room.
 5. Wait for it to finish and save the file.
@@ -21,7 +21,7 @@ Result: the image contains exactly the chosen scope.
 
 ## Steps: a backup
 
-1. Press **Экспорт**.
+1. Click the room name and choose **Export**.
 2. Choose **Бэкап комнаты** (room backup).
 3. Save the JSON file. Cyrillic letters from the room title are preserved in the filename.
 
@@ -57,7 +57,7 @@ Result: the room contains the objects from the file; the previous content is rep
 | Symptom | Cause |
 |---|---|
 | No backup option | the role lacks `board.backup` |
-| "Nothing to export in this scope" | the scope is **Выделение** or **Фрейм** and nothing is selected |
+| "Nothing to export in this scope" | the chosen scope no longer contains any objects, for example if someone removed the frame |
 | Import refused | the file is damaged or the checksum does not match |
 
 ## Where to go next

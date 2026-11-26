@@ -356,3 +356,10 @@
     grid-column: span 1;
   }
 }
+
+.operator-words mark {
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-xs);
+  color: var(--sticker-ink);
+  background: var(--sticker-yellow);
+}

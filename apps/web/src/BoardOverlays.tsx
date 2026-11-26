@@ -1,5 +1,6 @@
+import type { BoardNotice } from "./useNotice";
 import { Button } from "@remo/ui";
-import { useId } from "react";
+import { RoomGateCard } from "./RoomGateCard";
 import { LinkPasswordGate } from "./LinkPasswordGate";
 import type { BoardDocument } from "@remo/doc";
 import { DeleteConfirmation } from "./DeleteDialog";
@@ -22,69 +23,35 @@ export function BoardAccessGate({
   signedIn,
   boardId,
   onSignIn,
-  onRetry,
+  onHome,
+  onClaim,
 }: {
   reason: string | null | undefined;
   signedIn: boolean;
   boardId: string;
   onSignIn: () => void;
-  onRetry: () => void;
-}) {
-  const { t } = useI18n();
-  const titleId = useId();
-  // Not a dialog: there is no room behind it to return to, and the header above stays
-  // usable (ADR-139); a modal flag would hide that header from screen readers.
-  return (
-    <section className="access-gate" aria-labelledby={titleId}>
-      <h2 id={titleId}>{t("iam.noAccess")}</h2>
-      <p className="muted">
-        {reason === "PASSWORD_REQUIRED"
-          ? t("iam.passwordRequired")
-          : reason === "LINK_INACTIVE"
-            ? t("iam.linkInactive")
-            : reason === "AUTH_REQUIRED"
-              ? t("iam.signInToOpen")
-              : reason === "UNCLAIMED"
-                ? t("iam.unclaimed")
-                : t("iam.noAccessHint")}
-      </p>
-      {reason === "PASSWORD_REQUIRED" ? (
-        <LinkPasswordGate boardId={boardId} onUnlocked={() => window.location.reload()} />
-      ) : (
-        <div className="access-actions">
-          {!signedIn && (
-            <Button variant="primary" onClick={onSignIn}>
-              {t("auth.login")}
-            </Button>
-          )}
-          <Button onClick={onRetry}>
-            {t("iam.retry")}
-          </Button>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** An unprotected room can be taken by the first signed-in visitor (ADR-064). */
-export function BoardUnclaimedBanner({
-  signedIn,
-  onClaim,
-  onSignIn,
-}: {
-  signedIn: boolean;
+  onHome: () => void;
   onClaim: () => void;
-  onSignIn: () => void;
 }) {
   const { t } = useI18n();
+  if (reason === "PASSWORD_REQUIRED") {
+    return <LinkPasswordGate boardId={boardId} onUnlocked={() => window.location.reload()} />;
+  }
+  const unclaimed = reason === "UNCLAIMED";
+  const inactive = reason === "LINK_INACTIVE";
+  // A room can require a fresh login while the tab still remembers the old account.
+  const signIn = reason === "AUTH_REQUIRED" || (!signedIn && (inactive || unclaimed));
+  const title = unclaimed ? t("iam.gateUnclaimed") : inactive ? t("iam.gateInactive")
+    : signIn ? t("iam.gateSignIn") : t("iam.noAccess");
+  const description = unclaimed ? t("iam.unclaimed") : inactive ? t("iam.linkInactive")
+    : signIn ? t("iam.signInToOpen") : t("iam.noAccessHint");
   return (
-    <div className="unclaimed-banner" role="status">
-      <span>{t("iam.unclaimed")}</span>
-      <Button variant="primary"
-        onClick={() => (signedIn ? onClaim() : onSignIn())}>
-        {signedIn ? t("iam.claim") : t("iam.claimLogin")}
+    <RoomGateCard title={title} description={description}>
+      <Button variant="primary" onClick={signIn ? onSignIn : unclaimed ? onClaim : onHome}>
+        {unclaimed ? t(signedIn ? "iam.claim" : "iam.claimLogin") : t(signIn ? "auth.login" : "iam.gateHome")}
       </Button>
-    </div>
+      {signIn && inactive && <Button variant="ghost" onClick={onHome}>{t("iam.gateHome")}</Button>}
+    </RoomGateCard>
   );
 }
 
@@ -134,7 +101,7 @@ export function FollowInvite({
 }) {
   const { t } = useI18n();
   return (
-    <div className="follow-invite" role="dialog" aria-label={t("follow.inviteTitle")}>
+    <div className="follow-invite" role="status" aria-label={t("follow.inviteTitle")}>
       <span>{t("follow.invite", { name: name ?? from })}</span>
       <div className="follow-invite-actions">
         <Button variant="primary" onClick={onAccept}>
@@ -149,8 +116,16 @@ export function FollowInvite({
 }
 
 /** A short-lived message about what just happened (or why it did not). */
-export function CanvasNotice({ message }: { message: string | null }) {
+export function CanvasNotice({ message }: { message: BoardNotice | null }) {
   if (!message) return null;
+  if (typeof message !== "string") {
+    return (
+      <div className="canvas-notice room-connection-notice" data-kind={message.kind} role="alert">
+        <span>{message.text}</span>
+        {message.action && <Button onClick={message.action.run}>{message.action.label}</Button>}
+      </div>
+    );
+  }
   return (
     <div className="canvas-notice" role="status">
       {message}
@@ -178,12 +153,15 @@ export function ImageDropFrame({ label }: { label: string }) {
   );
 }
 
-/** The offline queue is full: writes stop until the connection returns (ADR-084). */
-export function OfflineBlocked() {
+/** A full queue takes priority over the notice that editing can continue offline. */
+function OfflineNotice({ blocked, readOnly }: { blocked: boolean; readOnly: boolean }) {
   const { t } = useI18n();
+  const heading = blocked ? "sync.queueFull" : "sync.offline";
+  const message = blocked ? "sync.queueFullBody" : readOnly ? "sync.offlineViewer" : "sync.offlineBody";
   return (
-    <div className="offline-blocked" role="alert">
-      {t("sync.blocked")}
+    <div className={`canvas-notice room-connection-notice ${blocked ? "offline-blocked" : "offline-notice"}`}
+      data-kind={blocked ? "blocked" : "offline"} role={blocked ? "alert" : "status"} aria-atomic="true">
+      <span><strong>{t(heading)}.</strong>{" "}{t(message)}</span>
     </div>
   );
 }
@@ -194,10 +172,11 @@ export function OfflineBlocked() {
  * orders them so a workspace can be denied and empty at once without a stack of ifs.
  */
 export function BoardStateLayer({
-  blocked,
+  blocked, offline,
   emptyRoom,
+  hasPeers,
+  synced,
   denied,
-  unclaimed,
   reason,
   signedIn,
   boardId,
@@ -207,13 +186,15 @@ export function BoardStateLayer({
   onAskAgent,
   onInvite,
   onSignIn,
-  onRetry,
+  onHome,
   onClaim,
 }: {
   blocked: boolean;
+  offline: boolean;
   emptyRoom: string | null;
+  hasPeers: boolean;
+  synced: boolean;
   denied: boolean;
-  unclaimed: boolean;
   reason: string | null | undefined;
   signedIn: boolean;
   boardId: string;
@@ -225,15 +206,17 @@ export function BoardStateLayer({
   /** Null when the viewer may not invite anybody. */
   onInvite: (() => void) | null;
   onSignIn: () => void;
-  onRetry: () => void;
+  onHome: () => void;
   onClaim: () => void;
 }) {
   return (
     <>
-      {blocked && <OfflineBlocked />}
+      {!denied && (blocked || offline) && <OfflineNotice blocked={blocked} readOnly={readOnly} />}
       {emptyRoom && (
         <EmptyRoomStart
           readOnly={readOnly}
+          hasPeers={hasPeers}
+          synced={synced}
           onCreateNote={onCreateNote}
           onExample={onExample}
           onAskAgent={onAskAgent}
@@ -246,11 +229,9 @@ export function BoardStateLayer({
           signedIn={signedIn}
           boardId={boardId}
           onSignIn={onSignIn}
-          onRetry={onRetry}
+          onHome={onHome}
+          onClaim={onClaim}
         />
-      )}
-      {unclaimed && (
-        <BoardUnclaimedBanner signedIn={signedIn} onClaim={onClaim} onSignIn={onSignIn} />
       )}
     </>
   );
@@ -277,7 +258,7 @@ export function CanvasChrome({
   followInvite: { from: string; name?: string } | null;
   onAcceptFollow: (invite: { from: string; name?: string }) => void;
   onDismissFollow: () => void;
-  notice: string | null;
+  notice: BoardNotice | null;
   pendingDelete: string[] | null;
   board: BoardDocument;
   onCancelDelete: () => void;

@@ -39,6 +39,51 @@ test("a card keeps status, assignee and a date range", async ({ page }) => {
   await expect(restored.locator('input[type="date"]').nth(1)).toHaveValue("2026-10-31");
 });
 
+test("the card inspector keeps its title, dated fields, tags and column colour together", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-23T12:00:00Z"));
+  await freshBoard(page, "card-inspector");
+  const cardId = await selectKanbanCard(page);
+  const panel = page.locator(".card-fields");
+  const status = panel.getByRole("combobox", { name: "Status", exact: true });
+  const title = await page.evaluate(id => {
+    const widget = (window as any).__remo.widgets.find((w: { id: string }) => w.id === id);
+    return widget.title || widget.content;
+  }, cardId);
+  await expect(panel.locator(".card-record-title")).toHaveText(title);
+  await status.selectOption("in_progress");
+  await panel.getByLabel("Start", { exact: true }).fill("2026-11-20");
+  const due = panel.getByLabel("Due", { exact: true });
+  await due.fill("2026-11-22");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const titleLines = await panel.locator(".inspector-title").evaluate(heading => {
+      const text = document.createRange();
+      text.selectNodeContents(heading);
+      return text.getClientRects().length;
+    });
+    expect(titleLines).toBe(1);
+    await expect(panel.locator(".card-overdue")).toHaveText("The due date was yesterday.");
+    const startBox = (await panel.getByLabel("Start", { exact: true }).boundingBox())!;
+    const dueBox = (await due.boundingBox())!;
+    expect(dueBox.y).toBe(startBox.y);
+    expect(dueBox.x).toBeGreaterThanOrEqual(startBox.x + startBox.width);
+    expect(dueBox.x + dueBox.width).toBeLessThanOrEqual(width);
+    await expect(panel.locator(".tags-fold > summary")).toBeVisible();
+    await expect(panel.getByRole("radio", { name: "Same as column" })).toBeChecked();
+  }
+  const own = panel.getByRole("radio", { name: "Custom colour", exact: true });
+  await own.check();
+  const palette = panel.getByRole("radiogroup", { name: "Card colour" });
+  await palette.getByRole("radio").nth(2).click();
+  await expect(own).toBeChecked();
+  await panel.getByRole("radio", { name: "Same as column" }).check();
+  await expect(palette).toHaveCount(0);
+  await due.fill("2026-11-23");
+  await expect(panel.locator(".card-overdue")).toHaveCount(0);
+  await due.fill("2026-11-25");
+  await expect(panel.locator(".card-overdue")).toHaveCount(0);
+});
+
 test("selects cards by assignee and due state", async ({ page }) => {
   await freshBoard(page, "card-filter");
   await selectKanbanCard(page);
@@ -57,6 +102,7 @@ test("selects cards by assignee and due state", async ({ page }) => {
   await filter.getByRole("button", { name: "Select cards" }).click();
   await expect.poll(selected).toBe(1);
   await expect(filter).toHaveCount(0);
+  await expect(page.locator(".canvas-notice")).toContainText("Cards found: 1");
 
   await page.keyboard.press("Escape");
   await expect.poll(selected).toBe(0);
@@ -275,11 +321,18 @@ test("a column's colour comes from its menu and paints its cards", async ({ page
     };
   });
   await page.mouse.click(header.x, header.y, { button: "right" });
-  // The colour is a submenu of the column menu (ADR-267 §3, T6).
-  await page.getByRole("menuitem", { name: "Column colour" }).click();
-  const colour = page.getByRole("menu", { name: "Column colour" });
-  await expect(colour.getByRole("menuitemradio")).toHaveCount(14);
-  await colour.getByRole("menuitemradio", { name: "Deep blue" }).click();
+  const colour = page.getByRole("group", { name: "Column colour" });
+  const choices = colour.getByRole("menuitemradio");
+  await expect(choices).toHaveCount(7);
+  const swatch = colour.getByRole("menuitemradio", { name: "Bright blue" });
+  await swatch.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(colour.getByRole("menuitemradio", { name: "Bright violet" })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(swatch).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(swatch).toHaveAttribute("aria-checked", "true");
+  await expect(swatch).toHaveCSS("outline-style", "solid");
 
   await expect
     .poll(() =>
@@ -293,14 +346,12 @@ test("a column's colour comes from its menu and paints its cards", async ({ page
         { kanbanId: header.kanbanId, columnId: header.columnId },
       ),
     )
-    .toBe("#1a6ad8");
+    .toBe("#78b4ff");
 
   // The menu shows the colour it has now.
+  await page.keyboard.press("Escape");
   await page.mouse.click(header.x, header.y, { button: "right" });
-  await page.getByRole("menuitem", { name: "Column colour" }).click();
-  await expect(
-    page.getByRole("menu", { name: "Column colour" }).getByRole("menuitemradio", { name: "Deep blue" }),
-  ).toHaveAttribute("aria-checked", "true");
+  await expect(swatch).toHaveAttribute("aria-checked", "true");
 });
 
 /** The colour the board layer paints at a client point, as `#rrggbb`. */
@@ -520,6 +571,75 @@ test("a column is renamed on the kanban, by double click and from its menu (ADR-
   await field.fill("Later");
   await field.press("Enter");
   await expect.poll(async () => (await kanbanTitles(page)).columns[0]!.title).toBe("Later");
+});
+
+test("a title click and the keyboard button open the same column WIP control", async ({ page }) => {
+  await freshBoard(page, "kanban-column-limit");
+  const column = (await kanbanTitles(page)).columns[0]!;
+  const button = page.getByRole("button", { name: "Column “" + column.title + "”" });
+  await expect(button).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  const hit = (await button.boundingBox())!;
+  expect(hit.x).toBeLessThan(column.at.x);
+  expect(hit.x + hit.width).toBeGreaterThan(column.at.x);
+  expect(hit.width).toBeGreaterThan(hit.height);
+  await expect(button).toHaveAccessibleDescription(new RegExp(" · [0-9]+"));
+  const marker = (await button.locator(".kanban-column-marker").boundingBox())!;
+  expect(marker.width).toBeLessThan(hit.width);
+  await page.mouse.click(column.at.x, column.at.y);
+  const menu = page.getByRole("menu", { name: "Column “" + column.title + "”" });
+  const value = menu.locator(".context-menu-stepper output");
+  await expect(value).toBeVisible();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  const before = Number(await value.textContent()) || 0;
+  await menu.getByRole("menuitem", { name: "Increase card limit" }).click();
+  await expect(value).toHaveText(String(before + 1));
+  await page.keyboard.press("Escape");
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(value).toHaveText(String(before + 1));
+  const decrease = menu.getByRole("menuitem", { name: "Decrease card limit" });
+  await decrease.click();
+  await expect(value).toHaveText(before ? String(before) : "No limit");
+  await expect(decrease).toBeFocused();
+  if (before === 0) {
+    await expect(decrease).toBeDisabled();
+    await decrease.press("Enter");
+    await expect(value).toHaveText("No limit");
+  }
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await page.getByRole("button", {name: "Zoom in", exact: true}).click();
+  await expect.poll(async () => (await button.boundingBox())?.width ?? 0).toBeGreaterThan(hit.width);
+  await expect.poll(async () => (await button.locator(".kanban-column-marker").boundingBox())?.width ?? 0)
+    .toBeGreaterThan(marker.width);
+
+  await button.press("Enter");
+  const moves = menu.locator(".rm-menu-pair");
+  const left = moves.getByRole("menuitem", { name: "Move left", exact: true });
+  const right = moves.getByRole("menuitem", { name: "Move right", exact: true });
+  await expect(left).toBeDisabled();
+  await left.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(right).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await expect.poll(async () => (await kanbanTitles(page)).columns[1]!.title).toBe(column.title);
+});
+
+test.describe("column menu on a touch screen", () => {
+  test.use({ hasTouch: true });
+  test("the transparent corner of the control opens its column", async ({ page }) => {
+    await freshBoard(page, "kanban-column-touch");
+    const column = (await kanbanTitles(page)).columns[0]!;
+    const name = "Column “" + column.title + "”";
+    const button = page.getByRole("button", { name, exact: true });
+    await button.tap({ position: { x: 4, y: 4 } });
+    await expect(page.getByRole("menu", { name, exact: true })).toBeVisible();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+  });
 });
 
 test("columns and lanes are reordered by dragging their titles (ADR-244)", async ({ page }) => {

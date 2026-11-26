@@ -11,14 +11,14 @@ import { useTheme, type Theme } from "./useTheme";
  */
 export function ThemeSwitch() {
   const { t } = useI18n();
-  const { theme, setTheme } = useTheme();
-  const next: Theme = theme === "light" ? "dark" : "light";
-  const label = t(theme === "light" ? "theme.lightAction" : "theme.darkAction");
+  const { resolved, setTheme } = useTheme();
+  const next: Theme = resolved === "light" ? "dark" : "light";
+  const label = t(resolved === "light" ? "theme.lightAction" : "theme.darkAction");
 
   return (
     <IconButton
       className="theme-toggle-button"
-      icon={theme === "light" ? "sun" : "moon"}
+      icon={resolved === "light" ? "sun" : "moon"}
       label={label}
       title={label}
       onClick={() => setTheme(next)}

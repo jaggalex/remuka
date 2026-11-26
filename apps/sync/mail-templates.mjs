@@ -38,7 +38,8 @@ export const MAIL_TEMPLATES = [
 import {
   BUTTON_LABELS,
   LOCALES,
-  documentHtml,
+  bodyHtml,
+  mailDocument,
   escapeHtml,
   money,
   notification,
@@ -61,8 +62,8 @@ function verifyEmail(lang, values) {
     const notice = `Ссылка действует 24 часа. Если вы не регистрировались в ${ruNoun(lang, values, "prepositional")}, просто удалите это письмо.`;
     return {
       subject: `Подтвердите почту для ${ruNoun(lang, values, "genitive")}`,
-      text: `${greeting} ${confirm}: ${link}\n\n${notice}`,
-      html: documentHtml({
+      text: `${greeting} ${confirm}. ${BUTTON_LABELS[lang].verify_email}: ${link}\n\n${notice}`,
+      html: bodyHtml({
         lang,
         paragraphs: [escapeHtml(greeting), escapeHtml(`${confirm}.`)],
         footer: escapeHtml(notice),
@@ -77,8 +78,8 @@ function verifyEmail(lang, values) {
   const notice = `The link works for 24 hours. If you didn't sign up for ${product}, you can ignore this email.`;
   return {
     subject: `Confirm your email for ${product}`,
-    text: `${greeting} ${confirm}: ${link}\n\n${notice}`,
-    html: documentHtml({
+    text: `${greeting} ${confirm}. ${BUTTON_LABELS[lang].verify_email}: ${link}\n\n${notice}`,
+    html: bodyHtml({
       lang,
       paragraphs: [escapeHtml(greeting), escapeHtml(`${confirm}.`)],
       footer: escapeHtml(notice),
@@ -94,13 +95,13 @@ function passwordReset(lang, values) {
 
   if (lang === "ru") {
     const who = "Кто-то (надеемся, вы) запросил сброс пароля.";
-    const action = "Задать новый пароль:";
+
     const notice =
       "Ссылка действует 60 минут и сработает один раз. Если это были не вы, ничего не делайте: пароль останется прежним.";
     return {
       subject: `Сброс пароля в ${ruNoun(lang, values, "prepositional")}`,
-      text: `${who} ${action} ${link}\n\n${notice}`,
-      html: documentHtml({
+      text: `${who} ${BUTTON_LABELS[lang].password_reset}: ${link}\n\n${notice}`,
+      html: bodyHtml({
         lang,
         paragraphs: [escapeHtml(who)],
         footer: escapeHtml(notice),
@@ -111,13 +112,13 @@ function passwordReset(lang, values) {
   }
 
   const who = "Someone (hopefully you) asked to reset your password.";
-  const action = "Set a new one:";
+
   const notice =
     "The link works once, for 60 minutes. If it wasn't you, do nothing — your password stays the same.";
   return {
     subject: `Reset your ${product} password`,
-    text: `${who} ${action} ${link}\n\n${notice}`,
-    html: documentHtml({
+    text: `${who} ${BUTTON_LABELS[lang].password_reset}: ${link}\n\n${notice}`,
+    html: bodyHtml({
       lang,
       paragraphs: [escapeHtml(who)],
       footer: escapeHtml(notice),
@@ -134,11 +135,11 @@ function passwordChanged(lang, values) {
 
   if (lang === "ru") {
     const changed = `Пароль вашего аккаунта ${email} только что изменили, все сеансы завершены.`;
-    const advice = "Если это были не вы, сразу сбросьте пароль:";
+    const advice = "Если это были не вы, сразу сбросьте пароль.";
     return {
       subject: `Пароль в ${ruNoun(lang, values, "prepositional")} изменён`,
-      text: `${changed} ${advice} ${forgotLink}`,
-      html: documentHtml({
+      text: `${changed} ${advice} ${BUTTON_LABELS[lang].password_changed}: ${forgotLink}`,
+      html: bodyHtml({
         lang,
         paragraphs: [escapeHtml(changed)],
         footer: escapeHtml("Если это были не вы, сразу сбросьте пароль."),
@@ -149,11 +150,11 @@ function passwordChanged(lang, values) {
   }
 
   const changed = `The password for ${email} was just changed and all sessions were signed out.`;
-  const advice = "If this wasn't you, reset your password now:";
+  const advice = "If this wasn't you, reset your password now.";
   return {
     subject: `Your ${product} password was changed`,
-    text: `${changed} ${advice} ${forgotLink}`,
-    html: documentHtml({
+    text: `${changed} ${advice} ${BUTTON_LABELS[lang].password_changed}: ${forgotLink}`,
+    html: bodyHtml({
       lang,
       paragraphs: [escapeHtml(changed)],
       footer: escapeHtml("If this wasn't you, reset your password now."),
@@ -173,7 +174,6 @@ function paymentSucceeded(lang, values) {
     return notification(lang, {
       subject: `Платёж в ${ruNoun(lang, values, "prepositional")} получен`,
       body: [`Платёж на ${amount} за ${period} прошёл.`],
-      action: "Счёт:",
       notice: "Это письмо подтверждает оплату, отдельного действия не требуется.",
       link: invoiceUrl,
       label: BUTTON_LABELS[lang].payment_succeeded,
@@ -183,7 +183,6 @@ function paymentSucceeded(lang, values) {
   return notification(lang, {
     subject: `Payment to ${product} received`,
     body: [`We received ${amount} for ${period}.`],
-    action: "Invoice:",
     notice: "This email confirms the payment; no action is needed.",
     link: invoiceUrl,
     label: BUTTON_LABELS[lang].payment_succeeded,
@@ -200,22 +199,22 @@ function paymentFailed(lang, values) {
     return notification(lang, {
       subject: `Не удалось списать оплату в ${ruNoun(lang, values, "prepositional")}`,
       body: [`Платёж на ${amount} не прошёл. Повторим попытку ${retryAt}.`],
-      action: "Обновить способ оплаты:",
       notice:
         "Если повтор не пройдёт, платные функции станут недоступны, данные останутся на месте.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].payment_failed,
+      emphasizeNotice: true,
     });
   }
 
   return notification(lang, {
     subject: `We couldn't charge your payment method for ${product}`,
     body: [`The ${amount} payment didn't go through. We'll retry on ${retryAt}.`],
-    action: "Update payment method:",
     notice:
       "If the retry fails, paid features become unavailable; your data stays where it is.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].payment_failed,
+    emphasizeNotice: true,
   });
 }
 
@@ -228,7 +227,6 @@ function trialEnding(lang, values) {
     return notification(lang, {
       subject: `Пробный период в ${ruNoun(lang, values, "prepositional")} заканчивается ${date}`,
       body: [`Пробный период в ${ruNoun(lang, values, "prepositional")} заканчивается ${date}.`],
-      action: "Выбрать тариф:",
       notice: "Если тариф не выбрать, организация перейдёт на Free. Данные останутся на месте.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].trial_ending,
@@ -238,7 +236,6 @@ function trialEnding(lang, values) {
   return notification(lang, {
     subject: `Your ${product} trial ends on ${date}`,
     body: [`Your trial ends on ${date}.`],
-    action: "Choose a plan:",
     notice: "Without a plan the organisation moves to Free. Your data stays where it is.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].trial_ending,
@@ -255,7 +252,6 @@ function renewalUpcoming(lang, values) {
     return notification(lang, {
       subject: `Годовая подписка ${ruNoun(lang, values, "genitive")} продлится ${date}`,
       body: [`${date} годовая подписка продлится на ${amount}.`],
-      action: "Проверить подписку:",
       notice:
         "Продление произойдёт автоматически. Отключить автоплатёж можно в разделе «Тариф и оплата».",
       link: billingUrl,
@@ -266,7 +262,6 @@ function renewalUpcoming(lang, values) {
   return notification(lang, {
     subject: `Your yearly ${product} subscription renews on ${date}`,
     body: [`On ${date} your yearly subscription renews for ${amount}.`],
-    action: "Review subscription:",
     notice:
       "The renewal happens automatically. You can turn off auto-payment under plan and payment settings.",
     link: billingUrl,
@@ -285,7 +280,6 @@ function subscriptionSuspended(lang, values) {
         "Оплата не прошла, поэтому права организации понижены до Free.",
         "Данные, комнаты и участники на месте — доступ вернётся сразу после оплаты.",
       ],
-      action: "Восстановить доступ:",
       notice:
         "Лишние комнаты и участники стали доступны только для чтения, ничего не удалено.",
       link: billingUrl,
@@ -299,7 +293,6 @@ function subscriptionSuspended(lang, values) {
       "The payment didn't go through, so the organisation's rights are now Free.",
       "Your data, rooms and members are still here — access returns as soon as you pay.",
     ],
-    action: "Restore access:",
     notice: "Rooms and members above the Free limits are read-only; nothing was deleted.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].subscription_suspended,
@@ -318,7 +311,6 @@ function subscriptionCanceled(lang, values) {
         `Подписка закончилась ${date}.`,
         "Права организации теперь как у Free. Данные на месте.",
       ],
-      action: "Возобновить подписку:",
       notice: "Вы можете возобновить подписку в любой момент.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].subscription_canceled,
@@ -331,7 +323,6 @@ function subscriptionCanceled(lang, values) {
       `The subscription ended on ${date}.`,
       "The organisation now has Free rights. Your data is still here.",
     ],
-    action: "Resume subscription:",
     notice: "You can resume the subscription at any time.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].subscription_canceled,
@@ -349,7 +340,6 @@ function paymentMethodExpiring(lang, values) {
     return notification(lang, {
       subject: `Срок карты в ${ruNoun(lang, values, "prepositional")} истекает`,
       body: [`Срок карты •••• ${last4} истекает в ${expMonth}/${expYear}.`],
-      action: "Обновить карту:",
       notice: "Если карта уже обновлена у платёжного сервиса, ничего делать не нужно.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].payment_method_expiring,
@@ -359,7 +349,6 @@ function paymentMethodExpiring(lang, values) {
   return notification(lang, {
     subject: `The card on your ${product} subscription expires soon`,
     body: [`The card ending in ${last4} expires ${expMonth}/${expYear}.`],
-    action: "Update card:",
     notice: "If the card is already updated with the payment provider, nothing needs doing.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].payment_method_expiring,
@@ -377,7 +366,6 @@ function priceChange(lang, values) {
     return notification(lang, {
       subject: `Новая цена подписки ${ruNoun(lang, values, "genitive")}`,
       body: [`С ${date} подписка будет стоить ${newAmount} вместо ${oldAmount}.`],
-      action: "Посмотреть условия:",
       notice: "Новая цена применяется при первом продлении после этой даты.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].price_change,
@@ -387,7 +375,6 @@ function priceChange(lang, values) {
   return notification(lang, {
     subject: `A new price for your ${product} subscription`,
     body: [`From ${date} the subscription will cost ${newAmount} instead of ${oldAmount}.`],
-    action: "Review terms:",
     notice: "The new price applies at the first renewal after that date.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].price_change,
@@ -406,7 +393,6 @@ function paymentMethodMigrate(lang, values) {
         `Платёжное подключение, через которое вы платили, выводится из работы с ${date}.`,
         "Введите карту заново, чтобы подписка продолжилась.",
       ],
-      action: "Ввести карту заново:",
       notice: "Данные карты вводятся на стороне платёжного сервиса и к нам не попадают.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].payment_method_migrate,
@@ -419,7 +405,6 @@ function paymentMethodMigrate(lang, values) {
       `The payment connection you used is being retired on ${date}.`,
       "Enter your card again so the subscription continues.",
     ],
-    action: "Enter card again:",
     notice: "Card details are entered on the payment provider's side and never reach us.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].payment_method_migrate,
@@ -444,8 +429,8 @@ function accountDeletion(lang, values) {
     ];
     return {
       subject: `Аккаунт будет удалён ${date}`,
-      text: `${body.join(" ")} Передумали? Отменить удаление: ${link}\n\nСсылка действует 14 дней и сработает один раз.`,
-      html: documentHtml({
+      text: `${body.join(" ")} Передумали? ${BUTTON_LABELS[lang].account_deletion}: ${link}\n\nСсылка действует 14 дней и сработает один раз.`,
+      html: bodyHtml({
         lang,
         paragraphs: body.map(escapeHtml),
         footer: escapeHtml("Ссылка действует 14 дней и сработает один раз."),
@@ -462,8 +447,8 @@ function accountDeletion(lang, values) {
   ];
   return {
     subject: `Your ${product} account will be deleted on ${date}`,
-    text: `${body.join(" ")} Changed your mind? Cancel the deletion: ${link}\n\nThe link works for 14 days and only once.`,
-    html: documentHtml({
+    text: `${body.join(" ")} Changed your mind? ${BUTTON_LABELS[lang].account_deletion}: ${link}\n\nThe link works for 14 days and only once.`,
+    html: bodyHtml({
       lang,
       paragraphs: body.map(escapeHtml),
       footer: escapeHtml("The link works for 14 days and only once."),
@@ -485,18 +470,22 @@ function legalUpdate(lang, values) {
   const link = param(values, "link");
   const name = param(values, "name", { required: false });
   const product = values.product;
+  const summary = param(values, "changes", { required: false });
+  const changeNote = summary ? `${lang === "ru" ? "Что изменилось." : "What changed."} ${summary}` : undefined;
   if (lang === "ru") {
     const body = [
       name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
       `Мы опубликовали новую редакцию документа «${doc}». Она вступает в силу ${date}.`,
+      ...(changeNote ? [changeNote] : []),
       `При входе в ${ruNoun(lang, values, "accusative")} после этой даты сервис попросит прочитать и принять её.`,
     ];
     return {
       subject: `Новая редакция: ${doc}`,
-      text: `${body.join(" ")} Прочитать документ: ${link}`,
-      html: documentHtml({
+      text: `${body.join(" ")} ${BUTTON_LABELS[lang].legal_update}: ${link}`,
+      html: bodyHtml({
         lang,
         paragraphs: body.map(escapeHtml),
+        highlight: changeNote && escapeHtml(changeNote),
         footer: escapeHtml("Если вы уже приняли эту редакцию, ничего делать не нужно."),
         link,
         label: escapeHtml(BUTTON_LABELS[lang].legal_update),
@@ -506,14 +495,16 @@ function legalUpdate(lang, values) {
   const body = [
     name ? `Hi ${name},` : "Hi,",
     `We have published a new revision of “${doc}”. It takes effect on ${date}.`,
+    ...(changeNote ? [changeNote] : []),
     `The next time you sign in to ${product} after that date, the service will ask you to read and accept it.`,
   ];
   return {
     subject: `A new revision: ${doc}`,
-    text: `${body.join(" ")} Read the document: ${link}`,
-    html: documentHtml({
+    text: `${body.join(" ")} ${BUTTON_LABELS[lang].legal_update}: ${link}`,
+    html: bodyHtml({
       lang,
       paragraphs: body.map(escapeHtml),
+      highlight: changeNote && escapeHtml(changeNote),
       footer: escapeHtml("If you have already accepted this revision, nothing needs doing."),
       link,
       label: escapeHtml(BUTTON_LABELS[lang].legal_update),
@@ -543,8 +534,8 @@ function paymentRefunded(lang, values) {
     ].filter(Boolean);
     return {
       subject: `Возврат по счёту ${invoice}`,
-      text: `${body.join(" ")} Посмотреть счёт: ${billingUrl}`,
-      html: documentHtml({
+      text: `${body.join(" ")} ${BUTTON_LABELS[lang].payment_refunded}: ${billingUrl}`,
+      html: bodyHtml({
         lang,
         paragraphs: body.map(escapeHtml),
         footer: escapeHtml("Если возврат не пришёл за десять рабочих дней, ответьте на это письмо."),
@@ -562,8 +553,8 @@ function paymentRefunded(lang, values) {
   ].filter(Boolean);
   return {
     subject: `Refund for invoice ${invoice}`,
-    text: `${body.join(" ")} View the invoice: ${billingUrl}`,
-    html: documentHtml({
+    text: `${body.join(" ")} ${BUTTON_LABELS[lang].payment_refunded}: ${billingUrl}`,
+    html: bodyHtml({
       lang,
       paragraphs: body.map(escapeHtml),
       footer: escapeHtml("If the refund has not arrived within ten business days, reply to this email."),
@@ -615,8 +606,8 @@ function operatorAction(lang, values) {
         ];
     return {
       subject: restored ? "Ограничение снято" : "Ограничение доступа",
-      text: `${body.join(" ")} Ответить: ${appeal}`,
-      html: documentHtml({
+      text: `${body.join(" ")} ${BUTTON_LABELS[lang].operator_action}: ${appeal}`,
+      html: bodyHtml({
         lang,
         paragraphs: body.map(escapeHtml),
         footer: escapeHtml(`Обжалование: ${appeal}. Ответ на это письмо тоже доходит до нас.`),
@@ -640,8 +631,8 @@ function operatorAction(lang, values) {
       ];
   return {
     subject: restored ? "The restriction has been lifted" : "Access restriction",
-    text: `${body.join(" ")} Reply: ${appeal}`,
-    html: documentHtml({
+    text: `${body.join(" ")} ${BUTTON_LABELS[lang].operator_action}: ${appeal}`,
+    html: bodyHtml({
       lang,
       paragraphs: body.map(escapeHtml),
       footer: escapeHtml(`Appeal: ${appeal}. A reply to this email reaches us too.`),
@@ -724,15 +715,16 @@ export function render(template, locale, params = {}, { stage = false, support }
     ownProduct: Boolean(explicitProduct),
     support,
   });
+  const deliveryNote = template === "invitation"
+    ? (lang === "ru" ? "Вы получили это письмо, потому что участник команды отправил вам приглашение."
+      : "You received this email because a team member invited you.")
+    : (lang === "ru" ? `Это служебное письмо о вашем аккаунте в ${ruNoun(lang, { product, ownProduct: Boolean(explicitProduct) }, "prepositional")}.`
+      : `This is a service email about your account on ${product}.`);
   return {
     // The stand's mark belongs to the one renderer, not to twenty-two templates
     // (`spec/stage.md` §5): a template cannot forget it and cannot spell it differently.
     subject: stage ? stageSubject(mail.subject, lang) : mail.subject,
-    text: `${mail.text}\n\n${signature.text}`,
-    // The card's closing cell is the one stable place every template shares.
-    html: mail.html.replace(
-      "\n              </td>",
-      `\n                <p style="margin:12px 0 0;font-size:14px;line-height:1.5;color:#57534e;">${signature.html}</p>\n              </td>`,
-    ),
+    text: `${mail.text}\n\n${signature.text}\n\n${deliveryNote}`,
+    html: mailDocument({ lang, product, subject: mail.subject, body: mail.html, signature: signature.html, deliveryNote }),
   };
 }

@@ -30,7 +30,7 @@ export function useCursorIdentity({
   const renameSelf = useCallback(
     (name: string) => {
       setIdentity((current) => {
-        const next = { ...current, name, guestName: name };
+        const next = { ...current, name, guestName: name, guestNameConfirmed: true };
         saveIdentity(next);
         return next;
       });

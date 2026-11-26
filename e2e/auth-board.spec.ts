@@ -29,10 +29,12 @@ test("a signed-out visitor signs in from the access gate", async ({ page, browse
   const visitor = await stranger.newPage();
   try {
     await visitor.goto(`/?room=${account.boardId}&lang=en`);
-    await expect(visitor.locator(".access-gate")).toBeVisible({ timeout: 20_000 });
+    const gate = visitor.locator(".access-gate");
+    await expect(gate.getByRole("heading", { name: "Sign in to open the room" })).toBeVisible({ timeout: 20_000 });
+    await expect(gate.getByRole("button")).toHaveCount(1);
     await visitor.getByRole("button", { name: "Sign in" }).click();
 
-    const dialog = visitor.getByRole("dialog").filter({ has: visitor.locator('input[type="email"]') });
+    const dialog = visitor.getByRole("main").filter({ has: visitor.locator('input[type="email"]') });
     await expect(dialog).toBeVisible();
     // Playwright's actionability check waits for the element to receive the click. The
     // gate used to share --z-dialog with the backdrop and, being later in the DOM, paint
@@ -65,7 +67,7 @@ test("an organisation invitation works after signing in from the link", async ({
 
     const prompt = guest.getByRole("dialog", { name: "You are invited" });
     await prompt.getByRole("button", { name: "Sign in to accept" }).click();
-    const login = guest.getByRole("dialog").filter({ has: guest.locator('input[type="email"]') });
+    const login = guest.getByRole("main").filter({ has: guest.locator('input[type="email"]') });
     await login.locator('input[type="email"]').fill(email);
     await login.locator('input[type="password"]').fill(PASSWORD);
     await login.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -145,6 +147,22 @@ test("two sessions of one account are two follow targets with labels", async ({
   }
 });
 
+test("an account follows the device theme only after choosing System", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await freshBoard(page, "system-theme");
+  const root = page.locator("html");
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await openAccount(page);
+  await page.getByRole("radio", { name: "Use system theme", exact: true }).press("Space");
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await expect.poll(async () => (await (await page.request.get("/api/auth/me")).json()).user.preferences.theme).toBe("system");
+  await page.reload();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(root).toHaveAttribute("data-theme", "dark");
+});
+
 test("theme and language follow the account to another browser", async ({ page, browser }) => {
   const account = await register(page, "prefs", { user: "Prefs Owner" });
   await openBoard(page, account.boardId);
@@ -152,8 +170,8 @@ test("theme and language follow the account to another browser", async ({ page, 
   // Theme and language live in the account menu now (ADR-266 §2); picking a row keeps
   // the menu open so the two choices can be compared.
   await openAccount(page);
-  await page.getByRole("button", { name: "Dark", exact: true }).click();
-  await page.getByRole("button", { name: "Russian", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
+  await page.getByRole("radio", { name: "Russian", exact: true }).press("Space");
 
   // The account row is the source for the second browser (ADR-150).
   await expect
@@ -182,22 +200,41 @@ test("theme and language follow the account to another browser", async ({ page, 
   }
 });
 
+test("sign out on other devices leaves only the current browser", async ({ page, playwright }) => {
+  const account = await freshBoard(page, "other-sessions");
+  const origin = new URL(page.url()).origin;
+  const devices = await Promise.all([playwright.request.newContext({ baseURL: origin }), playwright.request.newContext({ baseURL: origin })]);
+  try {
+    for (const device of devices) {
+      expect((await device.post("/api/auth/login", { data: { email: account.email, password: PASSWORD } })).ok()).toBe(true);
+    }
+    await openAccount(page);
+    await page.getByRole("button", { name: "Account settings" }).click();
+    await page.getByRole("navigation").getByRole("link", { name: "Security", exact: true }).click();
+    const dialog = page.locator(".account-devices");
+    await expect(dialog.locator(".session-list li")).toHaveCount(3);
+    await dialog.getByRole("button", { name: "Sign out on other devices" }).click();
+    await expect(dialog.locator(".session-list li")).toHaveCount(1);
+    await expect(dialog.locator(".session-current")).toHaveText("This browser");
+    for (const device of devices) expect((await device.get("/api/auth/me")).status()).toBe(401);
+  } finally {
+    await Promise.all(devices.map(device => device.dispose()));
+  }
+});
+
 test("the account menu lists active sessions and ends this browser", async ({ page }) => {
   await freshBoard(page, "sessions-ui");
   await openAccount(page);
-  await page.getByRole("button", { name: "Active sessions" }).click();
+  await page.getByRole("button", { name: "Account settings" }).click();
+    await page.getByRole("navigation").getByRole("link", { name: "Security", exact: true }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Active sessions" });
+  const dialog = page.locator(".account-devices");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".session-list li")).toHaveCount(1);
   await expect(dialog.locator(".session-current")).toHaveText("This browser");
 
   await dialog.getByRole("button", { name: "Sign out here" }).click();
-  await expect(page.locator(".account-button")).toHaveAttribute(
-    "aria-label",
-    "Account and interface",
-    { timeout: 15_000 },
-  );
+  await expect(page.locator('.auth-page[data-step="login"]')).toBeVisible();
 });
 
 test("signing out returns the board to its signed-out state", async ({ page }) => {
@@ -247,11 +284,12 @@ test("a public-link visitor who signs in gets a writable socket", async ({ page,
   const visitor = await context.newPage();
   try {
     await visitor.goto(`/?room=${account.boardId}&lang=en`);
+    await visitor.getByRole("button", { name: "Enter room", exact: true }).click();
     await expect(visitor.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
     await openAccount(visitor);
     await visitor.getByRole("button", { name: "Sign in", exact: true }).click();
-    const dialog = visitor.getByRole("dialog").filter({ has: visitor.locator('input[type="email"]') });
+    const dialog = visitor.getByRole("main").filter({ has: visitor.locator('input[type="email"]') });
     await expect(dialog).toBeVisible();
     await dialog.locator('input[type="email"]').fill(account.email);
     await dialog.locator('input[type="password"]').fill(PASSWORD);
@@ -273,9 +311,12 @@ test("a public-link visitor who signs in gets a writable socket", async ({ page,
 test("renames the account from the menu", async ({ page }) => {
   await freshBoard(page, "rename-account", { user: "Before" });
   await openAccount(page);
-  const field = page.locator(".account-name-field");
-  await field.getByLabel("Account name").fill("After");
+  await page.getByRole("button", { name: "Account settings" }).click();
+  const field = page.locator(".account-profile-form");
+  await field.getByLabel("Name", { exact: true }).fill("After");
   await field.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(field.getByRole("status")).toBeVisible();
+  await page.getByRole("link", { name: "Back", exact: true }).click();
   await expect(page.locator(".account-button")).toHaveAttribute("title", /After/);
 
   await page.reload();
@@ -285,10 +326,12 @@ test("renames the account from the menu", async ({ page }) => {
 test("changes the account handle and keeps it after a reload", async ({ page }) => {
   await freshBoard(page, "handle-account", { user: "Handle" });
   await openAccount(page);
-  const field = page.locator(".account-name-field");
-  await field.getByLabel("Handle").fill("handle.person");
+  await page.getByRole("button", { name: "Account settings" }).click();
+  const field = page.locator(".account-profile-form");
+  await field.getByLabel("Mention handle").fill("handle.person");
   await field.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator(".account-who")).toContainText("@handle.person");
+  await expect(field.getByRole("status")).toBeVisible();
+  await page.getByRole("link", { name: "Back", exact: true }).click();
 
   await page.reload();
   await openAccount(page);

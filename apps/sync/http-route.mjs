@@ -15,6 +15,8 @@ const ROUTE_FAMILIES = new Set([
   "chrome",
   "files",
   "health",
+  "home",
+  "hints",
   "integrations",
   "invitations",
   "metrics",

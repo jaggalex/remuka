@@ -8,7 +8,7 @@ const TEXT: Record<Exclude<SaveNoticeKind, "none">, TranslationKey> = {
   saving: "sync.pending",
   saved: "sync.saved",
   offline: "sync.offline",
-  blocked: "sync.blocked",
+  blocked: "sync.blockedChip",
 };
 
 /**
@@ -27,11 +27,11 @@ export function SaveLine({
 }) {
   const { t } = useI18n();
   const kind = useSaveNotice(saveState);
-  // Pending is not announced: a screen reader should not narrate every keystroke.
-  // Offline, a stopped queue and the return to saved are announcements.
-  const live: string =
-    kind === "offline" || kind === "blocked" || kind === "saved" ? t(TEXT[kind]) : "";
-
+  // The offline banner announces the transition once. The visible chip can then
+  // count each queued update without making a screen reader announce every keystroke.
+  const live = kind === "saved" ? t(TEXT.saved) : "";
+  const showCount = kind === "offline" && (!readOnly || saveState.pending > 0);
+  const label = showCount ? t("sync.offlineCount", { n: saveState.pending }) : kind !== "none" ? t(TEXT[kind]) : "";
   return (
     <div className="topbar-save">
       {readOnly && <ReadOnlyBadge />}
@@ -40,7 +40,7 @@ export function SaveLine({
         data-state={saveState.state}
         data-pending={saveState.pending}
       >
-        {kind !== "none" && <span className="save-state-text">{t(TEXT[kind])}</span>}
+        {kind !== "none" && <span className="save-state-text">{label}</span>}
       </span>
       <span className="rm-visually-hidden" role="status" aria-live="polite" aria-atomic="true">
         {live}

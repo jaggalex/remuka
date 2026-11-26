@@ -67,6 +67,8 @@ export function warningText(
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string,
 ): string {
   switch (warning.code) {
+    case "MISSING_ROLE":
+      return t("agents.plan.warn.missingRole", { name: warning.title || warning.tempId || "?" });
     case "PLAN_LARGE":
       return t("agents.plan.warn.large");
     case "OVERLAP":
@@ -81,8 +83,10 @@ export function warningText(
       return t("agents.plan.warn.emptyColumn", { column: warning.column ?? "?" });
     case "WARNINGS_TRUNCATED":
       return t("agents.plan.warn.truncated");
-    case "TIDY_LOCKED_SKIPPED":
-      return t("tidy.plan.warn.locked", { n: warning.tempIds?.length ?? 1 });
+    case "TIDY_LOCKED_SKIPPED": {
+      const n = warning.tempIds?.length ?? 1;
+      return n === 1 ? t("tidy.plan.warn.lockedOne") : t("tidy.plan.warn.locked", { n });
+    }
     case "TIDY_CLASSIFICATION_IGNORED":
       return t("tidy.plan.warn.fallback");
     case "TIDY_NOT_SELECTED_FRAME":

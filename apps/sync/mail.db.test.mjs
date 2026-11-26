@@ -6,6 +6,7 @@
  * and the retention pass removes old rows only. Tokens have no store methods yet, so the
  * `auth_tokens` rows below are written with plain SQL.
  */
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { testDatabaseStore } from "./test-db.mjs";
@@ -79,7 +80,7 @@ describe.skipIf(!store)("db:mail (ADR-246)", () => {
   it("applies schema 29 and installs the claim function for the app role", async () => {
     // The suite database is migrated by the same path the service uses (ADR-089).
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(rows[0].version).toBe(40);
+    expect(rows[0].version).toBe(SCHEMA_VERSION);
 
     const { rows: granted } = await store.pool.query(
       `select has_function_privilege('remo_app', 'remo_claim_mail_batch(integer)', 'execute')

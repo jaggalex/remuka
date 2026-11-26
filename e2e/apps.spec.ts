@@ -16,7 +16,7 @@ test("an installed app draws its panel and answers with the viewer's name", asyn
   expect(installed.ok()).toBeTruthy();
 
   await openBoard(page, account.boardId, { user: "Ada" });
-  await openBoardMenu(page);
+  await openBoardMenu(page, "more");
   await page.getByRole("menuitem", { name: "Apps" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Apps" });
@@ -38,7 +38,7 @@ test("a disabled app leaves nothing on the board", async ({ page }) => {
   expect(disabled.ok()).toBeTruthy();
 
   await openBoard(page, account.boardId);
-  await openBoardMenu(page);
+  await openBoardMenu(page, "more");
   await page.getByRole("menuitem", { name: "Apps" }).click();
   const dialog = page.getByRole("dialog", { name: "Apps" });
   await expect(dialog).toBeVisible();
@@ -48,7 +48,7 @@ test("a disabled app leaves nothing on the board", async ({ page }) => {
 test("the board's apps come from its organisation, not from the browser", async ({ page }) => {
   // A board with no organisation (a legacy room) has nothing to install into.
   const account = await freshBoard(page, "apps-legacy");
-  await openBoardMenu(page);
+  await openBoardMenu(page, "more");
   await expect(page.getByRole("menuitem", { name: "Apps" })).toHaveCount(1);
   await page.getByRole("menuitem", { name: "Apps" }).click();
   await expect(page.getByRole("dialog", { name: "Apps" })).toBeVisible();

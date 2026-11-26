@@ -1,8 +1,14 @@
+import * as Y from "yjs";
 import { describe, expect, it } from "vitest";
 import { layerKey, paintOrder, type Widget } from "@remo/model";
 import {
   BoardDocument,
+  copyFragment,
   createWidget,
+  insertTemplate,
+  loadBoard,
+  pasteFragment,
+  topZ,
   deleteWidgets,
   moveWidgets,
   reorderWidgets,
@@ -37,9 +43,89 @@ const order = (board: BoardDocument) =>
   paintOrder([...board.widgets.values()]).map((widget) => widget.id);
 
 describe("stacking order", () => {
-  it("starts from the type: a note is above a shape", () => {
+  it("keeps creation order when a note is added above a shape", () => {
     const board = boardWith(note("s", "shape"), note("n"));
     expect(order(board)).toEqual(["s", "n"]);
+  });
+
+  it("places new shapes, connectors and table sections above legacy or manually chosen layers", () => {
+    const board = new BoardDocument();
+    const legacy = note("old", "text");
+    const manual = note("manual", "sticky_note", { z: 18000 });
+    loadBoard(board, { id: "old", title: "Old", widgets: [legacy, manual] }, {});
+    expect(topZ(board)).toBe(18000);
+    createWidget(board, note("shape", "shape"));
+    createWidget(board, note("line", "connector"));
+    createWidget(board, note("table", "frame", { layout: { kind: "table", rows: [], columns: [] } }));
+    createWidget(board, note("kanban", "kanban"));
+    expect(order(board)).toEqual(["old", "manual", "shape", "line", "table", "kanban"]);
+    expect(board.readWidget("old")?.z).toBeUndefined();
+    expect(board.readWidget("manual")?.z).toBe(18000);
+    expect(topZ(board)).toBe(18004);
+  });
+
+  it("places the new free frame between the old frame and its covered content", () => {
+    const board = new BoardDocument();
+    const old = note("old-frame", "frame", { z: 7 });
+    const covered = note("covered", "sticky_note", { z: 9, locked: true });
+    loadBoard(board, { id: "old", title: "", widgets: [old, covered] }, {});
+    createWidget(board, note("new-frame", "frame", { width: 400, height: 400 }));
+    expect(order(board)).toEqual(["old-frame", "new-frame", "covered"]);
+    expect(board.readWidget("old-frame")).toEqual(old);
+    expect(board.readWidget("covered")).toEqual(covered);
+    createWidget(board, note("far-frame", "frame", { x: 999 }));
+    expect(order(board).at(-1)).toBe("far-frame");
+  });
+
+  it("keeps successive free frames in creation order below covered content after numeric gaps run out", () => {
+    const board = new BoardDocument();
+    const covered = note("first-by-id", "sticky_note", { z: 10 });
+    const old = note("frame", "frame", { z: 9 });
+    loadBoard(board, { id: "old", title: "", widgets: [old, covered] }, {});
+    const frames = Array.from({ length: 100 }, (_, i) => `z-frame-${100 - i}`);
+    for (const id of frames) createWidget(board, note(id, "frame"));
+    expect(order(board)).toEqual([old.id, ...frames, covered.id]);
+  });
+
+  it("preserves a manually raised older frame even when it conflicts with a covered note", () => {
+    const board = new BoardDocument();
+    const old = note("raised", "frame", { z: 14 });
+    const covered = note("covered", "sticky_note", { z: 7 });
+    loadBoard(board, { id: "old", title: "", widgets: [old, covered] }, {});
+    createWidget(board, note("new", "frame"));
+    expect(order(board)).toEqual(["new", "covered", "raised"]);
+    expect(board.readWidget("covered")?.z).toBe(7);
+    expect(board.readWidget("raised")?.z).toBe(14);
+  });
+
+  it("pastes the source paint order as a batch and undoes it once", () => {
+    const board = new BoardDocument();
+    const high = note("high", "shape", { z: 12000, content: "front" });
+    const low = note("low", "sticky_note", { z: 100, content: "back" });
+    loadBoard(board, { id: "old", title: "", widgets: [high, low] }, {});
+    const fragment = copyFragment(board, ["high", "low"])!;
+    const pasted = pasteFragment(board, fragment);
+    const copies = order(board).filter(id => pasted.includes(id));
+    expect(copies.map(id => board.readWidget(id)?.content)).toEqual(["back", "front"]);
+    expect(board.readWidget(copies[0]!)!.z).toBe(12001);
+    board.undoOnce();
+    expect(order(board)).toEqual(["low", "high"]);
+    insertTemplate(board, { id: "new", title: "", widgets: [high, low] });
+    expect(paintOrder(board.readWidgets()).slice(-2).map(widget => widget.content)).toEqual(["back", "front"]);
+    board.undoOnce();
+    expect(order(board)).toEqual(["low", "high"]);
+  });
+
+  it("concurrent creations paint in the same order on both peers", () => {
+    const left = new BoardDocument();
+    const right = new BoardDocument();
+    createWidget(left, note("left", "shape"));
+    createWidget(right, note("right", "sticky_note"));
+    const first = Y.encodeStateAsUpdate(left.doc), second = Y.encodeStateAsUpdate(right.doc);
+    Y.applyUpdate(left.doc, second);
+    Y.applyUpdate(right.doc, first);
+    expect(order(left)).toEqual(["left", "right"]);
+    expect(order(right)).toEqual(order(left));
   });
 
   it("brings one object to the front of the painting order", () => {

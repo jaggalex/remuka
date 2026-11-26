@@ -48,7 +48,7 @@ describe("schema 29: the consent journal (ADR-255 §4)", () => {
   });
 
   it("is schema 37, and the version gate knows it", () => {
-    expect(SCHEMA_VERSION).toBe(40);
-    expect(schema).toContain("insert into schema_meta (id, version) values (1, 40)");
+    expect(SCHEMA_VERSION).toBe(42);
+    expect(schema).toContain("insert into schema_meta (id, version) values (1, 42)");
   });
 });

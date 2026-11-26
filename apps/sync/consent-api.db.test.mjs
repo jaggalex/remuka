@@ -6,6 +6,7 @@
  * apart, deleting an account removes its proof, and `POST /consent` writes one row per
  * change for a signed-in person.
  */
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POLICY_VERSION } from "@remo/consent";
@@ -120,7 +121,7 @@ suite("db:consent (ADR-255 §4)", () => {
     const { rows: meta } = await store.pool.query(
       "select version from schema_meta where id = 1",
     );
-    expect(meta[0].version).toBe(40);
+    expect(meta[0].version).toBe(SCHEMA_VERSION);
 
     const { rows: columns } = await store.pool.query(
       `select column_name, is_nullable

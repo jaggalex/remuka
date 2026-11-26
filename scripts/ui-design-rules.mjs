@@ -32,6 +32,7 @@ export const RULES = {
   "DS-COLOR-01/alias": "alias of the previous system (--ink, --line …); use the semantic token",
   "DS-COLOR-01/primitive": "primitive colour token; use a semantic role",
   "DS-COLOR-01/undefined": "var() of a variable that is defined nowhere",
+  "DS-COLOR-02/contrast": "text-primary on a brand fill; use text-on-chosen, text-on-cta or text-on-agent",
   "DS-CTRL-01/button": "raw <button>; use Button / IconButton from @remo/ui",
   "DS-CTRL-01/field": "raw <input>/<select>/<textarea>; use the @remo/ui field",
   "UX-DIALOG-01": "aria-modal outside @remo/ui; use Dialog / ConfirmDialog",
@@ -160,6 +161,20 @@ function definedVariables(root) {
 
 const stripVars = (value) => value.replace(/var\([^()]*(?:\([^()]*\)[^()]*)*\)/g, "");
 
+/** On the night palette a brand fill stays bright while primary text turns light. */
+function checkBrandContrast(css, add) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\n]/g, " "));
+  for (const block of source.matchAll(/\{([^{}]*)\}/g)) {
+    const body = block[1];
+    const bright = /(?:^|;)\s*background(?:-color)?\s*:\s*var\(\s*--(?:accent-chosen|accent-cta(?:-hover)?|agent)\s*\)/.test(body);
+    const primary = /(?:^|;)\s*(color\s*:\s*var\(\s*--text-primary\s*\))/.exec(body);
+    if (bright && primary) {
+      const at = block.index + 1 + primary.index + primary[0].indexOf(primary[1]);
+      add("DS-COLOR-02/contrast", source.slice(0, at).split("\n").length);
+    }
+  }
+}
+
 function cssFindings(text, defined, add) {
   // The selector of the block being read, so a type exception can be named by it.
   let pending = "";
@@ -236,10 +251,14 @@ export function scanDesignRules(root) {
     const path = relative(root, file);
     const add = (rule, line) => findings.push({ file: path, rule, line });
     const text = readFileSync(file, "utf8");
-    if (kind === "css") cssFindings(text, defined, add);
+    if (kind === "css" || kind === "ds-css") {
+      checkBrandContrast(text, add);
+      if (kind === "css") cssFindings(text, defined, add);
+    }
     else tsxFindings(text, add, path.split("\\").join("/"));
   };
   for (const file of walk(join(root, "apps/web/src"), [".css"])) scan(file, "css");
+  for (const file of walk(join(root, "packages/ui/src/components"), [".css"])) scan(file, "ds-css");
   for (const file of walk(join(root, "apps/web/src"), [".tsx"])) scan(file, "tsx");
   return findings;
 }

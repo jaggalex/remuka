@@ -52,11 +52,13 @@ export function decodeSaveAck(bytes: Uint8Array): number | null {
 export function computeSaveState({
   connection,
   synced,
+  hasSynced = false,
   pending,
   blocked,
 }: {
   connection: "connecting" | "connected" | "disconnected";
   synced: boolean;
+  hasSynced?: boolean;
   pending: number;
   blocked: boolean;
 }): SaveState {
@@ -65,7 +67,7 @@ export function computeSaveState({
     return { state: "offline", pending: count, blocked };
   }
   if (connection === "connecting" || !synced) {
-    return { state: "connecting", pending: count, blocked };
+    return { state: hasSynced ? "offline" : "connecting", pending: count, blocked };
   }
   if (count > 0) return { state: "pending", pending: count, blocked };
   return { state: "saved", pending: 0, blocked: false };

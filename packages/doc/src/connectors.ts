@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import {
   canConnect,
   DEFAULT_LINE_PRESET,
@@ -72,7 +73,7 @@ export function createConnector(
 
     const arrow =
       options.arrow ?? (from.type === "shape" || to.type === "shape" ? "end" : "none");
-    board.widgets.set(id, {
+    insertNewWidget(board.widgets, {
       id,
       type: "connector",
       parentId: null,

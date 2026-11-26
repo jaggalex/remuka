@@ -1,3 +1,5 @@
+import { anchorValues, commentAnchor, rowAnchor } from "../comment-anchor.mjs";
+
 /**
  * Comments are rows beside the document (ADR-104/105), not Yjs state.
  *
@@ -16,10 +18,7 @@ export const commentMethods = {
          returning *`,
         [
           boardId,
-          anchor.kind,
-          anchor.kind === "widget" ? anchor.widgetId : null,
-          anchor.kind === "point" ? anchor.x : null,
-          anchor.kind === "point" ? anchor.y : null,
+          ...anchorValues(anchor),
           authorId,
           authorName,
         ],
@@ -116,6 +115,20 @@ export const commentMethods = {
     }
   },
 
+  async moveCommentAnchor(boardId, threadId, userId, canManage, previous, next) {
+    const moved = await this.pool.query(
+      `update comment_threads set anchor_kind=$9, widget_id=$10, x=$11, y=$12, updated_at=now()
+       where board_id=$1 and id=$2 and (created_by=$3 or $4::boolean)
+         and anchor_kind=$5 and widget_id is not distinct from $6 and x is not distinct from $7
+         and y is not distinct from $8 returning id`,
+      [boardId, threadId, userId, canManage, ...anchorValues(previous), ...anchorValues(next)],
+    );
+    if (moved.rowCount) return "ok";
+    const check = await this.pool.query("select created_by from comment_threads where board_id=$1 and id=$2", [boardId, threadId]);
+    if (!check.rowCount) return "missing";
+    return canManage || check.rows[0].created_by === userId ? "conflict" : "forbidden";
+  },
+
   async resolveCommentThread(threadId, boardId, resolved, userId) {
     const { rows } = await this.pool.query(
       `update comment_threads
@@ -187,16 +200,8 @@ export const commentMethods = {
       await client.query("delete from comment_threads where board_id = $1", [boardId]);
       let restored = 0;
       for (const thread of Array.isArray(threads) ? threads : []) {
-        const anchor = thread?.anchor;
-        const isWidget =
-          anchor?.kind === "widget" &&
-          typeof anchor.widgetId === "string" &&
-          anchor.widgetId.length > 0;
-        const isPoint =
-          anchor?.kind === "point" &&
-          Number.isFinite(anchor.x) &&
-          Number.isFinite(anchor.y);
-        if (!isWidget && !isPoint) continue;
+        const anchor = commentAnchor(thread?.anchor);
+        if (!anchor) continue;
         const { rows } = await client.query(
           `insert into comment_threads
              (board_id, anchor_kind, widget_id, x, y, resolved_at,
@@ -206,10 +211,7 @@ export const commentMethods = {
            returning id`,
           [
             boardId,
-            isWidget ? "widget" : "point",
-            isWidget ? anchor.widgetId : null,
-            isPoint ? anchor.x : null,
-            isPoint ? anchor.y : null,
+            ...anchorValues(anchor),
             typeof thread.resolvedAt === "string" ? thread.resolvedAt : null,
             typeof thread.createdByName === "string" ? thread.createdByName : "",
             typeof thread.createdAt === "string" ? thread.createdAt : null,
@@ -259,10 +261,7 @@ export const commentMethods = {
   async commentsForBackup(boardId) {
     const threads = await this.listCommentThreads(boardId, null);
     return threads.map((thread) => ({
-      anchor:
-        thread.anchor_kind === "widget"
-          ? { kind: "widget", widgetId: thread.widget_id }
-          : { kind: "point", x: thread.x, y: thread.y },
+      anchor: rowAnchor(thread),
       resolvedAt: thread.resolved_at,
       createdByName: thread.created_by_name,
       comments: thread.comments.map((comment) => ({

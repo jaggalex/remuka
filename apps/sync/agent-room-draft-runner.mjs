@@ -173,8 +173,13 @@ export async function runRoomDraft({
     .filter((widget) => widget.type === "connector" && widget.start?.item && widget.end?.item)
     .map((widget) => ({ from: widget.start.item, to: widget.end.item }));
   const widgets = ydoc.getMap("widgets");
-  const previous = earlier.flatMap((message) => message.frame_ids ?? [])
-    .reverse().map((id) => widgets.get(id)).find((widget) => widget?.type === "frame");
+  const visibleFrame = (ids) => ids.map((id) => widgets.get(id)).find((widget) => widget?.type === "frame");
+  let previous = visibleFrame(earlier.flatMap((message) => message.frame_ids ?? []).reverse());
+  if (!previous && store.publishedAgentThreadFrameIds) {
+    // The transcript is paged. Older applied tasks may also precede their ready
+    // history row after recovery. Keep the follow-up beside its shared draft.
+    previous = visibleFrame(await store.publishedAgentThreadFrameIds(threadId));
+  }
   const origin = previous ? { x: previous.x + previous.width / 2 + 80, y: previous.y - previous.height / 2 } : {
     x: Number(task.input?.origin?.x) || 0,
     y: Number(task.input?.origin?.y) || 0,

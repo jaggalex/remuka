@@ -7,6 +7,7 @@ export default defineConfig({
   // tested against the real document and model instead of a mock.
   resolve: {
     alias: {
+      "@remo/model/stacking": fileURLToPath(new URL("./packages/model/src/stacking.mjs", import.meta.url)),
       "@remo/model": fileURLToPath(new URL("./packages/model/src/index.ts", import.meta.url)),
       "@remo/canvas": fileURLToPath(new URL("./packages/canvas/src/index.ts", import.meta.url)),
       "@remo/doc": fileURLToPath(new URL("./packages/doc/src/index.ts", import.meta.url)),

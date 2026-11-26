@@ -8,7 +8,7 @@ test("theme switches in the account menu and survives in Help", async ({ page })
   // (ADR-266 §2); a new account starts light.
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await openAccount(page);
-  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   await page.reload();

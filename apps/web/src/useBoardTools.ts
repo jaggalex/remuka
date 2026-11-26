@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import type { ConnectorRouting, Rect, Widget, KanbanState, ShapeKind } from "@remo/model";
+import type { ConnectorRouting, Rect, Vec2, Widget, KanbanState, ShapeKind } from "@remo/model";
+import type { CreationTool } from "./gestureTypes";
 import type { RailFlyout, RailTool } from "./ToolRail";
 import { cardTargetFor } from "./cardTarget";
+import { actedOnHint, countHint } from "./hintCatalog";
 import { useI18n } from "./i18n";
-import { noteFillChoices, noteFillExtras } from "./object-panel/palette";
+import { noteFillChoices } from "./object-panel/palette";
 import { requestImagePicker } from "./imageIntake";
 import { armedShapeKind, useArmedTool } from "./useArmedTool";
 import {
@@ -65,11 +67,11 @@ export function useBoardTools({
   redo: () => void;
   canConnect: boolean;
   connectSelection: () => void;
-  createSticky: (fill?: string) => void;
+  createSticky: (fill?: string, at?: Vec2, placed?: boolean) => void;
   createStickyStack: () => void;
-  createText: () => void;
+  createText: (at?: Vec2, placed?: boolean) => void;
   /** Without a box the default shape lands at the centre; with one it is drawn to size. */
-  createShape: (kind: ShapeKind, box?: Rect) => void;
+  createShape: (kind: ShapeKind, box?: Rect, at?: Vec2) => void;
   createFrame: () => void;
   createCard: () => boolean;
   openComment: () => void;
@@ -80,20 +82,22 @@ export function useBoardTools({
 }) {
   const { t } = useI18n();
   const [flyout, setFlyout] = useState<RailFlyout>(null);
-  const { armed, arm, disarm, finish } = useArmedTool();
+  const [singleNotes, setSingleNotes] = useState(0);
   const [noteFill, setNoteFill] = useState(() => rememberedStickerFill());
   const [routing, setRouting] = useState<ConnectorRouting>(
     () => rememberedRouting() ?? "curved",
   );
   const [shapeKind, setShapeKind] = useState<ShapeKind>(() => rememberedShapeKind());
 
-  /**
-   * The fill grid of the colour window, read once: the rail is a shortcut into the same
-   * fourteen colours, not a second list (ADR-127).
-   */
   const noteColors = useMemo(() => noteFillChoices(), []);
-  /** The named chips come from the model list the note window uses (ADR-140). */
-  const noteExtras = useMemo(() => noteFillExtras(), []);
+
+  const createSingle = (tool: "sticky" | "text", fill = noteFill) => {
+    if (tool === "sticky") {
+      createSticky(fill);
+      setSingleNotes(n => Math.min(3, n + 1));
+    } else createText();
+  };
+  const { armed, arm, disarm, finish } = useArmedTool(createSingle, writeBlocked);
 
   const canAddCard = Boolean(cardTargetFor(widgets, selectedIds, kanbanStates));
 
@@ -101,15 +105,27 @@ export function useBoardTools({
   const armShape = (kind: ShapeKind, series = false) => {
     rememberShapeKind(kind);
     setShapeKind(kind);
-    arm("shape", kind, series);
+    arm("shape", kind, series ? "locked" : "single");
     setFlyout(null);
   };
 
   const cancelArmed = () => disarm();
 
-  const drawShape = (kind: ShapeKind, box: Rect | null) => {
-    createShape(kind, box ?? undefined);
+  const drawShape = (kind: ShapeKind, box: Rect | null, at: Vec2) => {
+    createShape(kind, box ?? undefined, armed?.mode === "single" ? undefined : at);
     finish();
+  };
+
+  const place = (at: Vec2) => {
+    if (armed?.tool === "sticky") createSticky(armed.variant, at, true);
+    else if (armed?.tool === "text") createText(at, true);
+    finish();
+  };
+  const creationTool: CreationTool | null = !armed ? null : {
+    ...(armed.tool === "shape" ? { tool: "shape" as const, kind: armedShapeKind(armed)!, onDraw: drawShape }
+      : { tool: armed.tool, onPlace: place }),
+    series: armed.mode !== "single",
+    cancel: disarm,
   };
 
   const pickSticky = (fill?: string) => {
@@ -117,7 +133,7 @@ export function useBoardTools({
       rememberStickerFill(fill);
       setNoteFill(fill);
     }
-    createSticky(fill ?? noteFill);
+    createSingle("sticky", fill ?? noteFill);
   };
 
   const pickRouting = (next: ConnectorRouting) => {
@@ -127,9 +143,9 @@ export function useBoardTools({
   };
 
   const run = (tool: RailTool, fill?: string) => {
+    disarm();
     switch (tool) {
       case "select":
-        disarm();
         setSelectedIds([]);
         break;
       case "sticky":
@@ -160,16 +176,13 @@ export function useBoardTools({
         }
         break;
       case "connector":
-        disarm();
-        if (canConnect) connectSelection();
-        else notify(t("tool.connectorHint"));
+        if (canConnect) { actedOnHint("tool.connect"); connectSelection(); }
+        else { countHint("hint.shown", "tool.connect", "action"); notify(t("tool.connectorHint")); }
         break;
       case "frame":
-        disarm();
         createFrame();
         break;
       case "card":
-        disarm();
         if (!createCard()) notify(t("tool.cardHint"));
         break;
       case "comment":
@@ -187,10 +200,16 @@ export function useBoardTools({
     onSelect: () => run("select"),
     onSticky: (fill?: string) => run("sticky", fill),
     onText: () => run("text"),
-    onImage: () => requestImagePicker(),
+    onImage: () => run("image"),
     onShape: (kind: ShapeKind) => armShape(kind),
     onShapeSeries: (kind: ShapeKind) => armShape(kind, true),
     armedShape: armedShapeKind(armed),
+    activeTool: armed?.tool ?? null,
+    lockedTool: armed?.mode === "locked" ? armed.tool : null,
+    onPointSeries: (tool: "sticky" | "text") => {
+      setFlyout(null);
+      arm(tool, tool === "sticky" ? noteFill : "", "locked");
+    },
     defaultShape: shapeKind,
     onConnector: () => run("connector"),
     onFrame: () => run("frame"),
@@ -203,11 +222,24 @@ export function useBoardTools({
     canConnect,
     canAddCard,
     noteColors,
-    noteExtras,
     noteFill,
     connectorRouting: routing,
     onRouting: pickRouting,
   };
 
-  return { rail, run, cancelArmed, drawShape };
+  const keyboardTool = (tool: RailTool, code?: string) => {
+    if (code && (tool === "sticky" || tool === "text" || tool === "rectangle")) {
+      if (tool === "rectangle" && armedShapeKind(armed) === tool && armed?.mode === "single") {
+        run(tool);
+        return;
+      }
+      setFlyout(null);
+      if (tool === "rectangle") {
+        setShapeKind(tool);
+        rememberShapeKind(tool);
+        arm("shape", tool, "held", code);
+      } else arm(tool, tool === "sticky" ? noteFill : "", "held", code);
+    } else run(tool);
+  };
+  return { rail, run: keyboardTool, cancelArmed, creationTool, suggestSeries: singleNotes >= 3 };
 }

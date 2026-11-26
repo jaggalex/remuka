@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import type { BoardConnection, Presence } from "@remo/doc";
+import { anchorAt, fromClient, pinWorld } from "./commentGeometry";
+import { CommentPin } from "./CommentPin";
+import { recordPinMove } from "./commentHistory";
+import { HintCopy } from "./HintCopy";
+import { actedOnHint } from "./hintCatalog";
+import { homeAction } from "./homeAction";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { BoardConnection, BoardDocument, Presence } from "@remo/doc";
 import { colorForAccount } from "@remo/doc";
 import type { Camera, KanbanLayout } from "@remo/canvas";
 import type { Widget } from "@remo/model";
@@ -21,6 +27,7 @@ import { useI18n } from "./i18n";
  * timer: one mechanism for one job.
  */
 export function CommentsPanel({
+  board,
   connection,
   presence,
   widgets,
@@ -37,6 +44,7 @@ export function CommentsPanel({
   onOpen,
   onUnread,
 }: {
+  board: BoardDocument;
   connection: BoardConnection | null;
   presence: Presence[];
   widgets: Widget[];
@@ -65,6 +73,14 @@ export function CommentsPanel({
   const [showResolved, setShowResolved] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [pendingAnchor, setPendingAnchor] = useState<CommentAnchor | null>(null);
+  const composer = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pendingAnchor) return;
+    // A direct object comment opens during the panel button gesture. Focus after the
+    // dialog has mounted and restored its trigger, so typing goes into the new thread.
+    const frame = requestAnimationFrame(() => composer.current?.querySelector("textarea")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [pendingAnchor]);
   const [draft, setDraft] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CommentMessage | null>(null);
   const [online, setOnline] = useState(() => connection?.status() === "connected");
@@ -110,7 +126,7 @@ export function CommentsPanel({
     };
   }, [connection, load]);
 
-  // The rail asks for placement with a counter: same mode as the panel's own button.
+  // More → Comment is the canvas placement tool, even if the last tool left a shape selected.
   useEffect(() => {
     if (!commentRequest) return;
     onOpen(true);
@@ -142,14 +158,8 @@ export function CommentsPanel({
    * the camera moves all the time, so the place is recomputed from world coordinates.
    */
   const pinAt = (thread: CommentThread) => {
-    let world: { x: number; y: number } | null = null;
     const anchor = thread.anchor;
-    if (anchor.kind === "point") {
-      world = { x: anchor.x, y: anchor.y };
-    } else {
-      const widget = widgets.find((entry) => entry.id === anchor.widgetId);
-      if (widget) world = { x: widget.x + widget.width / 2, y: widget.y };
-    }
+    const world = pinWorld(anchor, anchor.kind === "widget" ? widgets.find(w => w.id === anchor.widgetId) : undefined, layouts);
     if (!world) return null;
     return {
       x: viewport.width / 2 + (world.x - camera.x) * camera.zoom,
@@ -159,8 +169,34 @@ export function CommentsPanel({
 
   const startPlacing = () => {
     if (!canComment || !online) return;
+    actedOnHint("comments.closed");
+    actedOnHint("comments.empty");
     onOpen(true);
-    setPlacing(true);
+    const id = selectedIds.length === 1 ? selectedIds[0] : null;
+    if (id) {
+      setPendingAnchor({ kind: "widget", widgetId: id, fx: .9, fy: .1 });
+      setDraft("");
+    } else setPlacing(true);
+  };
+
+  const movePin = (thread: CommentThread, clientX: number, clientY: number) => {
+    const world = fromClient(clientX, clientY, camera);
+    if (!world || !online) return;
+    const next = anchorAt(world, widgets, layouts);
+    async function apply(expected: CommentAnchor, anchor: CommentAnchor) {
+      try {
+        await commentsApi.move(boardId, thread.id, expected, anchor);
+        await load();
+      } catch (failure) {
+        await load();
+        setError(t("comments.moveFailed"));
+        throw failure;
+      }
+    }
+    setBusy(true);
+    void apply(thread.anchor, next).then(() => {
+      recordPinMove(board, reverse => reverse ? apply(next, thread.anchor) : apply(thread.anchor, next));
+    }).catch(() => {}).finally(() => setBusy(false));
   };
 
   const anchorLabelOf = (anchor: CommentAnchor) => {
@@ -170,7 +206,7 @@ export function CommentsPanel({
   };
 
   const submitComment = () => {
-    if (!pendingAnchor || !draft.trim() || !online) return;
+    if (!canComment || !pendingAnchor || !draft.trim() || !online) return;
     void run(async () => {
       const created = await commentsApi.create(boardId, pendingAnchor, draft.trim());
       setActive(created.thread.id);
@@ -181,7 +217,7 @@ export function CommentsPanel({
   };
 
   const sendReply = () => {
-    if (!activeThread || !reply.trim() || !online) return;
+    if (!canComment || !activeThread || !reply.trim() || !online) return;
     void run(async () => {
       await commentsApi.reply(boardId, activeThread.id, reply.trim());
       setReply("");
@@ -194,6 +230,16 @@ export function CommentsPanel({
     if (thread.anchor.kind === "widget") onSelectWidget([thread.anchor.widgetId]);
     if (thread.unread) void commentsApi.read(boardId, thread.id).then(load).catch(() => {});
   };
+
+  const [newsThread, setNewsThread] = useState(() => homeAction("mention"));
+  useEffect(() => {
+    if (!newsThread || !open) return;
+    const thread = threads.find(row => row.id === newsThread);
+    if (!thread) return;
+    setNewsThread(null);
+    openThread(thread);
+    document.getElementById("thread-" + thread.id)?.scrollIntoView({ block: "nearest" });
+  }, [threads, newsThread, open]);
 
   const remove = (comment: CommentMessage) => setPendingDelete(comment);
 
@@ -215,25 +261,13 @@ export function CommentsPanel({
           const point = pinAt(thread);
           if (!point) return null;
           return (
-            <button
-              key={thread.id}
-              type="button"
-              className={`comment-pin${thread.id === active ? " active" : ""}${
-                thread.unread ? " unread" : ""
-              }`}
-              style={{ left: point.x, top: point.y, "--pin-color": pinColour(thread) } as CSSProperties}
-              title={anchorLabel(thread)}
-              aria-label={t("comments.openThread", { anchor: anchorLabel(thread) })}
-              onClick={() => {
-                onOpen(true);
-                openThread(thread);
-              }}
-            >
-              <span className="comment-pin-letter" aria-hidden="true">
-                {pinLetter(thread)}
-              </span>
-              {thread.unread > 0 && <span className="comment-pin-count">{thread.unread}</span>}
-            </button>
+            <CommentPin key={thread.id} thread={thread} point={point} active={thread.id === active}
+              movable={Boolean(online && !busy && canComment && (canManage || meId === thread.createdBy))}
+              colour={pinColour(thread)} letter={pinLetter(thread)} title={anchorLabel(thread)}
+              label={t("comments.openThread", { anchor: anchorLabel(thread) })}
+              onOpen={() => { onOpen(true); openThread(thread); }}
+              onDrop={(x, y) => movePin(thread, x, y)} />
+
           );
         })}
       </div>
@@ -260,7 +294,7 @@ export function CommentsPanel({
           size="md"
           onClose={() => setPendingAnchor(null)}
         >
-          <div className="dialog-stack comment-composer">
+          <div className="dialog-stack comment-composer" ref={composer}>
             <Textarea
               autoFocus
               aria-label={t("comments.prompt")}
@@ -360,7 +394,7 @@ export function CommentsPanel({
           <div className="comments-body">
             <ul className="comments-list">
               {visibleThreads.map((thread) => (
-                <li key={thread.id}>
+                <li key={thread.id} id={"thread-" + thread.id}>
                   <article
                     className={`comments-thread${thread.id === active ? " is-active" : ""}`}
                     onClick={() => openThread(thread)}
@@ -403,6 +437,7 @@ export function CommentsPanel({
                     {!thread.resolvedAt && (
                       <div className="comment-reply">
                         <Textarea
+                          disabled={!canComment || !online || busy}
                           value={active === thread.id ? reply : ""}
                           maxLength={4000}
                           aria-label={t("comments.replyPlaceholder")}
@@ -428,7 +463,7 @@ export function CommentsPanel({
                         <Button
                           variant="primary"
                           size="compact"
-                          disabled={busy || !online || !reply.trim() || active !== thread.id}
+                          disabled={!canComment || busy || !online || !reply.trim() || active !== thread.id}
                           onClick={(event) => {
                             event.stopPropagation();
                             sendReply();
@@ -442,7 +477,7 @@ export function CommentsPanel({
                 </li>
               ))}
             </ul>
-            {!visibleThreads.length && <p className="comments-empty">{t("comments.emptyClosed")}</p>}
+            {!visibleThreads.length && <p className="comments-empty">{showResolved ? <HintCopy slot="comments.empty" text="comments.empty" /> : <HintCopy slot="comments.closed" text="comments.emptyClosed" />}</p>}
           </div>
         </aside>
       )}

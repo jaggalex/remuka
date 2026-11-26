@@ -8,11 +8,12 @@
  */
 (function () {
   try {
-    var stored = localStorage.getItem("remo.theme") || "system";
+    var stored = localStorage.getItem("remo.theme") || "light";
     var dark =
       stored === "dark" ||
       (stored === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
+    if (localStorage.getItem("remo.motion") === "calm") document.documentElement.dataset.motion = "calm";
   } catch (error) {
     /* storage blocked: the app picks the theme itself once it starts */
   }

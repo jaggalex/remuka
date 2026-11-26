@@ -14,7 +14,7 @@ import { billingEnabled, entitlementsFor } from "./billing.mjs";
 import { handleFakeBilling } from "./billing-fake-api.mjs";
 import { checkPromo, handleCheckoutRoutes } from "./billing-checkout-api.mjs";
 import { handleSubscriptionRoutes } from "./billing-subscription-api.mjs";
-import { PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
+import { FEATURES, PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
 import { isStage } from "./stage.mjs";
 import { handlePaymentWebhook } from "./payment-webhooks.mjs";
 import { PAID_PLANS, billingCurrencies } from "../../scripts/billing-prices.mjs";
@@ -311,8 +311,8 @@ export async function handleBilling({
     // The same sum the upload's quota check reads, plus the top rooms under the same
     // tenant. `null` is "no limit", the spelling the rest of the family uses.
     const [usedBytes, rooms] = await Promise.all([
-      store.storedBytesForOrg(),
-      store.storageByRoom(5),
+      store.storedBytesForOrg(orgId),
+      store.storageByRoom(orgId, 5),
     ]);
     json(response, 200, {
       usedBytes,
@@ -344,14 +344,14 @@ export async function handleBilling({
     const entitlements = await entitlementsFor(store, orgId, { env });
     // §3.2: a member sees the plan and the limits; the card is the payer's data.
     const isAdmin = await store.hasOrgRole(orgId, session.user.id, "org_admin");
-    const [seats, rooms, storedBytes, subscription, account, savedMethod] = await Promise.all([
+    const [seats, rooms, storedBytes, subscription, account, savedMethod, frozenCount] = await Promise.all([
       store.seatUsage(orgId),
       store.activeRoomCount(orgId),
       // §7 of the image spec: usage is the same row sum the upload's quota check reads,
       // so the screen never needs a second route or a second definition of "stored".
       // A store from before `files` answers zero, exactly like an organisation with no
       // pictures, rather than failing the whole page.
-      typeof store.storedBytesForOrg === "function" ? store.storedBytesForOrg() : 0,
+      typeof store.storedBytesForOrg === "function" ? store.storedBytesForOrg(orgId) : 0,
       store.liveSubscription(orgId),
       // The money module owns `billing_accounts`. The guard keeps this page readable
       // before that module is registered (an earlier stage or a test double): no account
@@ -360,6 +360,7 @@ export async function handleBilling({
       // The card is the money module's row too; the same guard keeps an older store
       // readable instead of failing the whole page.
       typeof store.paymentMethod === "function" ? store.paymentMethod(orgId) : null,
+      isAdmin && store.frozenRoomCount ? store.frozenRoomCount(orgId) : 0,
     ]);
     // `read_only_at` lives on `orgs`; the billing read includes it once the org read
     // selects the column. A missing column is "not read-only", never an error.
@@ -378,6 +379,8 @@ export async function handleBilling({
       status: entitlements.status,
       limits: entitlements.limits,
       features: [...entitlements.features],
+      featurePlans: Object.fromEntries(FEATURES.map(feature =>
+        [feature, PAID_PLANS.find(plan => PLANS[plan].features.includes(feature))])),
       usage: { seats, rooms },
       // `null` is "no limit", the same spelling the catalogue and the upload use; when
       // billing is off the family is a 404 and this body never answers (`spec/images.md` §7).
@@ -388,9 +391,9 @@ export async function handleBilling({
       credit,
       cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
       trialEnd: subscription?.trial_end ?? null,
-      // The chooser is not shipped yet; the PUT below says so. Frozen rooms are still
-      // reconciled by the plan guard, so the list is a view that arrives with the UI.
+      // Per-room freeze state comes from the access-filtered directory.
       frozenRooms: [],
+      ...(isAdmin ? { frozenCount } : {}),
       readOnly: Boolean(org?.read_only_at),
     });
     return true;
@@ -407,7 +410,7 @@ export async function handleBilling({
       return true;
     }
     const body = await readJsonBody(request);
-    if (!body || !Array.isArray(body.boardIds)) {
+    if (!body || !Array.isArray(body.boardIds) || body.boardIds.some(id => typeof id !== "string") || new Set(body.boardIds).size !== body.boardIds.length) {
       fail(response, 422, "BAD_BOARD_LIST", "expected { boardIds: string[] }");
       return true;
     }
@@ -418,8 +421,17 @@ export async function handleBilling({
       return true;
     }
     try {
-      await store.setFrozenRooms(orgId, body.boardIds.map(String));
+      const scope = body.scope;
+      if (scope !== undefined && (!Array.isArray(scope) || scope.some(id => typeof id !== "string"))) {
+        fail(response, 422, "BAD_BOARD_LIST", "scope must be an array of room ids");
+        return true;
+      }
+      await store.setFrozenRooms(orgId, body.boardIds.map(String), { scope: scope ?? null, max });
     } catch (error) {
+      if (error?.code === "ACTIVE_ROOM_LIMIT") {
+        fail(response, 422, "BAD_BOARD_LIST", "the other active rooms also count towards this plan");
+        return true;
+      }
       if (error?.code === "BOARD_NOT_FOUND") {
         fail(response, 404, "RESOURCE_NOT_AVAILABLE", "a room does not belong to this organisation");
         return true;

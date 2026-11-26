@@ -5,7 +5,6 @@ import {
   ensureProperties,
   freshBoard,
   openBoardMenu,
-  openFold,
   register,
 } from "./helpers";
 
@@ -28,11 +27,7 @@ const widgets = (page: Page) =>
 /** The line is added from the product's own shadow menu, not written into the document. */
 async function chooseCardboard(page: Page): Promise<void> {
   await ensureProperties(page);
-  await openFold(page, "More settings");
-  const inspector = page.locator("aside.inspector");
-  await inspector.getByRole("button", { name: "More actions", exact: true }).click();
-  const menu = page.getByRole("menu", { name: "More actions" });
-  await menu.getByRole("menuitemcheckbox", { name: "Cardboard", exact: true }).click();
+  await page.getByRole("combobox", { name: "Lift", exact: true }).selectOption("cardboard");
   await page.keyboard.press("Escape");
 }
 
@@ -89,11 +84,11 @@ test("the cardboard level is saved, reaches the second participant and lands in 
   // The picture comes from the same painter: export the selection and read the shadow
   // band two board units right of the shape. Only a cardboard cast reaches there.
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   const dialog = page.locator(".export-dialog");
   await dialog.getByRole("radio", { name: /^Selection/ }).click();
   const downloaded = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  await dialog.getByRole("button", { name: "Download PNG", exact: true }).click();
   const png = await downloaded;
   expect(png.suggestedFilename()).toMatch(/\.png$/);
   await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
@@ -128,5 +123,5 @@ test("the cardboard level is saved, reaches the second participant and lands in 
   expect(sample.pixel[0]).toBeLessThan(60);
   expect(sample.pixel[1]).toBeLessThan(60);
   expect(sample.pixel[2]).toBeLessThan(80);
-  await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).first().click();
 });

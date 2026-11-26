@@ -15,8 +15,6 @@ import {
   type Camera,
 } from "@remo/canvas";
 import {
-  canElevate,
-  elevationOf,
   inkFor,
   isRotatable,
   kindOf,
@@ -37,7 +35,7 @@ import type { NoteDirection } from "@remo/doc";
 import { GATHERABLE_TYPES } from "@remo/doc";
 import type { BoardSettings } from "./settings";
 import type { ImageBarTarget } from "./object-panel/ImagePanel";
-import { BAR_ROOM, COMPACT_BAR_ROOM, barTop } from "./canvasGeometry";
+import { BAR_GAP, BAR_ROOM, COMPACT_BAR_ROOM, barTop } from "./canvasGeometry";
 import { DEFAULT_FILL } from "./objectDefaults";
 
 /**
@@ -55,19 +53,7 @@ export interface Frame {
   viewport: { width: number; height: number };
 }
 
-/**
- * The note bar: one colour sample, the note sizes, text size, marks, block formats,
- * alignment, link and More. Measured at 1440 in English: 517 px before the format row,
- * plus 147 px for seven controls and a divider; half of the new width keeps the bar
- * centred instead of hanging off the right edge (ADR-127, ADR-252 §6).
- */
-const NOTE_BAR_HALF = 176;
-/**
- * The shape bar has no S/M/L row: sample, text size, marks, block formats, alignment,
- * link and More, measured at 1440: 426 + 147 px wide.
- */
-const SHAPE_BAR_HALF = 226;
-/** A free text bar is the same controls without the note sizes: 420 + 147 px wide. */
+/** Object-mode widths of the sticky note and free text bars. */
 const TEXT_BAR_HALF = 176;
 /** The arrange bar names the selection, shows the shared role, Align, grouping and More. */
 /**
@@ -75,18 +61,17 @@ const TEXT_BAR_HALF = 176;
  * which one it is guessing. A shape-only selection carries the kind switch and the two
  * corner buttons; every other selection does not.
  */
-const ARRANGE_BAR_WIDTH = 560;
-const ARRANGE_BAR_WIDTH_SHAPES = 560;
-/**
- * The connector bar: line type, one colour sample, the three end controls, the label and
- * More. Measured at 1440 with English words ≈ 440 px without a label and ≈ 540 px once the
- * label size appears, so half follows the state. The exact width moves a few pixels with
- * the word lengths ("Elbow" / "Left-aligned"); centring does not need that precision.
- */
-const LINE_BAR_HALF = 210;
-const LINE_BAR_LABEL_HALF = 230;
-/** The rail's left edge plus its gap: `--toolbar-width` 60 + 12. A bar never covers it. */
+const ARRANGE_BAR_WIDTH = 304;
+const ARRANGE_BAR_WIDTH_SHAPES = 410;
+/** The rail occupies the first 72 px including its margin. */
 const BAR_LEFT_MIN = 72;
+
+/** Follow the explicit widths of the selection bars in object-bars.css. */
+function compactBarLeft(centre: number, viewport: number, width: number) {
+  const barWidth = Math.min(width, viewport - 16);
+  const rightLimit = viewport - barWidth - 8;
+  return Math.min(rightLimit, Math.max(BAR_LEFT_MIN, centre - barWidth / 2));
+}
 
 /** Screen box of a widget, centre-anchored like the canvas is. */
 function screenBox(widget: Widget, frame: Frame) {
@@ -160,6 +145,7 @@ export function noteBarTarget(args: {
   frame: Frame;
   settings: BoardSettings;
   marks: TextMarks | null;
+  editing?: boolean;
   /** The canvas palette, for the ground of a caption (ADR-273). */
   palette?: CanvasPalette;
   resolve?: (id: string) => Widget | undefined;
@@ -170,20 +156,15 @@ export function noteBarTarget(args: {
   }
 
   const screen = screenBox(widget, frame);
-  const half =
-    widget.type === "shape"
-      ? SHAPE_BAR_HALF
-      : widget.type === "text"
-        ? TEXT_BAR_HALF
-        : NOTE_BAR_HALF;
+  const centre = screen.left + screen.width / 2;
+  const viewportWidth = frame.viewport.width;
+  let barWidth = TEXT_BAR_HALF * 2;
+  if (args.editing) barWidth = 298;
+  else if (widget.type === "shape") barWidth = viewportWidth <= 480 ? 296 : 306;
+  else if (widget.type === "sticky_note") barWidth = viewportWidth <= 480 ? 316 : 344;
+  const left = compactBarLeft(centre, viewportWidth, barWidth);
   const placement = {
-    left: Math.max(
-      BAR_LEFT_MIN,
-      Math.min(
-        screen.left + screen.width / 2 - half,
-        frame.viewport.width - half * 2 - 8,
-      ),
-    ),
+    left,
     top: barTop(screen, frame.viewport),
   };
 
@@ -231,8 +212,6 @@ export function noteBarTarget(args: {
     strokeWidth: widget.style?.strokeWidth,
     strokeStyle: widget.style?.strokeStyle,
     shapeKind: widget.type === "shape" ? (widget.shapeKind ?? "rectangle") : undefined,
-    elevation: elevationOf(widget),
-    canElevate: canElevate(widget),
     size: (widget.style?.stickySize ?? "M") as StickySize,
     fontSize: widget.style?.fontSize ?? null,
     autoSize,
@@ -294,7 +273,8 @@ export function arrangeBarTarget(args: {
     ? selected.map((widget) => widget.shapeKind ?? "rectangle")
     : [];
 
-  const barWidth = shapeKinds.length ? ARRANGE_BAR_WIDTH_SHAPES : ARRANGE_BAR_WIDTH;
+  const barWidth = shapeKinds.length ? ARRANGE_BAR_WIDTH_SHAPES
+    : frame.viewport.width <= 480 ? 292 : ARRANGE_BAR_WIDTH;
   // A selection that can turn carries the round handle above its top side; the bar
   // steps up to leave it clickable (ADR-271, T18).
   const room = selected.some(isRotatable) ? BAR_ROOM : COMPACT_BAR_ROOM;
@@ -309,13 +289,7 @@ export function arrangeBarTarget(args: {
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
     colour: commonColour(selected),
     placement: {
-      left: Math.max(
-        BAR_LEFT_MIN,
-        Math.min(
-          left + width / 2 - barWidth / 2,
-          frame.viewport.width - barWidth - 8,
-        ),
-      ),
+      left: compactBarLeft(left + width / 2, frame.viewport.width, barWidth),
       top: barTop({ top, height }, frame.viewport, room),
     },
   };
@@ -385,23 +359,38 @@ export function connectorBarTarget(args: {
   const chip = label
     ? labelMetrics(label, widget.style?.fontSize ?? 13, settings.text.fontFamily)
     : null;
-  const anchor = labelPoint(path, widget.labelAt);
-  const topWorld = chip ? Math.min(Math.min(...ys), anchor.y - chip.height / 2) : Math.min(...ys);
   const left = viewport.width / 2 + (Math.min(...xs) - camera.x) * camera.zoom;
   const right = viewport.width / 2 + (Math.max(...xs) - camera.x) * camera.zoom;
-  const top = viewport.height / 2 + (topWorld - camera.y) * camera.zoom;
-  const bottom = viewport.height / 2 + (Math.max(...ys) - camera.y) * camera.zoom;
-
+  const screenY = (worldY: number) => viewport.height / 2 + (worldY - camera.y) * camera.zoom;
+  const top = screenY(Math.min(...ys));
+  const bottom = screenY(Math.max(...ys));
+  let placementTop: number;
+  if (chip) {
+    const anchorY = screenY(labelPoint(path, widget.labelAt).y);
+    // render.ts paints a 1.5 screen-pixel outline centred on the chip boundary.
+    const halfHeight = chip.height * camera.zoom / 2 + 0.75;
+    const chipTop = anchorY - halfHeight;
+    const chipBottom = anchorY + halfHeight;
+    const unionTop = Math.min(top, chipTop);
+    // The 51px outlined strip and its 3px hard shadow stay the same size at every zoom.
+    const paintedHeight = 51 + 3;
+    const place = (start: number, end: number) =>
+      barTop({ top: start, height: end - start }, viewport, paintedHeight + BAR_GAP, paintedHeight);
+    placementTop = place(unionTop, Math.max(bottom, chipBottom));
+    if (placementTop + paintedHeight + BAR_GAP > chipTop && placementTop < chipBottom + BAR_GAP) {
+      // A long path may cross both viewport edges. Keep its label clear whenever possible.
+      placementTop = place(chipTop, chipBottom);
+    }
+  } else {
+    placementTop = barTop({ top, height: bottom - top }, viewport, COMPACT_BAR_ROOM);
+  }
   const centre = (left + right) / 2;
-  // A line without text is the narrow bar; with text it grows by the label size and
-  // the label's own colour role, so its half changes with it (ADR-120).
   const hasLabel = Boolean(widget.content?.trim());
-  const half = hasLabel ? LINE_BAR_LABEL_HALF : LINE_BAR_HALF;
   return {
     id: widget.id,
     placement: {
-      left: Math.max(BAR_LEFT_MIN, Math.min(centre - half, viewport.width - half * 2 - 8)),
-      top: barTop({ top, height: bottom - top }, viewport, COMPACT_BAR_ROOM),
+      left: compactBarLeft(centre, viewport.width, viewport.width <= 480 ? 290 : 302),
+      top: placementTop,
     },
     routing: routingOf(widget),
     strokeStyle: widget.style?.strokeStyle ?? "normal",
@@ -418,13 +407,8 @@ export function connectorBarTarget(args: {
   };
 }
 
-/**
- * The picture bar: Replace, Description, Open and More (`spec/images.md` §9.5).
- *
- * Measured at 1440 in English: Replace + Description + two icon buttons ≈ 372 px, so half
- * of it keeps the bar centred on the picture.
- */
-const IMAGE_BAR_HALF = 186;
+/** Image toolbar width in images.css, clamped to the available canvas on narrow screens. */
+const IMAGE_BAR_WIDTH = 416;
 
 export function imageBarTarget(args: {
   widget: Widget;
@@ -437,13 +421,7 @@ export function imageBarTarget(args: {
     id: widget.id,
     rect: screen,
     placement: {
-      left: Math.max(
-        BAR_LEFT_MIN,
-        Math.min(
-          screen.left + screen.width / 2 - IMAGE_BAR_HALF,
-          frame.viewport.width - IMAGE_BAR_HALF * 2 - 8,
-        ),
-      ),
+      left: compactBarLeft(screen.left + screen.width / 2, frame.viewport.width, IMAGE_BAR_WIDTH),
       top: barTop(screen, frame.viewport, COMPACT_BAR_ROOM),
     },
     x: widget.x,

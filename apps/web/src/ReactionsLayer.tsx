@@ -7,8 +7,10 @@ import { placementOfCard } from "./canvasGeometry";
 interface Burst {
   key: string;
   emoji: string;
-  x: number;
-  y: number;
+  x: number | string;
+  y: number | string;
+  anchored: boolean;
+  delay: number;
 }
 
 /**
@@ -16,8 +18,7 @@ interface Burst {
  *
  * Six emoji, no counters, no database and no backup entry. The picker is a row in the
  * facilitation menu (ADR-119, П1); this layer only turns a choice and
- * incoming awareness into bursts. A burst is placed at the sender's cursor when one is
- * available, otherwise at the centre of the view.
+ * incoming awareness into bursts. A selected object anchors the burst; other reactions rise from the bottom of the viewport.
  */
 export function ReactionsLayer({
   connection,
@@ -50,28 +51,23 @@ export function ReactionsLayer({
     const next = incoming.map((peer) => {
       seen.current.set(peer.sessionKey, peer.reaction!.at);
       const target = peer.reaction!;
-      const point =
-        Number.isFinite(target.x) && Number.isFinite(target.y)
-          ? { x: target.x!, y: target.y! }
-          : peer.cursor;
-      const x = point
-        ? viewport.width / 2 + (point.x - camera.x) * camera.zoom
-        : viewport.width / 2;
-      const y = point
-        ? viewport.height / 2 + (point.y - camera.y) * camera.zoom
-        : viewport.height / 2;
+      const anchored = Number.isFinite(target.x) && Number.isFinite(target.y);
+      const x = anchored
+        ? viewport.width / 2 + (target.x! - camera.x) * camera.zoom
+        : `${10 + Math.random() * 80}%`;
+      const y = anchored
+        ? viewport.height / 2 + (target.y! - camera.y) * camera.zoom
+        : `${85 + Math.random() * 12}%`;
       return {
         key: `${peer.sessionKey}:${peer.reaction!.at}`,
         emoji: peer.reaction!.emoji,
         x,
         y,
+        anchored,
+        delay: anchored ? 0 : Math.round(Math.random() * 100),
       };
     });
     setBursts((current) => [...current, ...next]);
-    const timer = window.setTimeout(() => {
-      setBursts((current) => current.filter((burst) => !next.some((n) => n.key === burst.key)));
-    }, 1600);
-    return () => window.clearTimeout(timer);
   }, [camera.x, camera.y, camera.zoom, presence, viewport.height, viewport.width]);
 
   // The person's own pick travels as awareness, so every screen bursts the same emoji.
@@ -91,7 +87,7 @@ export function ReactionsLayer({
     }
     connection?.awareness?.setLocalStateField("reaction", {
       emoji: request.emoji,
-      at: Date.now(),
+      at: request.at,
       ...(point ? { x: point.x, y: point.y } : {}),
     });
     // One effect per pick: `at` is the identity of the choice.
@@ -103,8 +99,9 @@ export function ReactionsLayer({
       {bursts.map((burst) => (
         <span
           key={burst.key}
-          className="reaction-burst"
-          style={{ left: burst.x, top: burst.y }}
+          className={burst.anchored ? "reaction-burst anchored" : "reaction-burst"}
+          style={{ left: burst.x, top: burst.y, animationDelay: `${burst.delay}ms` }}
+          onAnimationEnd={() => setBursts((current) => current.filter((item) => item.key !== burst.key))}
         >
           {burst.emoji}
         </span>

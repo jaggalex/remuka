@@ -16,11 +16,11 @@
     "start/quickstart",
     "capabilities/canvas"
   ],
-  "updated": "2026-11-24",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:115ad3bd796c198aa544d5399ef509937b6979d715bc086ec06698cd9af89496",
-      "targetHash": "sha256:266544a3935f0ea813decc52f52f31bbf88174cfd784e70aee1505e485523da8"
+      "sourceHash": "sha256:1a4fde53fd2f12b0e72aacf294de9f85589532d1e690be678a3f7ed9e2a3a1f4",
+      "targetHash": "sha256:8f0a1fa908a0d489862de4930f09530557817480c5cbbc418caeed1b6ba4766d"
     }
   }
 }

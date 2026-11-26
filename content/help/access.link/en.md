@@ -17,6 +17,8 @@ A room has one public link, and it is the same URL that was copied earlier. For 
 - Expiry is checked on the server. A date in the past is rejected with an explicit error.
 - An expired link does not open the room; the owner can set a new expiry or remove it.
 
+On their first visit in this browser, guests enter the password if you set one, then choose a name. They can keep the suggested name and select **Enter room**. The browser remembers their choice for future visits.
+
 ## Check the result
 
 - An enabled link opens the room in read mode.

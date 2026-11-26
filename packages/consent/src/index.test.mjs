@@ -62,6 +62,7 @@ describe("the storage registry (ADR-255 §2)", () => {
         "remo_session",
         "remo_visitor",
         "remuka.hints.*",
+        "remuka.news.dismissed",
         "support.remuka.com",
       ].sort(),
     );

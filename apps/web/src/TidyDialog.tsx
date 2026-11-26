@@ -24,6 +24,7 @@ const STRATEGIES: TidyStrategy[] = ["auto", "prefix", "type", "grid", "meaning"]
  */
 export function TidyDialog({
   open,
+  roomTags,
   boardId,
   selectionIds,
   widgets,
@@ -33,6 +34,7 @@ export function TidyDialog({
   onOpenAgents,
 }: {
   open: boolean;
+  roomTags: React.ReactNode;
   boardId: string;
   selectionIds: string[];
   widgets: Widget[];
@@ -119,6 +121,7 @@ export function TidyDialog({
   if (planTaskId) {
     return (
       <AgentPlanPanel
+        roomTags={roomTags}
         taskId={planTaskId}
         canEdit={canEdit}
         onApply={onApplyPlan}
@@ -211,9 +214,9 @@ export function TidyDialog({
           {STRATEGIES.map((option) => (
             <Button
               key={option}
-              variant={strategy === option ? "primary" : "secondary"}
+              variant="secondary"
               size="compact"
-              aria-pressed={strategy === option}
+              selected={strategy === option}
               disabled={busy || !canEdit}
               onClick={() => setStrategy(option)}
             >

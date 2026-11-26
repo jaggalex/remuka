@@ -6,6 +6,7 @@
  * Document titles are here too, so a known document never appears under its file name.
  */
 export const enLegal = {
+  "legal.changes": "What changed in “{document}”",
   "legal.documents": "Documents",
 
   "legal.doc.offer": "Offer agreement",
@@ -53,7 +54,8 @@ export const enLegal = {
   "legal.consent.consentAfter": ".",
   "legal.consent.termsBefore": "I accept the ",
   "legal.consent.termsLink": "Terms of Service",
-  "legal.consent.termsMiddle": " and the ",
+  "legal.consent.termsMiddle": ". Learn how we handle your data in our ",
+  "legal.consent.termsPrivacyLink": "Privacy Policy",
   "legal.consent.termsAfter": ".",
   "legal.consent.genericBefore": "I accept the ",
   "legal.consent.genericAfter": "",

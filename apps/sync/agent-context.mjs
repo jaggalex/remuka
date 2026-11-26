@@ -19,19 +19,7 @@ export function finite(value, fallback = 0) {
   return Number.isFinite(number) ? Math.max(-100_000, Math.min(100_000, number)) : fallback;
 }
 
-export function selectionTexts(ydoc, ids) {
-  const widgets = ydoc.getMap("widgets");
-  const texts = ydoc.getMap("texts");
-  const found = [];
-  for (const id of Array.isArray(ids) ? ids.slice(0, 20) : []) {
-    const widget = widgets.get(String(id));
-    if (!widget) continue;
-    const text = texts.get(String(id))?.toString() ?? widget.title ?? widget.content ?? "";
-    if (!String(text).trim()) continue;
-    found.push({ id: widget.id, type: widget.type, text: String(text).slice(0, 200) });
-  }
-  return found;
-}
+export { selectionTexts } from "@remo/agent-plan/model-context";
 
 export async function audit(store, log, event) {
   try {

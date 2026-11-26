@@ -9,6 +9,7 @@ import type { ConnectorSide, Rect, ShapeKind, Vec2, Widget } from "@remo/model";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DragState =
+  | { mode: "place"; start: Vec2 }
   | { mode: "pan"; startScreen: { x: number; y: number }; startCamera: Camera }
   | {
       mode: "widget";
@@ -145,8 +146,9 @@ export function useGestureEnv(deps: GestureDeps) {
     onResizeMany,
     onRotateMany,
     onMoveCard,
-    onMoveKanbanAxis,
+    onMoveKanbanAxis, onColumnTitleClick,
     onMoveToCell,
+    onCreateFirstSticker,
     onAddCard,
     onConnect,
     onConnectorPatch,
@@ -159,7 +161,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
-    shapeTool = null,
+    creationTool = null,
     readOnly = false,
   } = deps;
 
@@ -499,7 +501,7 @@ export function useGestureEnv(deps: GestureDeps) {
 
   // Escape disarms the tool, so its absence is the cancel: the draft and the gesture
   // go, and the release has nothing to commit (ADR-271).
-  const shapeArmed = shapeTool !== null;
+  const shapeArmed = creationTool?.tool === "shape";
   useEffect(() => {
     if (shapeArmed) return;
     if (dragRef.current?.mode === "shape") dragRef.current = null;
@@ -522,8 +524,9 @@ export function useGestureEnv(deps: GestureDeps) {
     onResizeMany,
     onRotateMany,
     onMoveCard,
-    onMoveKanbanAxis,
+    onMoveKanbanAxis, onColumnTitleClick,
     onMoveToCell,
+    onCreateFirstSticker,
     onAddCard,
     onConnect,
     onConnectorPatch,
@@ -536,7 +539,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
-    shapeTool,
+    creationTool,
     readOnly,
     dragRef,
     cardPreviewRef,
@@ -605,7 +608,7 @@ export function useGestureEnv(deps: GestureDeps) {
 export type GestureEnv = ReturnType<typeof useGestureEnv>;
 
 /** Pointer capture keeps the drag alive outside the canvas. */
-export function capture(event: React.PointerEvent<HTMLCanvasElement>): void {
+export function capture(event: React.PointerEvent<HTMLElement>): void {
   try {
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
   } catch {

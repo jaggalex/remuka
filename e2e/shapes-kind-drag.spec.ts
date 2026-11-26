@@ -431,6 +431,7 @@ test("a reader's rail does not arm the shape tool", async ({ page, browser }) =>
   const visitor = await browser.newContext({ locale: "en-US" });
   const reader = await visitor.newPage();
   await reader.goto(`/?room=${account.boardId}&lang=en`);
+  await reader.getByRole("button", { name: "Enter room", exact: true }).click();
   await expect(reader.locator(".rm-readonly")).toContainText(/View only/);
 
   const rail = reader.getByRole("toolbar", { name: "Tools" });
@@ -448,7 +449,7 @@ test("a reader's rail does not arm the shape tool", async ({ page, browser }) =>
   await visitor.close();
 });
 
-test("the shape bar carries the lift level, as the mockup does", async ({ page }) => {
+test("the shape bar opens its lift setting from More", async ({ page }) => {
   await freshBoard(page, "shape-lift", { template: "empty" });
   await setZoom(page, 1);
   const rail = page.getByRole("toolbar", { name: "Tools" });
@@ -465,11 +466,13 @@ test("the shape bar carries the lift level, as the mockup does", async ({ page }
   await page.mouse.up();
   await expect.poll(async () => (await shapes(page)).length).toBe(1);
 
-  const control = page.getByRole("button", { name: /^Shadow: / }).first();
-  await expect(control).toHaveAttribute("aria-label", "Shadow: None");
-  await control.click();
-  await page.getByRole("menuitemcheckbox", { name: "Cardboard", exact: true }).click();
-  await expect(control).toHaveAttribute("aria-label", "Shadow: Cardboard");
+  const more = page.getByRole("toolbar", { name: "Object properties" }).getByRole("button", { name: "More actions" });
+  await more.focus();
+  await more.press("Enter");
+  const control = page.getByRole("combobox", { name: "Lift", exact: true });
+  await expect(control).toHaveValue("none");
+  await control.selectOption("cardboard");
+  await expect(control).toHaveValue("cardboard");
   const lifted = () =>
     page.evaluate(
       () =>

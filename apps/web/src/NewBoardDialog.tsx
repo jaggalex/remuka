@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { TEMPLATE_KEYS, type TemplateKey } from "@remo/model";
-import { Button, ChoiceCard, Dialog, Input, Select } from "@remo/ui";
+import { type TemplateKey } from "@remo/model";
+import { Button, Dialog, Disclosure, Input, Select } from "@remo/ui";
 import { api, ApiError, type OrgSummary } from "./api";
 import { planLimitFrom, type PlanLimitNotice } from "./apiBilling";
 import { PlanNotice } from "./PlanNotice";
 import { useI18n } from "./i18n";
 import { HelpLink } from "./help/HelpLink";
-import { TEMPLATE_LABEL_KEY } from "./templateLabels";
+import { RoomTemplateChoices } from "./RoomTemplateChoices";
+import "./styles/new-room.css";
 
 /** A template choice is one of the four authored templates plus an empty board. */
 type Choice = "empty" | TemplateKey;
@@ -44,6 +45,7 @@ export function NewBoardDialog({
   const [teamId, setTeamId] = useState("");
   const [teams, setTeams] = useState<Array<{ id: string; name: string }>>([]);
   const [template, setTemplate] = useState<Choice>("empty");
+  const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planLimit, setPlanLimit] = useState<PlanLimitNotice | null>(null);
@@ -52,6 +54,7 @@ export function NewBoardDialog({
 
   useEffect(() => {
     if (!open) return;
+    setTouched(false);
     setTitle("");
     setTemplate(initialTemplate);
     setError(null);
@@ -85,7 +88,8 @@ export function NewBoardDialog({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (busy || !orgId) return;
+    setTouched(true);
+    if (busy || !orgId || !title.trim()) return;
     setBusy(true);
     setError(null);
     setPlanLimit(null);
@@ -121,11 +125,13 @@ export function NewBoardDialog({
     <Dialog
       title={t("newBoard.title")}
       help={<HelpLink topicId="rooms.create" />}
-      size="sm"
+      size="lg"
+      className="new-room-sheet"
+      description={t("newBoard.intro")}
       onClose={onClose}
       dismissable={!busy}
     >
-      <form className="dialog-stack new-board-dialog" onSubmit={submit}>
+      <form className="dialog-stack new-board-dialog" onSubmit={submit} noValidate>
         <Input
           label={t("newBoard.name")}
             autoFocus
@@ -133,63 +139,26 @@ export function NewBoardDialog({
             maxLength={120}
             value={title}
             placeholder={t("newBoard.namePlaceholder")}
-            onChange={(event) => setTitle(event.target.value)}
+            error={touched && !title.trim() ? t("newBoard.titleRequired") : undefined}
+            onChange={(event) => { setTouched(true); setTitle(event.target.value); }}
           />
 
-        {canCreate.length > 1 && (
-          <Select
-            label={t("newBoard.org")}
-            value={orgId}
-            options={canCreate.map((org) => ({ value: org.id, label: org.name }))}
-            onChange={(event) => setOrgId(event.target.value)}
-          />
-        )}
-
-        {teams.length > 1 && (
-          <Select
-            label={t("newBoard.team")}
-            value={teamId}
-            options={teams.map((team) => ({ value: team.id, label: team.name }))}
-            onChange={(event) => setTeamId(event.target.value)}
-          />
-        )}
-
-        {/* Two equal choices, not a list: an empty room or one with an example. The
-            example list appears only once "With an example" is chosen (P2). */}
-        <fieldset className="new-board-start">
-          <legend>{t("newBoard.template")}</legend>
-          <ChoiceCard
-            name="new-board-start"
-            value={template === "empty" ? "empty" : "example"}
-            options={[
-              {
-                value: "empty",
-                title: t("newBoard.template.empty"),
-                hint: t("newBoard.start.emptyHint"),
-              },
-              {
-                value: "example",
-                title: t("newBoard.start.example"),
-                hint: t("newBoard.start.exampleHint"),
-              },
-            ]}
-            onChange={(kind) =>
-              setTemplate(kind === "empty" ? "empty" : (TEMPLATE_KEYS[0] as Choice))
-            }
-          />
-          {template !== "empty" && (
-            <Select
-              label={t("newBoard.start.which")}
-              value={template}
-              options={TEMPLATE_KEYS.map((key) => ({ value: key, label: t(TEMPLATE_LABEL_KEY[key]) }))}
-              onChange={(event) => setTemplate(event.target.value as Choice)}
-            />
-          )}
-        </fieldset>
+        <RoomTemplateChoices value={template} onChange={setTemplate} />
+        <Disclosure label={t("newBoard.place")} value={[
+          canCreate.find(org => org.id === orgId)?.name, teams.find(team => team.id === teamId)?.name,
+        ].filter(Boolean).join(" · ")}>
+          <Select label={t("newBoard.org")} value={orgId}
+            options={canCreate.map(org => ({ value: org.id, label: org.name }))}
+            onChange={event => { setTeamId(""); setTeams([]); setOrgId(event.currentTarget.value); }} />
+          <Select label={t("newBoard.team")} value={teamId}
+            options={teams.map(team => ({ value: team.id, label: team.name }))}
+            onChange={event => setTeamId(event.currentTarget.value)} />
+        </Disclosure>
 
         {error && <p className="auth-error">{error}</p>}
         {planLimit && (
           <PlanNotice
+            orgId={orgId}
             notice={planLimit}
             onSeePlans={onOpenBilling ? () => onOpenBilling(orgId) : undefined}
             onDismiss={() => setPlanLimit(null)}
@@ -200,7 +169,7 @@ export function NewBoardDialog({
           <Button disabled={busy} onClick={onClose}>
             {t("newBoard.cancel")}
           </Button>
-          <Button type="submit" variant="primary" disabled={busy || !orgId}>
+          <Button type="submit" variant="primary" disabled={busy || !orgId || !title.trim()}>
             {busy ? t("newBoard.creating") : t("newBoard.create")}
           </Button>
         </div>

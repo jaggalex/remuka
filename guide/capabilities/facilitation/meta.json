@@ -17,11 +17,11 @@
     "reference/roles",
     "how-to/share"
   ],
-  "updated": "2026-11-02",
+  "updated": "2026-11-26",
   "translations": {
     "en": {
-      "sourceHash": "sha256:6eb71e9b1b1d0359f3dc67afebb36881404ccf3a58b4e95fb52b06d501838d82",
-      "targetHash": "sha256:086634b12d98edc3329e6adc505465d1f6d9c7025935343df521f8ecb3cb736e"
+      "sourceHash": "sha256:eea62ec02166773c87cb13518531c175d4539dc52345d5a0be483631a1d46a09",
+      "targetHash": "sha256:620ed24c9c6c5ddbf6adca3a8cfec85be56554db6c0434b868ca1a5c0122b4f8"
     }
   }
 }

@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { replayPin } from "./commentHistory";
+import { useEffect, useRef } from "react";
 import type { BoardDocument } from "@remo/doc";
-import { rigidWaypoints, type ShapeKind, type Widget } from "@remo/model";
+import { rigidWaypoints, type Widget } from "@remo/model";
 import {
   clearTableCellSelection,
   setTableCellSelection,
@@ -38,11 +39,12 @@ export function useBoardKeyboard({
   forceRender,
   pasteSelection,
   onTool,
-  armedShape,
+  toolArmed,
   onCancelTool,
   onTone,
   onLineBlock,
   onAgentUndo,
+  onHome,
 }: {
   board: BoardDocument;
   writeBlocked: boolean;
@@ -61,9 +63,9 @@ export function useBoardKeyboard({
   /** Only a dependency: a stale command context must not keep the old listener. */
   pasteSelection: unknown;
   /** Creation from the rail; one function shared by clicks and keys (ADR-119). */
-  onTool?: (tool: RailTool) => void;
+  onTool?: (tool: RailTool, code?: string) => void;
   /** The armed shape tool, if any: Escape cancels it before it clears the selection. */
-  armedShape?: ShapeKind | null;
+  toolArmed?: boolean;
   onCancelTool?: () => void;
   /** Keys 1–7 paint the main colour of the selection (ADR-127). */
   onTone?: (toneIndex: number) => void;
@@ -77,9 +79,13 @@ export function useBoardKeyboard({
    * Returns true when it consumed the keystroke.
    */
   onAgentUndo?: () => boolean;
+  onHome: () => void;
 }) {
+  const homeChordUntil = useRef(0);
 useEffect(() => {
   const onKeyDown = (event: KeyboardEvent) => {
+    const waitingForRoomKey = performance.now() < homeChordUntil.current;
+    homeChordUntil.current = 0;
     const target = event.target as HTMLElement | null;
     if (
       target &&
@@ -88,12 +94,38 @@ useEffect(() => {
       return;
     }
 
+    // Native controls own activation even when a canvas object stays selected.
+    if ((event.key === "Enter" || event.key === " ") && target?.closest("button, a[href], summary, [role=button]")) return;
+
     // A dialog or an open menu owns the keyboard: a size popover must not let Delete
     // reach the section behind it, and arrows in a menu must not move a cell.
-    if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+    const roomUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" &&
+      !event.altKey && !target?.closest('[role="dialog"]');
+    const blockingSurface = roomUndo
+      ? '[role="dialog"]:not([data-board-plan]), [role="menu"]'
+      : '[role="dialog"], [role="menu"]';
+    if (document.querySelector(blockingSurface)) return;
+
+    // A Tab from the canvas belongs to board navigation. Keep the browser's
+    // native tab order when a toolbar control, link or other UI element has focus.
+    if (event.key === "Tab" && !editingId) {
+      if (!target?.closest("canvas.layer.overlay")) return;
+      event.preventDefault();
+    }
 
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
+    if (!editingId && !mod && !event.altKey && !event.shiftKey && !event.repeat) {
+      if (waitingForRoomKey && (key === "r" || event.code === "KeyR")) {
+        event.preventDefault();
+        onHome();
+        return;
+      }
+      if (key === "g" || event.code === "KeyG") {
+        homeChordUntil.current = performance.now() + 1200;
+        return;
+      }
+    }
 
     // A selected cell owns the arrows and Escape (ADR-204). This is transient UI state,
     // so it works in a read-only room too: looking at a cell is not editing it.
@@ -151,6 +183,11 @@ useEffect(() => {
         openImageViewer(only.id);
         return;
       }
+    }
+
+    if (mod && key === "z" && replayPin(board, event.shiftKey)) {
+      event.preventDefault();
+      return;
     }
 
     // An offline overflow or a revoked write permission stops every mutating
@@ -237,7 +274,7 @@ useEffect(() => {
     const command = commandForShortcut(event, commandContext);
     if (command) {
       event.preventDefault();
-      runCommand(command, commandContext);
+      if (!event.repeat || command.id !== "delete") runCommand(command, commandContext);
       return;
     }
 
@@ -268,7 +305,7 @@ useEffect(() => {
 
     if (event.key === "Escape") {
       // An armed tool is a mode; Escape leaves the mode before it drops the selection.
-      if (armedShape) {
+      if (toolArmed) {
         event.preventDefault();
         onCancelTool?.();
         return;
@@ -296,9 +333,7 @@ useEffect(() => {
       return;
     }
 
-    // Tool keys (ADR-119). They create at once; there is no placement mode, so the
-    // shortcut is the same action as a rail click. A modal owns the keyboard while it
-    // is open, and a held key must not pour objects onto the board.
+    // A tap takes the usual tool action. N/R/T also accept pointer placements while held.
     if (onTool && !mod && !event.altKey && !event.repeat) {
       if (document.querySelector('[aria-modal="true"], [role="menu"]')) return;
       if (event.shiftKey) {
@@ -319,10 +354,11 @@ useEffect(() => {
         f: "frame",
         c: "card",
       };
-      const tool = tools[key];
+      const placementKeys: Record<string, RailTool> = { KeyN: "sticky", KeyR: "rectangle", KeyT: "text" };
+      const tool = tools[key] ?? placementKeys[event.code];
       if (tool) {
         event.preventDefault();
-        onTool(tool);
+        onTool(tool, event.code);
       }
     }
   };
@@ -330,7 +366,7 @@ useEffect(() => {
   return () => window.removeEventListener("keydown", onKeyDown);
 }, [
   addConnectedNote,
-  armedShape,
+  toolArmed,
   board,
   commandContext,
   editingId,
@@ -342,6 +378,7 @@ useEffect(() => {
   onTone,
   onLineBlock,
   onAgentUndo,
+  onHome,
   pasteSelection,
   selectedIds,
   widgets,

@@ -4,36 +4,42 @@ The screen has three zones and menus: the header describes the room and the sess
 
 ## Header
 
-The header has eight places, and a calm room shows exactly eight. On the left are the Remuka mark and the path with the room name; on the right are people, **Run**, **Agent**, discussion, **Invite** and the account. Everything else lives in those eight menus and is found there by its name.
+On the left are the Remuka logo, a link to the team and the room menu. On the right are people, **Run**, **Agent** (when available), **Invite** and your account.
 
 | Element | What it opens |
 |---|---|
-| Mark | the account menu: all rooms, theme, language, help, sign out |
-| Path and room name ▾ | rename, settings, properties, access, export, restore, copy, link, template, apps; below the line, replace and trash |
+| Remuka logo | all rooms in the organisation. On the keyboard, press G then R |
+| Team name | the rooms in this team |
+| Room name ▾ | the room menu. Open **Properties and access** for permissions or the properties panel, and **More** for comments and settings. A count beside the room name shows unread comments |
 | People | who is here, their roles, followers and guests by link; "follow" |
 | **Run** ▾ | timer, voting, presentation, shared viewing, reactions |
 | **Agent** ▾ | give the agent a task, ask the agent, agents and journal |
-| Discussion | the comments panel; the counter shows unread and hides zero |
 | **Invite** | participant roles and the public link — the screen's primary button |
 | Account | name and `@handle`, all rooms, theme, language, help and keys, sessions, security, organisation, documents, sign out |
 
 The centre of the header stays empty. Icon-only controls are named in a tooltip on hover or focus.
 
-**The save state** appears only when something is wrong. A saved room has no indicator; "Saving…" shows if the acknowledgement takes longer than two seconds; "No connection — edits will wait" appears at once; after coming back, "All saved" stays for two seconds.
+**Save status.** If a change takes over two seconds to reach the server, “Saving…” appears beside the room name. When the connection drops, “No connection” shows how many changes are waiting and a notice asks you to keep the tab open. Viewers see when updates from the team will return. Once the connection recovers, “Saved” appears for two seconds.
 
 **Timer and voting** are states, not items. While a timer runs, a `04:12` chip sits to the right of **Run**; the last ten seconds turn red. While voting is open, the chip reads "Votes: 22". A chip appears on start, disappears on finish and opens **Run** at its section.
 
-On a narrow screen (below 900 px) the name, people (up to two faces), **Run** as an icon, **Invite** and the account stay. Agent and discussion move into the account menu, and a running session becomes a dot on the **Run** icon.
+Below 900 px the room menu, people, **Run**, **Invite** and the account remain visible. Open the agent from the account menu. At any width, click the room name and choose **More → Comments**.
 
 ## Menus
 
 | Menu | What it contains |
 |---|---|
-| Room name | rename, settings, properties, access, export, restore, copy, link, template, apps, replace with a template, trash |
+| Room name | rename, properties and access, export, copy link, move to trash. **More** contains appearance, settings, comments, restore, duplicate, templates, apps and replacement |
 | **Run** | timer, voting, presentation, shared viewing, reactions |
 | **Agent** | give the agent a task, ask the agent, agents and journal |
 | People | participants with roles, "follow", followers and guests by link |
 | Account | all rooms, find an action, theme (light, dark), language (Russian, English), calm animations, help, show the hints again, active sessions, security, organisation, documents, cookies, sign out. Theme, language and calm animations belong to the account and follow it to another device; before sign-in the browser choice applies |
+
+## How to switch to dark mode
+
+To turn on the dark theme in a room, open the account menu in the upper right and select Dark. To switch back, select Light in the same menu.
+
+On the home page with the room list, click the sun icon in the upper right. Click the moon icon to switch back.
 
 ## Command search
 
@@ -77,16 +83,16 @@ While you drag, rotate or draw on the canvas, the header, the rail and the botto
 |---|---|
 | Create a sticky note, shape, text, frame or card | the rail on the left |
 | Change a colour | the sample on the object bar or the palette in the rail |
-| Open properties | room menu → **Properties** |
+| Open properties | room menu → **Properties and access → Properties** |
 | Start a presentation | **Run ▾ → Start presentation** |
-| Discuss an object | the discussion icon in the header or a pin on the canvas |
+| Discuss an object | **Room menu → More → Comments** or a pin on the canvas |
 | Start voting | **Run ▾ → Voting** |
 | Change the theme or language | the account menu; with an account the choice follows you to other devices |
 | Remove springs and transitions | the account menu → **Calm animations**; with an account the setting follows you to other devices |
 | Bring the hints back | the account menu → **Show the hints again** |
 | Find or end a session on another device | account menu → **Active sessions** |
 | Invite a person or turn on the link | **Invite** |
-| Add a template | room menu → **Templates…** |
+| Add a template | room menu → **More → Templates…** |
 | Set a task for an agent | **Agent ▾ → Give the agent a task** |
 | Open all rooms | account menu → **All rooms** |
 | Find an action by name | `⌘K`, **Find an action** at the bottom, or the account menu |

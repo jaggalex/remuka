@@ -96,6 +96,14 @@ export const billingMethods = {
     return rows[0]?.rooms ?? 0;
   },
 
+  async frozenRoomCount(orgId) {
+    const { rows } = await this.pool.query(
+      "select count(*)::int as count from boards where org_id = $1 and archived_at is null and frozen_at is not null",
+      [orgId],
+    );
+    return rows[0].count;
+  },
+
   /** Agent tasks created in the current calendar month, for the Free ceiling (§2.4). */
   async agentTasksThisMonth(orgId) {
     const { rows } = await this.pool.query(
@@ -458,19 +466,25 @@ export const billingMethods = {
    * The owner's explicit choice of active rooms (§2.5). Only rooms of this organisation
    * are accepted; the rest are frozen, so the chosen set is exactly the active one.
    */
-  async setFrozenRooms(orgId, boardIds) {
+  async setFrozenRooms(orgId, boardIds, { scope = null, max = null } = {}) {
     if (!Array.isArray(boardIds)) throw new TypeError("boardIds must be an array");
     const client = await this.pool.connect();
     try {
       await client.query("begin");
-      const { rows: owned } = await client.query(
-        "select id from boards where org_id = $1 and id = any($2::text[])",
-        [orgId, boardIds],
+      // Serialise choices for this organisation, including older callers that replace the whole set.
+      await client.query("select id from orgs where id = $1 for update", [orgId]);
+      const { rows } = await client.query(
+        "select id, frozen_at from boards where org_id = $1 and archived_at is null order by id for update",
+        [orgId],
       );
-      if (owned.length !== boardIds.length) {
-        throw Object.assign(new Error("a room does not belong to this organisation"), {
-          code: "BOARD_NOT_FOUND",
-        });
+      const candidates = new Set(scope ?? rows.map(row => row.id));
+      const owned = new Set(rows.map(row => row.id));
+      if ([...candidates].some(id => !owned.has(id)) || boardIds.some(id => !candidates.has(id))) {
+        throw Object.assign(new Error("room no longer available for this choice"), { code: "BOARD_NOT_FOUND" });
+      }
+      const reserved = rows.filter(row => !candidates.has(row.id) && row.frozen_at === null).length;
+      if (max !== null && reserved + boardIds.length > max) {
+        throw Object.assign(new Error("selection exceeds the active room limit"), { code: "ACTIVE_ROOM_LIMIT" });
       }
       await client.query(
         `update boards
@@ -478,8 +492,8 @@ export const billingMethods = {
               when id = any($2::text[]) then null
               else coalesce(frozen_at, now())
             end
-          where org_id = $1 and archived_at is null`,
-        [orgId, boardIds],
+          where org_id = $1 and archived_at is null and ($3::text[] is null or id = any($3::text[]))`,
+        [orgId, boardIds, scope],
       );
       await client.query("commit");
     } catch (error) {

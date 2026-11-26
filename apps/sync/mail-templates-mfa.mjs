@@ -4,7 +4,7 @@
  * Split from `mail-templates.mjs` for the file-size ratchet; the renderers are registered
  * there. Copy is normative: what happened, when, and where to write if it was not you.
  */
-import { BUTTON_LABELS, documentHtml, escapeHtml, param } from "./mail-template-kit.mjs";
+import { BUTTON_LABELS, bodyHtml, escapeHtml, param } from "./mail-template-kit.mjs";
 
 /**
  * The second factor's letters (ADR-262 §6, `spec/totp.md` §7).
@@ -19,8 +19,8 @@ function mfaLetter(lang, values, { subject, lines, footer }) {
   const settingsUrl = param(values, "settingsUrl");
   return {
     subject,
-    text: `${lines.join(" ")} ${footer}\n\n${settingsUrl}`,
-    html: documentHtml({
+    text: `${lines.join(" ")} ${footer}\n\n${BUTTON_LABELS[lang].mfa_settings}: ${settingsUrl}`,
+    html: bodyHtml({
       lang,
       paragraphs: lines.map(escapeHtml),
       footer: escapeHtml(footer),

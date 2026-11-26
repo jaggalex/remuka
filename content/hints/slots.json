@@ -1,0 +1,773 @@
+[
+  {
+    "id": "journal.empty",
+    "screen": "activity",
+    "description": {
+      "ru": "Когда в журнале организации ещё нет событий",
+      "en": "When the organisation journal is empty"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Пока ничего не происходило."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Nothing has happened yet."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "search.first",
+    "screen": "search",
+    "description": {
+      "ru": "При первом вводе команды",
+      "en": "Before entering a command"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Что сделать? Например: таймер, экспорт, тема"
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "What do you want to do? Try timer, export, theme"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "room.empty",
+    "screen": "room",
+    "description": {
+      "ru": "Когда можно начать работу на пустом холсте",
+      "en": "When starting an empty board"
+    },
+    "maxLength": {
+      "body": 240,
+      "title": 90
+    },
+    "placeholders": [],
+    "bold": true,
+    "fields": [
+      "body",
+      "title"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "title": "Здесь пока **тихо**",
+            "body": "Кликните дважды в любом месте — появится стикер. Или начните с одного из способов ниже."
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "title": "Чистый лист — **лучший старт**",
+            "body": "Бросьте первую мысль на стол. Порядок наведём потом — с шаблоном или агентом."
+          }
+        },
+        {
+          "key": "together",
+          "intent": "together",
+          "enabled": true,
+          "fields": {
+            "title": "Комната ждёт **людей**",
+            "body": "Позовите коллег — они увидят ваш курсор сразу. А пока — первый стикер двойным кликом."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "title": "It's **quiet in here**",
+            "body": "Double-click anywhere to drop a sticker. Or start with one of the ways below."
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "title": "Start with **a blank canvas**",
+            "body": "Put your first thought on the board. A template or an agent can help you organise it later."
+          }
+        },
+        {
+          "key": "together",
+          "intent": "together",
+          "enabled": true,
+          "fields": {
+            "title": "Make room **for your team**",
+            "body": "Invite a teammate and they’ll see your cursor right away. While you wait, double-click to add your first sticker."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "canvas.doubleClickEdit",
+    "screen": "room",
+    "description": {
+      "ru": "Первое редактирование объекта",
+      "en": "Learning to edit an object"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Двойной клик — правка · синяя точка на линии меняет её форму · подпись можно перетащить"
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Хотите поправить текст на холсте? Кликните по нему дважды."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Double-click to edit · drag a line's blue dot to reshape it · drag a label to move it"
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Need to change some text on the canvas? Double-click it to edit."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "sticky.series",
+    "screen": "room",
+    "description": {
+      "ru": "Несколько стикеров подряд",
+      "en": "Placing several sticky notes"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Удерживайте N и кликайте — стикеры подряд."
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Несколько мыслей подряд? Удерживайте N и ставьте стикеры."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Hold N and click to place sticky notes in a row."
+          }
+        },
+        {
+          "key": "benefit",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Several ideas to jot down? Hold N and click where each note belongs."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "home.quiet",
+    "screen": "home",
+    "description": {
+      "ru": "Под приветствием, когда новостей нет",
+      "en": "Below the greeting when there are no updates"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Начните с шаблона или с пустой комнаты — порядок наведём потом."
+          }
+        },
+        {
+          "key": "together",
+          "intent": "together",
+          "enabled": true,
+          "fields": {
+            "body": "Создайте комнату и пригласите коллегу поработать вместе."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Start with a template or an empty room — we'll tidy up later."
+          }
+        },
+        {
+          "key": "together",
+          "intent": "together",
+          "enabled": true,
+          "fields": {
+            "body": "Start with a room and invite someone to work with you."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "comments.empty",
+    "screen": "comments",
+    "description": {
+      "ru": "Обсуждений ещё нет",
+      "en": "Before the first discussion"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Комментариев пока нет."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "No comments yet."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "comments.closed",
+    "screen": "comments",
+    "description": {
+      "ru": "Нет закрытых обсуждений",
+      "en": "No closed discussions"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Все вопросы закрыты. Новые появятся здесь — и булавкой на холсте."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Every question is closed. New ones appear here — and as a pin on the canvas."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "search.empty",
+    "screen": "search",
+    "description": {
+      "ru": "Поиск не дал результатов",
+      "en": "The search has no matches"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Такого пока нет. Попробуйте другое слово — или спросите агента."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Nothing like that yet. Try another word — or ask the agent."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tool.connect",
+    "screen": "room",
+    "description": {
+      "ru": "Когда выбрано меньше двух объектов",
+      "en": "When fewer than two objects are selected"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Выберите два объекта, чтобы соединить их"
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Select two objects to connect them"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "follow.explain",
+    "screen": "follow",
+    "description": {
+      "ru": "Включение автоследования",
+      "en": "When choosing to follow a presenter"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "для группы, которая так договорилась: приглашение двигает вид без вопроса"
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "for a workshop that agreed: the invitation moves viewports without a prompt"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "vote.history",
+    "screen": "voting",
+    "description": {
+      "ru": "В журнале ещё нет голосований",
+      "en": "When the voting history is empty"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Выделите объекты в комнате и запустите первую сессию."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "action",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Select objects in the room and start the first session."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "news.mention",
+    "screen": "home",
+    "description": {
+      "ru": "Упоминание",
+      "en": "Mention team update"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [
+      "name",
+      "room"
+    ],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "Вам написали в комнате «{room}». Автор — {name}."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "В «{room}» вас ждёт обсуждение. В нём участвует {name}."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "{name} has a comment for you in “{room}”."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Join the discussion with {name} in “{room}”."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "news.agent",
+    "screen": "home",
+    "description": {
+      "ru": "Предложение агента",
+      "en": "Agent team update"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [
+      "room"
+    ],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "В «{room}» готово предложение агента. Можно посмотреть."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Предложение в «{room}» ждёт вашего решения."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "An agent’s proposal in “{room}” is ready to review."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Your decision is needed on a proposal in “{room}”."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "news.live",
+    "screen": "home",
+    "description": {
+      "ru": "Коллеги в комнате",
+      "en": "Live team update"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [
+      "name",
+      "others",
+      "room"
+    ],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "В комнате «{room}» уже работает {name}{others}."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Сейчас в «{room}» — {name}{others}."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "{name} is in “{room}”{others}."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "In “{room}” right now: {name}{others}."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "news.joined",
+    "screen": "home",
+    "description": {
+      "ru": "Новый участник",
+      "en": "Joined team update"
+    },
+    "maxLength": {
+      "body": 240
+    },
+    "placeholders": [
+      "name"
+    ],
+    "bold": false,
+    "fields": [
+      "body"
+    ],
+    "defaults": {
+      "ru": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "В команде новый участник — {name}."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Теперь с вами работает {name}."
+          }
+        }
+      ],
+      "en": [
+        {
+          "key": "a",
+          "intent": "action",
+          "enabled": true,
+          "fields": {
+            "body": "{name} joined the team."
+          }
+        },
+        {
+          "key": "b",
+          "intent": "benefit",
+          "enabled": true,
+          "fields": {
+            "body": "Welcome your new teammate, {name}."
+          }
+        }
+      ]
+    }
+  }
+]

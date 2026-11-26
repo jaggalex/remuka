@@ -12,6 +12,7 @@ import { CARD_RADIUS, drawCardSheet } from "./cardSheet";
 import type { KanbanLayout } from "./layout";
 import { DEFAULT_PALETTE, type CanvasPalette } from "./palette";
 import { roundRect } from "./path";
+import { ellipsize } from "./labelLayout";
 import { DEFAULT_FONT_FAMILY } from "./textLayout";
 import { fillWithHalo } from "./textPaint";
 
@@ -104,6 +105,33 @@ export function columnHeaderText(column: { title: string; count: number; wipLimi
   return `${column.title} · ${columnCountText(column)}`;
 }
 
+export function columnHeaderInk(column: KanbanLayout["columns"][number], ground: string, palette: CanvasPalette) {
+  const accent = matchColor(column.accent);
+  const chosen = accent?.exact && accent.color.level === 600 ? column.accent : null;
+  const text = inkFor(ground, chosen);
+  return column.wipLimit != null && column.count > column.wipLimit
+    ? { color: palette.dangerInk, halo: null } : text;
+}
+
+/** The band outside this button still moves the whole kanban (ADR-244). */
+export function columnHeaderBox(layout: KanbanLayout, column: KanbanLayout["columns"][number], zoom = 1) {
+  const inset = Math.max(0, layout.padding - 4);
+  const height = Math.min(layout.headerHeight * .8, Math.max(34, 26 / zoom));
+  return { x: column.left + inset, y: layout.top + layout.headerHeight * .42 - height / 2,
+    width: Math.max(0, column.width - 2 * inset), height };
+}
+
+/** Always keep the live count visible when a long title meets the swatch. */
+export function fittedColumnHeader(ctx: Pick<CanvasRenderingContext2D, "measureText">,
+  column: KanbanLayout["columns"][number], width: number) {
+  const full = columnHeaderText(column);
+  if (ctx.measureText(full).width <= width) return full;
+  const suffix = " · " + columnCountText(column);
+  const available = width - ctx.measureText(suffix).width;
+  if (available < ctx.measureText("…").width) return columnCountText(column);
+  return ellipsize(ctx, column.title, available) + suffix;
+}
+
 /** A title on the kanban: what it names, and its box in world units. */
 export interface KanbanTitleTarget {
   kind: "column" | "lane";
@@ -124,8 +152,9 @@ export function kanbanTitleAt(
   point: { x: number; y: number },
   measure: (text: string, font: string) => number,
   fontFamily: string = DEFAULT_FONT_FAMILY,
+  zoom = 1,
 ): KanbanTitleTarget | null {
-  for (const target of kanbanTitles(layout, measure, fontFamily)) {
+  for (const target of kanbanTitles(layout, measure, fontFamily, zoom)) {
     const { x, y, width, height } = target.box;
     if (point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height) return target;
   }
@@ -135,23 +164,19 @@ export function kanbanTitleAt(
 /** Every title box of a kanban, columns first. */
 export function kanbanTitles(
   layout: KanbanLayout,
-  measure: (text: string, font: string) => number,
-  fontFamily: string = DEFAULT_FONT_FAMILY,
+  _measure: (text: string, font: string) => number,
+  _fontFamily: string = DEFAULT_FONT_FAMILY,
+  zoom = 1,
 ): KanbanTitleTarget[] {
-  const { top, headerHeight, padding, left, laneStrip } = layout;
+  const { padding, left, laneStrip } = layout;
   const out: KanbanTitleTarget[] = [];
-  const titleY = top + headerHeight * 0.42;
   layout.columns.forEach((column, index) => {
-    const width =
-      measure(columnHeaderText(column), `800 20px ${fontFamily}`) +
-      8;
-    const room = column.width - padding * 2;
     out.push({
       kind: "column",
       id: column.id,
       index,
       title: column.title,
-      box: { x: column.left + padding - 4, y: titleY - 16, width: Math.min(width, room) + 8, height: 32 },
+      box: columnHeaderBox(layout, column, zoom),
     });
   });
   if (laneStrip > 0) {
@@ -199,22 +224,35 @@ export function drawKanban(
   // board's ground, which is content and stays light green in both themes (ADR-273,
   // ADR-279).
   for (const column of layout.columns) {
-    const over = column.wipLimit != null && column.count > column.wipLimit;
-    const accent = matchColor(column.accent);
-    const chosen = accent?.exact && accent.color.level === 600 ? column.accent : null;
-    const headerInk = inkFor(ground, chosen);
-    ctx.fillStyle = over ? palette.dangerInk : headerInk.color;
+    const headerInk = columnHeaderInk(column, ground, palette);
+    ctx.fillStyle = headerInk.color;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.font = `800 ${20}px ${font}`;
+    const box = columnHeaderBox(layout, column, zoom);
+    const cy = box.y + box.height / 2;
+    const right = box.x + box.width;
     fillWithHalo(
       ctx,
-      columnHeaderText(column),
-      column.left + padding,
-      top + headerHeight * 0.42,
+      fittedColumnHeader(ctx, column, box.width - 52),
+      box.x + 8,
+      cy,
       headerInk.halo,
       1.5 / zoom,
     );
+    roundRect(ctx, right - 38, cy - 8, 16, 16, 4);
+    ctx.fillStyle = column.accent;
+    ctx.fill();
+    ctx.strokeStyle = ink(ground, "icon");
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = ink(ground, "icon");
+    ctx.beginPath();
+    ctx.moveTo(right - 16, cy - 3);
+    ctx.lineTo(right - 7, cy - 3);
+    ctx.lineTo(right - 11.5, cy + 3);
+    ctx.closePath();
+    ctx.fill();
   }
 
   // Swimlane bands and their dividers. A lane's title and count live in the strip on the

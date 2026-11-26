@@ -9,10 +9,7 @@ const LANGS = new Set<Lang>(["ru", "en"]);
 
 function serverTheme(preferences: AccountPreferences | undefined): Theme | null {
   const value = preferences?.theme;
-  // ADR-194: `system` is read as light and stays on the server until the person picks.
-  if (value === "dark") return "dark";
-  if (value === "light" || value === "system") return "light";
-  return null;
+  return value === "dark" || value === "light" || value === "system" ? value : null;
 }
 
 function serverLang(preferences: AccountPreferences | undefined): Lang | null {

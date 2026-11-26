@@ -55,7 +55,7 @@
 .rm-btn-danger:hover, .rm-btn-danger.is-hover { background: var(--danger-hover); }
 .rm-btn-danger:active, .rm-btn-danger.is-active { background: var(--danger-hover); }
 /* ADR-265 §3.7: a chosen tool sits on a marker chip with an ink outline; the icon stays ink. */
-.rm-btn[aria-pressed="true"], .rm-btn.is-selected { background: var(--accent-chosen); color: var(--text-primary); border-color: var(--border-ink); }
+.rm-btn[aria-pressed="true"], .rm-btn.is-selected { background: var(--accent-chosen); color: var(--text-on-chosen); border-color: var(--border-ink); }
 .rm-btn:disabled, .rm-btn.is-disabled { cursor: not-allowed; background: var(--bg-hover); color: var(--text-muted); border-color: transparent; box-shadow: none; }
 .rm-btn-ghost:disabled { background: transparent; }
 .rm-btn.is-loading { cursor: progress; background: var(--bg-hover); color: var(--text-secondary); }
@@ -210,6 +210,8 @@
 .rm-menu-hint { font-size: 12px; line-height: 16px; color: var(--text-secondary); }
 .rm-menu-sep { height: 1px; background: var(--border-subtle); margin: var(--space-1) calc(var(--space-2) * -1); }
 .rm-menu-heading { padding: var(--space-2) var(--space-2) var(--space-1); font: 500 12px/16px var(--font-sans); color: var(--text-muted); }
+.rm-menu-pair { display: grid; grid-template-columns: minmax(0, max-content) auto minmax(0, max-content); align-items: center; justify-content: start; }
+.rm-menu-pair .rm-menu-icon:empty { display: none; }
 
 /* ---------- Dialog ---------- */
 .rm-dialog-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--bg-overlay); display: grid; place-items: center; padding: 20px; }
@@ -529,7 +531,9 @@ span.rm-zoom-value { display: inline-grid; place-items: center; cursor: default;
 .rm-lightbox-actions .rm-btn { color: var(--text-on-scrim); }
 .rm-lightbox-actions .rm-btn:hover { color: var(--accent); background: transparent; }
 .rm-lightbox-body { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
-.rm-lightbox-caption { margin: 0; font: var(--type-body); color: var(--text-on-scrim); opacity: 0.8; max-width: 70ch; }
+.rm-lightbox-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.rm-lightbox-caption { margin: 0; font: var(--type-body); color: var(--text-on-scrim); opacity: 0.8; max-width: 70ch; overflow-wrap: anywhere; }
+.rm-lightbox-hint { margin: 0; margin-inline-start: auto; font: var(--type-caption); }
 
 /* ADR-265 §4.2: a dialog drops onto the table with a small bounce. It does not fade: body text
    must stay at contrast from the first frame, and a browser accessibility scan reads the

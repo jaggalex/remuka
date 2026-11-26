@@ -11,7 +11,7 @@ import {
 /**
  * The tidy header (ADR-266 §2, §4).
  *
- * Eight elements at 1440 px, five at 390 px, and every row of every menu is a command
+ * Eight groups at 1440 px including the breadcrumb and room title, five controls at 390 px, and every row of every menu is a command
  * from the registry: the `data-command` attributes are the proof, not a screenshot.
  */
 async function interactiveCount(page: import("@playwright/test").Page): Promise<number> {
@@ -28,28 +28,51 @@ async function expectRegistryRows(menu: Locator): Promise<void> {
   }
 }
 
-test("the room header has at most eight controls and every menu row is a command", async ({
+test("the room header includes the directory shortcut and every menu row is a command", async ({
   page,
 }) => {
   await freshBoard(page, "header-tidy");
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  // Logo, room menu, people, Run, comments, Invite, account. The agent is absent in a
-  // room that has no agents, so a calm room is seven here and eight with the agent.
+  // This room has no agent. The logo and the team breadcrumb are separate destinations.
+  await expect(page.locator(".topbar-path a")).toBeVisible();
   expect(await interactiveCount(page)).toBeLessThanOrEqual(8);
+  await expect(page.locator(".topbar-mark")).toHaveAccessibleName("All rooms");
   for (const name of [
-    "Remuka: account and rooms",
     /^Room menu:/,
     /^People in the room:/,
     "Run",
-    /^Comments/,
     "Invite",
     /^Account and interface/,
   ]) {
     await expect(page.locator(".topbar").getByRole("button", { name })).toBeVisible();
   }
 
+  const inviteUses: unknown[] = [];
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/chrome/used") {
+      const payload = request.postDataJSON();
+      if (payload.control === "invite.open") inviteUses.push(payload);
+    }
+  });
+  await page.locator(".topbar").getByRole("button", { name: "Invite", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Invite to the room" })).toBeVisible();
+  await expect.poll(() => inviteUses).toEqual([{ control: "invite.open" }]);
+  await page.keyboard.press("Escape");
+
   await openBoardMenu(page);
+  const roomMenu = page.getByRole("menu", { name: "Room menu", exact: true });
+  const copyLink = roomMenu.locator('[data-command="room.copyLink"]');
+  await expect(roomMenu).toHaveCSS("width", "318px");
+  await expect(copyLink).toHaveCSS("min-height", "40px");
+  await expect(copyLink).toHaveCSS("font-size", "15px");
+  const more = roomMenu.locator('[data-command="room.more"]');
+  await expect(roomMenu.getByRole("menuitemcheckbox", { name: "Comments" })).toHaveCount(0);
+  await more.focus();
+  await more.press("Enter");
+  await expect(page.getByRole("menuitemcheckbox", { name: "Comments" })).toHaveAttribute("aria-checked", "false");
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
   await expectRegistryRows(page.locator(".rm-menu").last());
   await page.keyboard.press("Escape");
 
@@ -65,11 +88,12 @@ test("the room header has at most eight controls and every menu row is a command
   const account = page.locator(".rm-popover").last();
   await expectRegistryRows(account);
   // Theme and language are rows here now; the header has no toggles of its own.
-  await expect(account.getByRole("button", { name: "Light", exact: true })).toBeVisible();
-  await expect(account.getByRole("button", { name: "Russian", exact: true })).toBeVisible();
+  await expect(account.getByRole("radio", { name: "Light", exact: true })).toBeVisible();
+  await expect(account.getByRole("radio", { name: "Russian", exact: true })).toBeVisible();
+  expect(inviteUses).toHaveLength(1);
 });
 
-test("at 390 px five controls stay and the rest move into the account menu", async ({ page }) => {
+test("at 390 px five controls stay and discussion stays in the room menu", async ({ page }) => {
   await freshBoard(page, "header-narrow");
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -81,9 +105,21 @@ test("at 390 px five controls stay and the rest move into the account menu", asy
   await expect(page.getByRole("button", { name: /^Comments/ })).toBeHidden();
   await expect(page.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
 
-  await openAccount(page);
-  // Comments has no room in the header below 900 px; the same registry row is here.
-  await expect(page.locator('[data-command="header.comments"]')).toBeVisible();
+  await openBoardMenu(page, "more");
+  const comments = page.getByRole("menuitemcheckbox", { name: "Comments" });
+  await comments.focus();
+  await comments.press("Enter");
+  await expect(page.locator(".comments-panel")).toBeVisible();
+  await openBoardMenu(page, "more");
+  await expect(comments).toHaveAttribute("aria-checked", "true");
+  await expect(comments.locator(".rm-menu-icon")).toBeVisible();
+  // In a short viewport the last command stays reachable within the menu.
+  await page.setViewportSize({ width: 390, height: 350 });
+  const roomMenu = page.getByRole("menu").filter({ has: comments });
+  await expect(roomMenu).toBeInViewport({ ratio: 1 });
+  const last = roomMenu.locator("button[data-command]").last();
+  await last.focus();
+  await expect(last).toBeInViewport({ ratio: 1 });
 });
 
 test("a room with an agent gets the eighth control, and its menu is registry rows", async ({
@@ -92,6 +128,7 @@ test("a room with an agent gets the eighth control, and its menu is registry row
   await agentBoard(page, "header-agent");
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  await expect(page.locator(".topbar-path a")).toBeVisible();
   expect(await interactiveCount(page)).toBeLessThanOrEqual(8);
   await page.getByRole("button", { name: "Agent", exact: true }).click();
   await expectRegistryRows(page.locator(".rm-menu").last());
@@ -102,4 +139,41 @@ test("a room with an agent gets the eighth control, and its menu is registry row
   await expect(page.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
   await openAccount(page);
   await expect(page.locator('[data-command="header.agent"]')).toBeVisible();
+});
+
+test("logo, team breadcrumb and G R return to the right room directory", async ({ page }) => {
+  const { orgId, boardId } = await freshBoard(page, "home-shortcut");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const response = await page.request.get("/api/boards/" + boardId + "/access");
+  const { board } = await response.json();
+  expect(board.team?.id).toBeTruthy();
+  const teamLink = page.locator(".topbar-path a");
+  await expect(teamLink).toHaveText(board.team.name);
+
+  const another = await page.request.post("/api/orgs/" + orgId + "/teams", { data: { name: "Another team" } });
+  expect(another.ok(), await another.text()).toBeTruthy();
+  const secondTeam = (await another.json()).team.id;
+  const second = await page.request.post("/api/orgs/" + orgId + "/boards", {
+    data: { title: "Another team room", teamId: secondTeam },
+  });
+  expect(second.ok(), await second.text()).toBeTruthy();
+  await teamLink.click();
+  const filtered = new URL(page.url());
+  expect(filtered.searchParams.get("team")).toBe(board.team.id);
+  const data = await (await page.request.get("/api/boards" + filtered.search)).json();
+  expect(data.boards.map((room: { id: string }) => room.id)).toEqual([boardId]);
+  await expect(page.getByText("Another team room", { exact: true })).toHaveCount(0);
+
+  for (const action of ["logo", "keyboard"]) {
+    await page.goto("/?room=" + boardId + "&lang=en");
+    const mark = page.locator(".topbar-mark");
+    await expect(mark).toHaveAttribute("href", /[?]org=/);
+    if (action === "logo") await mark.click();
+    else {
+      await page.keyboard.press("g");
+      await page.keyboard.press("r");
+    }
+    await expect(page).toHaveURL(url => url.searchParams.has("org") && !url.searchParams.has("team") && !url.searchParams.has("room"));
+    await expect(page.getByText("Another team room", { exact: true }).first()).toBeVisible();
+  }
 });

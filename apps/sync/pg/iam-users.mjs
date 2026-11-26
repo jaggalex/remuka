@@ -194,6 +194,25 @@ async revokeUserSessions(userId, { except = null } = {}) {
   );
 },
 
+/** Revocation and its single audit row commit together (ADR-270). */
+async revokeOtherSessions(userId, sessionId, requestId) {
+  const { rows } = await this.pool.query(
+    `with revoked as (
+       update sessions set revoked_at = now()
+        where user_id = $1 and id <> $2 and revoked_at is null and expires_at > now()
+        returning id
+     ), total as (select count(*)::int as count from revoked),
+     audited as (
+       insert into audit_events (actor_id, session_id, action, after, request_id)
+       select $1, $2, 'auth.sessions_revoked', jsonb_build_object('count', count), $3
+       from total where count > 0
+     )
+     select count from total`,
+    [userId, sessionId, requestId],
+  );
+  return rows[0].count;
+},
+
 async createOrgWithOwner({ name, slug, userId, kind = "shared" }) {
   const client = await this.pool.connect();
   const orgId = randomUUID();

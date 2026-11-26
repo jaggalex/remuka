@@ -8,7 +8,7 @@ import { useNow } from "../useNow";
  * Saved is silence. A short wait is silence too: "Saving…" appears only once the
  * acknowledgement is later than two seconds, so ordinary typing never flashes a
  * status. Offline and a stopped queue appear at once, because they change what the
- * person may do next. Coming back from offline says "All saved" for two seconds.
+ * person may do next. Coming back from offline says "Saved" for two seconds.
  *
  * The rules live in a pure function so the timing is tested without a browser.
  */
@@ -16,7 +16,7 @@ export type SaveNoticeKind = "none" | "saving" | "saved" | "offline" | "blocked"
 
 /** An ordinary ack is faster than this; a longer wait is worth a word. */
 export const SAVE_SLOW_AFTER_MS = 2_000;
-/** "All saved" stays just long enough to be read, then the header is quiet again. */
+/** "Saved" stays just long enough to be read, then the header is quiet again. */
 export const SAVE_DONE_FOR_MS = 2_000;
 
 export function saveNoticeKind({

@@ -35,7 +35,7 @@ async function createSharedOrganisation(page: Page, name: string): Promise<void>
   await page.getByRole("button", { name: "+ New organisation" }).click();
   await page.locator(".org-create input").first().fill(name);
   await page.getByRole("button", { name: "Create organisation" }).click();
-  await expect(page.getByRole("dialog", { name })).toBeVisible();
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
 }
 
 /** Rooms created through the same command route the home uses; returns their ids. */

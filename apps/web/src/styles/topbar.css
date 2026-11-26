@@ -50,7 +50,7 @@
 }
 
 /* The logo itself, not a badge around it (ADR-181): same mark as the home page. */
-/* The organisation path is part of the room's menu button, not a second control. */
+/* The breadcrumb returns to the team directory. The room name opens its menu. */
 .topbar-path {
   min-width: 0;
   max-width: 180px;
@@ -61,9 +61,8 @@
   color: var(--text-muted);
 }
 
-.topbar-path-slash {
-  opacity: 0.7;
-}
+.topbar-path a { color: inherit; text-decoration: none; }
+.topbar-path a:hover, .topbar-path a:focus-visible { text-decoration: underline; }
 
 .board-title {
   border: 1px solid transparent;
@@ -111,57 +110,6 @@
   gap: var(--space-2);
   flex: none;
   min-width: 0;
-}
-
-.topbar-save {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-/* Silence is the saved state (ADR-266 §3): the empty element takes no room. */
-.save-state {
-  display: none;
-  align-items: center;
-  min-width: 0;
-}
-
-.save-state:not(:empty) {
-  display: inline-flex;
-}
-
-.save-state-text {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-compact);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  font: var(--type-caption);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-/* Offline is a plate, not a line of text: yellow paper with an ink outline (T9, §3). */
-.save-state.is-offline .save-state-text {
-  padding: 0 var(--space-2);
-  border: var(--panel-border-width) solid var(--border-ink);
-  border-radius: var(--radius-pill);
-  background: var(--warning-plate);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.save-state.is-blocked .save-state-text {
-  background: var(--danger-soft);
-  color: var(--text-danger);
-  white-space: normal;
-  max-width: 280px;
-}
-
-.save-state.is-saved .save-state-text {
-  background: var(--success-soft);
-  color: var(--state-success);
 }
 
 /* People: one control made of faces, up to four and a “+N”. */
@@ -348,6 +296,32 @@
 .topbar-anchor-start > .rm-popover {
   right: auto;
   left: 0;
+}
+
+.room-menu-anchor > .rm-menu {
+  width: var(--panel-room-menu-width);
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--topbar-height) - var(--space-3));
+  overflow-y: auto;
+}
+
+.room-menu-anchor .rm-menu-item {
+  height: auto;
+  min-height: var(--control-large);
+  border-radius: var(--radius-md);
+  font: var(--type-note);
+}
+
+.room-menu-anchor .rm-menu-item:not([aria-checked="true"]) > .rm-menu-icon {
+  display: none;
+}
+
+.room-menu-anchor .rm-menu-item[aria-checked="true"] > .rm-menu-icon {
+  order: 1;
+}
+
+.room-menu-anchor .rm-menu-sep {
+  margin-inline: 0;
 }
 
 .topbar-dot {
@@ -541,10 +515,37 @@
 }
 
 /* Hairline between tools and history: one panel, not a second pill. */
+.tool-rail .tool-history-button {
+  height: var(--space-10);
+}
 .tool-rail-panel .rm-sep {
   width: var(--space-9);
   margin: var(--space-1) 0;
   background: var(--border-subtle);
+}
+
+.tool-series-lock {
+  position: absolute;
+  /* The badge sits 4px outside the button's inner border in the artboard. */
+  inset-block-end: -3px;
+  inset-inline-end: -3px;
+  width: var(--space-4);
+  height: var(--space-4);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--text-inverse);
+  background: var(--text-primary);
+  border-radius: var(--radius-sm);
+}
+
+/* The same disclosure hit target remains available through the lock badge. */
+.tool-series-lock + .tool-rail-caret {
+  right: -3px;
+  bottom: -3px;
+}
+.tool-series-lock + .tool-rail-caret::before {
+  display: none;
 }
 
 .tool-rail-item {
@@ -603,6 +604,11 @@
 }
 
 /* The flyout is a DS Popover; the rail only says where it opens (ADR-124, журнал №2). */
+.tool-rail:has(.tool-rail-item > .rm-popover) {
+  /* The transformed rail owns its stacking context, including its open popover. */
+  z-index: var(--z-popover);
+}
+
 .tool-rail-item > .rm-popover {
   position: absolute;
   left: calc(100% + var(--space-3));
@@ -654,41 +660,6 @@
   color: var(--text-secondary);
 }
 
-/* The rail's flyout is the window's fill grid: named swatches in a column, then seven
-   tonal columns × the 100/300 rows (ADR-127, ADR-140). The popover is as wide as the
-   colour window, so both draw the same 34 px square. */
-.tool-flyout-palette {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-1);
-}
-
-.tool-flyout-extras {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-top: 2px;
-}
-
-.tool-flyout-swatches {
-  display: grid;
-  grid-template-columns: repeat(7, 34px);
-  gap: var(--space-1);
-  padding: 2px;
-}
-
-.tool-flyout-note {
-  margin: 0;
-  font: var(--type-caption);
-  color: var(--text-muted);
-}
-
-/* The colour a click on the tool itself uses, marked the way the mockup marks it. */
-.tool-swatch.is-default {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* A DS Button with a silhouette instead of a label; the sample is the shape itself. */
 .tool-shape {
   width: var(--space-10);
@@ -736,4 +707,61 @@
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   font: var(--type-caption);
+}
+
+button.account-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: none;
+  height: auto;
+  padding: var(--space-2);
+  white-space: normal;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: start;
+  cursor: pointer;
+}
+.account-who > .rm-btn-label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.account-who .rm-avatar { width: var(--space-11); height: var(--space-11); }
+.account-who-details { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.account-settings-label { color: var(--text-secondary); font: var(--type-caption); }
+.account-options {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) + var(--space-4)) minmax(0, 1fr);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font: var(--type-label);
+}
+.account-options .rm-segmented {
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-control);
+}
+.account-options .rm-segment {
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-md);
+}
+.account-options .rm-segment.is-selected,
+.account-options .rm-segment input:checked ~ .rm-segment-label {
+  background: var(--accent-chosen);
+  color: var(--text-on-chosen);
+}
+.account-motion {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: var(--space-2);
 }

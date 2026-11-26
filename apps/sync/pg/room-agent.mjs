@@ -216,6 +216,22 @@ async listAgentThreads(boardId, limit = 30, frameId = null) {
   return rows;
 },
 
+/** Publication evidence across the whole thread, independently of the transcript's page size. */
+async publishedAgentThreadFrameIds(threadId) {
+  const { rows } = await this.pool.query(
+    `select id from (
+       select unnest(frame_ids) as id, created_at as published_at from agent_thread_messages
+        where thread_id = $1 and role = 'agent' and cardinality(frame_ids) > 0
+       union all
+       select result->>'frameId', coalesce(finished_at, created_at) from agent_tasks
+        where thread_id = $1 and status = 'applied' and result->>'frameId' is not null
+     ) published
+     group by id order by max(published_at) desc, id`,
+    [threadId],
+  );
+  return rows.map((row) => row.id);
+},
+
 async listAgentThreadMessages(threadId, limit = 200) {
   const { rows } = await this.pool.query(
     `select * from (

@@ -46,6 +46,17 @@ create unique index if not exists metrics_chrome_once_idx
   on metrics_events (org_id, (props->>'control'), ((occurred_at at time zone 'UTC')::date))
   where name = 'chrome.used' and org_id is not null;
 
+create unique index if not exists metrics_news_once_idx
+  on metrics_events (org_id, (props->>'type'), ((occurred_at at time zone 'UTC')::date))
+  where name = 'news.clicked' and org_id is not null;
+
+-- Anonymous counts only: no actor, org, room, session or message.
+create table if not exists hint_daily (
+  day date not null, slot text not null, variant text not null,
+  shown bigint not null default 0, acted bigint not null default 0,
+  primary key(day,slot,variant)
+);
+
 -- Daily aggregates (spec/pulse.md §4.1). One row per day, zone, metric and dimension set;
 -- the primary key is also the idempotency rule of the nightly recompute (§4.4).
 create table if not exists metrics_daily (
@@ -131,6 +142,14 @@ export class MetricsStore {
   async record(event) {
     if (!this.pool) return;
     try {
+      if (event.name === "hint.shown" || event.name === "hint.acted") {
+        const shown = event.name === "hint.shown" ? 1 : 0;
+        await this.pool.query(`insert into hint_daily(day,slot,variant,shown,acted)
+          values (($1::timestamptz at time zone 'UTC')::date,$2,$3,$4,$5)
+          on conflict(day,slot,variant) do update set shown=hint_daily.shown+excluded.shown,
+            acted=hint_daily.acted+excluded.acted`, [event.occurred_at,event.props.slot,event.props.variant,shown,1-shown]);
+        return;
+      }
       await this.pool.query(
         `insert into metrics_events
           (event_id, name, occurred_at, org_id, actor_id, actor_type, board_id, session_id, app_version, schema_version, props)

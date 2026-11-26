@@ -12,6 +12,7 @@ export interface AccountSession {
 
 export const sessionsApi = {
   list: () => call<{ sessionId: string | null; sessions: AccountSession[] }>("/auth/sessions"),
+  revokeOthers: () => call<{ revoked: number }>("/auth/sessions?others=1", { method: "DELETE" }),
   revoke: (id: string) =>
     call<{ ok: true; current: boolean }>(`/auth/sessions/${encodeURIComponent(id)}`, {
       method: "DELETE",

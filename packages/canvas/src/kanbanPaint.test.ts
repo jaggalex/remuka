@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TONE_LEVELS } from "@remo/model";
-import { columnHeaderText, drawKanban } from "./kanban";
+import { columnHeaderBox, columnHeaderText, drawKanban, fittedColumnHeader, kanbanTitleAt } from "./kanban";
 import { layoutKanban } from "./layout";
 import { DEFAULT_PALETTE } from "./palette";
 import type { KanbanState } from "@remo/model";
@@ -100,7 +100,7 @@ describe("drawKanban (ADR-267 §2.1)", () => {
   ]);
 
   it("paints one ink header per column and no accent stripe", () => {
-    const { ctx, texts, fills } = recorder();
+    const { ctx, texts, fills, paints } = recorder();
     drawKanban(ctx, layout, 1, titles, { palette: DEFAULT_PALETTE, cards: new Map() });
     const headers = texts.filter((entry) => entry.text.includes(" · "));
     expect(headers.map((entry) => entry.text)).toEqual(["Doing · 2/1", "Done · 1"]);
@@ -108,8 +108,23 @@ describe("drawKanban (ADR-267 §2.1)", () => {
     // The over-limit column is danger ink; the other is ordinary ink.
     expect(headers[0]!.fill).toBe(DEFAULT_PALETTE.dangerInk);
     expect(headers[1]!.fill).toBe(DEFAULT_PALETTE.objectInk);
-    // Nothing is painted with a column's accent: the stripe is the cards' job now.
+    // The accent is a rounded swatch on the shared board/export painter, never a stripe.
+    expect(paints).toEqual(expect.arrayContaining(layout.columns.map(column => column.accent)));
     expect(fills.filter((fill) => fill.fill === TONE_LEVELS.yellow[300])).toHaveLength(0);
+  });
+
+  it("hits the whole column button at both zoom levels and leaves its outer band draggable", () => {
+    const column = layout.columns[0]!;
+    const measure = (value: string) => value.length * 7;
+    for (const zoom of [.5, 2]) {
+      const box = columnHeaderBox(layout, column, zoom);
+      for (const x of [box.x + 1, box.x + box.width / 2, box.x + box.width - 1]) {
+        expect(kanbanTitleAt(layout, { x, y: box.y + 1 }, measure, undefined, zoom)?.id).toBe(column.id);
+      }
+      expect(kanbanTitleAt(layout, { x: column.left + column.width - 1, y: box.y + 1 }, measure, undefined, zoom)).toBeNull();
+    }
+    const {ctx} = recorder();
+    expect(fittedColumnHeader(ctx, { ...column, title: "A very long column title" }, 90)).toMatch(/… · 2\/1$/);
   });
 
   it("fills a card with its column's colour and a chosen colour wins", () => {
@@ -124,7 +139,8 @@ describe("drawKanban (ADR-267 §2.1)", () => {
       cards: new Map([["c", card("c", "#cddff8")]]),
     });
     expect(own.paints).toContain("#cddff8");
-    expect(own.paints).not.toContain("#85d965");
+    // Only the header swatch keeps the accent after that card receives its own fill.
+    expect(own.paints.filter(fill => fill === "#85d965")).toHaveLength(1);
   });
 
   it("paints a row-600 accent as the header's colour and keeps ink for a fill row", () => {

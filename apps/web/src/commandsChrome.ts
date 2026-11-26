@@ -34,6 +34,18 @@ const signedIn: (ctx: ChromeContext) => true | { reason: TranslationKey } = (ctx
  * registry would let a menu and the search drift apart.
  */
 const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
+  {
+    id: "home.open",
+    title: "board.allBoards",
+    icon: "boards",
+    synonyms: { ru: ["главная"], en: ["home"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    shortcut: "G R",
+    inMenu: false,
+    available: () => true,
+    run: ctx => ctx.run("home.open"),
+  },
   // Canvas creation (T8 «More»): the same ids the search finds, so the rail and ⌘K
   // cannot offer different objects. The action itself is the app's (ADR-266 §1.1).
   {
@@ -78,6 +90,16 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
   },
   // Room and its document.
   {
+    id: "room.appearance",
+    title: "home.appearance",
+    icon: "image",
+    synonyms: { ru: ["значок", "эмодзи", "обложка"], en: ["icon", "emoji", "cover"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: allow("rename", "iam.readOnly"),
+    run: (ctx) => ctx.run("room.appearance"),
+  },
+  {
     id: "room.rename",
     title: "board.rename",
     icon: "pencil",
@@ -106,6 +128,16 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
     surfaces: ["header", "palette"],
     available: () => true,
     run: (ctx) => ctx.run("room.properties"),
+  },
+  {
+    id: "header.comments",
+    title: "board.discussion",
+    icon: "comment",
+    synonyms: { ru: ["комментарии", "обсуждение"], en: ["comments", "discussion"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("header.comments"),
   },
   {
     id: "room.access",
@@ -246,10 +278,11 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
     available: () => true,
     run: (ctx) => ctx.run("run.follow"),
   },
-  ...REACTIONS.map<ChromeCommand>((reaction, index) => {
+  ...REACTIONS.map<ChromeCommand>((reaction) => {
     const word = reaction.key.replace("reactions.", "");
+    const id = `run.reaction.${word}`;
     return {
-      id: `run.reaction.${word}`,
+      id,
       title: reaction.key,
       synonyms: {
         ru: ["реакция", word, "отреагировать"],
@@ -259,7 +292,7 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
       surfaces: ["header", "palette"],
       inMenu: false,
       available: () => true,
-      run: (ctx) => ctx.run(`run.reaction.${index}`),
+      run: (ctx) => ctx.run(id),
     };
   }),
 
@@ -312,12 +345,23 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
 
   // The account menu.
   {
+    id: "account.settings",
+    title: "account.settings",
+    icon: "user",
+    synonyms: { ru: ["профиль", "имя", "ник"], en: ["profile", "name", "handle"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: ctx => ctx.run("account.settings"),
+  },
+  {
     id: "account.allRooms",
     title: "board.allBoards",
     icon: "boards",
     synonyms: { ru: ["все комнаты", "главная", "комнаты"], en: ["all rooms", "home", "rooms"] },
     intent: "account",
-    surfaces: ["header", "palette"],
+    surfaces: ["header"],
     available: () => true,
     run: (ctx) => ctx.run("account.allRooms"),
   },
@@ -342,17 +386,14 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
     run: (ctx) => ctx.run("account.theme.dark"),
   },
   {
-    id: "account.motion.calm",
-    title: "account.motion",
-    icon: "reaction",
-    synonyms: {
-      ru: ["спокойные анимации", "анимации", "движение", "спокойно"],
-      en: ["calm animations", "animations", "motion", "calm"],
-    },
+    id: "account.theme.system",
+    title: "theme.system",
+    icon: "moon",
+    synonyms: { ru: ["тема", "система"], en: ["theme", "system", "device"] },
     intent: "account",
     surfaces: ["header", "palette"],
     available: () => true,
-    run: (ctx) => ctx.run("account.motion.calm"),
+    run: (ctx) => ctx.run("account.theme.system"),
   },
   {
     id: "account.lang.ru",
@@ -373,8 +414,21 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
     run: (ctx) => ctx.run("account.lang.en"),
   },
   {
+    id: "account.motion.calm",
+    title: "account.motion",
+    icon: "reaction",
+    synonyms: {
+      ru: ["спокойные анимации", "анимации", "движение", "спокойно"],
+      en: ["calm animations", "animations", "motion", "calm"],
+    },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.motion.calm"),
+  },
+  {
     id: "account.help",
-    title: "help.title",
+    title: "account.helpShortcuts",
     icon: "help",
     synonyms: { ru: ["помощь", "справка", "клавиши"], en: ["help", "guide", "keys"] },
     intent: "help",
@@ -531,17 +585,6 @@ const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
     hideWhenUnavailable: true,
     available: allow("agents", "roomAgent.ownerOnly"),
     run: (ctx) => ctx.run("header.agent"),
-  },
-  {
-    id: "header.comments",
-    title: "board.discussion",
-    icon: "comment",
-    synonyms: { ru: ["комментарии", "обсуждение"], en: ["comments", "discussion"] },
-    intent: "account",
-    surfaces: ["header", "palette"],
-    narrowOnly: true,
-    available: () => true,
-    run: (ctx) => ctx.run("header.comments"),
   },
 ];
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
 import type { KanbanState, Widget, WidgetType } from "@remo/model";
 import { buildBoardMenu } from "./boardMenu";
-import { COMMAND_GROUPS, COMMANDS, type CommandContext } from "./commands";
+import { COMMAND_GROUPS, COMMANDS, registryCommand, type CommandContext } from "./commands";
 import type { MenuItem } from "./ContextMenu";
 
 /**
@@ -139,6 +139,7 @@ describe("the canvas menu", () => {
       const board = boardWith(widgets);
       const ids = widgets.map((entry) => entry.id);
       const menu = menuFor({ kind: "selection", ids }, board, { ids });
+      expect(menu.groups.every((group) => group.length <= 7), name).toBe(true);
       // The search row is its own last group before the danger group (T7); it is not a
       // canvas command, so the group-order check reads the registry groups only.
       const groups = menu.groups.filter(
@@ -159,6 +160,14 @@ describe("the canvas menu", () => {
     }
   });
 
+  it("opens the sticky note menu with text editing and colour", () => {
+    const board = boardWith([widget("n1", "sticky_note")]);
+    const menu = menuFor({ kind: "selection", ids: ["n1"] }, board);
+    expect(idsOf(menu.groups)[0]?.slice(0, 2)).toEqual(["editText", "colour"]);
+    expect(menu.groups[0]?.[0]?.label).toBe("menu.editText");
+    expect(idsOf(menu.groups).flat()).toContain("tidy");
+  });
+
   it("keeps Delete last on the kanban's own menus", () => {
     const board = boardWith([widget("kanban1", "kanban"), widget("card1", "card")]);
     const targets = [
@@ -173,6 +182,10 @@ describe("the canvas menu", () => {
     };
     for (const [name, target] of targets) {
       const menu = menuFor(target, board);
+      for (const row of menu.groups.flat()) expect(registryCommand(row.commandId!), row.label).toBeDefined();
+      for (const row of menuFor(target, board, {writeBlocked: true}).groups.flat()) {
+        expect(Boolean(row.disabled), row.commandId).toBe(row.commandId !== "kanban.card.copy");
+      }
       const last = menu.groups[menu.groups.length - 1]!;
       expect(last[last.length - 1]!.label, name).toBe(labels[name]);
       expect(last[last.length - 1]!.danger, name).toBe(true);

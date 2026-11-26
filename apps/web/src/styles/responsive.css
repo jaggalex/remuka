@@ -77,6 +77,10 @@
     z-index: var(--z-popover);
     border-left: 0;
   }
+  /* The table preview opens from the full-width inspector and takes pointer focus. */
+  .section-layout-card {
+    z-index: var(--z-dialog);
+  }
   /* The inspector is gone, so the board is wider: the hint keeps clear of the zoom bar
      with the same reserve rather than a second rule. */
   /* Below 900 the bottom bar also carries "Find an action" (T7) and is wider than the

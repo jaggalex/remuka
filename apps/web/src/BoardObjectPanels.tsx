@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BoardDocument } from "@remo/doc";
 import {
   TAG_COLORS,
-  type CardFields,
-  type CardStatus,
   type Tag,
   type TagColor,
   type Widget,
@@ -13,7 +11,6 @@ import {
   deleteTag,
   renameTag,
   safeExternalUrl,
-  setCardFields,
   setGroupName,
   setTagColor,
   setWidgetLink,
@@ -132,89 +129,6 @@ export function GroupNameField({
           }
         }}
     />
-  );
-}
-
-/**
- * The card's own record: status, assignee, range and (in M2) tags.
- *
- * The inspector is the only place these are edited; the card face is a read-out. One
- * setter per field keeps undo one action per change.
- */
-export function CardFieldsPanel({
-  board,
-  card,
-  people,
-  disabled,
-}: {
-  board: BoardDocument;
-  card: Widget;
-  people: Array<{ id: string; name: string }>;
-  disabled: boolean;
-}) {
-  const { t } = useI18n();
-  const set = (patch: CardFields) => setCardFields(board, card.id, patch);
-  const assignees =
-    card.assigneeId && !people.some((person) => person.id === card.assigneeId)
-      ? [...people, { id: card.assigneeId, name: card.assigneeName ?? card.assigneeId }]
-      : people;
-
-  return (
-    <div className="card-fields">
-      <div className="card-fields-head">
-        {t("inspector.card")}
-      </div>
-      <Select
-        label={t("card.status")}
-        size="compact"
-        options={[
-          { value: "", label: "—" },
-          { value: "todo", label: t("card.status.todo") },
-          { value: "in_progress", label: t("card.status.in_progress") },
-          { value: "done", label: t("card.status.done") },
-        ]}
-        value={card.status ?? ""}
-        disabled={disabled}
-        onChange={(event) =>
-          set({ status: (event.target.value || undefined) as CardStatus | undefined })
-        }
-      />
-      <Select
-        label={t("card.assignee")}
-        size="compact"
-        options={[
-          { value: "", label: t("card.unassigned") },
-          ...assignees.map((person) => ({ value: person.id, label: person.name })),
-        ]}
-        value={card.assigneeId ?? ""}
-        disabled={disabled}
-        onChange={(event) => {
-          const person = assignees.find((entry) => entry.id === event.target.value);
-          set({
-            assigneeId: event.target.value || undefined,
-            assigneeName: person?.name,
-          });
-        }}
-      />
-      <div className="card-dates">
-        <Input
-          label={t("card.start")}
-          size="compact"
-            type="date"
-            value={card.startAt ?? ""}
-            disabled={disabled}
-            onChange={(event) => set({ startAt: event.target.value || undefined })}
-        />
-        <Input
-          label={t("card.due")}
-          size="compact"
-            type="date"
-            value={card.dueAt ?? ""}
-            disabled={disabled}
-            onChange={(event) => set({ dueAt: event.target.value || undefined })}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -452,6 +366,7 @@ function TagRow({
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(tag.name);
+  const cancelOnBlur = useRef(false);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => setName(tag.name), [tag.name]);
@@ -468,13 +383,15 @@ function TagRow({
         aria-label={t("tags.rename")}
         onChange={(event) => setName(event.target.value)}
         onBlur={() => {
-          if (name.trim() === tag.name) setName(tag.name);
+          if (cancelOnBlur.current || name.trim() === tag.name) setName(tag.name);
           else if (!renameTag(board, tag.id, name)) setName(tag.name);
+          cancelOnBlur.current = false;
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter") event.currentTarget.blur();
           if (event.key === "Escape") {
-            setName(tag.name);
+            event.stopPropagation();
+            cancelOnBlur.current = true;
             event.currentTarget.blur();
           }
         }}
@@ -490,7 +407,7 @@ function TagRow({
         onChange={(event) => setTagColor(board, tag.id, event.target.value as TagColor)}
       />
       <span className="tag-row-actions">
-        <Button variant="ghost" size="compact" disabled={disabled} onClick={onFocus}>
+        <Button variant="ghost" size="compact" disabled={!count} onClick={onFocus}>
           {t("tags.select", { count })}
         </Button>
         <Button variant="ghost" size="compact"

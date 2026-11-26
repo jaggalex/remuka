@@ -76,7 +76,9 @@ export interface PlanWarning {
   tempId?: string;
   tempIds?: string[];
   column?: number;
-  /** A section's title, for a warning that names it (ADR-201). */
+  /** Object IDs from the original task selection cited by a brief finding (ADR-310). */
+  sourceIds?: string[];
+  /** Human-readable title of the object this warning names. */
   title?: string;
 }
 
@@ -259,6 +261,7 @@ export type PlanOperation =
       swimlanes?: StoryMapSwimlane[];
     };
 
+export declare const SELECTION_LIMITS: Readonly<{ objects: number; chars: number }>;
 export declare const PLAN_LIMITS: Readonly<{
   operations: number;
   objects: number;
