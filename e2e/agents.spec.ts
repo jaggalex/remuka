@@ -224,8 +224,8 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
 test("a plan applied in one tab is not written again from a second tab", async ({
   page,
   context,
-}, testInfo) => {
-  const board = await agentBoard(page, `tabs-${testInfo.repeatEachIndex}`);
+}) => {
+  const board = await agentBoard(page, "agents-two-tabs");
   await openAgents(page);
   await chooseBrief(page);
   await page
