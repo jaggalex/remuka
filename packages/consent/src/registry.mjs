@@ -291,6 +291,17 @@ export const STORAGE_REGISTRY = Object.freeze(
       lifetime: "browser session",
     },
     {
+      name: "remo.billingNotice.*",
+      kind: "sessionStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Сообщение об оплате тарифа закрыто до конца сеанса",
+        en: "The plan payment message is dismissed for this session",
+      },
+      lifetime: "browser session",
+    },
+    {
       name: "remo.verifyBanner.*",
       kind: "sessionStorage",
       category: "preferences",

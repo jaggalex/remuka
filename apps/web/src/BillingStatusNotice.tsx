@@ -78,7 +78,7 @@ export function BillingStatusNotice({ orgId, onOpenBilling }: { orgId: string | 
         ? { key: "suspended", tone: "info" as const, kind: "billing" as const, body: t("billing.banner.memberFree"), action: undefined }
         : null;
   const id = orgId ? `billing-state:${orgId}` : "billing-state";
-  const hiddenKey = state ? `remuka.billingNotice.${orgId}.${state.key}` : null;
+  const hiddenKey = state ? `${orgId}.${state.key}` : null;
 
   useEffect(() => {
     if (!state || !hiddenKey || readHidden(hiddenKey)) return;
@@ -98,11 +98,17 @@ export function BillingStatusNotice({ orgId, onOpenBilling }: { orgId: string | 
   return null;
 }
 
-/** Session-scoped "closed" marks; storage may be unavailable, and then nothing is remembered. */
-function readHidden(key: string): boolean {
-  try { return window.sessionStorage.getItem(key) === "1"; } catch { return false; }
+const NOTICE_PREFIX = "remo.billingNotice.";
+
+function noticeKey(state: string) {
+  return `${NOTICE_PREFIX}${state}`;
 }
 
-function writeHidden(key: string): void {
-  try { window.sessionStorage.setItem(key, "1"); } catch { /* the message simply returns next time */ }
+/** Session-scoped "closed" marks; storage may be unavailable, and then nothing is remembered. */
+function readHidden(state: string): boolean {
+  try { return window.sessionStorage.getItem(noticeKey(state)) === "1"; } catch { return false; }
+}
+
+function writeHidden(state: string): void {
+  try { window.sessionStorage.setItem(noticeKey(state), "1"); } catch { /* the message simply returns next time */ }
 }
