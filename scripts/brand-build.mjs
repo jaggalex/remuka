@@ -8,7 +8,7 @@
  *
  *   pnpm brand:build
  */
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -31,6 +31,19 @@ function write(path, data) {
   writeFileSync(path, data);
 }
 
+/**
+ * True when two pictures have the same size and no channel differs by more than one step.
+ * libvips rounds anti-aliased edges differently from one version to the next (a Mac and a
+ * Linux machine disagree on four bytes of the touch icon), so a byte comparison would make
+ * every build on the other machine rewrite the file and fail the guide check.
+ */
+export async function samePicture(a, b) {
+  const [x, y] = await Promise.all([a, b].map(p => sharp(p).ensureAlpha().raw().toBuffer({ resolveWithObject: true })));
+  if (x.info.width !== y.info.width || x.info.height !== y.info.height) return false;
+  for (let i = 0; i < x.data.length; i++) if (Math.abs(x.data[i] - y.data[i]) > 1) return false;
+  return true;
+}
+
 export async function buildBrand() {
   for (const [path, theme] of SERVED_MARKS) {
     write(join(ROOT, path), readMark(theme));
@@ -48,7 +61,8 @@ export async function buildBrand() {
     .composite([{ input: mark, left: inset, top: inset }])
     .png()
     .toBuffer();
-  write(APPLE_TOUCH, icon);
+  const kept = existsSync(APPLE_TOUCH) && await samePicture(readFileSync(APPLE_TOUCH), icon);
+  if (!kept) write(APPLE_TOUCH, icon);
   copyFileSync(APPLE_TOUCH, APPLE_TOUCH_APP);
   console.log(`brand: apple-touch-icon.png (${APPLE_SIZE}×${APPLE_SIZE}, ${PAPER})`);
 }
