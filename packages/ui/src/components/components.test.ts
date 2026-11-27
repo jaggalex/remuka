@@ -167,3 +167,22 @@ describe("disclosure and danger zone (ADR-236, ADR-266 §10)", () => {
     expect(html).toContain("<button>Delete</button>");
   });
 });
+
+describe("the toaster's rules (ADR-319)", () => {
+  it("lets feedback leave after 5 s and keeps warnings and errors until closed", () => {
+    expect(UI.TOAST_DURATION_MS).toBe(5000);
+    expect(UI.TOAST_LIMIT).toBe(3);
+    expect(UI.defaultToastDuration("success")).toBe(5000);
+    expect(UI.defaultToastDuration("neutral")).toBe(5000);
+    expect(UI.defaultToastDuration("warning")).toBeNull();
+    expect(UI.defaultToastDuration("danger")).toBeNull();
+  });
+
+  it("renders an empty, labelled region and does nothing outside a provider", () => {
+    expect(render(h(UI.ToastProvider, null, h("p", null, "page")))).toContain('<section class="rm-toaster" aria-label="notifications"></section>');
+    let api: ReturnType<typeof UI.useToast> | null = null;
+    const Probe = () => { api = UI.useToast(); return null; };
+    render(h(Probe));
+    expect(api!.show({ id: "x", body: "hi" })).toBe("x");
+  });
+});

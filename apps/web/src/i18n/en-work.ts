@@ -296,6 +296,7 @@ export const enWork = {
   // @remo/ui component strings (packages/ui/src/i18n.tsx lists the keys).,
   "ds.close": "Close",
   "ds.closeToast": "Dismiss notification",
+  "ds.notifications": "Notifications",
   "ds.hide": "Hide",
   "ds.cancel": "Cancel",
   "ds.delete": "Delete",

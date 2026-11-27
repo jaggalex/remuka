@@ -296,6 +296,7 @@ export const ruWork = {
   // @remo/ui,
   "ds.close": "Закрыть",
   "ds.closeToast": "Закрыть уведомление",
+  "ds.notifications": "Уведомления",
   "ds.hide": "Скрыть",
   "ds.cancel": "Отмена",
   "ds.delete": "Удалить",
