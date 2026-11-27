@@ -89,6 +89,41 @@ describe("command registry (ADR-092)", () => {
     expect(ydoc.getMap("texts").get(id).toString()).toBe("Changed");
   });
 
+  it("accepts a rotation on a kind that turns and ignores it elsewhere (ADR-271)", () => {
+    const { ydoc, id } = docWithNote();
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { rotation: 270 } },
+      actor,
+      boardId: "b1",
+    });
+    expect(ydoc.getMap("widgets").get(id).rotation).toBe(-90);
+
+    // A card is placed by its matrix and never turns: the value is not stored.
+    const widgets = ydoc.getMap("widgets");
+    const card = { ...widgets.get(id), id: "card_1", type: "card", parentId: "k1" };
+    widgets.set("card_1", card);
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id: "card_1", patch: { rotation: 45 } },
+      actor,
+      boardId: "b1",
+    });
+    expect(widgets.get("card_1").rotation).toBeUndefined();
+
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.item.update",
+        input: { id, patch: { rotation: "sideways" } },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "BAD_INPUT" }));
+  });
+
   it("names an object without touching its text or geometry", () => {
     const { ydoc, id } = docWithNote();
     runCommand({

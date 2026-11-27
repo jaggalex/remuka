@@ -1,21 +1,22 @@
-import { setElevation, type BoardDocument } from "@remo/doc";
-import { canElevate, elevationOf, type Elevation, type Widget } from "@remo/model";
+import { type BoardDocument, setElevation } from "@remo/doc";
+import { canElevate, ELEVATIONS, type Elevation, elevationOf, type Widget } from "@remo/model";
 import type { MenuItem } from "@remo/ui";
 import type { TranslationKey } from "./i18n";
 
-const LEVELS = [null, "raised", "floating"] as const;
-const KEY: Record<string, TranslationKey> = {
+export const ELEVATION_LEVELS = [null, ...ELEVATIONS] as const;
+export const ELEVATION_LABEL_KEY: Record<string, TranslationKey> = {
   none: "inspector.elevation.none",
   raised: "inspector.elevation.raised",
+  cardboard: "inspector.elevation.cardboard",
   floating: "inspector.elevation.floating",
 };
 
 /**
- * The shadow of the selection in «⋯ More actions» (ADR-245): a heading and three levels,
- * the current one checked. Offered only when every selected object can stand off the
- * board; a mixed selection checks nothing, and a choice sets one level for all of them
- * in one undo step. A rare action, so it lives with the other rare ones (ADR-237) and does
- * not add a row to the panel.
+ * The shadow of the selection in «⋯ More actions» (ADR-245, ADR-267): a heading and four
+ * levels in ascending lift, the current one checked. Offered only when every selected
+ * object can stand off the board; a mixed selection checks nothing, and a choice sets one
+ * level for all of them in one undo step. A rare action, so it lives with the other rare
+ * ones (ADR-237) and does not add a row to the panel.
  */
 export function elevationMenuItems(
   board: BoardDocument,
@@ -32,8 +33,8 @@ export function elevationMenuItems(
   return [
     { separator: true },
     { heading: t("inspector.elevation") },
-    ...LEVELS.map((level: Elevation | null) => ({
-      label: t(KEY[level ?? "none"]!),
+    ...ELEVATION_LEVELS.map((level: Elevation | null) => ({
+      label: t(ELEVATION_LABEL_KEY[level ?? "none"]!),
       checked: current === level,
       disabled: readOnly,
       onSelect: () => setElevation(board, selectedIds, level),

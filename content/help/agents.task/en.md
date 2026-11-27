@@ -5,11 +5,11 @@ An agent does a task in the room on your behalf. There are four scenarios, and t
 - **Plan** (the Brief to room skill): the agent proposes a structure, you read the preview and press Apply. The room does not change before that, and one ⌘Z removes the whole structure.
 - **Diagram** (the Diagram from a description skill): the agent writes shapes and connectors immediately, with no preview; ⌘Z does not undo that write.
 - **Cards** (the Cards from a selection skill): the agent builds a package from the selection. Preview job shows the card count, Run job creates them; ⌘Z does not undo the package.
-- **Tidy up** (the Tidy up selection skill): the agent lays the selection out in even columns. You choose the layout in the before/after preview and press Apply; one ⌘Z puts every object back.
+- **Tidy up** (the Tidy up selection skill): the agent lays the selection out in even columns. You choose the layout in the preview and click Tidy up; one ⌘Z puts every object back.
 
 ## Who can ask
 
-- **An account with edit rights.** The Ask AI… item in the More (⋯) menu is shown only to someone who can change the room: an editor, a co-owner or the owner.
+- **An account with edit rights.** The Ask the agent… item in the the room menu menu is shown only to someone who can change the room: an editor, a co-owner or the owner.
 - **A public-link visitor** gets no AI entry: a link is a view grant, and an agent needs an account to act for. Even when you are signed in, if the only access to this room is the link, AI stays closed.
 - **A viewer or commenter** can watch the room but cannot ask an agent: edit rights come first.
 
@@ -34,9 +34,11 @@ A key is access to the provider budget. Create a separate key for Remuka with a 
 4. **Undo.** One ⌘Z removes the whole plan: objects and connectors alike.
 5. **Opening it again.** The plan shows the result and a "Show in room" button instead of Apply. If the same plan was open in two tabs, the tab that applies it second gets the server's "already applied" answer and writes nothing; it shows no ⌘Z hint, because it wrote nothing.
 
+If the brief does not say who is responsible for a step, the agent can flag it in the plan. For example, a refund step may need an approver. You can apply the draft and clarify the role with your team.
+
 ## Steps
 
-1. Open More (⋯) and choose Ask AI…
+1. Open the room menu and choose Ask the agent…
 2. Choose an agent and a skill. Brief to room is selected by default; the list shows only skills compatible with the task and the selection, plus Auto. Auto picks a skill from the wording of the task.
 3. Check the source: the Source block shows how many objects and characters of the selection will reach the model. Remove keeps the task without object text; Selection only makes the selection the task itself.
 4. Describe the task: what should exist afterwards. Brief to room also accepts a `.md`, `.txt` or `.csv` file in UTF-8.
@@ -65,8 +67,8 @@ A package can be stopped with Stop and resumed with Resume: progress is kept bet
 1. Select sticky notes in the room. Press Tidy up in the context menu or on the selection bar.
 2. Choose a layout: Auto, By prefix, By type, Grid or By meaning. Natural order puts `US-2` before `US-10`.
 3. Wait for the preview: dashed lines in the room show where objects move and where blocks appear, and warnings name locked objects and foreign frames that stay put.
-4. Change the layout under Details if needed: block labels are kept and coordinates are recomputed.
-5. Press Apply. Sizes, texts and lines do not change; one ⌘Z puts everything back.
+4. To try another layout, choose it under Layout. The dashed outlines update.
+5. Click Tidy up. Sizes, texts and lines do not change; one ⌘Z puts everything back.
 
 If a frame is selected, its contents are laid out inside it and the frame itself does not move. Blocks are frames, never groups. The 50-object limit is counted after groups and the selected frame are expanded: a larger set is refused before a plan is stored. A kanban card stays in place with a warning: its cell decides where it stands, and the plan applies to the remaining objects.
 
@@ -103,7 +105,7 @@ The task, the file and the room are data, not instructions. The model cannot cha
 
 ## If it did not work
 
-- **No Ask AI… item.** You are a viewer, a commenter, a link visitor, or not signed in.
+- **No Ask the agent… item.** You are a viewer, a commenter, a link visitor, or not signed in.
 - **"Set a limit".** A task without a budget is not created.
 - **"Agents are off".** An organisation administrator or the room owner (co-owner) turned them off.
 - **"The agent service is unreachable".** Sync is not running; start it and click Retry.

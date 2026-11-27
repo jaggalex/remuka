@@ -67,7 +67,8 @@ describe("the legal tree gate (§2, acceptance)", () => {
       current: 2,
       status: "published",
       effective: "2027-01-01",
-      sha256: { 1: HASH, 2: HASH },
+      sha256: { 1: HASH },
+      changes: { ru: "Обновили срок ответа." },
     });
     const result = scanLegal(
       fixture([published], { "content/legal/ru/consent/2.ru.md": TEXT }),
@@ -75,6 +76,29 @@ describe("the legal tree gate (§2, acceptance)", () => {
     expect(result.problems).toEqual([]);
     expect(result.files.has("ru/consent/index.html")).toBe(true);
     expect(result.files.get("ru/consent/v1/index.html")).toContain("Редакция 1");
+  });
+
+  it("requires a summary for v2 and freezes the reviewed wording together with its document", () => {
+    const v2 = entry({ current: 2, status: "published", effective: "2027-01-01", sha256: { 1: HASH } });
+    const files = { "content/legal/ru/consent/2.ru.md": TEXT };
+    const scan = (document) => scanLegal(fixture([document], files));
+    expect(rules(scan(v2))).toContain("index");
+    expect(rules(scan({ ...v2, changes: { en: "Updated." } }))).toContain("index");
+    expect(rules(scan({ ...v2, changes: { ru: "Один. Два. Три. Четыре." } }))).toContain("index");
+    const published = scan({ ...v2, changes: { ru: "Сократили срок ответа.", en: "Shorter response time." } });
+    expect(published.problems).toEqual([]);
+    const [sealed] = JSON.parse(published.indexText).documents;
+    expect(sealed.sha256[2]).toBe(HASH);
+    expect(scan(sealed).indexChanged).toBe(false);
+    expect(scan(sealed).files.get("ru/consent/v2/index.html")).toContain(sealed.changes.ru);
+    expect(scan(sealed).files.get("ru/consent/v1/index.html")).not.toContain(sealed.changes.ru);
+    expect(rules(scan({ ...sealed, changes: { ...sealed.changes, en: "Edited." } }))).toContain("changed");
+    expect(rules(scan({ ...sealed, changesHistory: {} }))).toContain("changes");
+    const v3 = { ...sealed, current: 3, changes: { ru: "Уточнили адрес." } };
+    const next = scanLegal(fixture([v3], { ...files, "content/legal/ru/consent/3.ru.md": TEXT }));
+    expect(next.problems).toEqual([]);
+    expect(next.files.get("ru/consent/v2/index.html")).toContain(sealed.changes.ru);
+    expect(next.files.get("ru/consent/index.html")).toContain(v3.changes.ru);
   });
 
   it("fails a required document without a text", () => {

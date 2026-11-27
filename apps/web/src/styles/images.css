@@ -156,22 +156,70 @@
 
 /* --------------------------------------------------------- alt / description --- */
 
+.image-selection-bar, .image-alt-window {
+  border: var(--panel-border-width) solid var(--border-ink);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-bar);
+}
+
+.image-selection-bar {
+  width: min(416px, calc(100% - var(--space-4)));
+  box-sizing: border-box;
+  gap: var(--space-1);
+  min-height: 46px;
+  font: var(--type-label);
+  padding: var(--space-1);
+  justify-content: space-between;
+  border-radius: var(--radius-lg);
+}
+
+.image-bar-title {
+  padding-inline: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.image-selection-bar > .sb-anchor { position: static; }
+.image-selection-bar > .rm-btn,
+.image-selection-bar > .sb-anchor > .rm-btn {
+  --control-h: 34px;
+  padding-inline: var(--space-2);
+  font: var(--type-label);
+}
+
+.image-selection-bar > .sb-more > .rm-iconbtn {
+  --control-h: 34px;
+  width: 34px;
+}
+
+.image-selection-bar > .sb-anchor > [aria-expanded="true"] {
+  background: var(--accent-chosen);
+  color: var(--text-on-chosen);
+  border-color: var(--border-ink);
+}
+
+@media (max-width: 480px) {
+  .image-selection-bar { flex-wrap: wrap; }
+  .image-bar-title, .image-selection-bar > .rm-btn,
+  .image-selection-bar > .sb-anchor > .rm-btn { padding-inline: var(--space-1); }
+}
+
 .image-alt-window {
   position: absolute;
   top: calc(100% + var(--space-2));
-  left: 0;
+  right: 0;
   z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: 320px;
-  padding: var(--space-3);
+  width: min(300px, calc(100vw - var(--toolbar-width) - var(--space-8)));
+  padding: var(--space-3) var(--space-4);
   box-sizing: border-box;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-pop);
+  border-radius: var(--radius-menu);
 }
+
+.image-alt-window .rm-field { display: grid; gap: var(--space-2); }
+.image-alt-window .rm-field-msg { grid-row: 2; }
+.image-alt-window .rm-textarea { grid-row: 3; }
 
 .image-alt-foot {
   display: flex;
@@ -181,6 +229,12 @@
 }
 
 /* ------------------------------------------------------------------ viewer --- */
+
+.rm-lightbox-scrim:has(.image-lightbox-stage),
+.rm-lightbox-body:has(.image-lightbox-stage),
+.image-lightbox-stage {
+  grid-template-columns: minmax(0, 1fr);
+}
 
 .image-lightbox-stage {
   position: relative;
@@ -201,6 +255,11 @@
   max-width: none;
   user-select: none;
   transform-origin: center;
+}
+
+.image-lightbox-download {
+  border-color: currentColor;
+  white-space: nowrap;
 }
 
 .image-lightbox-loading {

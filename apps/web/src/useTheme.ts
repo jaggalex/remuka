@@ -1,41 +1,37 @@
 import { useEffect, useState } from "react";
 
-/**
- * Light or dark theme (design-system tokens, ADR-194).
- *
- * The choice is a browser preference, not board state: it is stored in localStorage and
- * applied to the root element so every token, the canvas palette and native controls
- * follow it. `system` is gone: an account or browser that still holds it reads as light,
- * and the stored value is rewritten only when the person picks a theme.
- */
-export type Theme = "light" | "dark";
+/** Only an explicit system preference follows the OS (ADR-270). */
+export type Theme = "light" | "dark" | "system";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const KEY = "remo.theme";
 
 export function readTheme(): Theme {
   try {
-    // A stored `system` (or anything unknown) is light, not a third state. The value is
-    // left in place until the person chooses, so an older client can still read it.
-    return window.localStorage.getItem(KEY) === "dark" ? "dark" : "light";
+    const stored = window.localStorage.getItem(KEY);
+    return stored === "dark" || stored === "system" ? stored : "light";
   } catch {
     return "light";
   }
 }
 
-export function resolveTheme(theme: Theme): "light" | "dark" {
-  return theme;
-}
-
-export function applyTheme(theme: Theme): void {
-  document.documentElement.dataset.theme = resolveTheme(theme);
-}
-
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(readTheme);
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia(DARK_QUERY).matches);
+  const resolved = theme === "system" ? (systemDark ? "dark" : "light") : theme;
 
   useEffect(() => {
-    applyTheme(theme);
+    if (theme !== "system") return;
+    const media = window.matchMedia(DARK_QUERY);
+    const sync = () => setSystemDark(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolved;
+  }, [resolved]);
 
   const setTheme = (next: Theme) => {
     setThemeState(next);
@@ -46,5 +42,5 @@ export function useTheme() {
     }
   };
 
-  return { theme, setTheme };
+  return { theme, resolved, setTheme };
 }

@@ -1,6 +1,8 @@
+import { creationLayers, withLayer } from "@remo/model/stacking";
 import * as Y from "yjs";
 import {
   bounds,
+  paintOrder,
   expandGroups,
   joinsWithin,
   newId,
@@ -154,6 +156,10 @@ export function pasteFragment(
   }> = [];
 
   board.transact(() => {
+    const sourceOrder = paintOrder(fragment.widgets).map(widget => ({
+      ...widget, x: widget.x + offset.x, y: widget.y + offset.y,
+    }));
+    const layers = creationLayers(board, sourceOrder);
     for (const widget of fragment.widgets) {
       const id = idMap.get(widget.id)!;
       const parentId = widget.parentId
@@ -179,7 +185,7 @@ export function pasteFragment(
 
       const groupId = widget.groupId ? groupMap.get(widget.groupId) : undefined;
       const next: Widget = {
-        ...widget,
+        ...withLayer(widget, layers.get(widget.id)!),
         id,
         parentId,
         x: widget.type === "card" ? widget.x : widget.x + offset.x,

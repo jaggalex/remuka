@@ -193,8 +193,34 @@ export const STORAGE_REGISTRY = Object.freeze(
       category: "preferences",
       owner: "web",
       purpose: {
-        ru: "Подсказка о холсте уже показана",
-        en: "The canvas hint has been shown",
+        ru: "Старая отметка «подсказка о холсте показана»; читается как «освоено», пока подсказки не вернут заново",
+        en: "The old «canvas hint was shown» flag; read as learned until the hints are brought back",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remuka.news.dismissed", kind: "localStorage", category: "preferences", owner: "web",
+      purpose: { ru: "Скрытые новости команды", en: "Dismissed team updates" }, lifetime: "48 hours",
+    },
+    {
+      name: "remuka.hints.*",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Сколько раз действие подсказки выполнено и сколько было визитов",
+        en: "How often the hinted action was used and how many visits it had",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.motion",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Включены ли «Спокойные анимации» в этом браузере",
+        en: "Whether calm animations are on in this browser",
       },
       lifetime: "until cleared",
     },
@@ -210,6 +236,50 @@ export const STORAGE_REGISTRY = Object.freeze(
       lifetime: "until cleared",
     },
     {
+      name: "remo.tool.sticky",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Цвет, выбранный для следующего стикера в этом браузере",
+        en: "The colour chosen for the next sticky note in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.tool.shape",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Вид фигуры, выбранный для следующей фигуры в этом браузере",
+        en: "The shape kind chosen for the next shape in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.tool.connector",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Тип связи, выбранный для следующей связи в этом браузере",
+        en: "The connector type chosen for the next connector in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
+      name: "remo.commands.recent",
+      kind: "localStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Последние команды из поиска ⌘K в этом браузере",
+        en: "The commands you last ran from the ⌘K search in this browser",
+      },
+      lifetime: "until cleared",
+    },
+    {
       name: "remo.moveBanner.dismissed",
       kind: "sessionStorage",
       category: "preferences",
@@ -217,6 +287,17 @@ export const STORAGE_REGISTRY = Object.freeze(
       purpose: {
         ru: "Плашка о переезде закрыта до конца сеанса",
         en: "The move notice is dismissed for this session",
+      },
+      lifetime: "browser session",
+    },
+    {
+      name: "remo.billingNotice.*",
+      kind: "sessionStorage",
+      category: "preferences",
+      owner: "web",
+      purpose: {
+        ru: "Сообщение об оплате тарифа закрыто до конца сеанса",
+        en: "The plan payment message is dismissed for this session",
       },
       lifetime: "browser session",
     },

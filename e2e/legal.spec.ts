@@ -24,6 +24,7 @@ interface LegalDoc {
   zone: string;
   version: number;
   sha256: string;
+  changes?: Partial<Record<"en" | "ru", string>>;
   required: "signup" | "none";
   reaccept: boolean;
   withdrawable: boolean;
@@ -42,13 +43,14 @@ function text(zone: string, ru: string, en: string): string {
 }
 
 async function openRegister(page: Page, zone: string): Promise<void> {
-  await page.goto(`/?lang=${zone === "ru" ? "ru" : "en"}`);
-  await page.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).first().click();
-  const dialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
-  await dialog.getByRole("tab", { name: text(zone, "Создать аккаунт", "Create an account") }).click();
-  await dialog.locator('input[autocomplete="name"]').fill("Legal Test");
-  await dialog.locator('input[type="email"]').fill(`legal-ui-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`);
-  await dialog.locator('input[type="password"]').fill(PASSWORD);
+  // Registration is its own screen (ADR-265 stage 3, mockup App-SignUp), reached from the
+  // sign-in dialog and addressable as `?signup=1`.
+  await page.goto(`/?signup=1&lang=${zone === "ru" ? "ru" : "en"}`);
+  const screen = page.locator(".signup-screen");
+  await expect(screen).toBeVisible();
+  await screen.locator('input[autocomplete="name"]').fill("Legal Test");
+  await screen.locator('input[type="email"]').fill(`legal-ui-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`);
+  await screen.locator('input[type="password"]').fill(PASSWORD);
 }
 
 test("the documents page serves a guest without acceptance actions", async ({ page, browser }) => {
@@ -102,6 +104,10 @@ test("the documents page shows what was accepted and withdraws only the consent"
   expect(registered.ok(), await registered.text()).toBeTruthy();
 
   await page.goto(`/?legal=documents&lang=${zone === "ru" ? "ru" : "en"}`);
+  for (const document of documentsHere) {
+    const summary = document.changes?.[zone === "ru" ? "ru" : "en"];
+    if (summary) await expect(page.locator(".legal-doc .legal-changes", { hasText: summary })).toBeVisible();
+  }
   await expect(page.locator(".legal-doc")).toHaveCount(documentsHere.length);
   await expect(page.locator(".legal-doc-status.is-accepted").first()).toContainText(
     text(zone, "Принято", "Accepted"),
@@ -140,7 +146,7 @@ test("registration asks for every required document and creates the account only
   const zone = required[0].zone;
 
   await openRegister(page, zone);
-  const dialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const dialog = page.locator(".signup-screen");
   const create = dialog.getByRole("button", {
     name: text(zone, "Создать аккаунт", "Create account"),
     exact: true,
@@ -156,7 +162,10 @@ test("registration asks for every required document and creates the account only
   await expect(create).toBeEnabled();
   await create.click();
 
-  await expect(dialog).toHaveCount(0, { timeout: 20_000 });
+  // The screen stays in its "done" state (mockup App-SignUp); the session exists.
+  await expect(dialog.getByRole("status")).toContainText(text(zone, "Готово!", "Done!"), {
+    timeout: 20_000,
+  });
   const me = await page.request.get("/api/auth/me");
   expect(me.ok()).toBeTruthy();
   const { user } = (await me.json()) as { user: { id: string } };
@@ -276,7 +285,7 @@ test("an account with no journal rows is blocked until it accepts the current re
 
   await page.goto(`/?lang=${zone === "ru" ? "ru" : "en"}`);
   await page.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).first().click();
-  const login = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+  const login = page.getByRole("main").filter({ has: page.locator('input[type="email"]') });
   await login.locator('input[type="email"]').fill(email);
   await login.locator('input[type="password"]').fill(PASSWORD);
   await login.getByRole("button", { name: text(zone, "Войти", "Sign in"), exact: true }).click();
@@ -285,6 +294,10 @@ test("an account with no journal rows is blocked until it accepts the current re
     name: text(zone, "Документы обновились", "Documents have been updated"),
   });
   await expect(sheet).toBeVisible({ timeout: 20_000 });
+  for (const document of pendingDocs) {
+    const summary = document.changes?.[zone === "ru" ? "ru" : "en"];
+    if (summary) await expect(sheet.locator(".legal-changes", { hasText: summary })).toBeVisible();
+  }
   // §5: no close button and Escape does nothing; only the two named actions exist.
   await expect(sheet.getByRole("button", { name: text(zone, "Выйти", "Sign out") })).toBeVisible();
   const accept = sheet.getByRole("button", { name: text(zone, "Принять", "Accept"), exact: true });

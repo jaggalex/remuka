@@ -16,8 +16,14 @@
  * `overview/index` by following links, so the documentation is a system and not a pile.
  */
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { aiExports } from "./guide-ai.mjs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  APPLE_TOUCH,
+  inlineMark,
+  readMark,
+} from "./brand-source.mjs";
 import {
   directories,
   exists,
@@ -158,12 +164,10 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
   }</figure>`;
 };
 
-// The product mark: the same file as the favicon, inlined so it follows the theme.
-const LOGO = readFileSync(join(ROOT, "remo-logo.svg"), "utf8");
-const LOGO_INLINE = LOGO.replace('role="img" aria-label="REMO"', 'aria-hidden="true"').replace(
-  /#1E2A44/g,
-  "currentColor",
-);
+// The product mark: the owner's drawing, inlined so the smile follows the theme token.
+const MARK_LIGHT = readMark();
+const MARK_DARK = readMark("dark");
+const LOGO_INLINE = inlineMark(MARK_LIGHT);
 const problems = [];
 const fail = (message) => problems.push(message);
 
@@ -480,7 +484,9 @@ function renderPage(page, locale) {
 <meta name="description" content="${escapeHtml(page.meta.summary[locale])}">
 <link rel="canonical" href="${PUBLIC_GUIDE}/${locale}/${page.section}/${page.slug}.html">
 <meta name="theme-color" content="#fcfbfa">
-<link rel="icon" href="/guide/assets/remo-logo.svg" type="image/svg+xml">
+<link rel="icon" href="/guide/assets/remuka-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/guide/assets/remuka-mark-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/guide/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/guide/assets/tokens.css">
 <link rel="stylesheet" href="/guide/assets/guide.css">
 </head>
@@ -593,89 +599,6 @@ ${page.id === "overview/map" ? '<script src="/guide/assets/map.js"></script>' : 
 </html>`;
 }
 
-/** Absolute page URL, so an agent outside the portal can follow it (ADR-157). */
-function aiPageUrl(page) {
-  return `${PUBLIC_GUIDE}/en/${page.section}/${page.slug}.html`;
-}
-
-/** `llms.txt`: the conventional map of the documentation, in English. */
-function llmsIndex() {
-  const lines = [
-    `# ${BRAND.name.en}`,
-    "",
-    `> ${BRAND.name.en} is a local-first visual canvas for a small team: boards, objects, access, export and integrations in one product.`,
-    "> This is public product documentation for AI agents. It grants no account, board or API access.",
-    "",
-    `Full text in one file: ${PUBLIC_GUIDE}/llms-full.txt`,
-    `Content updated: ${contentUpdated}. Schema version: ${SCHEMA_VERSION}. Pages: ${ordered.length}.`,
-    "",
-  ];
-  for (const section of sections) {
-    const items = ordered.filter((page) => page.section === section.id);
-    if (!items.length) continue;
-    lines.push(`## ${section.title.en}`, "");
-    for (const page of items) {
-      lines.push(`- [${page.meta.title.en}](${aiPageUrl(page)}) — ${page.meta.summary.en}`);
-    }
-    lines.push("");
-  }
-  lines.push(
-    "## Notes",
-    "",
-    "- This file is a map; open the links for the full page.",
-    `- \`${PUBLIC_GUIDE}/llms-full.txt\` contains every page in one text file.`,
-    "- The portal also has Russian pages; the AI files use English for broader model support.",
-    `- The in-app help is a separate short reference at ${HELP_ORIGIN}/help/en and is not included in this file.`,
-    "- Documentation is not an API token: it cannot read or change a board.",
-    "",
-  );
-  return lines.join("\n");
-}
-
-/** Links inside the guide are site-absolute; an AI file needs external-absolute URLs. */
-function absoluteGuideLinks(body) {
-  return body
-    .replace(
-      /\]\(\/guide\/([a-z0-9-]+)\/([a-z0-9-]+)(#[^)]*)?\)/g,
-      (_all, section, slug, anchor = "") =>
-        `](${PUBLIC_GUIDE}/en/${section}/${slug}.html${anchor})`,
-    )
-    .replace(
-      /\]\(\/help\/([a-z0-9.-]+)(#[^)]*)?\)/g,
-      (_all, topic, anchor = "") => `](${HELP_ORIGIN}/help/en/${topic}${anchor})`,
-    )
-    .replace(
-      /\]\(\/guide\/([^)]+)\)/g,
-      (_all, path) => `](${PUBLIC_GUIDE}/${path})`,
-    );
-}
-
-/** `llms-full.txt`: every English page in reading order, with its source URL. */
-function llmsFull() {
-  const lines = [
-    `# ${BRAND.name.en} documentation`,
-    "",
-    "> Public product documentation for AI agents. It grants no account, board or API access.",
-    `> The in-app help is a separate short reference at ${HELP_ORIGIN}/help/en.`,
-    `> Source map: ${PUBLIC_GUIDE}/llms.txt`,
-    `> Content updated: ${contentUpdated}. Schema version: ${SCHEMA_VERSION}. Pages: ${ordered.length}.`,
-    "",
-  ];
-  for (const page of ordered) {
-    lines.push(
-      `## ${page.meta.title.en}`,
-      "",
-      `Source: ${aiPageUrl(page)}`,
-      "",
-      absoluteGuideLinks(page.bodies.en ?? "").trim(),
-      "",
-      "---",
-      "",
-    );
-  }
-  return lines.join("\n");
-}
-
 const files = new Map();
 for (const page of ordered) {
   for (const locale of LOCALES) {
@@ -696,8 +619,7 @@ files.set(
 `,
 );
 files.set("search.json", `${JSON.stringify(search, null, 2)}\n`);
-files.set("llms.txt", llmsIndex());
-files.set("llms-full.txt", llmsFull());
+for (const [path, body] of aiExports({ ordered, sections, brand: BRAND, guide: PUBLIC_GUIDE, app: HELP_ORIGIN, updated: contentUpdated, schema: SCHEMA_VERSION })) files.set(path, body);
 files.set("assets/guide.css", readFileSync(join(GUIDE, "theme", "guide.css"), "utf8"));
 files.set("assets/search.js", readFileSync(join(GUIDE, "theme", "search.js"), "utf8"));
 files.set("assets/nav.js", readFileSync(join(GUIDE, "theme", "nav.js"), "utf8"));
@@ -706,7 +628,11 @@ files.set("assets/theme.js", readFileSync(join(GUIDE, "theme", "theme.js"), "utf
 files.set("assets/tabs.js", readFileSync(join(GUIDE, "theme", "tabs.js"), "utf8"));
 files.set("assets/copy.js", readFileSync(join(GUIDE, "theme", "copy.js"), "utf8"));
 files.set("assets/map.js", readFileSync(join(GUIDE, "theme", "map.js"), "utf8"));
-files.set("assets/remo-logo.svg", LOGO);
+// The old asset path stays for cached pages and serves the same new mark (ADR-272).
+files.set("assets/remo-logo.svg", MARK_LIGHT);
+files.set("assets/remuka-mark.svg", MARK_LIGHT);
+files.set("assets/remuka-mark-dark.svg", MARK_DARK);
+files.set("assets/apple-touch-icon.png", readFileSync(APPLE_TOUCH));
 for (const name of readdirSync(join(GUIDE, "assets"))) {
   const path = join(GUIDE, "assets", name);
   if (!statSync(path).isFile()) continue;

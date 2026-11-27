@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type CSSProperties, type ReactNode } from "react";
 
 export interface ObjectBarProps {
   /** Where the bar goes, already clamped to the canvas by `useFloatingBars`. */
@@ -31,7 +31,10 @@ export const ObjectBar = forwardRef<HTMLDivElement, ObjectBarProps>(function Obj
       className={className ? `sticky-bar ${className}` : "sticky-bar"}
       role="toolbar"
       aria-label={label}
-      style={placement}
+      style={{
+        "--object-anchor-left": `${placement.left}px`,
+        "--object-anchor-top": `${placement.top}px`,
+      } as CSSProperties}
       // The caret must not leave the note when a property button is pressed.
       onPointerDown={(event) => event.preventDefault()}
     >

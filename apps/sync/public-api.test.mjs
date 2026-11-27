@@ -19,6 +19,7 @@ function response() {
 const BUILD = { version: "0.8.0", build: "1", commit: "abc", schema: 28 };
 const NONE = { zone: "none", policyUrl: null, personalDataConsentUrl: null };
 const NO_LEGAL = { documents: [] };
+const NO_DOCS = { origin: null };
 
 describe("public routes (ADR-254 §3)", () => {
   it("offers the installation's own name or null", async () => {
@@ -42,6 +43,7 @@ describe("public routes (ADR-254 §3)", () => {
         productName: expected,
         compliance: NONE,
         legal: NO_LEGAL,
+        docs: NO_DOCS,
       });
     }
   });
@@ -90,7 +92,29 @@ describe("public routes (ADR-254 §3)", () => {
         productName: null,
         compliance,
         legal: NO_LEGAL,
+        docs: NO_DOCS,
       });
+    }
+  });
+
+  it("always publishes the guide of the installation, null included (ADR-284)", async () => {
+    for (const [docsOrigin, expected] of [
+      [undefined, NO_DOCS],
+      [null, NO_DOCS],
+      ["https://docs.stage.example", { origin: "https://docs.stage.example" }],
+    ]) {
+      const out = response();
+      await handlePublicRoutes({
+        request: { method: "GET" },
+        response: out,
+        url: new URL("http://sync.test/config"),
+        store: {},
+        build: BUILD,
+        productName: "Remuka",
+        productNameOverride: null,
+        docsOrigin,
+      });
+      expect(JSON.parse(out.body).docs, String(docsOrigin)).toEqual(expected);
     }
   });
 
@@ -149,6 +173,7 @@ describe("public routes (ADR-254 §3)", () => {
       productName: null,
       compliance: NONE,
       legal: NO_LEGAL,
+      docs: NO_DOCS,
       move,
     });
   });
@@ -170,6 +195,7 @@ describe("public routes (ADR-254 §3)", () => {
         productName: null,
         compliance: NONE,
         legal: NO_LEGAL,
+        docs: NO_DOCS,
       });
     }
   });

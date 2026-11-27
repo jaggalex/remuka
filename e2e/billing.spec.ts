@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { freshBoard, openAccount } from "./helpers";
+import { freshBoard, openAccount, goAllRooms } from "./helpers";
 
 /**
  * Browser acceptance for the plan surface (ADR-247, `spec/billing.md` §11 and §13).
@@ -30,14 +30,6 @@ async function openOrganisation(page: Page): Promise<void> {
   await expect(page.locator(".org-dialog")).toBeVisible();
 }
 
-/** Create a shared organisation the way a person does: the screen, not the API. */
-async function createSharedOrganisation(page: Page, name: string): Promise<void> {
-  await page.getByRole("button", { name: "+ New organisation" }).click();
-  await page.locator(".org-create input").first().fill(name);
-  await page.getByRole("button", { name: "Create organisation" }).click();
-  await expect(page.getByRole("dialog", { name })).toBeVisible();
-}
-
 /** Rooms created through the same command route the home uses; returns their ids. */
 async function createRooms(
   page: Page,
@@ -57,16 +49,12 @@ async function createRooms(
   return ids;
 }
 
-test("the plan tab shows the free plan and an empty price book", async ({ page }) => {
+test("a personal organisation can open the plan chooser with an empty price book", async ({ page }) => {
   await freshBoard(page, "billing-tab");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await openOrganisation(page);
 
-  // A personal organisation always has the tab while billing is on; it cannot buy a plan.
-  await expect(page.getByRole("tab", { name: "Plan & payment" })).toBeVisible();
-
-  // A plan belongs to a shared organisation, so create one through the screen first.
-  await createSharedOrganisation(page, "Billing team");
+  await expect(page.locator(".org-badge.personal")).toBeVisible();
   const tab = page.getByRole("tab", { name: "Plan & payment" });
   await expect(tab).toBeVisible();
   await tab.click();
@@ -74,7 +62,7 @@ test("the plan tab shows the free plan and an empty price book", async ({ page }
   const panel = page.locator(".billing-panel");
   await expect(panel).toBeVisible();
   await expect(page.locator(".billing-facts")).toContainText("Free");
-  await expect(page.locator(".billing-usage").first()).toContainText("Rooms 0/5");
+  await expect(page.locator(".billing-usage").first()).toContainText("Rooms 1/5");
 
   // A fresh installation sells nothing yet (§2.1.1: a currency without a complete price
   // list is hidden). The catalogue says so instead of inventing a price.
@@ -98,9 +86,35 @@ test("the plan tab shows the free plan and an empty price book", async ({ page }
   await expect(panel.getByRole("button", { name: /^Pay / })).toHaveCount(0);
 });
 
+test("a late installation config leaves the loaded invoices visible", async ({ page }) => {
+  const account = await freshBoard(page, "billing-invoices");
+  const config = Promise.withResolvers<void>();
+  await page.route("**/api/config", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await config.promise;
+    await route.fulfill({ response, json: { ...body, productName: "Remuka Billing QA" } });
+  });
+  await page.route("**/billing/invoices", (route) => route.fulfill({ json: { invoices: [{
+    id: "qa-invoice", number: "RU-QA-000003", created_at: "2026-11-27T14:02:00Z",
+    total: 32_627, currency: "RUB", status: "paid", payments: [],
+  }] } }));
+
+  await page.goto(`/org/billing?org=${account.orgId}&lang=ru`);
+  const invoices = page.locator(".billing-invoices");
+  const row = invoices.getByRole("row").filter({ hasText: "RU-QA-000003" });
+  try {
+    await expect(row).toContainText("Оплачен");
+  } finally {
+    config.resolve();
+  }
+  await expect(page).toHaveTitle("Remuka Billing QA");
+  await expect(row).toContainText("Оплачен");
+});
+
 test("the tab is absent when the billing family answers 404", async ({ page }) => {
   await freshBoard(page, "billing-off");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
 
   // The off installation answers 404 for the whole family (proved for the server by
   // `payment-providers.test.mjs`, "is a 404 for the whole family when billing is off"),
@@ -127,7 +141,7 @@ test("Free keeps five rooms and names the sixth refusal", async ({ page }) => {
   const account = await freshBoard(page, "billing-rooms");
   // The helper already made one room; four more reach the Free ceiling of five.
   await createRooms(page, account.orgId, 4, "Room");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await expect(page.locator(".home-tile")).toHaveCount(5);
 
   // The server owns the decision: a §2.4 plan refusal, not a 500 and not silence.
@@ -169,7 +183,7 @@ test("the owner chooses which rooms stay active from the plan tab", async ({ pag
   const account = await freshBoard(page, "billing-picker");
   // Five rooms is exactly the Free ceiling: the choice is the owner's, not a repair.
   const extra = await createRooms(page, account.orgId, 4, "Picker");
-  await page.getByRole("button", { name: "All rooms" }).click();
+  await goAllRooms(page);
   await openOrganisation(page);
   await page.getByRole("tab", { name: "Plan & payment" }).click();
 
@@ -201,7 +215,7 @@ test("the owner chooses which rooms stay active from the plan tab", async ({ pag
   // The fifth room keeps its content and loses editing, exactly as the spec says.
   const frozenId = extra[extra.length - 1]!;
   await page.goto(`/?room=${frozenId}&lang=en`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Sticky note", exact: true })).toBeDisabled();
 });
 
@@ -232,7 +246,7 @@ test("a frozen room keeps its content and loses editing", async ({ page }) => {
 
   // The screen follows the same decision: the tool rail is there and dimmed.
   await page.goto(`/?room=${frozenId}&lang=en`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Sticky note", exact: true })).toBeDisabled();
 });
 
@@ -264,7 +278,6 @@ test("paying by invoice creates an invoice for a shared organisation", async ({ 
   );
 
   await freshBoard(page, "billing-invoice");
-  // A personal organisation cannot buy a plan; the invoice belongs to a shared one.
   const created = await page.request.post("/api/orgs", { data: { name: "Invoice team" } });
   expect(created.ok(), await created.text()).toBeTruthy();
   const { org } = (await created.json()) as { org: { slug: string } };
@@ -304,7 +317,6 @@ test("the owner replaces the saved card through the provider's page", async ({ p
       "`ru_card` from `pnpm billing:providers` (neither has an HTTP route)",
   );
 
-  // A personal organisation cannot buy a plan; the card belongs to a shared one.
   await freshBoard(page, "billing-card");
   const created = await page.request.post("/api/orgs", { data: { name: "Card team" } });
   expect(created.ok(), await created.text()).toBeTruthy();

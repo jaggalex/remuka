@@ -7,13 +7,45 @@ import {
 } from "./canvasGeometry";
 import type { NoteDirection } from "@remo/doc";
 import type { GestureEnv } from "./gestureEnv";
-import { axisDropSlot, cardDropSlot, boxOf, cellAt, facingSide, pickInRect, placementsInRect } from "@remo/canvas";
+import { axisDropSlot, cardDropSlot, cellAt, facingSideOf, pickInRect, placementsInRect } from "@remo/canvas";
 import type { ConnectorPatch } from "@remo/doc";
 
 export function pointerUp(env: GestureEnv) {
-  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setDragGhostIds, setDragIds, setDragPreview, setGuides, setHoverCell, setMarquee, setTableHover, setTableRefused, settings, widgetById, widgets } = env;
+  const { anchorPressRef, camera, cardPreviewRef, clearPreview, connectDraftRef, dragDeltaRef, dragRef, isCardOfKanban, layouts, marqueeRef, onAddWaypoint, onConnect, onCreateConnected, onConnectorPatch, onLimit, onMoveCard, onMoveKanbanAxis, onMoveMany, onMoveToCell, onMoveWaypoint, onReattachEnd, onResizeMany, onRotateMany, onSelect, setResizeLimit, previewLive, selectedIds, setConnectDraft, setGuides, setRotationDraft, setShapeDraft, setTableHover, setTableRefused, settings, creationTool, widgetById, widgets } = env;
   const drag = dragRef.current;
   dragRef.current = null;
+
+  if (drag?.mode === "place") {
+    if (!env.readOnly && creationTool && creationTool.tool !== "shape") creationTool.onPlace(drag.start);
+    return;
+  }
+  if (drag?.mode === "shape") {
+    setShapeDraft(null);
+    if (env.readOnly || creationTool?.tool !== "shape") return;
+    // A click creates the default at the centre; a drag creates the box that was
+    // previewed. Both go through the same command (ADR-271, ADR-119).
+    const box =
+      drag.moved && drag.rect && drag.rect.width >= 1 && drag.rect.height >= 1
+        ? drag.rect
+        : null;
+    creationTool.onDraw(drag.kind, box, drag.start);
+    return;
+  }
+
+  if (drag?.mode === "rotate") {
+    setRotationDraft(null);
+    clearPreview();
+    // The command recomputes the same placements from the same delta and options, so
+    // one gesture is one transaction and one undo step (ADR-271, T18).
+    if (drag.delta !== 0) {
+      onRotateMany(
+        drag.members.map((widget) => widget.id),
+        drag.delta,
+        drag.shift ? { step: 15 } : { magnet: true },
+      );
+    }
+    return;
+  }
 
   if (drag?.mode === "connector") {
     const patch = previewLive.current.get(drag.id);
@@ -86,11 +118,12 @@ export function pointerUp(env: GestureEnv) {
     const target = draft ? connectTargetAt(draft, layouts, widgets, isCardOfKanban, 160 / camera.zoom) : null;
     if (target && target.id !== drag.fromId) {
       const source = widgetById(drag.fromId);
+      const placed = placedWidget(target, layouts);
       const endSide =
         draft?.targetSide ??
         (source
-          ? facingSide(boxOf(placedWidget(target, layouts)), { x: source.x, y: source.y })
-          : facingSide(boxOf(placedWidget(target, layouts)), { x: draft?.x ?? 0, y: draft?.y ?? 0 }));
+          ? facingSideOf(placed, { x: source.x, y: source.y })
+          : facingSideOf(placed, { x: draft?.x ?? 0, y: draft?.y ?? 0 }));
       onConnect(drag.fromId, target.id, {
         startSide: drag.fromSide,
         endSide,
@@ -105,6 +138,9 @@ export function pointerUp(env: GestureEnv) {
       const slot = axisDropSlot(layout, drag.kind, drag.id, drag.last);
       // Dropped where it already was: nothing to write, no empty undo step.
       if (slot.index !== drag.from) onMoveKanbanAxis(drag.kanbanId, drag.kind, drag.id, slot.index);
+    } else if (layout && !drag.moved && drag.kind === "column") {
+      env.onColumnTitleClick({ kind: "column", kanbanId: drag.kanbanId, columnId: drag.id, index: drag.from },
+        drag.start, env.worldToScreenPoint(drag.start));
     }
     setGuides([]);
   }
@@ -193,6 +229,12 @@ export function pointerUp(env: GestureEnv) {
     );
   }
 
+  clearDragPreview(env);
+}
+
+function clearDragPreview(env: GestureEnv) {
+  const { cardPreviewRef, marqueeRef, dragDeltaRef, setDragPreview, setHoverCell, setMarquee,
+    clearPreview, setDragIds, setDragGhostIds, setGuides } = env;
   cardPreviewRef.current = null;
   marqueeRef.current = null;
   dragDeltaRef.current = null;
@@ -203,4 +245,24 @@ export function pointerUp(env: GestureEnv) {
   setDragIds([]);
   setDragGhostIds([]);
   setGuides([]);
+}
+
+/** A system cancellation only releases the pointer and discards local previews. */
+export function pointerCancel(env: GestureEnv, event: React.PointerEvent<HTMLElement>) {
+  const target = event.target as Element;
+  if (target.hasPointerCapture?.(event.pointerId)) target.releasePointerCapture(event.pointerId);
+  const drag = env.dragRef.current;
+  if (!drag) return;
+  env.dragRef.current = null;
+  if (drag.mode === "connect" || drag.mode === "reattach") {
+    env.anchorPressRef.current = null;
+    env.connectDraftRef.current = null;
+    env.setConnectDraft(null);
+  }
+  env.setShapeDraft(null);
+  env.setRotationDraft(null);
+  env.setResizeLimit(null);
+  env.setTableHover(null);
+  env.setTableRefused(false);
+  clearDragPreview(env);
 }

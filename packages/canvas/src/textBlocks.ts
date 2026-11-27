@@ -1,5 +1,5 @@
 import type { LineFormat, TextLine, TextMarks, TextRun, Widget } from "@remo/model";
-import { stickyFontCap } from "@remo/model";
+import { localPointOf, stickyFontCap } from "@remo/model";
 import { measureContext } from "./measure";
 import {
   CODE_PADDING_EM,
@@ -692,6 +692,10 @@ export function textHitAt(
   const ctx = options.ctx === undefined ? measureContext() : options.ctx;
   if (!ctx) return null;
 
+  // The text is laid out in the object's own axes and painted turned with it, so the
+  // point is un-turned before any comparison (ADR-271, T18).
+  const at = localPointOf(widget, point);
+
   const family = options.family ?? DEFAULT_FONT_FAMILY;
   const cap =
     options.cap ??
@@ -709,11 +713,11 @@ export function textHitAt(
 
   const top = measured.contentY;
   for (const line of measured.layout.lines) {
-    if (point.y < top + line.top || point.y > top + line.top + line.h) continue;
+    if (at.y < top + line.top || at.y > top + line.top + line.h) continue;
 
     if (line.marker.kind === "check") {
       const left = measured.contentX + line.marker.x;
-      if (point.x >= left && point.x <= left + line.marker.width) {
+      if (at.x >= left && at.x <= left + line.marker.width) {
         return { kind: "checkbox", line: line.index };
       }
     }
@@ -721,7 +725,7 @@ export function textHitAt(
     for (const run of line.runs) {
       if (!run.marks.href) continue;
       const left = measured.contentX + run.x;
-      if (point.x < left || point.x > left + run.width) continue;
+      if (at.x < left || at.x > left + run.width) continue;
       return {
         kind: "link",
         href: run.marks.href,

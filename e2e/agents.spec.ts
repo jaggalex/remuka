@@ -1,5 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, agentBoard, openBoard, openMore } from "./helpers";
+import { addSticky, agentBoard, openAccount, openBoard } from "./helpers";
 
 /**
  * The plan preview (ADR-142, M2b): a brief and a file become a plan, the person applies
@@ -12,27 +13,43 @@ import { addSticky, agentBoard, openBoard, openMore } from "./helpers";
 
 const BUDGET = { maxTokens: 6_000, maxActions: 60, maxCostUsd: 1 };
 
-/** Choose "Ask AI…"; what the dialog shows first depends on the room's tasks. */
+/** Choose "Ask the agent…"; what the dialog shows first depends on the room's tasks. */
 async function clickAskAi(page: Page): Promise<void> {
-  // Scoped to the header: a selected object adds its own "More" to the arrange bar.
-  await page.getByRole("banner").getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Ask AI…" }).click();
+  // The agent has its own header menu now (ADR-266 §2); the old "More" is gone.
+  await page.getByRole("banner").getByRole("button", { name: "Agent", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Ask the agent/ }).click();
 }
 
 async function openAgents(page: Page): Promise<void> {
   await clickAskAi(page);
   await expect(
-    page.getByRole("dialog", { name: "AI agents in this room" }),
+    page.getByRole("dialog", { name: "New task" }),
   ).toBeVisible();
 }
 
+/** Violet pixels on the overlay: the agent's dashed proposal, and nothing else (ADR-267). */
+async function violetPixels(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(".layer.overlay")!;
+    const ctx = canvas.getContext("2d")!;
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const r = data[index]!;
+      const g = data[index + 1]!;
+      const b = data[index + 2]!;
+      if (data[index + 3]! > 0 && b > 120 && b - r > 30 && r - g > 30) count += 1;
+    }
+    return count;
+  });
+}
+
 async function chooseBrief(page: Page): Promise<void> {
-  await page
-    .getByRole("combobox", { name: "Agent", exact: true })
-    .selectOption({ label: "Planner" });
-  await page
-    .getByRole("combobox", { name: "Skill", exact: true })
-    .selectOption("brief-to-board");
+  await page.getByRole("button", {name: "Agent settings"}).click();
+  await page.getByRole("combobox", {name: "Agent", exact: true}).selectOption({label: "Planner"});
+  await page.getByRole("button", {name: "Agent settings"}).click();
+  await page.locator('.agent-skill-picker label:has(input[value="brief-to-board"])').click();
+  await page.locator(".agent-input-disclosure > summary").click();
 }
 
 /** A CSV whose flattened text passes the 20 000-character cap, so truncation is real. */
@@ -41,18 +58,54 @@ function longBriefCsv(): string {
   return `story,size\n${rows}\n`;
 }
 
+test("the model disclosure matches the submitted brief after real CSV extraction", async ({ page }) => {
+  await agentBoard(page, "agents-model-disclosure");
+  await openAgents(page);
+  await chooseBrief(page);
+  const intent = "Собери структуру возвратов";
+  await page.getByLabel("What should it create?").fill(intent);
+  const content = 'step,note\r\n"Получить, сверить",Тест\r\nГотово,Да\r\n';
+  await page.locator('.agent-file input[type="file"]').setInputFiles({
+    name: "operations.csv", mimeType: "text/csv", buffer: Buffer.from(content),
+  });
+  const disclosure = page.getByRole("region", { name: "What will go to the model" });
+  const file = disclosure.locator("details").filter({has: page.locator("summary", {hasText: "operations.csv"})});
+  await file.locator("summary").click();
+  const shown = await file.locator("pre").innerText();
+  const snapshot = disclosure.locator("details").filter({has: page.locator("summary", {hasText: "snapshot"})});
+  await snapshot.locator("summary").click();
+  const pictured = JSON.parse(await snapshot.locator("pre").innerText());
+  await expect(disclosure).toContainText(intent);
+  const request = page.waitForRequest(req => req.method() === "POST" && req.url().endsWith("/agent-tasks"));
+  await page.getByRole("button", {name: "Create draft", exact: true}).click();
+  const sent = (await request).postDataJSON();
+  expect(sent.file).toEqual({name: "operations.csv", content});
+  // Render the provider's user message with exactly the submitted input and fixture
+  // document. Parsing the data block catches accidentally displaying raw CSV.
+  const prompt = execFileSync(process.execPath, [require.resolve("./provider-brief.mjs")], {
+    input: JSON.stringify({intent: sent.intent, file: sent.file, snapshot: pictured}),
+    encoding: "utf8",
+  });
+  const fileBlock = /<file name="operations.csv">(.*?)<\/file>/s.exec(prompt);
+  expect(JSON.parse(fileBlock![1]!).text).toBe(shown);
+  expect(shown).toBe("step: Получить, сверить | note: Тест\nstep: Готово | note: Да");
+  expect(pictured.counts).toMatchObject({objects: 0, described: 0});
+  await expect(page.getByRole("dialog", {name: "Agent plan"})).toBeVisible({timeout: 20_000});
+});
+
 test("the plan skill is the default and the diagram stays in the list", async ({ page }) => {
   await agentBoard(page, "agents-default-skill");
   await openAgents(page);
 
-  const skill = page.getByRole("combobox", { name: "Skill", exact: true });
-  await expect(skill).toHaveValue("brief-to-board");
-  await expect(skill.locator('option[value="diagram"]')).toHaveCount(1);
+  const skill = page.getByRole("group", {name: "Result", exact: true});
+  await expect(skill.locator('input[value="brief-to-board"]')).toBeChecked();
+  await expect(skill.locator('input[value="diagram"]')).toHaveCount(1);
   // "Auto" is always offered; a skill that needs a selection is not (ADR-143).
-  await expect(skill.locator('option[value=""]')).toHaveCount(1);
-  await expect(skill.locator('option[value="cards"]')).toHaveCount(0);
-  await expect(skill.locator('option[value="tidy-selection"]')).toHaveCount(0);
-  await expect(page.locator(".rm-field-msg", { hasText: "preview first" })).toBeVisible();
+  await expect(skill.locator('input[value=""]')).toHaveCount(1);
+  await expect(skill.locator('input[value="cards"]')).toHaveCount(0);
+  await expect(skill.locator('input[value="tidy-selection"]')).toHaveCount(0);
+  await page.locator(".agent-input-disclosure > summary").click();
+  await expect(page.locator(".agent-payload p", { hasText: "preview first" })).toBeVisible();
 });
 
 test("the selection is the source, with its size in characters, and can be removed", async ({
@@ -62,10 +115,11 @@ test("the selection is the source, with its size in characters, and can be remov
   await addSticky(page);
   await openAgents(page);
 
-  const skill = page.getByRole("combobox", { name: "Skill", exact: true });
-  await expect(skill.locator('option[value="cards"]')).toHaveCount(1);
-  await expect(skill.locator('option[value="tidy-selection"]')).toHaveCount(1);
+  const skill = page.getByRole("group", {name: "Result", exact: true});
+  await expect(skill.locator('input[value="cards"]')).toHaveCount(1);
+  await expect(skill.locator('input[value="tidy-selection"]')).toHaveCount(1);
 
+  await page.locator(".agent-input-disclosure > summary").click();
   const source = page.locator(".agent-source");
   await expect(source).toContainText("Selected: 1 objects");
   await expect(source).toContainText("Text: 4 characters");
@@ -73,7 +127,7 @@ test("the selection is the source, with its size in characters, and can be remov
   await expect(source.getByRole("button", { name: "Selection only" })).toBeVisible();
   await source.getByRole("button", { name: "Remove" }).click();
   await expect(source).toContainText("No selection is used");
-  await expect(skill.locator('option[value="tidy-selection"]')).toHaveCount(0);
+  await expect(skill.locator('input[value="tidy-selection"]')).toHaveCount(0);
 });
 
 test("a brief with a file becomes a plan, applies once and undoes in one step", async ({
@@ -84,7 +138,7 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   await chooseBrief(page);
 
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Собери US-карту для оформления заказа");
   await page.locator('.agent-file input[type="file"]').setInputFiles({
     name: "stories.csv",
@@ -94,7 +148,7 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   await expect(page.locator(".agent-file-chip")).toContainText("stories.csv");
   await expect(page.locator(".agent-file-chip")).toContainText(".csv");
 
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   // Polling turns "plan ready" into the preview; nothing has touched the board yet.
   const plan = page.getByRole("dialog", { name: "Agent plan" });
@@ -134,7 +188,7 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   await expect(plan).toContainText(
     "The objects are in the room. One ⌘Z removes the whole structure.",
   );
-  await expect(plan.getByRole("button", { name: "Show in room" })).toBeVisible();
+  await expect(plan.getByRole("button", { name: "Show on canvas" })).toBeVisible();
   await expect(plan.getByRole("button", { name: "Apply" })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(10);
   // The objects exist now; the dashed picture of them is gone.
@@ -148,7 +202,7 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   );
   expect(frames).toHaveLength(2);
 
-  await plan.getByRole("button", { name: "Show in room" }).click();
+  await plan.getByRole("button", { name: "Show on canvas" }).click();
   await expect(plan).toHaveCount(0);
 
   // A second visit shows the applied plan and no Apply button: nothing is duplicated.
@@ -157,10 +211,10 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
   await expect(plan).toBeVisible();
   await expect(plan).toContainText("Applied");
   await expect(plan.getByRole("button", { name: "Apply" })).toHaveCount(0);
-  await expect(plan.getByRole("button", { name: "Show in room" })).toBeVisible();
+  await expect(plan.getByRole("button", { name: "Show on canvas" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(10);
 
-  await plan.getByRole("button", { name: "Show in room" }).click();
+  await plan.getByRole("button", { name: "Show on canvas" }).click();
   await expect(plan).toHaveCount(0);
 
   await page.keyboard.press("ControlOrMeta+z");
@@ -175,9 +229,9 @@ test("a plan applied in one tab is not written again from a second tab", async (
   await openAgents(page);
   await chooseBrief(page);
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Собери US-карту для оформления заказа");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -190,22 +244,36 @@ test("a plan applied in one tab is not written again from a second tab", async (
   // list loads (ADR-142); the list itself may never be on screen long enough to assert.
   await clickAskAi(second);
   const secondPlan = second.getByRole("dialog", { name: "Agent plan" });
-  await expect(secondPlan).toBeVisible({ timeout: 20_000 });
+  const secondApply = secondPlan.getByRole("button", { name: "Apply" });
+  await expect(secondApply).toBeEnabled({ timeout: 20_000 });
 
+  await page.bringToFront();
+  const recorded = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/applied"),
+  );
   await plan.getByRole("button", { name: "Apply" }).click();
-  await expect(plan.getByRole("button", { name: "Show in room" })).toBeVisible();
+  expect((await recorded).ok()).toBe(true);
+  const showOnCanvas = plan.getByRole("button", { name: "Show on canvas" });
+  await expect(showOnCanvas).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(10);
 
-  // The first approval is already recorded: this tab must show the result, not write
+  // The first application is already recorded: this tab must show the result, not write
   // the same ten objects a second time.
-  await secondPlan.getByRole("button", { name: "Apply" }).click();
+  await second.bringToFront();
+  await secondApply.click();
   await expect(secondPlan).toContainText("Another tab has already applied this plan");
   await expect(secondPlan.getByRole("button", { name: "Apply" })).toHaveCount(0);
-  await expect(secondPlan.getByRole("button", { name: "Show in room" })).toBeVisible();
+  await expect(secondPlan.getByRole("button", { name: "Show on canvas" })).toBeVisible();
+  await expect(secondPlan.getByRole("button", { name: "Undo draft" })).toHaveCount(0);
   await expect(secondPlan.locator(".agent-plan-undo-hint")).toHaveCount(0);
   await expect.poll(() => second.evaluate(() => window.__remo.widgets.length)).toBe(10);
 
   await second.close();
+  await page.bringToFront();
+  await expect(showOnCanvas).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(plan).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(0);
 });
 
 test("a plan with a connector previews a line, applies it and undoes it in one step", async ({
@@ -218,9 +286,9 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
   // The fixture in `apps/sync/ai-fake.mjs` returns two notes and one line; the canvas
   // draws a planned line only when both ends are planned objects.
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Соедини две заметки FAKE_PLAN_CONNECTED");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -231,12 +299,17 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
   expect(drawn?.blocks).toHaveLength(2);
   expect(drawn?.lines).toHaveLength(1);
   expect(drawn!.lines[0]!.x2).toBeGreaterThan(drawn!.lines[0]!.x1);
+  // Before the decision the planned connector is the agent's violet dash (ADR-267).
+  await expect.poll(() => violetPixels(page)).toBeGreaterThan(0);
 
   await plan.getByRole("button", { name: "Apply" }).click();
   await expect(plan).toContainText(
     "The objects are in the room. One ⌘Z removes the whole structure.",
   );
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(3);
+  // The applied connector is a real, solid line: the violet preview is gone from the
+  // overlay instead of lingering under it.
+  await expect.poll(() => violetPixels(page)).toBe(0);
 
   const created = await page.evaluate(() => {
     const widgets = window.__remo.widgets;
@@ -253,6 +326,7 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
         startX: xOf(connector.start),
         endX: xOf(connector.end),
         arrow: connector.arrow,
+        dash: connector.style?.strokeStyle ?? "normal",
       })),
     };
   });
@@ -264,11 +338,12 @@ test("a plan with a connector previews a line, applies it and undoes it in one s
     endType: "sticky_note",
     arrow: "end",
   });
+  // After "Apply" the connection is solid, not the agent's dash.
+  expect(created.lines[0]!.dash).not.toBe("dashed");
   expect(created.lines[0]!.startX!).toBeLessThan(created.lines[0]!.endX!);
 
-  await plan.getByRole("button", { name: "Show in room" }).click();
+  await plan.getByRole("button", { name: "Undo draft" }).click();
   await expect(plan).toHaveCount(0);
-  await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(0);
 });
 
@@ -281,9 +356,9 @@ test("an out-of-bounds plan is readable but cannot be applied", async ({ page })
   // past the coordinate limit: the server stores it, the estimate warns, the person
   // sees what is wrong and cannot approve it.
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Собери карту FAKE_PLAN_OUT_OF_BOUNDS");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -313,7 +388,7 @@ test("the attach field refuses a wrong type and an oversized file in words", asy
   await expect(page.locator(".agent-file [role=alert]")).toContainText(
     "Attach a .md, .txt or .csv file",
   );
-  await expect(page.getByRole("button", { name: "Ask the agent" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Create draft", exact: true })).toBeDisabled();
   await expect(page.locator(".agent-file-limits")).toContainText("100 000 bytes");
 
   await page.locator('.agent-file input[type="file"]').setInputFiles({
@@ -378,8 +453,10 @@ test("a viewer cannot read or approve a plan, and a stranger cannot see it", asy
   expect(approve.status()).toBe(403);
 
   await openBoard(viewer, board.boardId, { user: "Viewer" });
-  await openMore(viewer);
-  await expect(viewer.getByRole("menuitem", { name: "Ask AI…" })).toHaveCount(0);
+  // A viewer has no agent control at all; the account menu does not hide one either.
+  await expect(viewer.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
+  await openAccount(viewer);
+  await expect(viewer.getByRole("button", { name: /Ask the agent|Give the agent/ })).toHaveCount(0);
 
   const stranger = await browser.newPage();
   const outsider = await stranger.request.post("/api/auth/register", {

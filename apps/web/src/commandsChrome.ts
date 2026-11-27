@@ -1,0 +1,606 @@
+import type { TranslationKey } from "./i18n";
+import { REACTIONS } from "./reactions";
+import type { ChromeAbility, ChromeCommand, ChromeContext } from "./commands";
+import { openCommandSearch } from "./commandSearchStore";
+import { recordChromeUse } from "./chromeUse";
+
+/**
+ * The chrome half of the command registry (ADR-266 §1.1).
+ *
+ * One list, split out of `commands.ts` only because of the size ratchet: the types,
+ * the grouping, the menu builder and every consumer stay in `commands.ts`, which
+ * re-exports this list. There is no second registry.
+ */
+/* ----------------------------------------------------------- chrome commands --- */
+
+function allow(
+  ability: ChromeAbility | readonly ChromeAbility[],
+  reason: TranslationKey,
+): (ctx: ChromeContext) => true | { reason: TranslationKey } {
+  const abilities = typeof ability === "string" ? [ability] : ability;
+  return (ctx) =>
+    abilities.some((name) => ctx.can[name] === true) ? true : { reason };
+}
+
+/** Signed-in rows are hidden for a guest instead of shown disabled. */
+const signedIn: (ctx: ChromeContext) => true | { reason: TranslationKey } = (ctx) =>
+  ctx.can.signedIn === true ? true : { reason: "auth.loginHint" };
+
+/**
+ * The chrome half of the registry (ADR-266 §1.1).
+ *
+ * These are the same `Command` idea as the object list above: one id, one label, one
+ * way to run it, availability as data. They live in this file on purpose — a second
+ * registry would let a menu and the search drift apart.
+ */
+const REGISTERED_CHROME_COMMANDS: readonly ChromeCommand[] = [
+  {
+    id: "home.open",
+    title: "board.allBoards",
+    icon: "boards",
+    synonyms: { ru: ["главная"], en: ["home"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    shortcut: "G R",
+    inMenu: false,
+    available: () => true,
+    run: ctx => ctx.run("home.open"),
+  },
+  // Canvas creation (T8 «More»): the same ids the search finds, so the rail and ⌘K
+  // cannot offer different objects. The action itself is the app's (ADR-266 §1.1).
+  {
+    id: "canvas.addCard",
+    title: "tool.card",
+    icon: "card",
+    synonyms: { ru: ["карточка", "добавить карточку", "канбан"], en: ["card", "add card", "kanban"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addCard"),
+  },
+  {
+    id: "canvas.addTable",
+    title: "tool.table",
+    icon: "table",
+    synonyms: { ru: ["таблица", "добавить таблицу", "ячейки"], en: ["table", "add table", "cells"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addTable"),
+  },
+  {
+    id: "canvas.addKanban",
+    title: "tool.kanban",
+    icon: "kanban",
+    synonyms: { ru: ["канбан", "доска", "колонки"], en: ["kanban", "board", "columns"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("create", "iam.readOnly"),
+    run: (ctx) => ctx.run("canvas.addKanban"),
+  },
+  {
+    id: "canvas.addComment",
+    title: "tool.comment",
+    icon: "comment",
+    synonyms: { ru: ["комментарий", "обсуждение", "булавка"], en: ["comment", "discussion", "pin"] },
+    intent: "canvas",
+    surfaces: ["palette"],
+    available: allow("comment", "tool.commentHint"),
+    run: (ctx) => ctx.run("canvas.addComment"),
+  },
+  // Room and its document.
+  {
+    id: "room.appearance",
+    title: "home.appearance",
+    icon: "image",
+    synonyms: { ru: ["значок", "эмодзи", "обложка"], en: ["icon", "emoji", "cover"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: allow("rename", "iam.readOnly"),
+    run: (ctx) => ctx.run("room.appearance"),
+  },
+  {
+    id: "room.rename",
+    title: "board.rename",
+    icon: "pencil",
+    synonyms: { ru: ["переименовать", "название", "имя"], en: ["rename", "title", "name"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: allow("rename", "iam.readOnly"),
+    run: (ctx) => ctx.run("room.rename"),
+  },
+  {
+    id: "room.settings",
+    title: "board.boardSettings",
+    icon: "settings",
+    synonyms: { ru: ["настройки", "вид", "сетка"], en: ["settings", "view", "grid"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("room.settings"),
+  },
+  {
+    id: "room.properties",
+    title: "board.properties",
+    icon: "panel",
+    synonyms: { ru: ["свойства", "панель", "справа"], en: ["properties", "panel", "side"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("room.properties"),
+  },
+  {
+    id: "header.comments",
+    title: "board.discussion",
+    icon: "comment",
+    synonyms: { ru: ["комментарии", "обсуждение"], en: ["comments", "discussion"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("header.comments"),
+  },
+  {
+    id: "room.access",
+    title: "share.title",
+    icon: "users",
+    synonyms: { ru: ["доступ", "участники", "права"], en: ["access", "people", "rights"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: allow("access", "share.forbidden"),
+    run: (ctx) => ctx.run("room.access"),
+  },
+  {
+    id: "room.export",
+    title: "board.exportAction",
+    icon: "download",
+    synonyms: { ru: ["экспорт", "выгрузить", "скачать", "png", "pdf"], en: ["export", "download", "png", "pdf"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("export", "board.exportForbidden"),
+    run: (ctx) => ctx.run("room.export"),
+  },
+  {
+    id: "room.restore",
+    title: "board.restoreAction",
+    icon: "upload",
+    synonyms: { ru: ["восстановить", "бэкап", "резервная копия"], en: ["restore", "backup", "reserve"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("import", "board.importForbidden"),
+    run: (ctx) => ctx.run("room.restore"),
+  },
+  {
+    id: "room.duplicate",
+    title: "board.duplicateAction",
+    icon: "copy",
+    synonyms: { ru: ["копия", "дублировать", "создать копию"], en: ["copy", "duplicate"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("duplicate", "share.forbidden"),
+    run: (ctx) => ctx.run("room.duplicate"),
+  },
+  {
+    id: "room.copyLink",
+    title: "board.copyLinkTitle",
+    icon: "link",
+    synonyms: { ru: ["ссылка", "скопировать ссылку", "приглашение"], en: ["link", "copy link", "invitation"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("room.copyLink"),
+  },
+  {
+    id: "room.template",
+    title: "more.templates",
+    icon: "template",
+    synonyms: { ru: ["шаблон", "добавить шаблон", "пример"], en: ["template", "add template", "example"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    available: allow("templates", "iam.readOnly"),
+    run: (ctx) => ctx.run("room.template"),
+  },
+  {
+    id: "room.apps",
+    title: "board.apps",
+    icon: "apps",
+    synonyms: { ru: ["приложения", "приложение", "интеграция"], en: ["apps", "applications", "integration"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("apps", "board.appsUnavailable"),
+    run: (ctx) => ctx.run("room.apps"),
+  },
+  {
+    id: "room.replace",
+    title: "board.replaceMenu",
+    icon: "template",
+    synonyms: { ru: ["заменить", "шаблон комнаты"], en: ["replace", "room template"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    danger: true,
+    available: allow("rename", "iam.readOnly"),
+    run: (ctx) => ctx.run("room.replace"),
+  },
+  {
+    id: "room.trash",
+    title: "board.trashAction",
+    icon: "trash",
+    synonyms: { ru: ["удалить", "в корзину", "мусор"], en: ["delete", "trash", "remove"] },
+    intent: "room",
+    surfaces: ["header", "palette"],
+    danger: true,
+    hideWhenUnavailable: true,
+    available: allow("delete", "share.forbidden"),
+    run: (ctx) => ctx.run("room.trash"),
+  },
+
+  // Run the session.
+  {
+    id: "run.timer",
+    title: "facilitation.timer.button",
+    icon: "timer",
+    synonyms: { ru: ["таймер", "время", "минуты"], en: ["timer", "time", "minutes"] },
+    intent: "run",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("run.timer"),
+  },
+  {
+    id: "run.vote",
+    title: "facilitation.vote.button",
+    icon: "vote",
+    synonyms: { ru: ["голосование", "голос", "голосовать"], en: ["vote", "voting", "poll"] },
+    intent: "run",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("run.vote"),
+  },
+  {
+    id: "run.presentation",
+    title: "presentation.start",
+    icon: "play",
+    synonyms: { ru: ["показ", "презентация", "слайды"], en: ["present", "presentation", "slides"] },
+    intent: "run",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("run.presentation"),
+  },
+  {
+    id: "run.follow",
+    title: "facilitation.follow.row",
+    icon: "eye",
+    synonyms: { ru: ["следовать", "за мной", "вести"], en: ["follow", "follow me", "lead"] },
+    intent: "run",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("run.follow"),
+  },
+  ...REACTIONS.map<ChromeCommand>((reaction) => {
+    const word = reaction.key.replace("reactions.", "");
+    const id = `run.reaction.${word}`;
+    return {
+      id,
+      title: reaction.key,
+      synonyms: {
+        ru: ["реакция", word, "отреагировать"],
+        en: ["reaction", word, "react"],
+      },
+      intent: "run",
+      surfaces: ["header", "palette"],
+      inMenu: false,
+      available: () => true,
+      run: (ctx) => ctx.run(id),
+    };
+  }),
+
+  // The agent.
+  {
+    id: "agent.open",
+    title: "roomAgent.menuOpen",
+    icon: "agent",
+    synonyms: { ru: ["агент", "поручить", "поручение"], en: ["agent", "task", "delegate"] },
+    intent: "agent",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("agents", "roomAgent.ownerOnly"),
+    run: (ctx) => ctx.run("agent.open"),
+  },
+  {
+    id: "agent.ask",
+    title: "more.ai",
+    icon: "agent",
+    synonyms: { ru: ["спросить агента", "ии", "помощь"], en: ["ask agent", "ai", "help"] },
+    intent: "agent",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("askAgents", "roomAgent.ownerOnly"),
+    run: (ctx) => ctx.run("agent.ask"),
+  },
+  {
+    id: "agent.settings",
+    title: "roomAgent.settings",
+    icon: "settings",
+    synonyms: { ru: ["настройки агента", "агенты", "журнал"], en: ["agent settings", "agents", "journal"] },
+    intent: "agent",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("askAgents", "roomAgent.ownerOnly"),
+    run: (ctx) => ctx.run("agent.settings"),
+  },
+
+  // Invite.
+  {
+    id: "invite.open",
+    title: "board.share",
+    icon: "share",
+    synonyms: { ru: ["позвать", "пригласить", "гости"], en: ["invite", "guests", "people"] },
+    intent: "invite",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("invite.open"),
+  },
+
+  // The account menu.
+  {
+    id: "account.settings",
+    title: "account.settings",
+    icon: "user",
+    synonyms: { ru: ["профиль", "имя", "ник"], en: ["profile", "name", "handle"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: ctx => ctx.run("account.settings"),
+  },
+  {
+    id: "account.allRooms",
+    title: "board.allBoards",
+    icon: "boards",
+    synonyms: { ru: ["все комнаты", "главная", "комнаты"], en: ["all rooms", "home", "rooms"] },
+    intent: "account",
+    surfaces: ["header"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.allRooms"),
+  },
+  {
+    id: "account.theme.light",
+    title: "theme.light",
+    icon: "sun",
+    synonyms: { ru: ["тема", "светлая", "светло"], en: ["theme", "light", "bright"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.theme.light"),
+  },
+  {
+    id: "account.theme.dark",
+    title: "theme.dark",
+    icon: "moon",
+    synonyms: { ru: ["тема", "тёмная", "темно"], en: ["theme", "dark", "night"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.theme.dark"),
+  },
+  {
+    id: "account.theme.system",
+    title: "theme.system",
+    icon: "moon",
+    synonyms: { ru: ["тема", "система"], en: ["theme", "system", "device"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.theme.system"),
+  },
+  {
+    id: "account.lang.ru",
+    title: "lang.ru",
+    synonyms: { ru: ["язык", "русский"], en: ["language", "russian", "ru"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.lang.ru"),
+  },
+  {
+    id: "account.lang.en",
+    title: "lang.en",
+    synonyms: { ru: ["язык", "английский"], en: ["language", "english", "en"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.lang.en"),
+  },
+  {
+    id: "account.motion.calm",
+    title: "account.motion",
+    icon: "reaction",
+    synonyms: {
+      ru: ["спокойные анимации", "анимации", "движение", "спокойно"],
+      en: ["calm animations", "animations", "motion", "calm"],
+    },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.motion.calm"),
+  },
+  {
+    id: "account.help",
+    title: "account.helpShortcuts",
+    icon: "help",
+    synonyms: { ru: ["помощь", "справка", "клавиши"], en: ["help", "guide", "keys"] },
+    intent: "help",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.help"),
+  },
+  {
+    id: "help.resetHints",
+    title: "hints.reset",
+    icon: "undo",
+    synonyms: {
+      ru: ["подсказки", "показать подсказки", "сбросить", "снова"],
+      en: ["hints", "show hints", "reset", "again"],
+    },
+    intent: "help",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("help.resetHints"),
+  },
+  {
+    // The third way into the search (spec/tidy-desk §1.2): the help group of the account
+    // menu. Only a room can search, so the home menu does not show a dead row.
+    id: "search.open",
+    title: "search.action",
+    icon: "search",
+    synonyms: { ru: ["найти", "поиск", "действие", "команда"], en: ["find", "search", "action", "command"] },
+    intent: "help",
+    surfaces: ["header", "palette"],
+    shortcut: "⌘K",
+    hideWhenUnavailable: true,
+    available: allow("search", "search.roomOnly"),
+    run: () => openCommandSearch(),
+  },
+  {
+    id: "account.sessions",
+    title: "account.sessions",
+    icon: "user",
+    synonyms: { ru: ["сессии", "устройства", "браузеры"], en: ["sessions", "devices", "browsers"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: (ctx) => ctx.run("account.sessions"),
+  },
+  {
+    id: "account.security",
+    title: "mfa.menu",
+    icon: "lock",
+    synonyms: { ru: ["безопасность", "второй шаг", "код"], en: ["security", "second step", "code"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: (ctx) => ctx.run("account.security"),
+  },
+  {
+    id: "account.org",
+    title: "account.org",
+    icon: "building",
+    synonyms: { ru: ["организация", "команда", "люди"], en: ["organisation", "team", "people"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: (ctx) => ctx.run("account.org"),
+  },
+  {
+    id: "account.support",
+    title: "support.menu",
+    icon: "help",
+    synonyms: { ru: ["поддержка", "написать", "помочь"], en: ["support", "contact", "chat"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: allow("support", "support.error"),
+    run: (ctx) => ctx.run("account.support"),
+  },
+  {
+    id: "account.cookies",
+    title: "consent.link",
+    icon: "settings",
+    synonyms: { ru: ["cookie", "куки", "согласие"], en: ["cookie", "consent", "settings"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.cookies"),
+  },
+  {
+    id: "account.documents",
+    title: "legal.documents",
+    icon: "info",
+    synonyms: { ru: ["документы", "условия", "политика"], en: ["documents", "terms", "policy"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    available: () => true,
+    run: (ctx) => ctx.run("account.documents"),
+  },
+  {
+    id: "account.docs",
+    title: "account.docs",
+    icon: "help",
+    synonyms: { ru: ["документация", "руководство"], en: ["documentation", "manual"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    // A self-host without a guide has nowhere to send the person, so the row is absent
+    // rather than a disabled one with an explanation (ADR-284).
+    hideWhenUnavailable: true,
+    available: allow("docs", "account.docsUnavailable"),
+    run: (ctx) => ctx.run("account.docs"),
+  },
+  {
+    id: "account.delete",
+    title: "account.delete",
+    icon: "trash",
+    synonyms: { ru: ["удалить аккаунт", "стереть"], en: ["delete account", "erase"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    danger: true,
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: (ctx) => ctx.run("account.delete"),
+  },
+  {
+    id: "account.signOut",
+    title: "org.signOut",
+    icon: "sign-out",
+    synonyms: { ru: ["выйти", "выход"], en: ["sign out", "log out", "exit"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: signedIn,
+    run: (ctx) => ctx.run("account.signOut"),
+  },
+  {
+    id: "account.signIn",
+    title: "auth.login",
+    icon: "user",
+    synonyms: { ru: ["войти", "вход"], en: ["sign in", "log in"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    hideWhenUnavailable: true,
+    available: (ctx) => (ctx.can.signedIn === true ? { reason: "auth.loginHint" } : true),
+    run: (ctx) => ctx.run("account.signIn"),
+  },
+  {
+    id: "header.agent",
+    title: "roomAgent.menu",
+    icon: "agent",
+    synonyms: { ru: ["агент", "поручить"], en: ["agent", "delegate"] },
+    intent: "account",
+    surfaces: ["header", "palette"],
+    narrowOnly: true,
+    hideWhenUnavailable: true,
+    available: allow("agents", "roomAgent.ownerOnly"),
+    run: (ctx) => ctx.run("header.agent"),
+  },
+];
+
+/**
+ * The registry the app runs: the same commands, with one side effect on `run`.
+ *
+ * Every surface — a header menu, the rail's «More», ⌘K — dispatches through the
+ * command's `run`, so wrapping it here observes all of them without a second call site
+ * (ADR-294). The helper is a best-effort metric and never changes what the command does.
+ */
+export const CHROME_COMMANDS: readonly ChromeCommand[] = REGISTERED_CHROME_COMMANDS.map(
+  (command) => ({
+    ...command,
+    run: (ctx) => {
+      recordChromeUse(command.id);
+      command.run(ctx);
+    },
+  }),
+);

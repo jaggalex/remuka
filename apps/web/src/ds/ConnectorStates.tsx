@@ -78,6 +78,7 @@ export function ConnectorStates() {
         fontCap: { S: 13, M: 16, L: 20 },
         shapeStrokeWidth: 2,
         cardPlaceholder: "Type something",
+        kanbanTitle: "Kanban",
         timerExpired: "Time is up",
         cardStatus: { todo: "To do", in_progress: "In progress", done: "Done" },
         palette,

@@ -2,7 +2,7 @@
 /**
  * Send one transactional message through the configured driver (ADR-246).
  *
- *   pnpm mail:test --to person@example.com
+ *   pnpm mail:test --to person@example.com [--lang ru|en]
  *
  * The message enters the real outbox and is drained at once, so a green run proves the
  * driver, the KEK seal, the template and the recording of the outcome — not merely that
@@ -31,9 +31,18 @@ try {
 
 const args = process.argv.slice(2);
 const to = args.includes("--to") ? mailAddress(args[args.indexOf("--to") + 1]) : null;
+// Real letters take the recipient's language; this probe has no account, so the language
+// is asked for. Without the flag it stays English, which is not a statement about the
+// installation.
+const langIndex = args.indexOf("--lang");
+const locale = langIndex >= 0 ? String(args[langIndex + 1] ?? "").toLowerCase() : "en";
 
 if (!to) {
-  console.error("usage: pnpm mail:test --to <address>");
+  console.error("usage: pnpm mail:test --to <address> [--lang ru|en]");
+  process.exit(1);
+}
+if (locale !== "ru" && locale !== "en") {
+  console.error("usage: --lang must be ru or en");
   process.exit(1);
 }
 
@@ -63,7 +72,7 @@ try {
     {
       toEmail: to,
       template: "password_reset",
-      locale: "en",
+      locale,
       params: { name: "mail test" },
       linkParams: { link: `${config.appOrigin}/?reset=mail-test-${token}` },
       validUntil: new Date(Date.now() + 10 * 60 * 1000),

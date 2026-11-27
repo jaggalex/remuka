@@ -74,19 +74,27 @@ test("a forgotten password arrives by letter, resets the account and ends old se
 
     await page.request.post("/api/auth/logout");
     await page.goto("/?forgot=1&lang=en");
-    const forgot = page.getByRole("dialog", { name: "Reset your password" });
+    const forgot = page.getByRole("main", { name: "Let’s get you back in" });
     await forgot.locator('input[type="email"]').fill(email);
     await forgot.getByRole("button", { name: "Send the link" }).click();
-    await expect(page.getByText("If an account with this address exists")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your email is on its way" })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText(email);
 
     const link = await letterLink(email, "?reset=");
     const token = new URL(link).searchParams.get("reset");
     expect(token?.length).toBeGreaterThan(30);
 
     await page.goto(`${link}&lang=en`);
-    const reset = page.getByRole("dialog", { name: "New password" });
-    await reset.locator('input[type="password"]').fill("a brand new e2e passphrase");
-    await reset.getByRole("button", { name: "Save password" }).click();
+    const reset = page.getByRole("main", { name: "New password" });
+    const password = reset.locator('input[autocomplete="new-password"]');
+    await expect(password).toHaveAttribute("type", "password");
+    await password.fill("a brand new e2e passphrase");
+    await reset.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(password).toHaveAttribute("type", "text");
+    await expect(password).toHaveValue("a brand new e2e passphrase");
+    await reset.getByRole("button", { name: "Hide", exact: true }).click();
+    await expect(password).toHaveAttribute("type", "password");
+    await reset.getByRole("button", { name: "Save and sign in" }).click();
 
     await expect(page.locator(".auth-hint")).toContainText("Password changed", {
       timeout: 20_000,
@@ -94,7 +102,7 @@ test("a forgotten password arrives by letter, resets the account and ends old se
     await page.locator('input[type="email"]').fill(email);
     await page.locator('input[type="password"]').fill("a brand new e2e passphrase");
     await page
-      .getByRole("dialog")
+      .getByRole("main")
       .getByRole("button", { name: "Sign in", exact: true })
       .click();
     await expect(page.locator(".account-button")).toHaveCount(1, { timeout: 20_000 });
@@ -128,7 +136,7 @@ test("an invitation letter opens the invitation and is accepted after signing in
     await guest.goto(`${link}&lang=en`);
     const prompt = guest.getByRole("dialog", { name: "You are invited" });
     await prompt.getByRole("button", { name: "Sign in to accept" }).click();
-    const login = guest.getByRole("dialog").filter({ has: guest.locator('input[type="email"]') });
+    const login = guest.getByRole("main").filter({ has: guest.locator('input[type="email"]') });
     await login.locator('input[type="email"]').fill(email);
     await login.locator('input[type="password"]').fill(PASSWORD);
     await login.getByRole("button", { name: "Sign in", exact: true }).click();

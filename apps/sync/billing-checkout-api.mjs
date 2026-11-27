@@ -13,6 +13,7 @@ import { isStage } from "./stage.mjs";
 import { periodEnd as endOfPeriod, promoDiscount, priceInvoice } from "./billing-money.mjs";
 import { readJsonBody } from "./http-body.mjs";
 import { fail, json, sessionFromRequest } from "./iam-http.mjs";
+import { subscriptionLine } from "./pg/billing-change.mjs";
 
 const CURRENCY = /^[A-Z]{3}$/;
 
@@ -30,9 +31,9 @@ async function memberOr404(store, request, response, orgId) {
   return session;
 }
 
-async function canPay(store, orgId, userId, response) {
+async function adminOr403(store, orgId, userId, response) {
   if (await store.hasOrgRole(orgId, userId, "org_admin")) return true;
-  fail(response, 403, "FORBIDDEN", "only the owner or an organisation admin can pay");
+  fail(response, 403, "FORBIDDEN", "organisation administrator access required");
   return false;
 }
 
@@ -65,10 +66,10 @@ export async function checkPromo({ request, response, store }) {
  * invoice and a pending payment; nothing is charged here, and no plan is granted until
  * the operator marks the invoice paid.
  */
-async function checkout({ request, response, store, orgId }) {
+async function checkout({ request, response, store, orgId, env = process.env }) {
   const session = await memberOr404(store, request, response, orgId);
   if (!session) return true;
-  if (!(await canPay(store, orgId, session.user.id, response))) return true;
+  if (!(await adminOr403(store, orgId, session.user.id, response))) return true;
 
   const body = await readJsonBody(request);
   if (!body?.priceId || !body?.methodGroup) {
@@ -80,14 +81,17 @@ async function checkout({ request, response, store, orgId }) {
     return fail(response, 422, "CONSENT_REQUIRED", "explicit consent is required"), true;
   }
 
-  const org = typeof store.billingOrg === "function" ? await store.billingOrg(orgId) : null;
-  if (org?.kind === "personal") {
-    return fail(response, 409, "PERSONAL_ORG", "create a shared organisation to buy a plan"), true;
-  }
-
   const price = await store.priceById(String(body.priceId));
   if (!price || price.status !== "for_sale" || price.promo_only) {
     return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "this price is not for sale"), true;
+  }
+  const current = await store.liveSubscription(orgId);
+  if (current && current.status !== "trialing" &&
+    (current.plan !== price.plan || current.interval !== price.interval || current.pending_change)) {
+    return fail(response, 409, "CHANGE_REQUIRED", "preview the plan change first"), true;
+  }
+  if (await store.pendingPlanPayment?.(orgId)) {
+    return fail(response, 409, "OPERATION_IN_PROGRESS", "a change payment is pending"), true;
   }
   const currency = String(price.currency).toUpperCase();
 
@@ -108,7 +112,10 @@ async function checkout({ request, response, store, orgId }) {
   const routes = await store.routesFor({
     methodGroup: String(body.methodGroup),
     currency,
-    testMode: Boolean(account.test_mode),
+    // On a stand every organisation pays through a test connection (ADR-280): live
+    // connections are refused there, so a missing `test_mode` column cannot hide the
+    // only payment the stand is allowed to take. Production keeps reading the account.
+    testMode: isStage(env) || Boolean(account.test_mode),
   });
   const route = routes[0];
   if (!route) {
@@ -118,7 +125,7 @@ async function checkout({ request, response, store, orgId }) {
   const connection = (await store.connectionById?.(route.id)) ?? route;
   // A live connection on a stand is a misconfiguration, not a test payment (§5). The
   // refusal is recorded so the journal names the attempt instead of only the error.
-  if (isStage() && connection.mode === "live") {
+  if (isStage(env) && connection.mode === "live") {
     await store.recordAudit?.({
       actorId: session.user.id,
       orgId,
@@ -214,43 +221,170 @@ async function checkout({ request, response, store, orgId }) {
     status: "pending",
   });
 
-  const started = await adapter.createCheckout(usable, {
+  return startPayment({ store, adapter, usable, body, invoice: invoice.invoice, payment, savePaymentMethod,
+    email: account?.billing_email ?? session.user.email, plan: price.plan, response });
+}
+
+async function startPayment({ store, adapter, usable, body, invoice, payment, savePaymentMethod, email, plan, response }) {
+  let returnUrl = body.returnUrl ?? null;
+  if (returnUrl && subscriptionLine(invoice)?.planChange) {
+    const url = new URL(returnUrl);
+    url.searchParams.set("payment", payment.id);
+    returnUrl = url.href;
+  }
+  let started;
+  try {
+    started = await adapter.createCheckout(usable, {
     paymentId: payment.id,
-    idempotencyKey: `checkout:${invoice.invoice.id}`,
-    amount: totals.total,
-    currency,
-    description: `${price.plan} plan`,
+    idempotencyKey: payment.idempotency_key ?? `checkout:${invoice.id}`,
+    amount: invoice.total,
+    currency: invoice.currency,
+    description: `${plan} plan`,
     savePaymentMethod,
-    customerEmail: account?.billing_email ?? session.user.email,
-    returnUrl: body.returnUrl ?? null,
-    locale: body.locale === "en" ? "en" : "ru",
-  });
+    customerEmail: email,
+    returnUrl,
+      locale: body.locale === "en" ? "en" : "ru",
+    });
+  } catch (error) {
+    if (!subscriptionLine(invoice)?.planChange) throw error;
+    const failure = new Error("payment creation could not be confirmed", { cause: error });
+    failure.code = "PAYMENT_UNCERTAIN";
+    throw failure;
+  }
 
   if (started.providerPaymentId) {
     await store.attachProviderPaymentId?.(payment.id, started.providerPaymentId);
   }
 
   json(response, 201, {
-    invoiceId: invoice.invoice.id,
-    paymentId: payment.id,
-    amount: totals.total,
-    currency,
-    widget: started.widget ?? null,
-    redirectUrl: started.redirectUrl ?? null,
+    invoiceId: invoice.id, paymentId: payment.id, amount: invoice.total, currency: invoice.currency,
+    widget: started.widget ?? null, redirectUrl: started.redirectUrl ?? null,
   });
   return true;
+}
+
+const CHANGE_ERRORS = new Set(["QUOTE_EXPIRED", "CHANGE_UNAVAILABLE", "OPERATION_IN_PROGRESS", "CURRENCY_LOCKED"]);
+
+async function changePlan({ request, response, store, orgId, env }) {
+  const session = await memberOr404(store, request, response, orgId);
+  if (!session || !(await adminOr403(store, orgId, session.user.id, response))) return true;
+  try {
+    if (request.method === "DELETE") {
+      await store.cancelPlanChange(orgId, session.user.id);
+      return json(response, 200, { ok: true }), true;
+    }
+    const body = await readJsonBody(request);
+    const origin = env.REMO_APP_ORIGIN ?? request.headers.origin;
+    if (origin) {
+      const returnUrl = new URL("/org/billing", origin);
+      returnUrl.searchParams.set("org", orgId);
+      returnUrl.searchParams.set("billing", "return");
+      if (body?.locale === "ru" || body?.locale === "en") returnUrl.searchParams.set("lang", body.locale);
+      if (body) body.returnUrl = returnUrl.href;
+    } else if (body) {
+      delete body.returnUrl;
+    }
+    if (body?.invoiceId) return await payChangeInvoice({ request, response, store, orgId, env, session, body });
+    if (typeof body?.priceId !== "string") return fail(response, 422, "BAD_CHECKOUT", "a target price is required"), true;
+    const quote = await store.previewPlanChange(orgId, body.priceId);
+    if (body.preview === true) {
+      const account = await store.billingAccount(orgId);
+      const routeFilter = { currency: quote.currency, testMode: isStage(env) || Boolean(account?.test_mode) };
+      const groups = quote.type === "upgrade" ? await store.methodGroupsFor(routeFilter) : [];
+      const autopayMethods = [];
+      for (const methodGroup of groups) {
+        const [route] = await store.routesFor({ ...routeFilter, methodGroup });
+        if (route && paymentAdapters()[route.provider]?.capabilities?.saveMethod) autopayMethods.push(methodGroup);
+      }
+      return json(response, 200, { ...quote, autopayMethods }), true;
+    }
+    if (body.key !== quote.key) return fail(response, 409, "QUOTE_EXPIRED", "the calculation has changed"), true;
+
+    const command = { orgId, priceId: body.priceId, key: body.key, actorId: session.user.id };
+    if (quote.type === "downgrade") {
+      const result = await store.confirmPlanChange(command);
+      return json(response, 200, result), true;
+    }
+    if (!validChangeConsent(body)) return fail(response, 422, "CONSENT_REQUIRED", "explicit terms are required"), true;
+    if (quote.total === 0) {
+      const result = await store.confirmPlanChange(command);
+      return json(response, 200, { applied: true, invoiceId: result.invoice.id }), true;
+    }
+    const context = await changePaymentContext({ store, orgId, env, response, session, body, currency: quote.currency });
+    if (!context) return true;
+    const { invoice, payment } = await store.confirmPlanChange({
+      ...command, checkout: { connectionId: context.usable.id, autopay: context.autopay },
+    });
+    return startPayment({ ...context, body, store, invoice, payment, response, plan: quote.plan });
+  } catch (error) {
+    if (CHANGE_ERRORS.has(error?.code)) return fail(response, 409, error.code, error.message), true;
+    if (error?.retryable || error?.code === "PAYMENT_UNCERTAIN") {
+      return fail(response, 503, "PAYMENT_UNCERTAIN", "payment creation could not be confirmed"), true;
+    }
+    throw error;
+  }
+}
+
+function validChangeConsent(body) {
+  return typeof body.consent?.termsVersion === "string" && Boolean(body.consent.termsVersion.trim())
+    && typeof body.consent.autopay === "boolean";
+}
+
+async function changePaymentContext({ store, orgId, env, response, session, body, currency }) {
+  const account = await store.billingAccount(orgId);
+  const routes = await store.routesFor({
+    methodGroup: String(body.methodGroup ?? ""), currency, testMode: isStage(env) || Boolean(account?.test_mode),
+  });
+  const route = routes[0];
+  const connection = route && await store.connectionById(route.id);
+  const adapter = connection && paymentAdapters()[connection.provider];
+  if (!adapter || (isStage(env) && connection.mode === "live")) {
+    fail(response, 422, "NO_PAYMENT_ROUTE", "no connection serves this method");
+    return null;
+  }
+  const usable = connection.has_secret || connection.ciphertext
+    ? { ...connection, secret: openConnectionSecret(connection, { kek: kekFromEnv() }) }
+    : connection;
+  const savePaymentMethod = body.consent.autopay && adapter.capabilities?.saveMethod === true;
+  return {
+    adapter, usable, savePaymentMethod, email: account?.billing_email ?? session.user.email,
+    autopay: savePaymentMethod ? { autopayConsent: {
+      version: body.consent.termsVersion, at: new Date().toISOString(),
+    } } : {},
+  };
+}
+
+async function payChangeInvoice({ response, store, orgId, env, session, body }) {
+  if (!validChangeConsent(body)) return fail(response, 422, "CONSENT_REQUIRED", "explicit terms are required"), true;
+  const invoice = await store.invoiceById(orgId, body.invoiceId);
+  if (!invoice || subscriptionLine(invoice)?.planChange?.type !== "downgrade") {
+    return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "no such renewal invoice"), true;
+  }
+  const context = await changePaymentContext({ store, orgId, env, response, session, body, currency: invoice.currency });
+  if (!context) return true;
+  const payment = await store.openChangePayment(orgId, invoice.id, context.usable.id);
+  return startPayment({ ...context, savePaymentMethod: false, body, store, invoice, payment, response,
+    plan: subscriptionLine(invoice).plan });
 }
 
 /** Checkout status after a return to the app; nothing here trusts the browser. */
 async function checkoutStatus({ request, response, store, orgId, paymentId }) {
   const session = await memberOr404(store, request, response, orgId);
   if (!session) return true;
+  if (!(await adminOr403(store, orgId, session.user.id, response))) return true;
   const payment = await store.billingPayment(orgId, paymentId);
   if (!payment) return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "no such payment"), true;
+  const invoice = await store.invoiceById(orgId, payment.invoice_id);
+  const line = subscriptionLine(invoice);
+  const change = line?.planChange;
+  const paid = change && invoice.status === "paid";
   json(response, 200, {
+    ...(change ? { plan: line.plan, invoiceNumber: invoice.number,
+      applied: Boolean(paid && await store.planChangeApplied(orgId, invoice.id))
+    } : {}),
     paymentId: payment.id,
     invoiceId: payment.invoice_id,
-    status: payment.status,
+    status: paid ? "succeeded" : payment.status,
     amount: payment.amount,
     currency: payment.currency,
   });
@@ -260,18 +394,23 @@ async function checkoutStatus({ request, response, store, orgId, paymentId }) {
 async function invoices({ request, response, store, orgId }) {
   const session = await memberOr404(store, request, response, orgId);
   if (!session) return true;
+  if (!(await adminOr403(store, orgId, session.user.id, response))) return true;
   json(response, 200, { invoices: await store.listInvoices(orgId, 50) });
   return true;
 }
 
 /** Routes under `/orgs/:id/billing/…`; the caller has already resolved the organisation. */
-export async function handleCheckoutRoutes({ request, response, url, store, orgId, rest }) {
+export async function handleCheckoutRoutes({ request, response, url, store, orgId, rest, env = process.env }) {
   const method = request.method ?? "GET";
   const [head, tail] = rest.split("/");
 
+  if (head === "change" && !tail) {
+    if (method !== "POST" && method !== "DELETE") return fail(response, 405, "METHOD_NOT_ALLOWED", "use POST or DELETE"), true;
+    return changePlan({ request, response, store, orgId, env });
+  }
   if (head === "checkout" && !tail) {
     if (method !== "POST") return fail(response, 405, "METHOD_NOT_ALLOWED", "use POST"), true;
-    return checkout({ request, response, store, orgId });
+    return checkout({ request, response, store, orgId, env });
   }
   if (head === "checkout" && tail) {
     if (method !== "GET") return fail(response, 405, "METHOD_NOT_ALLOWED", "use GET"), true;

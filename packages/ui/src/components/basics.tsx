@@ -7,6 +7,12 @@ export interface IconProps { name: IconName; size?: number; label?: string; clas
 
 // At 16 px and below the icon uses its own 16 grid (ADR-181): the 24 master scaled down
 // lands its lines between pixels.
+/**
+ * Icon line weight (ADR-265 §3.7): a touch heavier than the drawings' native 2 / 1.5, so an
+ * icon reads as the same ink as the 1.5 px outlines of buttons and panels around it.
+ */
+export const ICON_STROKE = { large: 2.25, small: 1.75 } as const;
+
 export function Icon({ name, size = 16, label, className }: IconProps) {
   const a11y = label ? { role: "img", "aria-label": label } : { "aria-hidden": true as const };
   const small = size <= 16;
@@ -14,7 +20,7 @@ export function Icon({ name, size = 16, label, className }: IconProps) {
   const fill = small ? ICON_FILLS_16[name] : ICON_FILLS[name];
   return (
     <svg className={cx("rm-icon", className)} width={size} height={size} viewBox={small ? "0 0 16 16" : "0 0 24 24"} fill="none"
-      stroke="currentColor" strokeWidth={small ? 1.5 : 2} strokeLinecap="round" strokeLinejoin="round" focusable="false" {...a11y}>
+      stroke="currentColor" strokeWidth={small ? ICON_STROKE.small : ICON_STROKE.large} strokeLinecap="round" strokeLinejoin="round" focusable="false" {...a11y}>
       {line && <path d={line} />}
       {fill && <path d={fill} fill="currentColor" stroke="none" fillRule="evenodd" />}
     </svg>

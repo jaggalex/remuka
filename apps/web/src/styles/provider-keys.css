@@ -1,82 +1,5 @@
 /* ---------------------------------------------------------- provider keys --- */
 
-.ai-keys {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.ai-key-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ai-key-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font: var(--type-label);
-}
-
-.ai-key-section ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.ai-key {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-
-.ai-key-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font: var(--type-label);
-}
-
-.ai-key-main .muted {
-  font: var(--type-caption);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ai-key-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: none;
-}
-
-.ai-key-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-app);
-}
-
-.ai-key-note {
-  margin: 0;
-  font: var(--type-caption);
-}
-
 .ai-journal {
   display: flex;
   flex-direction: column;
@@ -178,89 +101,127 @@
   color: var(--text-danger);
 }
 
-.offline-blocked {
-  position: fixed;
-  z-index: var(--z-bar);
-  left: 50%;
-  top: calc(var(--topbar-height) + var(--space-6));
-  transform: translateX(-50%);
-  max-width: min(680px, calc(100% - 32px));
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--warning-soft);
-  border-radius: var(--radius-md);
-  background: var(--warning-soft);
-  color: var(--state-warning);
-  font: var(--type-body);
-  text-align: center;
-}
-
 /* Export and backup dialog (ADR-071). */
-.export-dialog {
-  width: min(560px, 100%);
+.rm-dialog.export-sheet {
+  width: min(640px, calc(100vw - var(--space-12)));
+  max-width: none;
+  --dialog-padding: calc(var(--space-8) - 2px);
+  padding: 0;
+  gap: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-dialog);
 }
-
-.export-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-1);
+/* Keep the description in the title column, clear of the close control. */
+.export-sheet .rm-dialog-head { align-items: flex-start; }
+.export-sheet .rm-dialog-head > button { flex: 0 0 var(--space-10); height: var(--space-10); }
+.export-sheet .rm-dialog-title { font: var(--type-export-title); letter-spacing: -.025em; }
+.export-sheet .rm-dialog-desc {
+  margin-top: calc(var(--space-2) - 2px);
+  margin-inline-end: calc(var(--dialog-padding) + var(--space-4) + var(--space-10));
+  font: var(--type-note);
+  line-height: 1.45;
+  color: var(--text-instruction);
 }
-
-.export-section h3 {
-  margin: 0;
-  font: var(--type-subtitle);
-  color: var(--text-primary);
-}
-
-.export-choices {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
+.export-sheet .rm-dialog-body { padding-top: var(--space-5); padding-bottom: var(--dialog-padding); }
+.export-dialog { width: 100%; gap: var(--space-5); }
+.export-section { display: flex; flex-direction: column; gap: calc(var(--space-2) + 2px); }
+.export-comments { margin-top: var(--space-1); gap: calc(var(--space-2) + 2px); }
+.export-comments .rm-check-box { width: var(--space-5); height: var(--space-5); margin-inline: var(--space-1) calc(var(--space-1) - 1px); }
+.export-comments .rm-check-hint { font: var(--type-label); font-weight: 400; line-height: inherit; color: var(--text-instruction); }
+.export-section h3 { margin: 0; font: var(--type-body); font-weight: 600; line-height: 1.45; }
+.export-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 .export-choice {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  align-items: flex-start;
+  gap: calc(var(--space-2) - 2px);
+  padding: calc(var(--space-4) - 2px);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-hard-s);
   background: var(--bg-panel);
   color: var(--text-primary);
-  text-align: left;
-  font: inherit;
+  font: var(--type-label);
+  font-weight: 400;
+  line-height: normal;
+  text-align: start;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
-
-.export-choice strong {
-  font: var(--type-label);
-  font-weight: 600;
+.export-choice .export-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: min(100%, calc(var(--space-10) + var(--space-1)));
+  height: calc(var(--space-8) - 2px);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-md);
+  background: var(--sticker-blue);
+  color: var(--sticker-ink);
+  font: var(--type-palette-title);
+  font-family: var(--font-mono);
 }
-
-.export-choice span {
-  font: var(--type-caption);
-  color: var(--text-secondary);
+@media (max-width: 480px) {
+  .export-choices:not(.export-scopes) {
+    gap: var(--space-2);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(2 * var(--space-10) + var(--space-2))), 1fr));
+  }
+  .export-choices:not(.export-scopes) .export-choice {
+    padding-inline: var(--space-1);
+    overflow-wrap: anywhere;
+  }
+  .export-choices:not(.export-scopes) strong { overflow-wrap: normal; }
 }
-
-.export-choice:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
+.export-choice:nth-child(2) .export-badge { background: var(--sticker-pink); }
+.export-choice:nth-child(3) .export-badge { background: var(--sticker-green); }
+.export-choice strong { font: var(--type-action-emphasis); line-height: normal; }
+.export-choice span { color: var(--text-instruction); }
+.export-choice:hover:not(:disabled) { background: var(--bg-hover); }
 .export-choice.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--bg-choice-selected);
+  box-shadow: var(--shadow-card);
+  outline: 3px solid var(--accent-chosen);
+  outline-offset: -6px;
 }
-
-.export-choice:disabled {
-  opacity: 0.55;
-  cursor: default;
+.export-choice:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
+.export-choice:disabled { opacity: .55; cursor: default; }
+.export-scopes {
+  grid-template-columns: repeat(3, minmax(min-content, 1fr));
+  gap: calc(var(--space-1) - 1px);
+  padding: calc(var(--space-1) - 1px);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-control);
+  background: var(--bg-app);
 }
-
-.export-note {
-  margin: 0;
-  font: var(--type-caption);
+.export-scopes .export-choice {
+  min-inline-size: min-content;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
+  padding: var(--space-2) calc(var(--space-2) - 2px);
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
 }
-
+.export-scopes .export-choice.selected { outline: none; background: var(--accent-chosen); border-color: var(--border-ink); }
+.export-scopes .export-choice:focus-visible { outline: 2px solid var(--border-focus); }
+.export-scopes .export-choice strong { font: var(--type-body); font-weight: 600; line-height: normal; overflow-wrap: normal; }
+.export-scopes .export-choice span { font: var(--type-caption); font-weight: 500; line-height: normal; }
+@media (max-width: 360px) {
+  .export-scopes { grid-template-columns: 1fr; }
+}
+.export-scopes .selected, .export-scopes .selected span { color: var(--text-on-chosen); }
+.export-note { margin: 0; font: var(--type-label); }
+.export-backup-note {
+  padding: var(--space-3) calc(var(--space-4) - 2px);
+  border-radius: var(--radius-control);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font: var(--type-body);
+  line-height: 1.45;
+}
 /* A backup the room is too large for, and pictures the export could not load (§6.1, §9.9). */
 .export-warning {
   display: flex;
@@ -292,32 +253,187 @@
   color: var(--text-danger);
 }
 
-.export-progress {
-  height: 4px;
-  border-radius: var(--radius-xs);
-  background: var(--bg-hover);
-  overflow: hidden;
-}
-
-.export-progress span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width var(--dur-1) var(--ease);
-}
-
-.export-actions {
-  display: flex;
-  justify-content: flex-end;
+.export-status.running {
   gap: var(--space-2);
+  color: var(--text-instruction);
+  font: var(--type-body);
+  line-height: 1.45;
+}
+.export-status-caption { display: flex; justify-content: space-between; gap: var(--space-2); }
+.export-status-caption span:first-child { font-weight: 600; color: var(--text-primary); }
+.export-status.running .export-status-caption { gap: 0; }
+.export-status.running .export-status-caption span:first-child { font-weight: 400; }
+.export-progress {
+  height: var(--space-3);
+  box-sizing: content-box;
+  overflow: hidden;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+}
+.export-progress::before {
+  content: "";
+  display: block;
+  width: 72%;
+  height: 100%;
+  box-sizing: border-box;
+  border-inline-end: var(--panel-border-width) solid var(--border-ink);
+  background: var(--bg-export-progress);
+  animation: export-progress-slide var(--dur-progress) ease-in-out infinite alternate;
+}
+@keyframes export-progress-slide {
+  from { transform: translateX(-35%); }
+  to { transform: translateX(75%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .export-progress::before { animation: none; }
+}
+html[data-motion="calm"] .export-progress::before { animation: none; }
+.export-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
+.export-dialog > .export-actions .rm-btn { min-height: var(--space-12); padding-inline: var(--space-5); font: var(--type-subtitle); font-weight: 600; }
+.export-dialog > .export-actions .rm-btn-primary { padding-inline: var(--space-6); font: var(--type-action-emphasis); box-shadow: var(--shadow-card); }
+.export-format-check { display: none; }
+
+/* ADR-313. The published PNG dialog has a light desktop frame. Restore stays available below it. */
+@media (min-width: 901px) {
+  :root[data-theme="light"] .rm-dialog.export-sheet-png {
+    --dialog-padding: var(--space-5);
+    width: var(--dialog-md);
+    border-radius: var(--radius-dialog);
+
+    & .rm-dialog-head { align-items: center; }
+    & .rm-dialog-head > button { flex-basis: var(--control-compact); height: var(--control-compact); }
+    & .rm-dialog-title { font: var(--type-title); letter-spacing: -.02em; }
+    & .rm-dialog-desc { margin: var(--space-1) var(--dialog-padding) 0; font: var(--type-body); }
+    & .rm-dialog-body { padding: var(--space-4) var(--dialog-padding) var(--dialog-padding); }
+
+    & .export-dialog, & .export-section { gap: var(--space-3); }
+    & .export-section h3 { font: var(--type-palette-title); }
+    & .export-choices:not(.export-scopes) { gap: var(--space-2); }
+    & .export-choices:not(.export-scopes) .export-choice {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto 1fr;
+      align-items: start;
+      gap: var(--space-1) var(--space-2);
+      padding: var(--space-3);
+      border: thin solid var(--border-strong);
+      border-radius: var(--radius-md);
+      box-shadow: none;
+    }
+    & .export-choices:not(.export-scopes) .export-choice.selected {
+      background: var(--accent-chosen);
+      border-color: var(--border-ink);
+    }
+    & .export-choice.selected:not(:focus-visible) { outline: none; }
+    & .export-choices:not(.export-scopes) strong { font: var(--type-label); }
+    & .export-choices:not(.export-scopes) strong + span { grid-column: 1 / -1; font: var(--type-caption); }
+    /* The format (PNG/PDF) remains part of the radio's accessible name. */
+    & .export-badge { position: absolute; clip-path: inset(50%); }
+    & .export-format-check { display: grid; grid-area: 1 / 2; }
+    & .selected .export-format-check {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--text-on-accent);
+    }
+
+    & .export-scopes {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: calc(var(--space-1) / 2);
+      padding: calc(var(--space-1) / 2);
+      border-radius: var(--radius-md);
+    }
+    & .export-scopes .export-choice {
+      min-inline-size: 0;
+      gap: 0;
+      padding: calc(var(--space-3) / 2) var(--space-3);
+      border-radius: var(--radius-sm);
+    }
+    & .export-scopes strong { font: var(--type-palette-title); }
+    & .export-scopes .export-choice span { font: var(--type-caption); color: var(--text-instruction); }
+    & .export-scopes .export-choice:disabled { opacity: 1; }
+    & .export-scopes .export-choice:disabled :is(span, strong) { color: var(--text-muted); }
+    & .export-comments { margin-top: calc(var(--space-1) / 2); gap: var(--space-2); font: var(--type-body); }
+    & .export-comments .rm-check-box {
+      width: calc(var(--space-9) / 2);
+      height: calc(var(--space-9) / 2);
+      margin: 0;
+    }
+    & .export-comments .rm-check-hint { font: var(--type-caption); }
+
+    & .export-dialog > .export-actions {
+      margin: var(--space-1) calc(0px - var(--dialog-padding)) 0;
+      padding: var(--space-4) var(--dialog-padding) 0;
+      gap: var(--space-2);
+      border-top: thin solid var(--border-subtle);
+    }
+    & .export-dialog > .export-actions .rm-btn {
+      height: var(--control-default);
+      min-height: var(--control-default);
+      padding-inline: var(--control-padding-x);
+      font: var(--type-label);
+    }
+    & .export-dialog > .export-actions .rm-btn-primary { font: var(--type-palette-title); }
+    & .export-dialog > .export-actions .rm-btn-primary:active { box-shadow: none; }
+  }
 }
 
+/* The closed disclosure sits below the card but stays in the dialog's focus trap.
+   Its expanded form, and short viewports, use the scrollable dialog body. */
+@media (min-width: 901px) and (min-height: 600px) {
+  :root[data-theme="light"] .export-sheet-png:has(.export-import:not([open])) {
+    position: relative;
+    overflow: visible;
+    max-height: calc(100dvh - 2 * var(--space-13));
+
+    & .export-import {
+      position: absolute;
+      top: calc(100% + var(--space-1));
+      inset-inline-start: calc(var(--dialog-padding) + var(--space-2));
+      max-width: calc(100% - 2 * var(--dialog-padding));
+      padding-top: var(--space-3);
+      border: 0;
+    }
+
+    & .export-import summary {
+      font: var(--type-palette-title);
+      /* Keep the text legible even over a dark object on the customer's board. */
+      background: linear-gradient(var(--bg-overlay), var(--bg-overlay)), var(--bg-canvas);
+    }
+    & .export-import summary:focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
+    }
+  }
+}
+.export-choice[data-export-busy="true"]:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+.export-dialog:has(.export-status.running) > .export-actions .rm-btn-primary:disabled {
+  background: var(--accent-cta);
+  border-color: var(--border-ink);
+  color: var(--text-on-cta);
+  cursor: wait;
+}
 .export-import {
-  margin-top: var(--space-1);
-  padding-top: var(--space-3);
+  padding-top: calc(var(--space-4) - 2px);
   border-top: 1px solid var(--border-subtle);
 }
 
+.export-import summary { cursor: pointer; font: var(--type-body); font-weight: 600; line-height: 1.45; list-style: none; }
+.export-import summary::-webkit-details-marker { display: none; }
+.export-import summary > span { display: inline-block; }
+.export-import[open] > summary > span { transform: rotate(90deg); }
+.export-restore-content {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: var(--panel-border-width) solid var(--text-danger);
+  border-radius: var(--radius-card);
+}
 .export-import-confirm {
   display: flex;
   flex-direction: column;

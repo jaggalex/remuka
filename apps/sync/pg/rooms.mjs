@@ -270,6 +270,9 @@ async flushLogInTenant(room) {
     this.scheduleLogFlush(room);
     return;
   }
+  // Another flush may have drained the queue while the compaction check awaited SQL.
+  // Only that flush can acknowledge the batch it still holds.
+  if (room.logWriting) return;
   try {
     this.onPersisted?.(room.docName);
   } catch (error) {
@@ -548,7 +551,7 @@ async upsertWidgets(client, boardId, rows) {
         row.content,
         row.fillColor,
         row.cardTheme,
-        0,
+        row.rotation ?? 0,
         row.props ? JSON.stringify(row.props) : null,
       ],
     );

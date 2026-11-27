@@ -73,13 +73,19 @@ describe("proposalLayout", () => {
 
 describe("drawProposal", () => {
   function recorder() {
-    const calls: Array<{ name: string; args: unknown[] }> = [];
+    const calls: Array<{ name: string; args: unknown[]; lineWidth?: unknown; strokeStyle?: unknown }> = [];
     const state: Record<string | symbol, unknown> = {};
     const ctx = new Proxy(state, {
       get(target, key) {
         if (key in target) return target[key];
         return (...args: unknown[]) => {
-          calls.push({ name: String(key), args });
+          calls.push({
+            name: String(key),
+            args,
+            lineWidth: target.lineWidth,
+            strokeStyle: target.strokeStyle,
+          });
+          if (key === "measureText") return { width: String(args[0]).length * 7 };
         };
       },
       set(target, key, value) {
@@ -100,8 +106,8 @@ describe("drawProposal", () => {
     const round = calls.find((call) => call.name === "roundRect");
     expect(round?.args).toEqual([-200, -100, 400, 200, 200 * PROPOSAL_HULL.corner]);
     expect(calls.find((call) => call.name === "setLineDash")?.args[0]).toEqual([3, 2.5]);
-    expect(state.lineWidth).toBe(0.75);
-    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agentProposal);
+    expect(calls.find((call) => call.name === "stroke")?.lineWidth).toBe(0.75);
+    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agent);
     // A hull is an outline: the frame is not filled as if it already existed.
     expect(calls.filter((call) => call.name === "fill")).toHaveLength(0);
   });
@@ -110,5 +116,45 @@ describe("drawProposal", () => {
     const { ctx, calls } = recorder();
     drawProposal(ctx, proposalLayout({}, none), 1, DEFAULT_PALETTE);
     expect(calls).toEqual([]);
+  });
+
+  it("labels only named tidy frames, in screen pixels, clipping long names to the group", () => {
+    const plan = { objects: [
+      { tempId: "a", type: "frame", title: "Процесс", x: 100, y: 60, width: 100, height: 80 },
+      { tempId: "b", type: "sticky_note", title: "Note", x: 100, y: 60, width: 40, height: 40 },
+      { tempId: "c", type: "frame", title: "  ", x: 300, y: 60, width: 100, height: 80 },
+    ] };
+    expect(proposalLayout(plan, none).blocks.every(block => !block.title)).toBe(true);
+    const layout = proposalLayout(plan, none, true);
+    expect(layout.blocks.filter(block => block.title).map(block => block.title)).toEqual(["Процесс"]);
+    for (const [zoom, label] of [[2, "Процесс"], [0.5, "Про…"], [0.1, null]] as const) {
+      const { ctx, calls } = recorder();
+      drawProposal(ctx, layout, zoom, DEFAULT_PALETTE);
+      expect(calls.find(call => call.name === "translate")?.args).toEqual([50, 20]);
+      expect(calls.find(call => call.name === "scale")?.args).toEqual([1 / zoom, 1 / zoom]);
+      expect(calls.filter(call => call.name === "fillText").map(call => call.args))
+        .toEqual(label ? [[label, 10, -16]] : []);
+    }
+  });
+
+  it("draws a planned connector as a 2 px dashed line in the agent's colour", () => {
+    const { ctx, calls, state } = recorder();
+    const layout = proposalLayout(
+      {
+        objects: [
+          { tempId: "a", type: "sticky_note", x: 0, y: 0, width: 100, height: 100 },
+          { tempId: "b", type: "sticky_note", x: 200, y: 0, width: 100, height: 100 },
+        ],
+        connectors: [{ tempId: "link", from: "a", to: "b" }],
+      },
+      none,
+    );
+    drawProposal(ctx, layout, 2, DEFAULT_PALETTE);
+    // The hulls are 1.5 px; the planned line is the mockup's 2 px, both dashed.
+    expect(calls.filter((call) => call.name === "lineTo")).toHaveLength(1);
+    expect(state.strokeStyle).toBe(DEFAULT_PALETTE.agent);
+    expect(calls.filter((call) => call.name === "setLineDash")).toHaveLength(1);
+    // The line is the last stroke drawn, at 2 px / zoom (zoom 2 → 1 board unit).
+    expect(calls.filter((call) => call.name === "stroke").at(-1)?.lineWidth).toBe(1);
   });
 });

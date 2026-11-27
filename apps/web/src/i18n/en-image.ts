@@ -34,12 +34,12 @@ export const enImage = {
 
   "image.alt.title": "Description",
   "image.alt.hint":
-    "Describe what the picture shows. Screen reader users and room search will see it.",
+    "What’s in the image? Screen readers will read this description, and people can find it in room search.",
   "image.alt.placeholder": "For example: the sales funnel",
   "image.alt.save": "Save",
   "image.alt.count": "{count} / {max}",
 
   "image.lightbox.download": "Download",
   "image.lightbox.caption": "Description: {text}",
-  "image.lightbox.hint": "Scroll to zoom, drag to move, double click to fit",
+  "image.lightbox.hint": "Scroll to zoom, drag to move",
 };

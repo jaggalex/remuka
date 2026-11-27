@@ -1,9 +1,13 @@
+import { randomBytes } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 
 export const PASSWORD = "e2e-password-123";
 
 function uniqueEmail(tag: string): string {
-  return `e2e-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
+  // Signup derives the handle from at most 32 characters of the local part.
+  const label = tag.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 7);
+  const local = ["e2e", randomBytes(10).toString("hex"), label].filter(Boolean).join("-");
+  return `${local}@example.com`;
 }
 
 export interface Account {
@@ -60,13 +64,31 @@ export async function openBoard(
   const user = options.user ? `&user=${encodeURIComponent(options.user)}` : "";
   const template = options.template ? `&template=${encodeURIComponent(options.template)}` : "";
   await page.goto(`/?room=${boardId}&lang=${options.lang ?? "en"}${user}${template}`);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 }
 
 /** Document sync can finish before the HTTP access decision enables editing. */
 export async function waitForBoardEditor(page: Page): Promise<void> {
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Sticky note", exact: true })).toBeEnabled();
+}
+
+/** Wait until the camera and the canvas size are the same on two reads 80 ms apart. */
+export async function settleCamera(page: Page): Promise<void> {
+  let previous = "";
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const current = await page.evaluate(() => {
+      const probe = (window as unknown as { __remo?: { camera?: { x: number; y: number; zoom: number } } })
+        .__remo;
+      const rect = document
+        .querySelector<HTMLCanvasElement>(".layer.overlay")
+        ?.getBoundingClientRect();
+      return `${probe?.camera?.x}:${probe?.camera?.y}:${probe?.camera?.zoom}:${rect?.width}`;
+    });
+    if (current === previous) return;
+    previous = current;
+    await page.waitForTimeout(80);
+  }
 }
 
 /** Select the requested kanban card, or the first card when none is specified. */
@@ -74,8 +96,10 @@ export async function selectKanbanCard(page: Page, cardId?: string): Promise<str
   await waitForBoardEditor(page);
   // ADR-197: a fresh person starts with the inspector closed; these scenarios read
   // the card fields, tags and links, so open it before selecting the card.
-  const properties = page.getByRole("button", { name: "Properties", exact: true });
-  if ((await properties.getAttribute("aria-pressed")) !== "true") await properties.click();
+  await ensureProperties(page);
+  // The panel narrows the canvas and the board refits; the view must stop moving before
+  // world → client is computed, or the click lands where the card used to be.
+  await settleCamera(page);
   // After a reload the document arrives over the socket; the probe is empty until then.
   await page.waitForFunction((wanted) => {
     const probe = window as unknown as {
@@ -107,7 +131,29 @@ export async function selectKanbanCard(page: Page, cardId?: string): Promise<str
   await expect.poll(() => page.evaluate(
     () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
   )).toEqual([point.id]);
+  await expect(page.locator(".card-record")).toBeVisible();
   return point.id;
+}
+
+/** Set the theme preference on the signed-in account, keeping its language. */
+export async function setAccountTheme(
+  page: Page,
+  theme: "light" | "dark",
+  lang: "ru" | "en" = "en",
+): Promise<void> {
+  const me = await page.request.get("/api/auth/me");
+  const body = (await me.json()) as { csrfToken?: string | null };
+  const saved = await page.request.patch("/api/auth/preferences", {
+    data: { theme, lang },
+    headers: body.csrfToken ? { "X-CSRF-Token": body.csrfToken } : {},
+  });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  await page.reload();
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
 }
 
 /** Set the language preference on the signed-in account (not just the URL). */
@@ -169,35 +215,70 @@ export async function agentBoard(page: Page, tag: string): Promise<AgentBoard> {
 }
 
 /**
- * The four header menus (ADR-119). They are DS menus: opening one moves
- * focus inside, Escape closes it and returns focus to the trigger.
+ * The header's menus (ADR-266). They are DS menus: opening one moves focus inside,
+ * Escape closes it and returns focus to the trigger.
  */
-export async function openBoardMenu(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^Room menu:/ }).click();
+export async function openBoardMenu(page: Page, group?: "more" | "propertiesAccess"): Promise<void> {
+  await page.getByRole("button", { name: /^(?:Room menu|Меню комнаты):/ }).click();
+  if (group) await page.getByRole("menu").locator(`[data-command="room.${group}"]`).click();
 }
 
-export async function openFacilitation(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Facilitation", exact: true }).click();
+/** "Run" is the old Facilitation menu: timer, voting, presentation, follow. */
+export async function openRun(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Run", exact: true }).click();
 }
 
-export async function openMore(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "More", exact: true }).click();
+/** Kept as the old name for the scenarios written before ADR-266. */
+export const openFacilitation = openRun;
+
+export async function openAgentMenu(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Agent", exact: true }).click();
+}
+
+export async function openPeople(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /^People in the room:/ }).click();
+}
+
+/** The room agent panel lives behind the Agent menu (ADR-266 §2). */
+export async function openRoomAgent(page: Page): Promise<void> {
+  await openAgentMenu(page);
+  await page.getByRole("menuitem", { name: "Give the agent a task", exact: true }).click();
 }
 
 export async function openAccount(page: Page): Promise<void> {
   await page.getByRole("button", { name: /^Account and interface/ }).click();
 }
 
+/** The room menu now carries the right panel; the header has no Properties icon. */
+export async function openProperties(page: Page): Promise<void> {
+  await openBoardMenu(page, "propertiesAccess");
+  await page.getByRole("menuitem", { name: /^(?:Properties|Свойства)$/ }).click();
+}
+
+/** Open the panel only when it is closed: the row toggles it. */
+export async function ensureProperties(page: Page): Promise<void> {
+  if (await page.locator("aside.inspector").isVisible()) return;
+  await openProperties(page);
+  await expect(page.locator("aside.inspector")).toBeVisible();
+}
+
+/** The room logo links back to the list of rooms. */
+export async function goAllRooms(page: Page): Promise<void> {
+  await page.locator(".topbar").getByRole("link", { name: /^(?:All rooms|Все комнаты)$/ }).click();
+}
+
 /**
- * Discussion and presentation live in the header, as icons (ADR-119,
- * П1). The name carries the unread count, so the locator matches the start of it.
+ * Discussion lives in the header as an icon (ADR-119). The name carries the unread
+ * count, so the locator matches the start of it.
  */
 export async function openComments(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^Discussion/ }).click();
+  await openBoardMenu(page, "more");
+  await page.locator('[data-command="header.comments"]').click();
 }
 
 export async function startPresentation(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Start presentation", exact: true }).click();
+  await openRun(page);
+  await page.getByRole("menuitem", { name: "Start presentation", exact: true }).click();
 }
 
 export async function addSticky(page: Page): Promise<string> {
@@ -213,8 +294,34 @@ export async function addSticky(page: Page): Promise<string> {
   await page.keyboard.press("Escape");
   await expect(page.locator(".inline-editor")).toHaveCount(0);
   await expect.poll(() => objectCount(page, "sticky_note")).toBeGreaterThan(0);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   return id;
+}
+
+/**
+ * Choose a shape kind in the rail and create the default one with a click (ADR-271).
+ *
+ * Choosing a kind now arms the tool instead of creating at once, so the scenario clicks
+ * the canvas without travelling; that is the "default shape" path of ADR-119.
+ */
+export async function createShape(
+  page: Page,
+  name = "Rectangle",
+): Promise<string> {
+  const before = await objectCount(page, "shape");
+  const rail = page.getByRole("toolbar", { name: "Tools" });
+  await rail.getByRole("button", { name: "Shape variants" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+  const canvas = page.locator(".layer.overlay");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("the canvas is not visible");
+  // Off-centre: an empty room shows its start card in the middle, and that card owns
+  // the click. The default shape still lands at the view's centre (ADR-119).
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.75);
+  await expect.poll(() => objectCount(page, "shape")).toBe(before + 1);
+  return page.evaluate(
+    () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds[0]!,
+  );
 }
 
 export async function enableLink(page: Page, boardId: string): Promise<void> {
@@ -265,11 +372,14 @@ export async function savedAfterEdit(page: Page): Promise<void> {
 /** Place a comment on an empty point of the board and submit the composer. */
 export async function addComment(page: Page, text: string): Promise<void> {
   await page.getByRole("button", { name: "New comment" }).click();
-  const canvas = page.locator(".layer.overlay");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas not visible");
-  await page.mouse.click(box.x + 40, box.y + box.height - 60);
   const composer = page.locator(".comment-composer textarea");
+  const placement = page.locator(".comment-placement");
+  await expect(composer.or(placement)).toBeVisible();
+  if (await placement.isVisible()) {
+    const box = await placement.boundingBox();
+    if (!box) throw new Error("comment placement surface is missing");
+    await page.mouse.click(box.x + 40, box.y + box.height - 60);
+  }
   await expect(composer).toBeVisible();
   // The composer is a Dialog; its text field asked for focus and keeps it.
   await expect(composer).toBeFocused();
@@ -322,6 +432,47 @@ export async function seedNote(
     content,
     ...(parentId ? { parentId } : {}),
   });
+}
+
+/**
+ * Place a note with an id the scenario chooses, through the dev probe (ADR-265 §3.2).
+ *
+ * Visual baselines compare pixels, and a note's tilt is a hash of its id: a note the
+ * API or the UI creates gets a random id, so the same screen photographs differently on
+ * every run. This is the same document write the UI makes, so the note syncs and
+ * survives a reload; only the id is chosen by the test. A caller that seeds before a
+ * reload also waits for the save state (`watchSave` … `savedAfterEdit`).
+ */
+export async function seedStableNote(
+  page: Page,
+  input: {
+    id: string;
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    text?: string;
+    parentId?: string;
+    style?: { fontSize?: number };
+    rotation?: number;
+  },
+): Promise<string> {
+  await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
+  await page.evaluate((note) => {
+    (window as unknown as { __remo: { seedNote: (input: typeof note) => void } }).__remo.seedNote(note);
+  }, input);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (id) =>
+          (window as unknown as { __remo?: { widgets?: Array<{ id: string }> } }).__remo?.widgets?.some(
+            (widget) => widget.id === id,
+          ) ?? false,
+        input.id,
+      ),
+    )
+    .toBe(true);
+  return input.id;
 }
 
 /** A connector between two seeded objects; the line is derived from their boxes. */
@@ -383,9 +534,16 @@ export async function objectCount(page: Page, type?: string): Promise<number> {
  * open row would close it, so it is opened only when closed.
  */
 export async function openFold(page: Page, name: string | RegExp): Promise<void> {
-  const fold = page.locator("aside.inspector details.inspector-fold").filter({
-    has: page.locator("summary", { hasText: name }),
-  });
-  if ((await fold.getAttribute("open")) === null) await fold.locator("summary").click();
+  const fold = page
+    .locator("aside.inspector details.rm-disclosure")
+    .filter({ has: page.locator("summary", { hasText: name }) })
+    // An outer fold contains its children's summaries; the innermost is the target.
+    .last();
+  const summary = fold.locator(":scope > summary");
+  if (!await summary.isVisible()) {
+    const outer = page.locator("aside.inspector details.properties-more");
+    await outer.locator(":scope > summary").click();
+  }
+  if ((await fold.getAttribute("open")) === null) await summary.click();
   await expect(fold).toHaveAttribute("open", "");
 }

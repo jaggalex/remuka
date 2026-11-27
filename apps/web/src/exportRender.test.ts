@@ -47,6 +47,19 @@ describe("export scope (ADR-071)", () => {
     expect(frameForSelection(widgets, ["note-2"])).toBeNull();
   });
 
+  it("offers only an unambiguous frame when the selection is empty (ADR-301)", () => {
+    const second = widget("frame-2", "frame");
+    expect(frameForSelection([], [])).toBeNull();
+    expect(frameForSelection([outside], [])).toBeNull();
+    expect(frameForSelection(widgets, [])).toBe(frame);
+    expect(scopeWidgets(widgets, [], "frame")).toEqual([frame, inside]);
+    expect(frameForSelection([...widgets, second], [])).toBeNull();
+    expect(scopeWidgets([...widgets, second], [], "frame")).toEqual([]);
+    expect(frameForSelection([...widgets, second], [second.id])).toBe(second);
+    expect(frameForSelection([...widgets, second], [inside.id])).toBe(frame);
+    expect(frameForSelection(widgets, [outside.id])).toBeNull();
+  });
+
   it("includes the members of a selected frame and kanban", () => {
     expect(scopeWidgets(widgets, ["frame-1"], "selection").map((w) => w.id)).toEqual([
       "frame-1",

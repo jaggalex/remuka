@@ -50,6 +50,7 @@ export function BillingRooms({
   limitsRooms,
   usageRooms,
   frozenRooms,
+  frozenCount,
   isOrgAdmin,
   onSaved,
 }: {
@@ -61,6 +62,7 @@ export function BillingRooms({
   usageRooms: number;
   /** The server's explicit list; empty until the chooser has been used once. */
   frozenRooms: string[];
+  frozenCount?: number;
   isOrgAdmin: boolean;
   /** Re-read `GET /orgs/:id/billing` so the summary shows the saved state. */
   onSaved: () => void | Promise<void>;
@@ -102,14 +104,10 @@ export function BillingRooms({
       .then((list) => {
         if (!alive) return;
         setRooms(list);
-        // The server freezes the oldest rooms; its default set is the newest N. An
-        // explicit frozen list wins once one exists.
-        const active =
-          frozenSet.size > 0
-            ? list.filter((room) => !frozenSet.has(room.id)).map((room) => room.id)
-            : list
-                .slice(0, limitsRooms ?? list.length)
-                .map((room) => room.id);
+        const known = list.every(room => typeof room.frozen === "boolean");
+        const active = known ? list.filter(room => !room.frozen).map(room => room.id)
+          : frozenSet.size > 0 ? list.filter(room => !frozenSet.has(room.id)).map(room => room.id)
+          : list.slice(0, limitsRooms ?? list.length).map(room => room.id);
         setSelected(active);
       })
       .catch((failure: unknown) => {
@@ -121,7 +119,11 @@ export function BillingRooms({
     return () => {
       alive = false;
     };
-  }, [frozenSet, limitsRooms, open, orgSlug, t]);
+  }, [frozenCount, frozenSet, limitsRooms, open, orgSlug, t]);
+
+  const visibleActive = rooms?.filter(room => room.frozen === false).length ?? 0;
+  const reserved = rooms && frozenCount !== undefined ? Math.max(0, usageRooms - frozenCount - visibleActive) : 0;
+  const activeCount = selected.length + reserved;
 
   const toggle = useCallback((roomId: string, checked: boolean) => {
     setSaved(false);
@@ -132,12 +134,12 @@ export function BillingRooms({
   }, []);
 
   const save = useCallback(async () => {
-    if (saving || limitsRooms === null) return;
+    if (saving || !rooms || limitsRooms === null || activeCount > limitsRooms) return;
     setSaving(true);
     setSaved(false);
     setSaveError(null);
     try {
-      await billingApi.setFrozenRooms(orgId, selected);
+      await billingApi.setFrozenRooms(orgId, selected, rooms.map(room => room.id));
       setSaved(true);
       await onSaved();
     } catch (failure) {
@@ -157,7 +159,7 @@ export function BillingRooms({
     } finally {
       setSaving(false);
     }
-  }, [limitsRooms, onSaved, orgId, saving, selected, t]);
+  }, [activeCount, limitsRooms, onSaved, orgId, rooms, saving, selected, t]);
 
   if (limitsRooms === null) return null;
 
@@ -168,10 +170,10 @@ export function BillingRooms({
     ) : null;
   }
 
-  const atLimit = selected.length >= limitsRooms;
+  const atLimit = activeCount >= limitsRooms;
 
   return (
-    <section className="billing-rooms">
+    <section className="billing-rooms" id="billing-active-rooms" tabIndex={-1}>
       <div className="billing-rooms-head">
         <h3>{t("billing.rooms.title")}</h3>
         {!open && (
@@ -215,14 +217,15 @@ export function BillingRooms({
 
               <p className="billing-rooms-count">
                 {t("billing.rooms.counter", {
-                  selected: selected.length,
+                  selected: activeCount,
                   max: limitsRooms,
                 })}
               </p>
-              {selected.length < limitsRooms && (
+              {reserved > 0 && <p className="muted">{t("billing.rooms.reserved", { n: reserved })}</p>}
+              {activeCount < limitsRooms && (
                 <p className="billing-warning">
                   {t("billing.rooms.fewer", {
-                    selected: selected.length,
+                    selected: activeCount,
                     max: limitsRooms,
                   })}
                 </p>
@@ -234,7 +237,7 @@ export function BillingRooms({
                     checkboxes themselves stop the selection at the limit. */}
                 <Button
                   variant="primary"
-                  disabled={saving || selected.length === 0}
+                  disabled={saving || activeCount === 0 || activeCount > limitsRooms}
                   onClick={() => void save()}
                 >
                   {saving ? t("billing.rooms.saving") : t("billing.rooms.save")}

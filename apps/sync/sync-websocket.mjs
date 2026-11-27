@@ -111,6 +111,8 @@ export function attachWebSocket({
     if (auth?.boardId) {
       const record = {
         socket,
+        orgId: auth.orgId,
+        userName: auth.session?.user.name,
         userId: auth.session?.user.id ?? null,
         sessionId: auth.session?.sessionId ?? null,
         sessionHash: auth.session?.tokenHash ?? null,
@@ -283,6 +285,19 @@ export function attachWebSocket({
           metrics.inc("remo_ws_rejected_total");
           return;
         }
+      }
+      // ADR-314: cookies and edit grants can change between the access GET and upgrade.
+      // A bound browser socket requires a current IAM decision, even for a guest.
+      const expected = new URL(request.url, "http://localhost").searchParams;
+      if (expected.has("roomPrincipal") && (
+        !upgradeAccess?.allowed ||
+        expected.get("roomPrincipal") !== (session?.user?.id ?? "") ||
+        expected.get("roomMode") !== (upgradeAccess.capabilities?.includes("board.edit") ? "edit" : "view")
+      )) {
+        socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+        socket.destroy();
+        metrics.inc("remo_ws_rejected_total");
+        return;
       }
     } catch (error) {
       failUpgrade(socket, error);

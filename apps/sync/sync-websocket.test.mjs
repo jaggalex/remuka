@@ -53,7 +53,7 @@ async function listen(bound, options = {}) {
     // must not accidentally test that path. A test for it passes its own store.
     store: options.store ?? { getIamBoard: async (id) => ({ id, owner_id: "owner-1" }) },
     metrics: { inc() {} },
-    sessionFromRequest: async () => null,
+    sessionFromRequest: async () => options.session ?? null,
     accessForBoard: options.accessForBoard ?? (async () => ({ access: { allowed: true } })),
     linkUnlockToken: () => null,
     connections: {
@@ -67,11 +67,11 @@ async function listen(bound, options = {}) {
   return server.address().port;
 }
 
-function connect(port, room, headers = {}) {
+function connect(port, room, headers = {}, params = {}) {
+  const url = new URL(`ws://127.0.0.1:${port}/${encodeURIComponent(room)}`);
+  url.search = new URLSearchParams(params).toString();
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}/${encodeURIComponent(room)}`, {
-      headers,
-    });
+    const socket = new WebSocket(url, { headers });
     socket.on("open", () => resolve(socket));
     socket.on("error", reject);
   });
@@ -122,6 +122,32 @@ it("refuses an oversized room id before looking it up", async () => {
 
   await expect(connect(port, "x".repeat(201))).rejects.toThrow(/400/);
   expect(bound).toEqual([]);
+});
+
+it.each([
+  ["another editor", "second", ["board.edit"], "first", "edit"],
+  ["a downgraded editor", "first", [], "first", "edit"],
+  ["a guest with a viewing link", null, [], "first", "edit"],
+])("requires a fresh document binding for %s", async (_case, actual, capabilities, roomPrincipal, roomMode) => {
+  const bound = [];
+  const port = await listen(bound, {
+    session: actual && { user: { id: actual } },
+    accessForBoard: async () => ({ access: { allowed: true, capabilities } }),
+  });
+  await expect(connect(port, "test-binding", {}, { roomPrincipal, roomMode })).rejects.toThrow(/403/);
+  expect(bound).toEqual([]);
+});
+
+it("requires an IAM decision for a bound guest and preserves the legacy unbound transport", async () => {
+  const bound = [];
+  const port = await listen(bound, { store: {} });
+  await expect(connect(port, "test-bound", {}, { roomPrincipal: "", roomMode: "view" })).rejects.toThrow(/403/);
+  expect(bound).toEqual([]);
+  const socket = await connect(port, "test-legacy");
+  const done = closed(socket);
+  socket.close();
+  await done;
+  expect(bound).toEqual(["test-legacy"]);
 });
 
 it("refuses an unowned legacy board before access is even asked", async () => {

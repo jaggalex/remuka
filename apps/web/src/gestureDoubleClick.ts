@@ -1,10 +1,12 @@
 import { isEditable } from "./editable";
 import type { GestureEnv } from "./gestureEnv";
-import { cellAt, connectorHandles, connectorPath, kanbanContains, layerKey, pick, pickConnector, placementAt, kanbanTitleAt } from "@remo/canvas";
+import { cellAt, connectorHandles, connectorPath, frameLabelAt, frameLabelFont, kanbanContains, layerKey, pick, pickConnector, placementAt, kanbanTitleAt } from "@remo/canvas";
 import { expandGroups } from "@remo/model";
 import { openKanbanTitleEdit } from "./kanbanTitleEditStore";
 import { measureText } from "./KanbanTitleEditor";
+import { openFrameLabelEdit } from "./frameLabelEditStore";
 import { openImageViewer } from "./imageViewer";
+import { markHintDone } from "./hints";
 
 /**
    * Double-click edits what is under the cursor.
@@ -14,10 +16,21 @@ import { openImageViewer } from "./imageViewer";
    * double-click on a card inside the kanban still goes through the matrix, because
    * cards are not pickable as widgets.
    */
-export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasElement>) {
+export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLElement>) {
   const { camera, settings, widgets, layouts, selectedIds, isCardOfKanban, toWorld, worldToScreenPoint, onSelect, onAddCard, onDeleteWaypoint, onEdit, readOnly, widgetById } = env;
   const world = toWorld(event);
   const hit = pick(widgets, world, isCardOfKanban);
+  const labelFrame = hit
+    ? null
+    : frameLabelAt(widgets, world, {
+        measureText: (text) => ({ width: measureText(text, frameLabelFont(settings.text.fontFamily)) }),
+      });
+  if (labelFrame) {
+    onSelect(expandGroups(widgets, [labelFrame.id]));
+    // The field is SectionTitleLayer's: one "Rename section", opened from the canvas.
+    if (!readOnly && !labelFrame.locked) openFrameLabelEdit(labelFrame.id);
+    return;
+  }
 
   // A picture opens in the viewer, and a reader may look at it: viewing a file is not a
   // write, so this answer comes before the read-only gate (`spec/images.md` §9.7).
@@ -28,6 +41,10 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   }
 
   if (readOnly) return;
+  if (widgets.length === 0 && !env.creationTool) {
+    env.onCreateFirstSticker(world);
+    return;
+  }
   if (hit && layouts.has(hit.id)) {
     const layout = layouts.get(hit.id)!;
     const placement = placementAt(layout, world);
@@ -36,7 +53,7 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
       return;
     }
     // A column's or a lane's title opens its field on the kanban (ADR-244).
-    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily);
+    const title = hit.locked ? null : kanbanTitleAt(layout, world, measureText, settings.text.fontFamily, camera.zoom);
     if (title) {
       openKanbanTitleEdit({ kanbanId: hit.id, kind: title.kind, id: title.id });
       return;
@@ -72,7 +89,10 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   });
   if (line && (!hit || layerKey(line) > layerKey(hit))) {
     onSelect([line.id]);
-    if (isEditable(line)) onEdit(line.id);
+    if (isEditable(line)) {
+      markHintDone("canvas.doubleClickEdit");
+      onEdit(line.id);
+    }
     return;
   }
 
@@ -80,12 +100,16 @@ export function doubleClick(env: GestureEnv, event: React.MouseEvent<HTMLCanvasE
   // be restyled, layered or edited without taking the group apart (ADR-047).
   if (hit && hit.groupId) {
     onSelect([hit.id]);
-    if (isEditable(hit)) onEdit(hit.id);
+    if (isEditable(hit)) {
+      markHintDone("canvas.doubleClickEdit");
+      onEdit(hit.id);
+    }
     return;
   }
 
   if (hit && isEditable(hit)) {
     onSelect(expandGroups(widgets, [hit.id]));
+    markHintDone("canvas.doubleClickEdit");
     onEdit(hit.id);
     return;
   }

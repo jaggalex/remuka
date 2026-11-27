@@ -1,8 +1,8 @@
 import { connectorPath, labelMetrics, labelPoint, type Camera } from "@remo/canvas";
-import type { TextDeltaOp } from "@remo/model";
+import { SHAPE_PAPER, type TextDeltaOp } from "@remo/model";
 import type { Widget } from "@remo/model";
 import type { EditorTarget } from "./InlineEditor";
-import { DEFAULT_BAR_SURFACE, DEFAULT_INK } from "./objectDefaults";
+import { DEFAULT_INK } from "./objectDefaults";
 
 export function connectorEditorTarget(
   connector: Widget,
@@ -47,9 +47,9 @@ export function connectorEditorTarget(
     vAlign: "middle",
     // A label is one line (ADR-041): no headings or lists inside it.
     richBlocks: false,
-    fontWeight: 500,
-    fill: DEFAULT_BAR_SURFACE,
+    fontWeight: 600,
+    fill: SHAPE_PAPER,
     ink: connector.style?.textColor ?? DEFAULT_INK,
-    radius: 4,
+    radius: 8,
   };
 }

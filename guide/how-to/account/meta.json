@@ -17,11 +17,11 @@
     "capabilities/access",
     "how-to/contact-support"
   ],
-  "updated": "2026-11-22",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:d097fd85a4edd3a61060418b11e58b9f10355aea3c9abedbe9e4e891bedbbadb",
-      "targetHash": "sha256:daa2d1d3d3f6b2cd474fb4126063f698ba6254ec2ad1947e989650a5f0cd551e"
+      "sourceHash": "sha256:b69c7309fc471aa78e4cf1ce5d7432020148e79f9ffa10f7cf65911bb02bc98b",
+      "targetHash": "sha256:d9b3fcade512e6331cda8114897ca38fdfab71efcc69a81a927b2ec960e15695"
     }
   }
 }

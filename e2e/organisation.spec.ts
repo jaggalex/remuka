@@ -10,8 +10,9 @@ test("creates an organisation and a team", async ({ page }) => {
   await page.getByRole("button", { name: "+ New organisation" }).click();
   await page.locator(".org-create input").first().fill("Second workspace");
   await page.getByRole("button", { name: "Create organisation" }).click();
-  await expect(page.getByRole("dialog", { name: "Second workspace" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Second workspace", exact: true })).toBeVisible();
 
+  await page.getByRole("tab", { name: "Teams" }).click();
   await page.locator(".org-teams input").fill("Design");
   await page.getByRole("button", { name: "+ Create team" }).click();
   await expect(page.locator(".org-team-list")).toContainText("Design");
@@ -23,15 +24,18 @@ test("renames the organisation and a team, then deletes the team", async ({ page
   await page.getByRole("button", { name: "Organisation and people" }).click();
   await expect(page.locator(".org-dialog")).toBeVisible();
 
+  await page.getByRole("tab", { name: "Teams" }).click();
   await page.locator(".org-teams input").fill("Design");
   await page.getByRole("button", { name: "+ Create team" }).click();
   await expect(page.locator(".org-team-list")).toContainText("Design");
 
+  await page.getByRole("tab", { name: "People" }).click();
   await page.locator(".org-title").getByRole("button", { name: "Rename" }).click();
   await page.locator(".org-rename input").fill("Studio");
   await page.locator(".org-rename").getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("dialog", { name: "Studio" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Studio", exact: true })).toBeVisible();
 
+  await page.getByRole("tab", { name: "Teams" }).click();
   const row = page.locator(".org-team-row").filter({ hasText: "Design" });
   await row.getByRole("button", { name: "Rename" }).click();
   // The row no longer contains its name as text while it is an input.

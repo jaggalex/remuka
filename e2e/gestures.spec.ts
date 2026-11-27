@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, freshBoard, openBoard, register, seedConnector, seedNote, seedObject } from "./helpers";
+import { addSticky, createShape, freshBoard, openBoard, register, seedConnector, seedNote, seedObject } from "./helpers";
 
 /**
  * The pointer state machine in a real browser (ADR-059).
@@ -105,7 +105,7 @@ test("dragging a note moves it, and undo puts it back", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(centre.x + 120, centre.y + 80, { steps: 10 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const moved = await note(page);
   const zoom = view.camera.zoom;
@@ -115,7 +115,7 @@ test("dragging a note moves it, and undo puts it back", async ({ page }) => {
   expect(Math.abs(moved.y - before.y - 80 / zoom)).toBeLessThan(30);
 
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   const undone = await note(page);
   expect(Math.round(undone.x)).toBe(Math.round(before.x));
   expect(Math.round(undone.y)).toBe(Math.round(before.y));
@@ -211,7 +211,7 @@ test("resizing from the corner grows the note", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(corner.x + 60, corner.y + 40, { steps: 8 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const after = await note(page);
   const zoom = view.camera.zoom;
@@ -223,9 +223,7 @@ test("a shape resizes like a note, its text reflows and one undo puts it back (A
   page,
 }) => {
   await freshBoard(page, "gesture-shape-resize");
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   const before = await shape(page);
   const view = await geometry(page);
@@ -238,7 +236,7 @@ test("a shape resizes like a note, its text reflows and one undo puts it back (A
   await editor.fill("Shape label");
   await page.keyboard.press("Escape");
   await expect(page.locator(".inline-editor")).toHaveCount(0);
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   // Select it alone, so the four corner handles appear (kindOf().resizable).
   await page.mouse.click(centre.x, centre.y);
@@ -259,7 +257,7 @@ test("a shape resizes like a note, its text reflows and one undo puts it back (A
     steps: 10,
   });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const grown = await shape(page);
   expect(grown.width).toBeGreaterThan(current.width + 100);
@@ -285,7 +283,7 @@ test("a shape resizes like a note, its text reflows and one undo puts it back (A
 
   // One gesture, one undo step.
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   const undone = await shape(page);
   expect(undone).toMatchObject({
     x: current.x,
@@ -346,7 +344,7 @@ test("a frame resizes around its contents and shrinks before releasing them (ADR
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 12 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   expect((await widget(childId))!.parentId).toBe(frameId);
   // Its place after the drop is the baseline the resize must not disturb.
   const placed = (await widget(childId))!;
@@ -376,7 +374,7 @@ test("a frame resizes around its contents and shrinks before releasing them (ADR
     { steps: 10 },
   );
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const grown = (await widget(frameId))!;
   const childAfterGrow = (await widget(childId))!;
@@ -401,7 +399,7 @@ test("a frame resizes around its contents and shrinks before releasing them (ADR
   await page.mouse.down();
   await page.mouse.move(release.x, release.y, { steps: 10 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const shrunk = (await widget(frameId))!;
   expect(shrunk.width).toBeLessThan(grown.width);
@@ -415,7 +413,7 @@ test("a frame resizes around its contents and shrinks before releasing them (ADR
 
   // One gesture, one undo step: the box and the release go back together.
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   expect(await widget(frameId)).toMatchObject({
     x: grown.x,
     y: grown.y,
@@ -502,7 +500,7 @@ test("a block of notes resizes as one box (ADR-211)", async ({ page }) => {
   expect(selected).toHaveLength(3);
   // The badge names the composition of the block (ADR-211): total and how many scale.
   await expect(page.locator(".selection-badge")).toContainText("3 objects");
-  await expect(page.locator(".selection-badge")).toContainText("3 change size");
+  await expect(page.locator(".selection-badge")).toContainText("3 can be resized");
 
   const right = Math.max(...before.map((note) => note.x + note.width / 2));
   const bottom = Math.max(...before.map((note) => note.y + note.height / 2));
@@ -513,7 +511,7 @@ test("a block of notes resizes as one box (ADR-211)", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(corner.x + 120, corner.y + 80, { steps: 10 });
   await page.mouse.up();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   const after = await notes();
   for (const [index, note] of before.entries()) {
@@ -529,7 +527,7 @@ test("a block of notes resizes as one box (ADR-211)", async ({ page }) => {
   expect(gapAfter).toBeGreaterThan(gapBefore);
 
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   const undone = await notes();
   for (const [index, note] of before.entries()) {
     expect(Math.round(undone[index]!.width)).toBe(Math.round(note.width));
@@ -633,9 +631,7 @@ test("Alt resizes around the centre (ADR-212)", async ({ page }) => {
  */
 test("a shape grows down for its text (ADR-214)", async ({ page }) => {
   await freshBoard(page, "gesture-shape-grow");
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   // A tolerant read: the probe is refreshed on every render, and a poll must not fail
   // because it looked during a re-render.
@@ -742,6 +738,92 @@ test("a pinch over something on the canvas zooms the board, and over the header 
   const atHeader = await zoom();
   expect(await pinch(".topbar")).toBe(true);
   expect(await zoom()).toBe(atHeader);
+});
+
+test("a frame is dragged and renamed by its label (ADR-267)", async ({ page }) => {
+  const account = await freshBoard(page, "gesture-frame-label", { template: "empty" });
+  await seedObject(page, account.boardId, {
+    type: "frame",
+    x: 0,
+    y: 0,
+    width: 600,
+    height: 400,
+    title: "Раздел",
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __remo: { widgets: Array<{ type: string; title?: string }> } })
+            .__remo.widgets.find((widget) => widget.type === "frame")?.title,
+      ),
+    )
+    .toBe("Раздел");
+
+  const current = await geometry(page);
+  const frame = await page.evaluate(() => {
+    const probe = (window as unknown as {
+      __remo: {
+        widgets: Array<{ id: string; type: string; x: number; y: number; width: number; height: number }>;
+      };
+    }).__remo;
+    const found = probe.widgets.find((widget) => widget.type === "frame")!;
+    return { id: found.id, x: found.x, y: found.y, width: found.width, height: found.height };
+  });
+  // The plate is above the top-left corner (24 tall, 2 of it overlaps the body).
+  const labelPoint = (box: typeof frame) => {
+    const left = box.x - box.width / 2;
+    const top = box.y - box.height / 2;
+    return toClient(current, { x: left + 20, y: top - 10 });
+  };
+
+  const before = labelPoint(frame);
+  const after = { x: before.x + 60, y: before.y + 30 };
+  await page.mouse.move(before.x, before.y);
+  await page.mouse.down();
+  await page.mouse.move(after.x, after.y, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (id) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; x: number }> } })
+            .__remo.widgets.find((widget) => widget.id === id)?.x,
+        frame.id,
+      ),
+    )
+    .toBeGreaterThan(frame.x + 20);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([frame.id]);
+
+  const moved = await page.evaluate(
+    (id) =>
+      (window as unknown as {
+        __remo: { widgets: Array<{ id: string; x: number; y: number; width: number; height: number }> };
+      }).__remo.widgets.find((widget) => widget.id === id)!,
+    frame.id,
+  );
+  const target = labelPoint(moved);
+  await page.mouse.dblclick(target.x, target.y);
+  const input = page.locator(".section-title-input");
+  await expect(input).toBeVisible();
+  await input.fill("Проверка");
+  await input.press("Enter");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (id) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; title?: string }> } })
+            .__remo.widgets.find((widget) => widget.id === id)?.title,
+        frame.id,
+      ),
+    )
+    .toBe("Проверка");
 });
 
 test("a frame dragged wholly into another becomes its child and moves with it (ADR-242)", async ({

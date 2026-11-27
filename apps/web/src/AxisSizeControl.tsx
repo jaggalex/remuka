@@ -18,7 +18,7 @@ import { PanelWindow } from "./object-panel/PanelWindow";
  * Two modes, as the T13 mockup shows: Auto follows the content both ways; Manual keeps
  * the visible size as a floor, so content may still grow it but it never shrinks on its
  * own. Presets are manual sizes. Dragging the boundary is the same command, so the panel
- * and the header menu cannot disagree.
+ * and the header boundary use the same size.
  */
 export type AxisKind = "column" | "row";
 

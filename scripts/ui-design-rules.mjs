@@ -14,7 +14,11 @@ import { join, relative } from "node:path";
 /** The DS catalogue demonstrates tokens; help has its own reading styles. */
 const SKIP_DIRS = new Set(["ds", "help"]);
 
-const ALIASES = new Set(["--ink", "--muted", "--faint", "--line", "--line-strong", "--accent-strong", "--surface", "--canvas"]);
+/**
+ * The aliases of the previous system. `--ink` is not one any more: it is the per-object
+ * content ink a canvas DOM layer receives inline (ADR-273 §2.4), always with a fallback.
+ */
+const ALIASES = new Set(["--muted", "--faint", "--line", "--line-strong", "--accent-strong", "--surface", "--canvas"]);
 const PRIMITIVE =
   /^--(?:neutral|alpha|paper|green|blue|pink|orange|ochre|violet|elev)-[a-z0-9-]+$|^--(?:success|warning|danger|accent)-\d+$/;
 const WEIGHTS = new Set(["400", "500", "600", "inherit", "normal"]);
@@ -28,6 +32,7 @@ export const RULES = {
   "DS-COLOR-01/alias": "alias of the previous system (--ink, --line …); use the semantic token",
   "DS-COLOR-01/primitive": "primitive colour token; use a semantic role",
   "DS-COLOR-01/undefined": "var() of a variable that is defined nowhere",
+  "DS-COLOR-02/contrast": "text-primary on a brand fill; use text-on-chosen, text-on-cta or text-on-agent",
   "DS-CTRL-01/button": "raw <button>; use Button / IconButton from @remo/ui",
   "DS-CTRL-01/field": "raw <input>/<select>/<textarea>; use the @remo/ui field",
   "UX-DIALOG-01": "aria-modal outside @remo/ui; use Dialog / ConfirmDialog",
@@ -50,8 +55,15 @@ export const BUTTON_ALLOW = {
   // A row or tile that is picked, not an action.
   "section-axis-row": "row", "comments-list-item": "row", "room-agent-thread": "row",
   "home-tile-main": "tile", "home-emoji": "tile", "home-emoji-none": "tile",
+  // A template card on the home: the whole card is the choice, not a label inside it.
+  "home-template-card": "tile",
+  // The three ways into an empty room are whole cards, not labels inside a button.
+  "empty-card": "tile",
   // Who and where: the avatar or name is the control.
   "agent-avatar": "identity", "peer": "identity", "account-button": "identity", "topbar-path-button": "identity",
+  "topbar-mark": "identity", "people-trigger": "identity",
+  // A state that is also a shortcut to its section (ADR-266 amendment).
+  "session-chip": "state",
   // The DS menu row.
   "rm-menu-item": "menu",
 };
@@ -93,6 +105,7 @@ function allowedButton(tag) {
  */
 export const FIELD_ALLOW = {
   "section-title-input": "in place", "table-header-editor": "in place", "board-title": "in place",
+  "command-search-input": "palette combobox: the list, not the field, is the control",
 };
 const allowedField = (tag) => classWords(tag).some((word) => word in FIELD_ALLOW);
 
@@ -137,13 +150,30 @@ function definedVariables(root) {
   // A component may set its own variable inline: style={{ "--who": colour }}.
   for (const base of ["apps/web/src", "packages/ui/src/components"]) {
     for (const file of walk(join(root, base), [".ts", ".tsx"])) {
-      for (const match of readFileSync(file, "utf8").matchAll(/["'](--[a-z0-9-]+)["']\s*:/g)) names.add(match[1]);
+      // `{ "--who": colour }` and the computed key `{ ["--ink" as string]: colour }`.
+      for (const match of readFileSync(file, "utf8").matchAll(/["'](--[a-z0-9-]+)["'](?:\s+as\s+[A-Za-z]+)?\]?\s*:/g)) {
+        names.add(match[1]);
+      }
     }
   }
   return names;
 }
 
 const stripVars = (value) => value.replace(/var\([^()]*(?:\([^()]*\)[^()]*)*\)/g, "");
+
+/** On the night palette a brand fill stays bright while primary text turns light. */
+function checkBrandContrast(css, add) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\n]/g, " "));
+  for (const block of source.matchAll(/\{([^{}]*)\}/g)) {
+    const body = block[1];
+    const bright = /(?:^|;)\s*background(?:-color)?\s*:\s*var\(\s*--(?:accent-chosen|accent-cta(?:-hover)?|agent)\s*\)/.test(body);
+    const primary = /(?:^|;)\s*(color\s*:\s*var\(\s*--text-primary\s*\))/.exec(body);
+    if (bright && primary) {
+      const at = block.index + 1 + primary.index + primary[0].indexOf(primary[1]);
+      add("DS-COLOR-02/contrast", source.slice(0, at).split("\n").length);
+    }
+  }
+}
 
 function cssFindings(text, defined, add) {
   // The selector of the block being read, so a type exception can be named by it.
@@ -221,10 +251,14 @@ export function scanDesignRules(root) {
     const path = relative(root, file);
     const add = (rule, line) => findings.push({ file: path, rule, line });
     const text = readFileSync(file, "utf8");
-    if (kind === "css") cssFindings(text, defined, add);
+    if (kind === "css" || kind === "ds-css") {
+      checkBrandContrast(text, add);
+      if (kind === "css") cssFindings(text, defined, add);
+    }
     else tsxFindings(text, add, path.split("\\").join("/"));
   };
   for (const file of walk(join(root, "apps/web/src"), [".css"])) scan(file, "css");
+  for (const file of walk(join(root, "packages/ui/src/components"), [".css"])) scan(file, "ds-css");
   for (const file of walk(join(root, "apps/web/src"), [".tsx"])) scan(file, "tsx");
   return findings;
 }

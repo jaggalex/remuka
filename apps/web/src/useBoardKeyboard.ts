@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { replayPin } from "./commentHistory";
+import { useEffect, useRef } from "react";
 import type { BoardDocument } from "@remo/doc";
 import { rigidWaypoints, type Widget } from "@remo/model";
 import {
@@ -7,7 +8,8 @@ import {
   tableCellSelection,
 } from "./tableCellSelection";
 import { isEditable } from "./BoardCanvas";
-import { commandForShortcut, type CommandContext } from "./commands";
+import { commandForShortcut, runCommand, type CommandContext } from "./commands";
+import { openCommandSearch } from "./commandSearchStore";
 import type { RailTool } from "./ToolRail";
 import { openImageViewer } from "./imageViewer";
 import type { BarBlock } from "./textFormatBar";
@@ -20,6 +22,9 @@ import type { BarBlock } from "./textFormatBar";
  * alongside the menu and the panel — so a key cannot do something the registry does not
  * know about (ADR-050).
  */
+/** Surfaces that take the keyboard from the room while they are open, wherever the focus is. */
+const BLOCKING_SURFACES = '[aria-modal="true"], [role="alertdialog"], [role="menu"], .rm-popover';
+
 export function useBoardKeyboard({
   board,
   writeBlocked,
@@ -34,13 +39,15 @@ export function useBoardKeyboard({
   addConnectedNote,
   setEditingId,
   setSelectedIds,
-  onOpenHome,
   forceRender,
   pasteSelection,
   onTool,
+  toolArmed,
+  onCancelTool,
   onTone,
   onLineBlock,
   onAgentUndo,
+  onHome,
 }: {
   board: BoardDocument;
   writeBlocked: boolean;
@@ -55,13 +62,14 @@ export function useBoardKeyboard({
   addConnectedNote: (id: string, side: "left" | "right") => void;
   setEditingId: (id: string | null) => void;
   setSelectedIds: (ids: string[]) => void;
-  /** Leave the board for the organisation home (ADR-168). */
-  onOpenHome: () => void;
   forceRender: (update: (n: number) => number) => void;
   /** Only a dependency: a stale command context must not keep the old listener. */
   pasteSelection: unknown;
   /** Creation from the rail; one function shared by clicks and keys (ADR-119). */
-  onTool?: (tool: RailTool) => void;
+  onTool?: (tool: RailTool, code?: string) => void;
+  /** The armed shape tool, if any: Escape cancels it before it clears the selection. */
+  toolArmed?: boolean;
+  onCancelTool?: () => void;
   /** Keys 1–7 paint the main colour of the selection (ADR-127). */
   onTone?: (toneIndex: number) => void;
   /**
@@ -74,9 +82,13 @@ export function useBoardKeyboard({
    * Returns true when it consumed the keystroke.
    */
   onAgentUndo?: () => boolean;
+  onHome: () => void;
 }) {
+  const homeChordUntil = useRef(0);
 useEffect(() => {
   const onKeyDown = (event: KeyboardEvent) => {
+    const waitingForRoomKey = performance.now() < homeChordUntil.current;
+    homeChordUntil.current = 0;
     const target = event.target as HTMLElement | null;
     if (
       target &&
@@ -85,12 +97,37 @@ useEffect(() => {
       return;
     }
 
-    // A dialog or an open menu owns the keyboard: a size popover must not let Delete
-    // reach the section behind it, and arrows in a menu must not move a cell.
-    if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+    // Native controls own activation even when a canvas object stays selected.
+    if ((event.key === "Enter" || event.key === " ") && target?.closest("button, a[href], summary, [role=button]")) return;
+
+    // A modal, an open menu or a popover owns the keyboard: a size popover must not let
+    // Delete reach the section behind it, and arrows in a menu must not move a cell.
+    // A side panel (Run, the agent's plan, a hint card, the cookie notice) is not modal:
+    // it owns the keys only while the focus is inside it, so the room keeps its shortcuts
+    // whenever the person is back on the canvas.
+    if (target?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+    if (document.querySelector(BLOCKING_SURFACES)) return;
+
+    // A Tab from the canvas belongs to board navigation. Keep the browser's
+    // native tab order when a toolbar control, link or other UI element has focus.
+    if (event.key === "Tab" && !editingId) {
+      if (!target?.closest("canvas.layer.overlay")) return;
+      event.preventDefault();
+    }
 
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
+    if (!editingId && !mod && !event.altKey && !event.shiftKey && !event.repeat) {
+      if (waitingForRoomKey && (key === "r" || event.code === "KeyR")) {
+        event.preventDefault();
+        onHome();
+        return;
+      }
+      if (key === "g" || event.code === "KeyG") {
+        homeChordUntil.current = performance.now() + 1200;
+        return;
+      }
+    }
 
     // A selected cell owns the arrows and Escape (ADR-204). This is transient UI state,
     // so it works in a read-only room too: looking at a cell is not editing it.
@@ -148,6 +185,11 @@ useEffect(() => {
         openImageViewer(only.id);
         return;
       }
+    }
+
+    if (mod && key === "z" && replayPin(board, event.shiftKey)) {
+      event.preventDefault();
+      return;
     }
 
     // An offline overflow or a revoked write permission stops every mutating
@@ -234,14 +276,15 @@ useEffect(() => {
     const command = commandForShortcut(event, commandContext);
     if (command) {
       event.preventDefault();
-      command.run(commandContext);
+      if (!event.repeat || command.id !== "delete") runCommand(command, commandContext);
       return;
     }
 
     if (mod && key === "k") {
-      // The same shortcut the source product uses to get to things.
+      // The command search (ADR-266 §1.2). Fields and the canvas editor returned above,
+      // so ⌘K keeps its meaning there: a link window in the text editor.
       event.preventDefault();
-      onOpenHome();
+      openCommandSearch();
       return;
     }
 
@@ -263,6 +306,12 @@ useEffect(() => {
     }
 
     if (event.key === "Escape") {
+      // An armed tool is a mode; Escape leaves the mode before it drops the selection.
+      if (toolArmed) {
+        event.preventDefault();
+        onCancelTool?.();
+        return;
+      }
       setEditingId(null);
       setSelectedIds([]);
       return;
@@ -286,9 +335,7 @@ useEffect(() => {
       return;
     }
 
-    // Tool keys (ADR-119). They create at once; there is no placement mode, so the
-    // shortcut is the same action as a rail click. A modal owns the keyboard while it
-    // is open, and a held key must not pour objects onto the board.
+    // A tap takes the usual tool action. N/R/T also accept pointer placements while held.
     if (onTool && !mod && !event.altKey && !event.repeat) {
       if (document.querySelector('[aria-modal="true"], [role="menu"]')) return;
       if (event.shiftKey) {
@@ -309,10 +356,11 @@ useEffect(() => {
         f: "frame",
         c: "card",
       };
-      const tool = tools[key];
+      const placementKeys: Record<string, RailTool> = { KeyN: "sticky", KeyR: "rectangle", KeyT: "text" };
+      const tool = tools[key] ?? placementKeys[event.code];
       if (tool) {
         event.preventDefault();
-        onTool(tool);
+        onTool(tool, event.code);
       }
     }
   };
@@ -320,16 +368,19 @@ useEffect(() => {
   return () => window.removeEventListener("keydown", onKeyDown);
 }, [
   addConnectedNote,
+  toolArmed,
   board,
   commandContext,
   editingId,
   focusedWaypoint,
+  onCancelTool,
   onDeleteWaypoint,
   onMoveWaypoint,
   onTool,
   onTone,
   onLineBlock,
   onAgentUndo,
+  onHome,
   pasteSelection,
   selectedIds,
   widgets,

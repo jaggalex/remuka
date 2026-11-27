@@ -13,13 +13,13 @@
     "export.backup",
     "objects.lock"
   ],
-  "verifiedAgainst": "2026-11-20",
+  "verifiedAgainst": "2026-11-26",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:80d15c3abe024cb31241e0e600c0bee826168f3bcee6ce3b61b46d6d407b7133",
-      "targetHash": "sha256:13c1538b514edcdcbdd17218c82d6910965557b9f08d8066ad7dd1fbe2681fed"
+      "sourceHash": "sha256:dadf6d7cecdbb4fbb5f959dfba43801baace039bcbc886556718ec6e91b582dc",
+      "targetHash": "sha256:a930f8139fbe1e184145164e22a94950a38c024ef7f2540c4617a5225a840919"
     }
   }
 }

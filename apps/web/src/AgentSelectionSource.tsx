@@ -1,5 +1,5 @@
 import { Button } from "@remo/ui";
-import type { SelectionPreview } from "./agentPayload";
+import type { ModelSelection } from "@remo/agent-plan/model-context";
 import { useI18n } from "./i18n";
 
 /**
@@ -18,7 +18,7 @@ export function AgentSelectionSource({
   onRemove,
   onOnly,
 }: {
-  preview: SelectionPreview;
+  preview: ModelSelection;
   hasSelection: boolean;
   selectionOnly: boolean;
   onRemove: () => void;
@@ -32,17 +32,17 @@ export function AgentSelectionSource({
         <>
           <p className="muted">
             {t("agents.source.summary", {
-              objects: preview.ids.length,
-              groups: preview.groups,
-              frames: preview.frames,
+              objects: preview.objects.length,
+              groups: preview.counts.groups,
+              frames: preview.counts.frames,
             })}
           </p>
-          <p className="muted">{t("agents.source.chars", { chars: preview.chars })}</p>
+          <p className="muted">{t("agents.source.chars", { chars: preview.counts.chars })}</p>
           {preview.truncated && (
             <p className="muted">
               {t("agents.source.truncated", {
                 objects: preview.objects.length,
-                chars: preview.chars,
+                chars: preview.counts.chars,
               })}
             </p>
           )}

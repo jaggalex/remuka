@@ -106,13 +106,13 @@ _Tree facts, checked by `pnpm state:check`; run facts are printed by the command
 
 | Fact | Value |
 |---|---|
-| ADR | 264, latest ADR-264 |
-| Schema version | 39 |
-| Browser scenarios | 257 in 46 files |
-| Help topics | 40 (RU + EN) |
-| Portal pages | 84 |
-| Baselines | 48 product + 12 DS |
-| Largest file | `apps/web/src/BoardCanvas.tsx` — 800 lines |
+| ADR | 319, latest ADR-319 |
+| Schema version | 44 |
+| Browser scenarios | 408 in 87 files |
+| Help topics | 46 (RU + EN) |
+| Portal pages | 86 |
+| Baselines | 66 product + 12 DS |
+| Largest file | `apps/web/src/BillingPanel.tsx` — 800 lines |
 <!-- generated:state:end -->
 
 A run owns its ports, its database and its report directories (ADR-130), so two runs can
@@ -130,6 +130,8 @@ shifted runs therefore use sibling directories, never an ancestor relationship, 
 Playwright cleanup cannot delete another run's traces. The database is created on the test
 server with an ownership marker and dropped by `pnpm e2e` only when the marker still names
 that environment instance and run.
+
+For runs with limited disk space, set `REMO_E2E_LOW_DISK=1` to keep failure screenshots and HTML reports while disabling video and trace recording. To diagnose a failure, rerun its spec without the variable and add `--trace on` to keep the trace even if the retry passes.
 
 Each run keeps the newest ten report directories and removes anything older than seven
 days after the database teardown. Override with `REMO_E2E_KEEP` and `REMO_E2E_KEEP_DAYS`;
@@ -202,7 +204,10 @@ axe reports no serious/critical on the room and three dialogs; 120 connectors ru
 **Product modes and extra stacks.** Plans are a product mode, not a default:
 `pnpm e2e --billing` starts sync with `REMO_BILLING=on` and runs the billing scenarios, while
 every other run keeps billing off and declares those scenarios as skips
-(`spec/billing.md` §11). The AI gateway has its own acceptance script instead of a
+(`spec/billing.md` §11). The release gate runs the billing and plan-change specs with the
+fake payment provider in separate test databases so the plan-change prices cannot leak into
+the empty-catalogue scenario.
+The AI gateway has its own acceptance script instead of a
 Playwright scenario — `pnpm e2e:gateway`, described in the next section — so an ordinary
 browser run never needs its containers or the generated certificates.
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addSticky, freshBoard } from "./helpers";
+import { addSticky, createShape, freshBoard } from "./helpers";
 
 /**
  * The tool rail (ADR-119): creation left, description in the top bar.
@@ -41,6 +41,8 @@ test("the rail creates every object type and the top bar only describes the boar
   await page.locator(".inline-editor").fill("Rail text");
   await page.keyboard.press("Escape");
   await page.keyboard.press("r");
+  // The first press arms the tool; the second is the "make one now" half of ADR-119.
+  await page.keyboard.press("r");
   await page.keyboard.press("f");
   expect(await types()).toContain("text");
   expect(await types()).toContain("shape");
@@ -65,10 +67,9 @@ test("the rail's colour and shape flyouts create the chosen sample", async ({ pa
 
   await rail.getByRole("button", { name: "Sticky note colours" }).click();
   const swatches = page.locator(".tool-flyout-swatches .tool-swatch");
-  // The rail is the window's fill grid: seven tonal columns × 100/300 (ADR-127, ADR-139).
-  await expect(swatches).toHaveCount(14);
-  await expect(swatches.nth(1)).toHaveAttribute("data-hex", "#ece2c8");
-  await expect(swatches.nth(1)).toHaveClass(/is-default/);
+  await expect(swatches).toHaveCount(7);
+  await expect(swatches.first()).toHaveAttribute("data-hex", "#f4e0a8");
+  await expect(swatches.first()).toHaveAttribute("aria-pressed", "true");
   await swatches.nth(1).click();
 
   const fills = () =>
@@ -78,10 +79,9 @@ test("the rail's colour and shape flyouts create the chosen sample", async ({ pa
         .map((widget) => widget.style?.fillColor ?? ""),
     );
   await expect.poll(fills).toHaveLength(1);
-  expect((await fills())[0]).toMatch(/^#/);
+  expect((await fills())[0]).toBe("#c8e8d4");
 
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Ellipse" }).click();
+  await createShape(page, "Ellipse");
   const kinds = await page.evaluate(() =>
     (window as unknown as { __remo: { widgets: Array<{ type: string; shapeKind?: string }> } })
       .__remo.widgets.filter((widget) => widget.type === "shape")
@@ -95,7 +95,7 @@ test("the connector tool explains itself until two objects are selected", async 
 }) => {
   await freshBoard(page, "tools-connect");
   const rail = page.getByRole("toolbar", { name: "Tools" });
-  const connector = rail.getByRole("button", { name: "Connector" });
+  const connector = rail.getByRole("button", { name: "Connector", exact: true });
   // A tool that can still explain itself is not dimmed (§10.2, Р1): it keeps the primary
   // colour and answers with a sentence, so nothing on the rail reads as broken.
   await expect(connector).toBeEnabled();
@@ -168,7 +168,7 @@ test("two selected objects become a connector from the rail", async ({ page }) =
   await page.mouse.click(second.x, second.y);
   await page.keyboard.up("Shift");
 
-  const connector = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector" });
+  const connector = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector", exact: true });
   await expect(connector).toBeEnabled();
   await connector.click();
   await expect
@@ -194,7 +194,9 @@ test("two selected objects become a connector from the rail", async ({ page }) =
 
 test("the comment tool starts the placement mode of the comments panel", async ({ page }) => {
   await freshBoard(page, "tools-comment");
-  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Comment" }).click();
+  // T8: the comment tool lives in «More», with card, table, kanban and templates.
+  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Comment", exact: true }).click();
   await expect(page.locator(".comment-placement")).toBeVisible();
   await expect(page.locator(".comment-placement-hint")).toContainText("Click an object");
   await page.keyboard.press("Escape");

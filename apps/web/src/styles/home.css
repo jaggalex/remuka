@@ -1,4 +1,6 @@
-/* The organisation home: directory chrome and board tiles (ADR-168). */
+/* The organisation home: the team home of the mockup App-Home (ADR-265 stage 3).
+   Blocks: greeting, "Now in the team", "Start from ready-made", "Team rooms".
+   The directory chrome (sort, pages, the tile menu) is still ADR-197: only when it helps. */
 
 .home {
   min-height: 100vh;
@@ -11,13 +13,20 @@
   position: sticky;
   top: 0;
   z-index: var(--z-bar);
+  background: var(--bg-panel);
+  border-bottom: var(--panel-border-width) solid var(--border-ink);
+}
+
+.home-topbar-inner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-3) var(--space-6);
+  width: min(1240px, 100%);
   min-height: var(--topbar-height);
-  padding: 0 var(--space-6);
-  /* No band, as on reference 1 (ADR-181): the header sits on the page. */
-  background: var(--bg-canvas);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-6);
+  box-sizing: border-box;
 }
 
 .home-brand,
@@ -29,20 +38,8 @@
 }
 
 .home-brand {
-  font: var(--type-label);
-}
-
-.home-mark {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-}
-
-.home-mark img {
-  display: block;
-  width: 100%;
-  height: 100%;
+  color: inherit;
+  text-decoration: none;
 }
 
 .home-context {
@@ -50,26 +47,578 @@
 }
 
 .home-context .rm-field {
-  width: min(260px, 42vw);
+  width: min(280px, 42vw);
+}
+
+.home-org-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-large);
+  padding: 0 var(--space-3);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-control);
+  background: var(--bg-canvas);
+  font: var(--type-label);
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* A long organisation name ends in an ellipsis; the badge beside it stays whole. */
+.home-org-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-org-chip > .org-badge {
+  flex: none;
+}
+
+.home-org-initial {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  background: var(--success-chosen);
+  font: var(--type-caption);
+  font-weight: 600;
+}
+
+.home-search.rm-field {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+}
+
+.home-search .rm-input {
+  min-height: var(--control-large);
+  background: var(--bg-panel);
+}
+
+.home-search .rm-input input {
+  font: var(--type-subtitle);
 }
 
 .home-account {
   margin-left: auto;
+  gap: var(--space-3);
+}
+
+.home-help {
+  color: var(--text-primary);
+  font: var(--type-subtitle);
+  text-decoration: none;
+}
+
+.home-help:hover {
+  text-decoration: underline;
 }
 
 .home-content {
   width: min(1240px, 100%);
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5) var(--space-8);
+  padding: var(--space-11) var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-13);
+  box-sizing: border-box;
 }
 
-/* The one footer entry today is «Cookie» (ADR-255 §6.3): quiet, on the page, never a band. */
-.home-footer {
+.home-hero {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-8);
+  animation: home-rise var(--dur-4) var(--ease) both;
+}
+
+.home-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 520px;
+  min-width: 0;
+  /* The marker reaches 6 % past its word; on a full-width name it must not widen the page. */
+  overflow-x: clip;
+}
+
+.home-hero h1 {
+  margin: 0;
+  /* A person's name may be one long word: it breaks rather than widen the page. */
+  overflow-wrap: anywhere;
+  font: var(--type-page-hero);
+  letter-spacing: -0.035em;
+}
+
+/* The marker is one stroke under one word on one heading (ADR-265 §3.3). */
+.home-name {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.home-name-text {
+  position: relative;
+}
+
+.home-marker {
+  position: absolute;
+  left: -6%;
+  bottom: -0.04em;
+  width: 112%;
+  height: 0.36em;
+  fill: var(--accent-chosen);
+}
+
+.home-lead {
+  margin: 0;
+  max-width: 600px;
+  font: var(--type-path);
+  color: var(--text-secondary);
+}
+
+.home-new {
+  --control-h: var(--control-cta);
+  padding-inline: var(--space-6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-cta);
+  font: var(--type-path);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-3));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.home-now,
+.home-start,
+.home-rooms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.home-now h2,
+.home-start h2,
+.home-rooms h2 {
+  margin: 0;
+  font: var(--type-section);
+  letter-spacing: -0.02em;
+}
+
+.home-now h2 {
+  align-self: flex-start;
+  font: var(--type-title);
+}
+
+/* --- Start from ready-made --- */
+
+.home-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--space-5);
+}
+
+.home-template-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease);
+}
+
+.home-template-card:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-cta);
+}
+
+.home-template-card:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.home-template-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.home-template-art {
+  display: flex;
+  align-items: center;
   justify-content: center;
-  width: min(1240px, 100%);
-  margin: 0 auto;
-  padding: var(--space-4) var(--space-5) var(--space-6);
+  gap: var(--space-3);
+  height: 110px;
+  border-bottom: var(--panel-border-width) solid var(--border-ink);
+}
+
+.home-template-art.is-story {
+  background: var(--sticker-green);
+}
+
+.home-template-art.is-roadmap {
+  background: var(--sticker-yellow);
+}
+
+.home-template-art.is-process {
+  background: var(--sticker-blue);
+}
+
+.home-template-art.is-kanban {
+  background: var(--sticker-violet);
+}
+
+.home-art-sheet {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-sticker);
+}
+
+.home-template-art.is-story .home-art-sheet:nth-child(1) {
+  transform: rotate(-4deg);
+}
+
+.home-template-art.is-story .home-art-sheet:nth-child(2) {
+  background: var(--sticker-pink);
+  transform: rotate(3deg);
+}
+
+.home-template-art.is-story .home-art-sheet:nth-child(3) {
+  background: var(--sticker-yellow);
+  transform: rotate(-2deg);
+}
+
+.home-template-art.is-roadmap .home-art-sheet {
+  width: 64px;
+  height: 64px;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  transform: none;
+}
+
+.home-template-art.is-roadmap .home-art-sheet:nth-child(2) {
+  background: var(--accent-cta);
+}
+
+.home-template-art.is-roadmap .home-art-sheet:nth-child(3) {
+  background: var(--success-chosen);
+}
+
+.home-template-art.is-process .home-art-sheet {
+  width: 54px;
+  height: 34px;
+  border: 2px solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  box-shadow: none;
+  transform: none;
+}
+
+.home-template-art.is-process .home-art-sheet:nth-child(2) {
+  width: 60px;
+  height: 2px;
+  border: 0;
+  border-radius: 0;
+  background: var(--border-ink);
+}
+
+.home-template-art.is-process .home-art-sheet:nth-child(3) {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  transform: rotate(45deg) scale(0.8);
+}
+
+.home-template-art.is-kanban .home-art-sheet {
+  width: 44px;
+  height: 64px;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  box-shadow: none;
+  transform: none;
+}
+
+.home-template-art.is-kanban .home-art-sheet:nth-child(2) {
+  background: var(--accent-cta);
+}
+
+.home-template-art.is-kanban .home-art-sheet:nth-child(3) {
+  background: var(--success-chosen);
+}
+
+.home-template-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4) var(--space-5);
+}
+
+.home-template-text strong {
+  font: var(--type-subtitle);
+  font-weight: 600;
+}
+
+.home-template-text .muted {
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+/* --- Team rooms --- */
+
+.home-rooms-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.home-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  font: var(--type-caption);
+  font-weight: 600;
+}
+
+.home-toolbar {
+  display: grid;
+  grid-template-columns: 180px auto auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.home-toolbar .rm-field {
+  margin: 0;
+}
+
+.home-count {
+  justify-self: end;
+  font: var(--type-caption);
+}
+
+.home-views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+}
+
+.home-views .rm-btn[aria-pressed="true"] {
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.home-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--space-5);
+}
+
+.home-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease);
+}
+
+.home-tile:hover,
+.home-tile:focus-within {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-cta);
+}
+
+.home-tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-tile-thumb {
+  position: relative;
+  display: block;
+  height: 120px;
+  border-bottom: var(--panel-border-width) solid var(--border-ink);
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(var(--bg-dot) 1.1px, transparent 1.1px);
+  background-size: 16px 16px;
+}
+
+.home-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.home-tile-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--type-subtitle);
+  font-weight: 600;
+}
+
+.home-tile-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-tile-icon {
+  flex: none;
+  font: var(--type-subtitle);
+  line-height: 1;
+}
+
+.home-tile-meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--type-body);
+}
+
+.home-room-cover { width: 100%; height: 100%; object-fit: cover; }
+
+.home-tile-menu {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+}
+
+.home-tile:has(.home-tile-menu .rm-menu) {
+  overflow: visible;
+  z-index: var(--z-popover);
+}
+.home-tile-menu .rm-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: var(--z-popover);
+}
+.appearance-preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+.room-emoji-results { max-height: 45vh; overflow: auto; }
+
+.home-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-1);
+}
+
+.home-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.home-page-gap {
+  padding: 0 var(--space-1);
+  color: var(--text-muted);
+}
+
+.home-empty,
+.home-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 280px;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.home-empty h1,
+.home-empty h2,
+.home-empty h3 {
+  margin: 0;
+  font: var(--type-subtitle);
+}
+
+.home-empty p {
+  max-width: 460px;
+  margin: 0;
+}
+
+.home-state {
+  color: var(--text-muted);
+  font: var(--type-body);
+}
+
+.home-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--text-danger);
+  font: var(--type-caption);
 }
 
 /* Mail answers (verified address, unconfirmed reminder) sit above the home content and
@@ -92,296 +641,65 @@
   padding: var(--space-3) var(--space-5) 0;
 }
 
-.home-heading {
+/* The one footer entry today is «Cookie» (ADR-255 §6.3): quiet, on the page, never a band. */
+.home-footer {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.home-heading h1 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  font: var(--type-title);
-}
-
-.home-heading p {
-  margin: var(--space-1) 0 0;
-  font: var(--type-caption);
-}
-
-/* A switch, not two actions: a white pill in a grey track (DESIGN.md §2a). The ink fill
-   stays for the page's one primary action, «Новая комната». */
-.home-views {
-  display: inline-flex;
-  gap: 2px;
-  margin-top: var(--space-2);
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-}
-
-.home-views .rm-btn[aria-pressed="true"] {
-  background: var(--bg-panel);
-  box-shadow: 0 0 0 1px var(--border-strong);
-}
-
-.home-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px auto;
-  align-items: end;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-}
-
-.home-toolbar .rm-field {
-  margin: 0;
-}
-
-.home-tiles {
-  list-style: none;
-  margin: var(--space-5) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: var(--space-3);
-}
-
-.home-tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-panel);
-  transition: border-color var(--dur-1) var(--ease);
-}
-
-.home-tile:hover,
-.home-tile:focus-within {
-  border-color: var(--border-strong);
-}
-
-.home-tile-main {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  width: 100%;
-  min-width: 0;
-  padding: var(--space-4);
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.home-tile-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  margin-bottom: var(--space-1);
-  border-radius: var(--radius-lg);
-  background: var(--bg-hover);
-  font: var(--type-display);
-  line-height: 1;
-}
-
-.home-tile-title {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: var(--type-label);
-  font-weight: 600;
-}
-
-.home-tile-team,
-.home-tile-author {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: var(--type-caption);
-}
-
-.home-tile-dates {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: var(--space-1);
-  font: var(--type-caption);
-  color: var(--text-muted);
-}
-
-.home-tile-menu {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-panel);
-  opacity: 0;
-  transition: opacity var(--dur-1) var(--ease);
-}
-
-.home-tile:hover .home-tile-menu,
-.home-tile:focus-within .home-tile-menu {
-  opacity: 1;
-}
-
-.home-emoji-anchor {
-  position: relative;
-  display: inline-flex;
-}
-
-.home-emoji-anchor .rm-popover {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: var(--z-popover);
-}
-
-.home-emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--space-1);
-}
-
-.home-emoji,
-.home-emoji-none {
-  display: grid;
-  place-items: center;
-  min-height: 32px;
-  padding: var(--space-1);
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--icon-md);
-  cursor: pointer;
-}
-
-.home-emoji:hover,
-.home-emoji:focus-visible,
-.home-emoji-none:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-}
-
-.home-emoji-none {
-  grid-column: 1 / -1;
-  font: var(--type-caption);
-}
-
-.home-pages {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-  margin-top: var(--space-6);
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) var(--space-6);
 }
 
-.home-page-gap {
-  padding: 0 var(--space-1);
-  color: var(--text-muted);
+@media (prefers-reduced-motion: reduce) {
+  .home-hero {
+    animation: none;
+  }
 }
 
-.home-empty,
-.home-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  min-height: 280px;
-  padding: var(--space-6);
-  text-align: center;
+html[data-motion="calm"] .home-hero {
+  animation: none;
 }
 
-.home-empty h1,
-.home-empty h2 {
-  margin: 0;
-  font: var(--type-subtitle);
-}
-
-.home-empty p {
-  max-width: 460px;
-  margin: 0;
-}
-
-.home-examples {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-}
-
-.home-state {
-  color: var(--text-muted);
-  font: var(--type-body);
-}
-
-.home-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  background: var(--danger-soft);
-  color: var(--text-danger);
-  font: var(--type-caption);
-}
-
-@media (max-width: 720px) {
-  .home-topbar {
-    flex-wrap: wrap;
+@media (max-width: 860px) {
+  .home-topbar-inner {
     padding: var(--space-2) var(--space-3);
   }
 
-  .home-context .rm-field {
-    width: min(240px, 70vw);
-  }
-
   .home-content {
-    padding: var(--space-4) var(--space-3) var(--space-7);
+    padding: var(--space-6) var(--space-4) var(--space-8);
+    gap: var(--space-8);
   }
 
-  .home-heading {
-    flex-direction: column;
+  .home-hero h1 {
+    font: var(--type-hero);
   }
 
-  /* A switch, not two actions: a white pill in a grey track (DESIGN.md §2a). The ink fill
-   stays for the page's one primary action, «Новая комната». */
-.home-views {
-  display: inline-flex;
-  gap: 2px;
-  margin-top: var(--space-2);
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
+  .home-hero {
+    align-items: flex-start;
+  }
+
+  .home-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .home-count {
+    display: none;
+  }
 }
 
-.home-views .rm-btn[aria-pressed="true"] {
+.home-news-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.home-news-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
   background: var(--bg-panel);
-  box-shadow: 0 0 0 1px var(--border-strong);
+  box-shadow: var(--shadow-card);
 }
-
-.home-toolbar {
-    grid-template-columns: 1fr;
-  }
-}
+.home-news-heading { display: flex; width: 100%; align-items: flex-start; justify-content: space-between; }
+.home-news-card[data-news-type="agent"] { background: var(--agent-soft); border-style: dashed; border-color: var(--agent); }
+.home-news-people { display: flex; gap: var(--space-1); }
+.home-news-people span { display: grid; place-items: center; width: var(--space-6); height: var(--space-6); border-radius: var(--radius-pill); color: var(--text-on-accent); }

@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { currentTenantClient, withTenant, withoutTenant } from "./tenant.mjs";
+import { coverMethods } from "./pg/room-covers.mjs";
 import { boardMethods } from "./pg/boards.mjs";
 import { roomMethods } from "./pg/rooms.mjs";
 import { iamUserMethods } from "./pg/iam-users.mjs";
@@ -33,6 +34,8 @@ import { commentMethods } from "./pg/comments.mjs";
 import { roomMergeMethods } from "./pg/room-merge.mjs";
 import { fileMethods } from "./pg/files.mjs";
 import { billingMethods } from "./pg/billing.mjs";
+import { billingChangeMethods } from "./pg/billing-change.mjs";
+import { billingLetterMethods } from "./pg/billing-letters.mjs";
 import { billingRenewalMethods } from "./pg/billing-renewals.mjs";
 import { paymentProviderMethods } from "./pg/payment-providers.mjs";
 import { operatorMethods } from "./pg/operators.mjs";
@@ -397,6 +400,7 @@ Object.assign(
   PostgresStore.prototype,
   boardMethods,
   roomMethods,
+  coverMethods,
   iamUserMethods,
   accountMethods,
   consentMethods,
@@ -418,6 +422,8 @@ Object.assign(
   fileMethods,
   billingMethods,
   billingRenewalMethods,
+  billingChangeMethods,
+  billingLetterMethods,
   paymentProviderMethods,
   operatorMethods,
   operatorRequestMethods,

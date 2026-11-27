@@ -1,4 +1,4 @@
-import type { Rect, Widget } from "@remo/model";
+import { rotatedBounds, type Rect, type Widget } from "@remo/model";
 import type { Camera } from "./camera";
 
 /**
@@ -29,13 +29,9 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
   );
 }
 
+/** The painted box; a turned object needs its described rectangle to be culled right. */
 export function widgetRect(widget: Widget): Rect {
-  return {
-    x: widget.x - widget.width / 2,
-    y: widget.y - widget.height / 2,
-    width: widget.width,
-    height: widget.height,
-  };
+  return rotatedBounds(widget);
 }
 
 export function isVisible(widget: Widget, visible: Rect): boolean {

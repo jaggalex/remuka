@@ -6,7 +6,29 @@
  */
 import { hashRun, normalizeRun } from "../ai-log.mjs";
 
+import { journalColumns } from "../ai-journal-export.mjs";
+
 export const aiMethods = {
+async aiJournalSummary(orgId) {
+  const { rows } = await this.pool.query(
+    `select (select coalesce(max(seq), 0) from ai_runs where org_id = $1) as through,
+            count(*)::int as calls, coalesce(sum(cost_usd), 0) as "costUsd"
+       from ai_runs where org_id = $1
+        and finished_at >= date_trunc('month', now() at time zone 'UTC') at time zone 'UTC'`,
+    [orgId],
+  );
+  return rows[0];
+},
+
+async aiJournalPage(orgId, after, through) {
+  const { rows } = await this.pool.query(
+    `select ${journalColumns.join(", ")} from ai_runs
+      where org_id = $1 and seq > $2 and seq <= $3 order by seq limit 250`,
+    [orgId, after, through],
+  );
+  return rows;
+},
+
 async getAiPolicy(orgId) {
   const { rows } = await this.pool.query(
     `select ai_key_mode as "keyMode", ai_providers as providers, ai_models as models

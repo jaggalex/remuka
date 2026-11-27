@@ -19,6 +19,7 @@ export const AGENT_ERROR_KEYS: Record<string, TranslationKey> = {
   UPSTREAM_ERROR: "agents.aiUpstreamError",
   UPSTREAM_TIMEOUT: "agents.aiUpstreamTimeout",
   GATEWAY_BUSY: "agents.aiGatewayBusy",
+  BUDGET_EXCEEDED: "agents.taskBudgetExceeded",
 };
 
 export function agentErrorKey(code: string): TranslationKey | null {

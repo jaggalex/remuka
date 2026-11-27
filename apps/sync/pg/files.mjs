@@ -12,7 +12,11 @@
 import { randomUUID } from "node:crypto";
 import { withoutTenant } from "../tenant.mjs";
 
-/** The columns the API needs, in one place: `select *` would grow with the schema. */
+/** Install-wide gauge, for the metrics collector's owner connection only. */
+const INSTALLATION_STORAGE_TOTAL = `select
+  (select coalesce(sum(stored_bytes), 0) from files where status = 'ready') +
+  (select coalesce(sum(octet_length(cover_data)), 0) from boards where cover_data is not null)
+  as bytes`;
 const COLUMNS = `id, org_id, board_id, uploaded_by, sha256, mime, bytes, stored_bytes,
                  width, height, dominant_color, variants, original_name, status,
                  created_at, unreferenced_since, deleted_at`;
@@ -111,10 +115,14 @@ export const fileMethods = {
     return Boolean(rows[0]?.used);
   },
 
-  /** Storage the quota counts: originals plus variants of ready rows (§7). */
-  async storedBytesForOrg() {
+  /** Charge this organisation's ready originals, variants and room covers (§7). */
+  async storedBytesForOrg(orgId) {
     const { rows } = await this.pool.query(
-      "select coalesce(sum(stored_bytes), 0)::bigint as bytes from files where status = 'ready'",
+      `select
+        (select coalesce(sum(stored_bytes), 0) from files where org_id = $1 and status = 'ready') +
+        (select coalesce(sum(octet_length(cover_data)), 0) from boards where org_id = $1)
+        as bytes`,
+      [orgId],
     );
     return Number(rows[0]?.bytes ?? 0);
   },
@@ -125,21 +133,21 @@ export const fileMethods = {
    * The join is `files.board_id` — the room the file was uploaded to — because that is
    * the room the storage page can open. Files shared by a paste inside one organisation
    * keep one id and one row (§5.2), so counting them once is also the only honest sum.
-   * Tenant rows only: the route checks the role before it asks, and the policy on both
-   * tables narrows the answer to this organisation either way.
+   * Filter files and rooms independently so names and bytes stay tenant-scoped even
+   * on an installation where row-level security is not enabled.
    */
-  async storageByRoom(limit = 5) {
+  async storageByRoom(orgId, limit = 5) {
     const capped = Math.max(1, Math.min(50, Number(limit) || 5));
     const { rows } = await this.pool.query(
-      `select f.board_id as "boardId", b.title as title,
-              coalesce(sum(f.stored_bytes), 0)::bigint as bytes
-         from files f
-         join boards b on b.id = f.board_id
-        where f.status = 'ready' and f.board_id is not null
-        group by f.board_id, b.title
-        order by coalesce(sum(f.stored_bytes), 0) desc, f.board_id
-        limit $1`,
-      [capped],
+      `select b.id as "boardId", b.title, (coalesce(f.bytes, 0) + coalesce(octet_length(b.cover_data), 0))::bigint as bytes
+         from boards b
+         left join (select board_id, sum(stored_bytes) as bytes from files
+                     where org_id = $1 and status = 'ready' group by board_id) f
+           on f.board_id = b.id
+        where b.org_id = $1 and (f.board_id is not null or b.cover_data is not null)
+        order by bytes desc, b.id
+        limit $2`,
+      [orgId, capped],
     );
     return rows.map((row) => ({
       boardId: row.boardId,
@@ -189,7 +197,7 @@ export const fileMethods = {
   async totalStoredBytes() {
     return this.withOwnerClient(async (client) => {
       const { rows } = await client.query(
-        "select coalesce(sum(stored_bytes), 0)::bigint as bytes from files where status = 'ready'",
+        INSTALLATION_STORAGE_TOTAL,
       );
       return Number(rows[0]?.bytes ?? 0);
     });

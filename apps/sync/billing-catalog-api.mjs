@@ -10,11 +10,14 @@
  * `REMO_BILLING=off` is the self-host default. Every route in this family is then a
  * `404`, not an empty catalogue: the feature is absent, not "not configured yet".
  */
-import { billingEnabled, entitlementsFor } from "./billing.mjs";
+import { renewalSchedule } from "./billing-renewals.mjs";
+import { billingEnabled, entitlementsFor, entitlementsFromSubscription } from "./billing.mjs";
 import { handleFakeBilling } from "./billing-fake-api.mjs";
 import { checkPromo, handleCheckoutRoutes } from "./billing-checkout-api.mjs";
 import { handleSubscriptionRoutes } from "./billing-subscription-api.mjs";
-import { PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
+import { FEATURES, PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
+import { isStage } from "./stage.mjs";
+import { subscriptionLine } from "./pg/billing-change.mjs";
 import { handlePaymentWebhook } from "./payment-webhooks.mjs";
 import { PAID_PLANS, billingCurrencies } from "../../scripts/billing-prices.mjs";
 import { fail, json, sessionFromRequest } from "./iam-http.mjs";
@@ -82,6 +85,20 @@ export function hasCompletePriceList(prices, currency, { plans = PAID_PLANS, int
       .map((price) => `${price.plan}/${price.interval}`),
   );
   return plans.every((plan) => intervals.every((interval) => available.has(`${plan}/${interval}`)));
+}
+
+/**
+ * The groups a currency may offer. A stand adds the test connections to the live ones
+ * (ADR-280): `--mode live` is refused there, so a test connection is the only way to pay.
+ * Live order wins, a group served by both appears once, and production calls this with
+ * only the live list — the test read does not even happen.
+ */
+export function mergedMethodGroups(live, test) {
+  const groups = [...live];
+  for (const group of test) {
+    if (!groups.includes(group)) groups.push(group);
+  }
+  return groups;
 }
 
 /**
@@ -222,11 +239,17 @@ export async function handleBilling({
     }
 
     const prices = await store.listPrices({});
+    const stage = isStage(env);
     const methodGroups = {};
     for (const currency of currencies) {
-      // The public catalogue is for new buyers, so it offers live routes only: a test
-      // connection must never appear as a way to pay real money.
-      methodGroups[currency] = await store.methodGroupsFor({ currency, testMode: false });
+      // The public catalogue is for new buyers, so a production installation offers live
+      // routes only: a test connection must never appear as a way to pay real money.
+      // A stand is the one exception (ADR-280): it refuses live payments, so its showcase
+      // adds the test connections or no paid plan would ever be visible there.
+      const live = await store.methodGroupsFor({ currency, testMode: false });
+      methodGroups[currency] = stage
+        ? mergedMethodGroups(live, await store.methodGroupsFor({ currency, testMode: true }))
+        : live;
     }
     json(response, 200, buildCatalog({ currencies, prices, methodGroups }));
     return true;
@@ -290,8 +313,8 @@ export async function handleBilling({
     // The same sum the upload's quota check reads, plus the top rooms under the same
     // tenant. `null` is "no limit", the spelling the rest of the family uses.
     const [usedBytes, rooms] = await Promise.all([
-      store.storedBytesForOrg(),
-      store.storageByRoom(5),
+      store.storedBytesForOrg(orgId),
+      store.storageByRoom(orgId, 5),
     ]);
     json(response, 200, {
       usedBytes,
@@ -301,7 +324,7 @@ export async function handleBilling({
     return true;
   }
 
-  if (rest !== "" && (await handleCheckoutRoutes({ request, response, url, store, orgId, rest }))) {
+  if (rest !== "" && (await handleCheckoutRoutes({ request, response, url, store, orgId, rest, env }))) {
     return true;
   }
 
@@ -320,26 +343,35 @@ export async function handleBilling({
       fail(response, 405, "METHOD_NOT_ALLOWED", "use PUT /orgs/:id/billing/frozen-rooms");
       return true;
     }
-    const entitlements = await entitlementsFor(store, orgId, { env });
-    // §3.2: a member sees the plan and the limits; the card is the payer's data.
+    // Members see the plan and the limits. Financial details are for the administrator.
     const isAdmin = await store.hasOrgRole(orgId, session.user.id, "org_admin");
-    const [seats, rooms, storedBytes, subscription, account, savedMethod] = await Promise.all([
+    const [seats, rooms, storedBytes, subscription, account, savedMethod, frozenCount] = await Promise.all([
       store.seatUsage(orgId),
       store.activeRoomCount(orgId),
       // §7 of the image spec: usage is the same row sum the upload's quota check reads,
       // so the screen never needs a second route or a second definition of "stored".
       // A store from before `files` answers zero, exactly like an organisation with no
       // pictures, rather than failing the whole page.
-      typeof store.storedBytesForOrg === "function" ? store.storedBytesForOrg() : 0,
+      typeof store.storedBytesForOrg === "function" ? store.storedBytesForOrg(orgId) : 0,
       store.liveSubscription(orgId),
       // The money module owns `billing_accounts`. The guard keeps this page readable
       // before that module is registered (an earlier stage or a test double): no account
       // means no currency yet, never a guessed one.
-      typeof store.billingAccount === "function" ? store.billingAccount(orgId) : null,
+      isAdmin && typeof store.billingAccount === "function" ? store.billingAccount(orgId) : null,
       // The card is the money module's row too; the same guard keeps an older store
       // readable instead of failing the whole page.
-      typeof store.paymentMethod === "function" ? store.paymentMethod(orgId) : null,
+      isAdmin && typeof store.paymentMethod === "function" ? store.paymentMethod(orgId) : null,
+      isAdmin && store.frozenRoomCount ? store.frozenRoomCount(orgId) : 0,
     ]);
+    const entitlements = entitlementsFromSubscription(subscription);
+    const scheduledChange = isAdmin ? subscription?.pending_change : null;
+    const pendingPlanPayment = isAdmin && typeof store.pendingPlanPayment === "function"
+      ? await store.pendingPlanPayment(orgId)
+      : null;
+    const changeInvoice = scheduledChange?.plan !== "free" && scheduledChange && subscription.status === "past_due"
+      ? await store.openInvoiceFor(subscription.id)
+      : null;
+
     // `read_only_at` lives on `orgs`; the billing read includes it once the org read
     // selects the column. A missing column is "not read-only", never an error.
     const org = typeof store.billingOrg === "function" ? await store.billingOrg(orgId) : null;
@@ -357,19 +389,32 @@ export async function handleBilling({
       status: entitlements.status,
       limits: entitlements.limits,
       features: [...entitlements.features],
+      featurePlans: Object.fromEntries(FEATURES.map(feature =>
+        [feature, PAID_PLANS.find(plan => PLANS[plan].features.includes(feature))])),
       usage: { seats, rooms },
       // `null` is "no limit", the same spelling the catalogue and the upload use; when
       // billing is off the family is a 404 and this body never answers (`spec/images.md` §7).
       storage: { usedBytes: storedBytes, limitBytes: entitlements.limits.storageBytes ?? null },
-      subscription: subscriptionDto(subscription),
+      subscription: isAdmin ? subscriptionDto(subscription) : null,
+      scheduledChange: scheduledChange ?? null,
+      pendingPlanPayment,
+      changeInvoice: subscriptionLine(changeInvoice)?.planChange ? {
+        id: changeInvoice.id, number: changeInvoice.number, amount: changeInvoice.total, currency: changeInvoice.currency,
+      } : null,
       currency: account?.currency ?? null,
       paymentMethod: isAdmin ? paymentMethodDto(savedMethod) : null,
       credit,
-      cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
+      cancelAtPeriodEnd: isAdmin && Boolean(subscription?.cancel_at_period_end),
       trialEnd: subscription?.trial_end ?? null,
-      // The chooser is not shipped yet; the PUT below says so. Frozen rooms are still
-      // reconciled by the plan guard, so the list is a view that arrives with the UI.
+      // The past_due banner names the day the space moves to Free (ADR-319, §8.5), and
+      // only admins see it: the client cannot work either out for itself.
+      viewerIsAdmin: isAdmin,
+      graceEnd: subscription?.status === "past_due"
+        ? (renewalSchedule(subscription.past_due_since)?.graceEnd ?? null)
+        : null,
+      // Per-room freeze state comes from the access-filtered directory.
       frozenRooms: [],
+      ...(isAdmin ? { frozenCount } : {}),
       readOnly: Boolean(org?.read_only_at),
     });
     return true;
@@ -386,7 +431,7 @@ export async function handleBilling({
       return true;
     }
     const body = await readJsonBody(request);
-    if (!body || !Array.isArray(body.boardIds)) {
+    if (!body || !Array.isArray(body.boardIds) || body.boardIds.some(id => typeof id !== "string") || new Set(body.boardIds).size !== body.boardIds.length) {
       fail(response, 422, "BAD_BOARD_LIST", "expected { boardIds: string[] }");
       return true;
     }
@@ -397,8 +442,17 @@ export async function handleBilling({
       return true;
     }
     try {
-      await store.setFrozenRooms(orgId, body.boardIds.map(String));
+      const scope = body.scope;
+      if (scope !== undefined && (!Array.isArray(scope) || scope.some(id => typeof id !== "string"))) {
+        fail(response, 422, "BAD_BOARD_LIST", "scope must be an array of room ids");
+        return true;
+      }
+      await store.setFrozenRooms(orgId, body.boardIds.map(String), { scope: scope ?? null, max });
     } catch (error) {
+      if (error?.code === "ACTIVE_ROOM_LIMIT") {
+        fail(response, 422, "BAD_BOARD_LIST", "the other active rooms also count towards this plan");
+        return true;
+      }
       if (error?.code === "BOARD_NOT_FOUND") {
         fail(response, 404, "RESOURCE_NOT_AVAILABLE", "a room does not belong to this organisation");
         return true;

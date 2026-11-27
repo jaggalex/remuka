@@ -1,11 +1,10 @@
 import {
-  boxOf,
   connectorPath,
   labelPoint,
   type Camera,
   type StubOptions,
 } from "@remo/canvas";
-import type { Widget } from "@remo/model";
+import { rotatedBounds, type Widget } from "@remo/model";
 
 /**
  * Where the vote counter sits on its object (ADR-119.3, ADR-117).
@@ -142,7 +141,7 @@ export function objectBoxes(
     .filter((widget) => widget.type !== "connector")
     .map((widget) => ({
       id: widget.id,
-      box: screenBox(boxOf(resolve(widget.id) ?? widget), camera, viewport),
+      box: screenBox(rotatedBounds(resolve(widget.id) ?? widget), camera, viewport),
     }));
 }
 

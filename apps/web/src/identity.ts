@@ -11,6 +11,7 @@ export interface Identity {
   color: string;
   /** The name this browser uses when nobody is signed in. */
   guestName?: string;
+  guestNameConfirmed?: boolean;
   /** `?user=` chose this tab's name, even for a signed-in account. */
   override?: boolean;
 }
@@ -51,6 +52,7 @@ export function loadIdentity(): Identity {
   const identity: Identity = {
     name: fromQuery ?? guestName,
     guestName,
+    guestNameConfirmed: stored?.guestNameConfirmed ?? Boolean(stored?.guestName && !/^Guest [0-9a-f]{4}$/.test(guestName)),
     color: stored?.color ?? COLORS[Math.floor(Math.random() * COLORS.length)]!,
     override: Boolean(fromQuery),
   };

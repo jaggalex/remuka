@@ -1,0 +1,89 @@
+/* App-ToolsBars: two rows of quick colours and a hint for creating a series. */
+.tool-rail-sticky > .rm-popover {
+  width: 262px;
+  max-width: calc(100vw - 80px);
+  min-height: 199px;
+  padding: calc(var(--space-5) / 2);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+}
+@media (max-width: 640px) {
+  .tool-rail-sticky > .rm-popover { width: 270px; }
+}
+/* On short phones the centred rail's sticky button can be level with the pinned
+   selection bar. Give its open palette a separate row, with scrolling if needed. */
+@media (max-width: 640px) and (max-height: 700px) {
+  .workspace:has(.note-selection-bar, .shape-selection-bar, .connector-bar, .text-selection-bar, .arrange-bar:not(.arrange-shapes)) {
+    & .tool-rail:has(.tool-rail-sticky > .rm-popover) {
+      inset-block: 0;
+      height: max-content;
+      margin-block: auto;
+      transform: none;
+    }
+    & .tool-rail-sticky > .rm-popover {
+      position: fixed;
+      left: calc(var(--toolbar-width) + var(--space-4));
+      top: calc(var(--topbar-height) + 120px);
+      min-height: 0;
+      max-height: calc(100dvh - var(--topbar-height) - 120px - var(--space-2));
+      overflow: auto;
+    }
+  }
+}
+.tool-rail-sticky .rm-popover-arrow { display: none; }
+.tool-rail-sticky .rm-popover-head {
+  padding: 2px var(--space-1) var(--space-2);
+}
+.tool-rail-sticky .rm-popover-title {
+  font: var(--type-palette-title);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.tool-rail-sticky .rm-popover-body { padding: 0; gap: var(--space-2); }
+.tool-rail-sticky .tool-flyout-note {
+  margin-inline: var(--space-1);
+  line-height: 1.45;
+  color: var(--text-instruction);
+}
+.tool-flyout-swatches .rm-btn-label {
+  /* The DS normally truncates button text. These labels contain paper samples
+     whose shadow and selected ring extend beyond their own box. */
+  overflow: visible;
+}
+
+.tool-flyout-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, var(--space-10));
+  gap: var(--space-2);
+}
+
+.tool-flyout-swatches .tool-swatch {
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tool-swatch-paper {
+  display: block;
+  width: calc(var(--space-10) * .75);
+  height: calc(var(--space-10) * .75);
+  border-radius: var(--radius-paper-sample);
+  box-shadow: 0 6px 6px -5px rgb(from var(--sticker-cast) r g b / 50%);
+}
+
+.tool-flyout-note {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--text-muted);
+}
+
+/* The colour a click on the tool itself uses, marked the way the mockup marks it. */
+.tool-swatch[aria-pressed="true"] .tool-swatch-paper {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}

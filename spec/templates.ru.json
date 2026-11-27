@@ -94,7 +94,7 @@
      "height": 150,
      "parentId": "w0006",
      "content": "Какой результат?",
-     "fillColor": "#ece2c8"
+     "fillColor": "#f4e0a8"
     },
     {
      "z": 7,
@@ -106,7 +106,7 @@
      "height": 150,
      "parentId": "w0006",
      "content": "Как мы это измерим?",
-     "fillColor": "#ece2c8"
+     "fillColor": "#f4e0a8"
     },
     {
      "z": 8,
@@ -118,7 +118,7 @@
      "height": 150,
      "parentId": "w0006",
      "content": "Что вне рамок?",
-     "fillColor": "#ece2c8"
+     "fillColor": "#f4e0a8"
     },
     {
      "z": 9,
@@ -142,7 +142,7 @@
      "height": 150,
      "parentId": "w0010",
      "content": "Первый шаг",
-     "fillColor": "#e2d2c4"
+     "fillColor": "#ffdcc6"
     },
     {
      "z": 11,
@@ -154,7 +154,7 @@
      "height": 150,
      "parentId": "w0010",
      "content": "Основной шаг",
-     "fillColor": "#e2d2c4"
+     "fillColor": "#ffdcc6"
     },
     {
      "z": 12,
@@ -166,7 +166,7 @@
      "height": 150,
      "parentId": "w0010",
      "content": "Последний шаг",
-     "fillColor": "#e2d2c4"
+     "fillColor": "#ffdcc6"
     },
     {
      "z": 13,
@@ -190,7 +190,7 @@
      "height": 150,
      "parentId": "w0014",
      "content": "Как…",
-     "fillColor": "#e8d6d3"
+     "fillColor": "#f9d3cd"
     },
     {
      "z": 15,
@@ -202,7 +202,7 @@
      "height": 150,
      "parentId": "w0014",
      "content": "Я хочу…",
-     "fillColor": "#e8d6d3"
+     "fillColor": "#f9d3cd"
     },
     {
      "z": 16,
@@ -214,7 +214,7 @@
      "height": 150,
      "parentId": "w0014",
      "content": "Чтобы…",
-     "fillColor": "#e8d6d3"
+     "fillColor": "#f9d3cd"
     },
     {
      "z": 17,
@@ -238,7 +238,7 @@
      "height": 150,
      "parentId": "w0018",
      "content": "Сейчас",
-     "fillColor": "#dedfd4"
+     "fillColor": "#c8e8d4"
     },
     {
      "z": 19,
@@ -250,7 +250,7 @@
      "height": 150,
      "parentId": "w0018",
      "content": "Далее",
-     "fillColor": "#dedfd4"
+     "fillColor": "#c8e8d4"
     },
     {
      "z": 20,
@@ -262,7 +262,7 @@
      "height": 150,
      "parentId": "w0018",
      "content": "Позже",
-     "fillColor": "#dedfd4"
+     "fillColor": "#c8e8d4"
     }
    ]
   },
@@ -340,8 +340,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Исследовать проблему",
-     "fillColor": "#ffffff"
+     "title": "Исследовать проблему"
     },
     {
      "z": 37,
@@ -352,8 +351,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Собрать прототип",
-     "fillColor": "#ffffff"
+     "title": "Собрать прототип"
     },
     {
      "z": 38,
@@ -364,8 +362,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Бета с одной командой",
-     "fillColor": "#ffffff"
+     "title": "Бета с одной командой"
     },
     {
      "z": 39,
@@ -376,8 +373,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Публичный запуск",
-     "fillColor": "#ffffff"
+     "title": "Публичный запуск"
     },
     {
      "z": 40,
@@ -388,8 +384,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Цены и оплата",
-     "fillColor": "#ffffff"
+     "title": "Цены и оплата"
     },
     {
      "z": 41,
@@ -400,8 +395,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Гайд по онбордингу",
-     "fillColor": "#ffffff"
+     "title": "Гайд по онбордингу"
     },
     {
      "z": 42,
@@ -412,8 +406,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Регламент поддержки",
-     "fillColor": "#ffffff"
+     "title": "Регламент поддержки"
     },
     {
      "z": 43,
@@ -424,8 +417,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Аналитика использования",
-     "fillColor": "#ffffff"
+     "title": "Аналитика использования"
     },
     {
      "z": 44,
@@ -436,8 +428,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Мобильная версия",
-     "fillColor": "#ffffff"
+     "title": "Мобильная версия"
     },
     {
      "z": 45,
@@ -448,8 +439,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Публичный API",
-     "fillColor": "#ffffff"
+     "title": "Публичный API"
     },
     {
      "z": 46,
@@ -460,8 +450,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Каталог партнёров",
-     "fillColor": "#ffffff"
+     "title": "Каталог партнёров"
     },
     {
      "z": 47,
@@ -472,8 +461,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0036",
-     "title": "Проверка доступности",
-     "fillColor": "#ffffff"
+     "title": "Проверка доступности"
     }
    ]
   },
@@ -543,8 +531,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Определить объём",
-     "fillColor": "#ffffff"
+     "title": "Определить объём"
     },
     {
      "z": 26,
@@ -555,8 +542,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Набросать дизайн",
-     "fillColor": "#ffffff"
+     "title": "Набросать дизайн"
     },
     {
      "z": 27,
@@ -567,8 +553,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Собрать первый срез",
-     "fillColor": "#ffffff"
+     "title": "Собрать первый срез"
     },
     {
      "z": 28,
@@ -579,8 +564,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Обсудить с командой",
-     "fillColor": "#ffffff"
+     "title": "Обсудить с командой"
     },
     {
      "z": 29,
@@ -591,8 +575,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Выпустить в продакшен",
-     "fillColor": "#ffffff"
+     "title": "Выпустить в продакшен"
     },
     {
      "z": 30,
@@ -603,8 +586,7 @@
      "width": 250,
      "height": 70,
      "parentId": "w0025",
-     "title": "Провести ретроспективу",
-     "fillColor": "#ffffff"
+     "title": "Провести ретроспективу"
     },
     {
      "z": 31,

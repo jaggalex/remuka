@@ -228,3 +228,91 @@
   color: var(--state-warning);
   font: var(--type-caption);
 }
+
+.billing-status-card {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: var(--space-3); padding: var(--space-5); background: var(--bg-panel);
+  border: var(--panel-border-width) solid var(--border-panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-bar);
+}
+.billing-status-card strong { font: var(--type-section); }
+.billing-status-card p { margin: var(--space-2) 0 0; }
+.billing-status-card[data-status="past-due"], .billing-status-card[data-status="read-only"],
+.billing-status-card[data-status="suspended"] { background: var(--warning-soft); }
+.billing-promo-disclosure > summary { cursor: pointer; font: var(--type-label); }
+.billing-promo-disclosure[open] > summary { margin-bottom: var(--space-2); }
+.paid-feature-plan { margin-inline-start: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--accent-chosen); color: var(--text-on-chosen); text-transform: capitalize; }
+.billing-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--space-4); }
+.billing-summary { display: grid; min-width: 0; gap: var(--space-3); }
+.billing-summary, .billing-choose { border: var(--panel-border-width) solid var(--border-panel); border-radius: var(--radius-lg); padding: var(--space-5); background: var(--bg-panel); }
+.billing-summary { box-shadow: var(--shadow-bar); }
+.billing-summary .billing-status-card { box-shadow: none; }
+.billing-usage-rows span { display: grid; gap: var(--space-1); }
+.billing-usage-rows progress { width: 100%; accent-color: var(--state-success); }
+@media (min-width: 850px) {
+  .billing-layout:has(.billing-choose) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.billing-change-layout { display: grid; align-items: start; gap: var(--space-4); }
+.billing-change-card {
+  min-width: 0;
+  border: var(--panel-border-width) solid var(--border-panel);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-card);
+}
+.billing-panel .billing-change-card h3 {
+  color: var(--text-primary);
+  font: var(--type-section);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.billing-change-card p { margin: var(--space-3) 0; }
+.billing-change-comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+}
+.billing-change-comparison > div {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--panel-border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+.billing-change-comparison span, .billing-change-facts dt { color: var(--text-secondary); }
+.billing-change-facts { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); }
+.billing-change-facts dd { margin: 0; font-weight: 600; }
+.billing-change-methods { display: grid; gap: var(--space-3); }
+.billing-change-lines > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+}
+.billing-change-lines dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.billing-change-total { border-top: var(--panel-border-width) solid var(--border-panel); font-weight: 600; }
+.billing-change-card > .billing-actions { margin-block-start: var(--space-3); }
+.billing-scheduled-change > h3 { margin-block-start: var(--space-3); }
+.billing-change-arrow { rotate: -90deg; }
+@media (min-width: 850px) {
+  .billing-change-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
+.billing-change-facts small { display: block; color: var(--text-secondary); }
+.billing-panel .billing-change-card > .rm-btn-primary { width: 100%; max-width: none; }
+.billing-change-layout > .billing-change-card > .billing-actions { justify-content: center; }
+@media (max-width: 600px) {
+  .billing-change-comparison { grid-template-columns: minmax(0, 1fr); }
+  .billing-change-arrow { justify-self: start; rotate: none; }
+  .billing-scheduled-comparison { display: none; }
+}
+@media (min-width: 850px) {
+  .billing-layout:has(.billing-scheduled-change):not(:has(.billing-choose)) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+

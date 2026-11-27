@@ -19,6 +19,7 @@
  * mark a real YooKassa invoice paid from a browser page.
  */
 import { FAKE_CARD, completeFakePayment, fakeAdapter, fakeProviderEnabled } from "./pay-fake.mjs";
+import { subscriptionLine } from "./pg/billing-change.mjs";
 import { consentVersionOf, settleInvoice } from "./billing-settle.mjs";
 import { readJsonBody } from "./http-body.mjs";
 import { fail, json, sessionFromRequest } from "./iam-http.mjs";
@@ -125,6 +126,10 @@ async function completePayment({ request, response, store, log }) {
 
   completeFakePayment(providerPaymentId, outcome);
 
+  if (outcome === "fail" && subscriptionLine(invoice)?.planChange) {
+    await store.withTenant(chain.org_id, () => store.cancelPayment({ paymentId, failureCode: "card_declined" }));
+    return json(response, 200, { ok: true, status: "failed" }), true;
+  }
   if (outcome === "fail") {
     await store.recordPayment({
       orgId: chain.org_id,
@@ -145,6 +150,7 @@ async function completePayment({ request, response, store, log }) {
     invoice,
     connectionId: connection.id,
     providerPaymentId,
+    ...(subscriptionLine(invoice)?.planChange ? { paymentId } : {}),
   });
 
   // Checkout wrote the consent into the subscription line only when autopay was asked

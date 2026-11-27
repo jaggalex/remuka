@@ -23,6 +23,8 @@ import {
 import { readDailyRows, peerStates } from "./pulse/store.mjs";
 import { addDays, dayOf } from "./pulse/time.mjs";
 import { monthlyAmount } from "./pulse/compute.mjs";
+import { chromeItems, chromeDim } from "./pulse/chrome.mjs";
+import { CHROME_CONTROLS } from "@remo/metrics";
 
 export { PULSE_WEEKS, PULSE_BREAKEVEN, percent, startOfWeek, weekWindow, weekKey, monthlyAmount };
 
@@ -396,6 +398,7 @@ export async function readOperatorPulse({
   tiles[0].series = wactSeries.series;
 
   const engagement = readEngagement({ index, selected, yesterday, lastComplete, complete });
+  const chrome = readChrome({ index, selected, day: lastCompleteDay });
 
   const windowFrom = buckets[0] ? dayKey(buckets[0].start) : null;
   const windowTo = lastWeekEnd;
@@ -428,6 +431,7 @@ export async function readOperatorPulse({
       sourceReason: sources.reason,
     },
     engagement,
+    chrome,
     money: {
       mrrByCurrency: money.mrrByCurrency,
       byPlan: money.byPlan,
@@ -629,6 +633,53 @@ function latestMonthEnd(index, zones, yesterday) {
   return latest;
 }
 
+/* ------------------------------------------------------------------- chrome -- */
+
+/**
+ * The «Хром» table: the share of active organisations using each control over 28 days
+ * (`spec/tidy-desk.md` §9, ADR-294).
+ *
+ * The numerator and denominator are trailing-window rows written by the aggregator, so
+ * nothing is recomputed here and the panel cannot disagree with the digest. The latest
+ * complete day is the window's end; a day without a row is "—", not zero.
+ */
+function readChrome({ index, selected, day }) {
+  if (!selected.length) {
+    return { day: null, activeOrgs: null, items: [], reason: "no zone is selected" };
+  }
+  if (!day) {
+    return { day: null, activeOrgs: null, items: [], reason: "no complete day" };
+  }
+  const active = sumCell(index, selected, { metric: "active.orgs28", day });
+  const orgsByControl = new Map();
+  let missing = 0;
+  for (const control of chromeControlIds()) {
+    const cell = sumCell(index, selected, {
+      metric: "chrome.orgs28",
+      day,
+      dims: { control: chromeDim(control) },
+    });
+    if (cell.value === null) missing += 1;
+    orgsByControl.set(control, cell.value);
+  }
+  return {
+    day,
+    activeOrgs: active.value,
+    items: chromeItems({ orgsByControl, activeOrgs: active.value }),
+    reason:
+      active.value === null
+        ? `active organisations: ${active.reason}`
+        : missing === 0
+          ? null
+          : "the chrome aggregate is not computed for every control",
+  };
+}
+
+/** The closed control list, read from the same package the event validates against. */
+function chromeControlIds() {
+  return CHROME_CONTROLS.map((control) => control.id);
+}
+
 /* ------------------------------------------------------------------ growth -- */
 
 function weeklyTotal(index, zones, metric, buckets, complete) {
@@ -733,6 +784,7 @@ function emptyPulse({
       sourceReason: reason,
     },
     engagement: { dau: null, wau: null, mau: null, stickiness: null, collaboration: null, reason },
+    chrome: { day: null, activeOrgs: null, items: [], reason },
     money: { mrrByCurrency: [], byPlan: [], mrrDay: null, freeToPaid: null, reason },
     health: {
       mailDead: health.mailDead ?? null,

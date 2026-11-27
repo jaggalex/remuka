@@ -1,66 +1,44 @@
-import { Button, Input } from "@remo/ui";
+import { Button, Icon, Input } from "@remo/ui";
 import { useState } from "react";
 import { api, ApiError } from "./api";
 import { useI18n } from "./i18n";
+import { RoomGateCard } from "./RoomGateCard";
 
-/**
- * The password gate for a public link (ADR-069).
- *
- * The check is server-side; this form only carries the attempt. A wrong password says
- * exactly that — it never claims the password changed unless the version moved, because
- * that message would be false on the first wrong attempt of a new password.
- */
-export function LinkPasswordGate({
-  boardId,
-  onUnlocked,
-}: {
-  boardId: string;
-  onUnlocked: () => void;
-}) {
+/** Server-side link access. The password gate reveals no private room metadata. */
+export function LinkPasswordGate({ boardId, onUnlocked }: { boardId: string; onUnlocked: () => void }) {
   const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  async function unlock() {
+    if (busy || !password) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.unlockLink(boardId, password);
+      onUnlocked();
+    } catch (failure) {
+      const code = failure instanceof ApiError ? failure.code : "";
+      setError(code === "WRONG_PASSWORD" ? t("guest.wrong")
+        : code === "LINK_EXPIRED" ? t("iam.linkExpired") : t("guest.fail"));
+      setAttempt(value => value + 1);
+      setBusy(false);
+    }
+  }
 
   return (
-    <form
-      className="link-gate"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!password) return;
-        setBusy(true);
-        setError(null);
-        api
-          .unlockLink(boardId, password)
-          .then(() => onUnlocked())
-          .catch((failure) => {
-            const code = failure instanceof ApiError ? failure.code : "";
-            setError(
-              code === "WRONG_PASSWORD"
-                ? t("iam.wrongLinkPassword")
-                : code === "LINK_EXPIRED"
-                  ? t("iam.linkExpired")
-                  : failure instanceof Error
-                    ? failure.message
-                    : t("iam.unlockFailed"),
-            );
-            setBusy(false);
-          });
-      }}
-    >
-      <Input
-        type="password"
-        autoFocus
-        autoComplete="current-password"
-        placeholder={t("iam.linkPasswordPlaceholder")}
-        aria-label={t("iam.linkPassword")}
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-      />
-      <Button variant="primary" type="submit" disabled={busy || !password}>
-        {t("iam.unlock")}
-      </Button>
-      {error && <p className="auth-error">{error}</p>}
-    </form>
+    <RoomGateCard title={t("guest.gate")} description={t("guest.gateHelp")} attempt={attempt}
+      illustration={<span className="guest-lock" aria-hidden="true"><Icon name="lock" size={30} /></span>}>
+      <form className="guest-fields" onSubmit={event => { event.preventDefault(); void unlock(); }}>
+        <Input type="password" autoFocus autoComplete="current-password" label={t("guest.password")}
+          value={password} error={error ?? undefined}
+          onChange={event => { setPassword(event.currentTarget.value); setError(null); }} />
+        <Button className="signup-submit" variant="primary" type="submit" disabled={busy || !password}>
+          {t("guest.unlock")}
+        </Button>
+      </form>
+    </RoomGateCard>
   );
 }

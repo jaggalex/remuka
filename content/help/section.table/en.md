@@ -4,15 +4,15 @@ A section (frame) can be shown as a table: it gets columns and rows, and objects
 
 ## Title and view
 
-The section's title sits above its top-left corner. Double-click the title, or press `F2` or `Enter`, to edit it: `Enter` or leaving the field commits, `Esc` cancels, and one ⌘Z undoes it. The title is the section's label, not an object: it is outside the table rectangle and never gets in the way of moving objects.
+The section's title sits above its top-left corner on an ink plate. The plate is also the section's handle: drag or click it to move and select the section without touching the objects inside. Double-click the title, or press `F2` or `Enter`, to edit it: `Enter` or leaving the field commits, `Esc` cancels, and one ⌘Z undoes it. The title is the section's label, not an object: it is outside the table rectangle and never gets in the way of moving objects.
 
-In table mode a **Table** badge appears after the title. Click it to open the **Section / Table** menu; there is no badge in the free view. The same switch is in **Properties** and in the section's context menu. Switching keeps the objects and the camera; **Remove table** and the view switch in the panel ask for confirmation, while the badge and the context menu switch at once and say the cells are kept.
+In table mode a **Table** badge appears after the title. Click it to open the **Section / Table** menu; there is no badge in the free view. The same switch is in the **Properties** panel and in the section's context menu. Switching keeps the objects and the camera; **Remove table** and the view switch in the panel ask for confirmation, while the badge and the context menu switch at once and say the cells are kept.
 
 ## Steps
 
 1. Select the section and open **Properties**. A section just created with **Gather into section** opens the panel for you.
 2. Choose **Table**. If the section already holds objects, the **How to lay out the material?** question opens: lay it out by its current position or keep everything in the first cell. The canvas shows a preview; **Apply** is one undo step.
-3. **+ Column** and **+ Row** add axes. Choose an axis in the panel or by clicking its header on the canvas; clicking the header again opens its menu: rename, insert a neighbour, duplicate, move, turn, size, delete.
+3. **+ Column** and **+ Row** add axes. Choose an axis in the panel or by clicking its header on the canvas; clicking the header again opens its menu: rename, insert a neighbour, move, duplicate, turn or delete. To open size settings, select an axis and click the button in the **Size** field in table Properties. In the open header menu, `Delete` invokes the same action as the delete item.
 4. A double click on a header (or `Enter`/`F2`) edits the title in place: `Enter` commits, `Shift+Enter` inserts a line break, `Tab` moves to the next header, `Esc` cancels. The axis name in the panel is multiline too: `Shift+Enter` adds a line.
 5. Click an empty part of a cell: the first click selects the section, the second selects the cell. `Shift+click` another cell selects a rectangular range; the arrow keys move the cell, `Shift+arrows` extend the range, `Esc` clears it.
 6. **Merge** appears above the range; a merged cell offers **Split**. The same actions live in the cell menu (right click or `Shift+F10`), together with inserting and duplicating rows and columns.

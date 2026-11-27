@@ -164,6 +164,9 @@ export function projectWidgets(doc) {
       content: widget.type === "card" ? str(widget.content) : text,
       fillColor: str(widget.style?.fillColor),
       cardTheme: str(widget.style?.cardTheme),
+      // The real angle, in the column that has existed since the first projection
+      // (ADR-209 left it at 0; ADR-271 puts the value back).
+      rotation: num(widget.rotation) ?? 0,
       props: projectProps(widget, widgetMarkdown(doc, id)),
     });
   });

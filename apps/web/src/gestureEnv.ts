@@ -4,11 +4,12 @@ import type { ConnectDraft, GestureDeps } from "./gestureTypes";
 import { connectorPath, isVisible, labelPoint, paintOrder, unionBox, visibleWorldRect } from "@remo/canvas";
 import type { AlignmentGuide, Camera, ConnectorHandle, ConnectorPath, SnapTarget } from "@remo/canvas";
 import type { WidgetPosition } from "@remo/doc";
-import { canConnect } from "@remo/model";
-import type { ConnectorSide, Rect, Widget } from "@remo/model";
+import { canConnect, rotatedBounds } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, Vec2, Widget } from "@remo/model";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DragState =
+  | { mode: "place"; start: Vec2 }
   | { mode: "pan"; startScreen: { x: number; y: number }; startCamera: Camera }
   | {
       mode: "widget";
@@ -72,8 +73,32 @@ type DragState =
         scalable: boolean;
         min: { width: number; height: number };
       }>;
+      /** A single turned object resizes in its own axes (ADR-271, T18). */
+      turned?: Widget;
+    }
+  | {
+      /** The round handle is held: one pivot, one delta for the whole gesture. */
+      mode: "rotate";
+      members: Widget[];
+      centre: Vec2;
+      /** The angle of the press, in degrees. */
+      start: number;
+      /** The last applied delta, so the release writes what the preview showed. */
+      delta: number;
+      shift: boolean;
     }
   | { mode: "connect"; fromId: string; fromSide: ConnectorSide }
+  | {
+      /** A drag on the canvas with the shape tool armed (ADR-271). */
+      mode: "shape";
+      kind: ShapeKind;
+      start: { x: number; y: number };
+      startScreen: { x: number; y: number };
+      /** Past the click threshold: the release creates a box instead of a default. */
+      moved: boolean;
+      /** The box as last previewed, so the release commits exactly what was seen. */
+      rect?: Rect;
+    }
   | {
       mode: "reattach";
       id: string;
@@ -119,9 +144,11 @@ export function useGestureEnv(deps: GestureDeps) {
     onSelect,
     onMoveMany,
     onResizeMany,
+    onRotateMany,
     onMoveCard,
-    onMoveKanbanAxis,
+    onMoveKanbanAxis, onColumnTitleClick,
     onMoveToCell,
+    onCreateFirstSticker,
     onAddCard,
     onConnect,
     onConnectorPatch,
@@ -134,6 +161,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
+    creationTool = null,
     readOnly = false,
   } = deps;
 
@@ -175,6 +203,16 @@ export function useGestureEnv(deps: GestureDeps) {
   } | null>(null);
   const [tableRefused, setTableRefused] = useState(false);
   const [marquee, setMarquee] = useState<Rect | null>(null);
+  /** The shape the pointer is drawing right now (ADR-271); the overlay paints it. */
+  const [shapeDraft, setShapeDraft] = useState<{ rect: Rect; kind: ShapeKind } | null>(null);
+  /** The angle plate while the round handle is held. */
+  const [rotationDraft, setRotationDraft] = useState<{
+    angle: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  /** The pointer is over the round handle; the overlay changes the cursor. */
+  const [rotationHover, setRotationHover] = useState(false);
   /**
    * The gesture in flight, as patches on stored widgets (ADR-051).
    *
@@ -298,12 +336,9 @@ export function useGestureEnv(deps: GestureDeps) {
         if (skip.has(widget.id)) continue;
         if (widget.type === "connector" || isCardOfKanban(widget)) continue;
         if (!isVisible(widget, visible)) continue;
-        boxes.push({
-          x: widget.x - widget.width / 2,
-          y: widget.y - widget.height / 2,
-          width: widget.width,
-          height: widget.height,
-        });
+        // Snapping and guides follow the described rectangle: a turned object aligns
+        // by the box a person sees it inside (ADR-271, T18).
+        boxes.push(rotatedBounds(widget));
       }
 
       for (const layout of layouts.values()) {
@@ -403,12 +438,9 @@ export function useGestureEnv(deps: GestureDeps) {
         unionBox(
           origins.map((origin) => {
             const widget = widgetById(origin.id);
-            return {
-              x: origin.x - (widget?.width ?? 0) / 2,
-              y: origin.y - (widget?.height ?? 0) / 2,
-              width: widget?.width ?? 0,
-              height: widget?.height ?? 0,
-            };
+            return widget
+              ? rotatedBounds({ ...widget, x: origin.x, y: origin.y })
+              : { x: origin.x, y: origin.y, width: 0, height: 0 };
           }),
         ) ?? { x: world.x, y: world.y, width: 0, height: 0 };
 
@@ -466,6 +498,15 @@ export function useGestureEnv(deps: GestureDeps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [connectPending]);
+
+  // Escape disarms the tool, so its absence is the cancel: the draft and the gesture
+  // go, and the release has nothing to commit (ADR-271).
+  const shapeArmed = creationTool?.tool === "shape";
+  useEffect(() => {
+    if (shapeArmed) return;
+    if (dragRef.current?.mode === "shape") dragRef.current = null;
+    setShapeDraft(null);
+  }, [shapeArmed]);
   return {
     camera,
     viewport,
@@ -481,9 +522,11 @@ export function useGestureEnv(deps: GestureDeps) {
     onSelect,
     onMoveMany,
     onResizeMany,
+    onRotateMany,
     onMoveCard,
-    onMoveKanbanAxis,
+    onMoveKanbanAxis, onColumnTitleClick,
     onMoveToCell,
+    onCreateFirstSticker,
     onAddCard,
     onConnect,
     onConnectorPatch,
@@ -496,6 +539,7 @@ export function useGestureEnv(deps: GestureDeps) {
     onCreateConnected,
     onCursor,
     onToggleCheck,
+    creationTool,
     readOnly,
     dragRef,
     cardPreviewRef,
@@ -515,6 +559,12 @@ export function useGestureEnv(deps: GestureDeps) {
     setTableRefused,
     marquee,
     setMarquee,
+    shapeDraft,
+    setShapeDraft,
+    rotationDraft,
+    setRotationDraft,
+    rotationHover,
+    setRotationHover,
     preview,
     setPreview,
     previewLive,
@@ -558,7 +608,7 @@ export function useGestureEnv(deps: GestureDeps) {
 export type GestureEnv = ReturnType<typeof useGestureEnv>;
 
 /** Pointer capture keeps the drag alive outside the canvas. */
-export function capture(event: React.PointerEvent<HTMLCanvasElement>): void {
+export function capture(event: React.PointerEvent<HTMLElement>): void {
   try {
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
   } catch {

@@ -21,6 +21,7 @@ import {
   type OrgBilling,
 } from "./apiBilling";
 import { ApiError } from "./apiCall";
+import { billingReturnUrl } from "./organisationRoute";
 import { checkoutErrorKey } from "./billingCheckoutError";
 import { useI18n } from "./i18n";
 
@@ -85,7 +86,7 @@ export function BillingPaymentMethod({ orgId, org }: { orgId: string; org: OrgBi
         // Autopay is the whole point of a saved card: the server writes the consent
         // version into the invoice line and the provider keeps the token (§1 rule 8).
         consent: { autopay: true, termsVersion: TERMS_VERSION },
-        returnUrl: `${window.location.origin}${window.location.pathname}?billing=return`,
+        returnUrl: billingReturnUrl(orgId),
       });
       if (result.redirectUrl) {
         window.location.assign(result.redirectUrl);
@@ -112,7 +113,7 @@ export function BillingPaymentMethod({ orgId, org }: { orgId: string; org: OrgBi
           : null;
 
   return (
-    <section className="billing-usage">
+    <section className="billing-usage" id="billing-payment-method" tabIndex={-1}>
       <h3>{t("billing.paymentMethod")}</h3>
       <div className="billing-card">
         {display ? (

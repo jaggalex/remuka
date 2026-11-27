@@ -57,7 +57,7 @@ describe.skipIf(!store)("db:repaint (ADR-183)", () => {
 
     expect(await repaint("--apply", "--yes")).toMatch(/Repainted 1 object/);
     const widgets = (await documentOf()).getMap("widgets");
-    expect(widgets.get("n1").style.fillColor).toBe("#ece2c8");
+    expect(widgets.get("n1").style.fillColor).toBe("#f4e0a8");
     // The 22 colours of ADR-120 are not the command's to change.
     expect(widgets.get("n2").style.fillColor).toBe("#f8d3af");
 
@@ -65,7 +65,7 @@ describe.skipIf(!store)("db:repaint (ADR-183)", () => {
       "select fill_color from widgets where board_id = $1 and id = 'n1'",
       [room],
     );
-    expect(projected[0].fill_color).toBe("#ece2c8");
+    expect(projected[0].fill_color).toBe("#f4e0a8");
     const { rows: audit } = await store.pool.query(
       "select action, actor_type, after from audit_events where board_id = $1",
       [room],

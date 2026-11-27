@@ -1,6 +1,8 @@
-import { ZoomControls } from "@remo/ui";
+import { Button, ZoomControls } from "@remo/ui";
 import type { Camera } from "@remo/canvas";
+import { openCommandSearch } from "./commandSearchStore";
 import { useI18n } from "./i18n";
+import { useChromeQuiet } from "./quietChrome";
 
 /**
  * World coordinates are a developer's instrument, not a product readout (§10.4, Н2):
@@ -9,8 +11,9 @@ import { useI18n } from "./i18n";
 const DEBUG = new URLSearchParams(window.location.search).has("debug");
 
 /**
- * The bottom-left view controls: the design system's zoom panel and nothing else
- * (ADR-232). This component only places it and, behind `?debug`, the world cursor.
+ * The bottom-left view controls: the search row and the design system's zoom panel
+ * (ADR-232, ADR-266 §1.2). This component only places them and, behind `?debug`, the
+ * world cursor.
  */
 export function CanvasHud({
   camera,
@@ -24,8 +27,21 @@ export function CanvasHud({
   onZoom: (factor: number) => void;
 }) {
   const { t } = useI18n();
+  const quiet = useChromeQuiet();
   return (
-    <div className="canvas-hud">
+    <div className={quiet ? "canvas-hud is-quiet" : "canvas-hud"}>
+      <Button
+        variant="secondary"
+        size="default"
+        icon="search"
+        className="canvas-search"
+        onClick={() => openCommandSearch()}
+      >
+        {t("search.action")}
+        <span className="canvas-search-key" aria-hidden="true">
+          ⌘K
+        </span>
+      </Button>
       <ZoomControls
         zoom={Math.round(camera.zoom * 100)}
         onOut={() => onZoom(1 / 1.2)}

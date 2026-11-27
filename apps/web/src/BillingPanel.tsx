@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  ChoiceCard,
   ConfirmDialog,
   Input,
   Link,
@@ -10,7 +11,8 @@ import {
   Table,
   type TableColumn,
 } from "@remo/ui";
-import { BRAND } from "@remo/brand";
+import { docsHref } from "./docsLinks";
+import { offerDocumentUrl } from "./legal/legalConfig";
 import {
   billingApi,
   formatMoney,
@@ -24,7 +26,11 @@ import {
   type PromoResult,
 } from "./apiBilling";
 import { ApiError } from "./apiCall";
+import { billingReturnUrl } from "./organisationRoute";
 import { BillingPaymentMethod } from "./BillingPaymentMethod";
+import { trialDaysLeft, trialKey } from "./BillingStatusNotice";
+import { cancelledNotice, useBillingChange } from "./useBillingChange";
+import { BillingChangePayment, BillingChangeQuote, BillingScheduledChange } from "./BillingPlanChange";
 import { BillingRooms } from "./BillingRooms";
 import { checkoutErrorKey } from "./billingCheckoutError";
 import { formatDate } from "./format";
@@ -110,7 +116,6 @@ export function BillingPanel({
   orgSlug,
   initial,
   isOrgAdmin,
-  orgKind,
   onUnavailable,
 }: {
   orgId: string;
@@ -119,11 +124,10 @@ export function BillingPanel({
   /** The dialog's availability probe; without it the panel reads the route itself. */
   initial: OrgBilling | null;
   isOrgAdmin: boolean;
-  orgKind: "personal" | "shared";
   /** The route answered `404`: billing is off on this installation (or the org is gone). */
   onUnavailable: () => void;
 }) {
-  const { t, lang } = useI18n();
+  const { t, lang, docsOrigin, legal } = useI18n();
   const [data, setData] = useState<OrgBilling | null>(initial);
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +144,7 @@ export function BillingPanel({
   const [interval, setInterval] = useState<"month" | "year">("month");
   const [currencyChoice, setCurrencyChoice] = useState("");
   const [promoCode, setPromoCode] = useState("");
-  const [promo, setPromo] = useState<PromoResult | null>(null);
+  const [promo, setPromo] = useState<{ price: string; result: PromoResult } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [terms, setTerms] = useState(false);
@@ -163,10 +167,14 @@ export function BillingPanel({
     }
   }, [onUnavailable, orgId, t]);
 
+  const refreshChange = useCallback(() => {
+    void read();
+    void billingApi.invoices(orgId).then(result => setInvoices(result.invoices)).catch(() => {});
+  }, [orgId, read]);
+
   useEffect(() => {
     setData(initial);
     setLoading(!initial);
-    setInvoices(null);
     setChoosing(false);
     setCheckout(null);
     setActionError(null);
@@ -179,6 +187,9 @@ export function BillingPanel({
       setInvoices([]);
       return;
     }
+    // The list belongs to the billing account and role. A new translation function
+    // may refresh the summary, but does not start a new invoice request.
+    setInvoices(null);
     let alive = true;
     billingApi
       .invoices(orgId)
@@ -229,47 +240,58 @@ export function BillingPanel({
     );
   }, [interval, offer, plan]);
 
-  const choosePlan = useCallback(() => {
+  const [catalogRequest, setCatalogRequest] = useState(0);
+  const subscriptionPlan = data?.subscription?.plan;
+  const billingCurrency = data?.currency ?? null;
+  const canBuy = isOrgAdmin;
+  const { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay,
+    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled } = useBillingChange({
+    orgId, method, busy, setBusy, setActionError, setCheckout, setChoosing, read, refreshChange,
+  });
+  const isChanging = data?.subscription?.status === "active" && data.plan !== "free";
+  const targetPriceId = isChanging && plan === "free" ? "free" : selectedPrice ? priceId(selectedPrice) : null;
+  const pendingPaymentId = data?.pendingPlanPayment?.paymentId ?? paymentId;
+  const showPayment = pendingPaymentId && pendingPaymentId !== dismissedPayment ? pendingPaymentId : null;
+  useEffect(() => {
+    if (!canBuy) return;
+    let alive = true;
+    setCatalogError(null);
+    billingApi.catalog(billingCurrency).then(result => {
+      if (!alive) return;
+      setCatalog(result);
+      setCurrencyChoice(billingCurrency ?? result.currencies[0]?.currency ?? "");
+      const available = result.currencies.find(candidate => candidate.currency === billingCurrency) ?? result.currencies[0];
+      if (!available) return;
+      const current = available.prices.some(price => price.plan === subscriptionPlan) ? subscriptionPlan : null;
+      setPlan(current ?? available.prices[0]?.plan ?? "team");
+      if (!subscriptionPlan) setChoosing(true);
+    }).catch((failure: unknown) => {
+      if (alive) setCatalogError(failure instanceof Error ? failure.message : t("billing.noCatalog"));
+    });
+    return () => { alive = false; };
+  }, [canBuy, orgId, billingCurrency, subscriptionPlan, catalogRequest, t]);
+
+  const choosePlan = () => {
+    if (!data?.pendingPlanPayment && showPayment) setDismissedPayment(showPayment);
     setChoosing(true);
     setCheckout(null);
+    setChangeQuote(null);
     setActionError(null);
-    if (catalog) return;
-    setCatalogError(null);
-    billingApi
-      .catalog(data?.currency ?? null)
-      .then((result) => {
-        setCatalog(result);
-        const first = result.currencies[0];
-        setCurrencyChoice(data?.currency ?? first?.currency ?? "");
-        const preferred =
-          result.currencies.find((candidate) => candidate.currency === data?.currency) ?? first;
-        if (preferred) {
-          const freePlan =
-            plans.find((name) =>
-              preferred.prices.some((price) => price.plan === name),
-            ) ?? preferred.prices[0]?.plan;
-          const current = data?.subscription?.plan;
-          if (current && preferred.prices.some((price) => price.plan === current)) {
-            setPlan(current);
-          } else if (freePlan) {
-            setPlan(freePlan);
-          }
-        }
-      })
-      .catch((failure: unknown) => {
-        setCatalogError(
-          failure instanceof Error ? failure.message : t("billing.noCatalog"),
-        );
-      });
-  }, [catalog, data?.currency, data?.subscription?.plan, plans, t]);
+    if (!catalog?.currencies.length) setCatalogRequest(value => value + 1);
+    else requestAnimationFrame(() => document.getElementById("billing-choose-plan")?.focus());
+  };
 
+  const validPromo = promo && selectedPrice && promo.price === priceId(selectedPrice) &&
+    promo.result.code.toLowerCase() === promoCode.trim().toLowerCase() ? promo.result : null;
+  const pendingPromo = Boolean(promoCode.trim() && !validPromo);
   const checkPromo = async () => {
     if (!selectedPrice || !promoCode.trim() || promoBusy) return;
     setPromoBusy(true);
     setPromoError(null);
     setPromo(null);
     try {
-      setPromo(await billingApi.checkPromo(promoCode.trim(), priceId(selectedPrice)));
+      const price = priceId(selectedPrice);
+      setPromo({ price, result: await billingApi.checkPromo(promoCode.trim(), price) });
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : "";
       setPromoError(t(PROMO_ERROR[code] ?? "billing.promo.invalid"));
@@ -279,16 +301,16 @@ export function BillingPanel({
   };
 
   const pay = async () => {
-    if (!selectedPrice || !method || !terms || busy) return;
+    if (!selectedPrice || !method || !terms || pendingPromo || busy) return;
     setBusy(true);
     setActionError(null);
     try {
       const result = await billingApi.checkout(orgId, {
         priceId: priceId(selectedPrice),
         methodGroup: method,
-        ...(promoCode.trim() ? { promoCode: promoCode.trim() } : {}),
+        ...(validPromo ? { promoCode: validPromo.code } : {}),
         consent: { autopay: true, termsVersion: TERMS_VERSION },
-        returnUrl: `${window.location.origin}${window.location.pathname}?billing=return`,
+        returnUrl: billingReturnUrl(orgId),
       });
       if (result.redirectUrl) {
         window.location.assign(result.redirectUrl);
@@ -352,13 +374,16 @@ export function BillingPanel({
   const planLabel = (name: string) => t(PLAN_LABEL[name] ?? "billing.plan.free");
   const statusLabel = (status: string) =>
     t(STATUS_LABEL[status] ?? "billing.subscription.active");
-  const personal = orgKind === "personal";
   const methodOptions = offer?.methodGroups ?? [];
   const checkoutNumber = checkout
     ? (invoices?.find((invoice) => invoice.id === checkout.invoiceId)?.number ??
       checkout.invoiceId)
     : null;
-  const termsHref = `https://${BRAND.domains.docs}/guide/${lang}/support/disclaimer.html`;
+  // The offer of this installation first (`/config` → `legal.documents`), the guide's
+  // disclaimer only as a fallback; without either the sentence has no dead anchor
+  // (ADR-284, ADR-256 §4).
+  const termsHref =
+    offerDocumentUrl(legal) ?? docsHref(docsOrigin, `/guide/${lang}/support/disclaimer.html`);
   const invoiceColumns: TableColumn<Invoice>[] = [
     {
       key: "number",
@@ -387,18 +412,85 @@ export function BillingPanel({
     },
   ];
 
+  const overRooms = data.limits.rooms !== null && data.usage.rooms > data.limits.rooms;
+  let status: string = data.plan;
+  let hint: TranslationKey = "billing.activeHint";
+  let action: TranslationKey = "billing.changePlan";
+  let onAction = choosePlan;
+  if (data.status === "suspended") {
+    status = "suspended";
+    hint = "billing.suspended";
+    action = "billing.payOutstanding";
+  } else if (data.status === "past_due") {
+    status = "past-due";
+    hint = "billing.pastDue";
+    if (data.paymentMethod !== undefined) {
+      action = "billing.updateMethod";
+      onAction = () => document.getElementById("billing-payment-method")?.focus();
+    }
+  } else if (data.readOnly || overRooms) {
+    status = "read-only";
+    hint = "billing.readOnly";
+    if (overRooms) {
+      action = "billing.rooms.choose";
+      onAction = () => document.getElementById("billing-active-rooms")?.focus();
+    }
+  } else if (data.status === "trialing") {
+    status = "trial";
+    hint = "billing.trialHint";
+  }
+
+  if (changeQuote) return (
+    <section className="billing-panel">
+      {actionError && <p className="auth-error" role="alert">{actionError}</p>}
+      <BillingChangeQuote quote={changeQuote} method={method}
+        methods={methodOptions.map(value => ({ value, title: t(METHOD_LABEL[value] ?? "billing.method.invoice") }))}
+        onMethod={value => { setMethod(value); setChangeAutopay(false); }}
+        autopay={changeAutopay} onAutopay={setChangeAutopay} termsHref={termsHref}
+        use={{ seats: data.usage.seats, rooms: data.usage.rooms, bytes: data.storage?.usedBytes ?? 0 }}
+        busy={busy} expired={quoteExpired} onRefresh={() => void previewChange(changeQuote.priceId)}
+        onBack={() => { setChangeQuote(null); setActionError(null); requestAnimationFrame(() => document.getElementById("billing-choose-plan")?.focus()); }}
+        onConfirm={() => void submitChange()} />
+    </section>
+  );
+
   return (
     <section className="billing-panel">
       {error && <p className="auth-error">{error}</p>}
       {actionError && <p className="auth-error" role="alert">{actionError}</p>}
 
-      {data.readOnly && <p className="billing-warning">{t("billing.readOnly")}</p>}
-      {data.status === "past_due" && (
-        <p className="billing-warning">{t("billing.pastDue")}</p>
+      {isOrgAdmin && showPayment && (
+        <BillingChangePayment key={showPayment} orgId={orgId} paymentId={showPayment}
+          onSettled={refreshChange}
+          onRetry={() => { setDismissedPayment(showPayment); choosePlan(); }} />
       )}
-      {data.status === "suspended" && (
-        <p className="billing-warning">{t("billing.suspended")}</p>
+      <div className="billing-layout">
+      {data.scheduledChange && subscription && (
+        <BillingScheduledChange change={data.scheduledChange} current={subscription}
+          canCancel={!busy && Date.parse(data.scheduledChange.at) > Date.now()}
+          onCancel={() => void cancelScheduled(cancelledNotice(t, subscription, lang))}>
+          {data.changeInvoice && !data.pendingPlanPayment && (
+            <>
+              <Segmented label={t("billing.method")} value={method} onChange={setMethod}
+                options={methodOptions.map(value => ({ value, label: t(METHOD_LABEL[value] ?? "billing.method.invoice") }))} />
+              <Button variant="primary" disabled={busy || !method} onClick={() => void submitChange(data.changeInvoice?.id)}>
+                {t("billing.change.payInvoice", { amount: formatMoney(data.changeInvoice.amount, data.changeInvoice.currency, lang) })}
+              </Button>
+            </>
+          )}
+        </BillingScheduledChange>
       )}
+
+      <div className="billing-summary">
+      <section className="billing-status-card" data-status={status}>
+        <div>
+          <strong>{planLabel(data.plan)}</strong>
+          <p>{status === "trial" && trialDaysLeft(data.subscription?.trialEnd) !== null ? t(trialKey(lang, trialDaysLeft(data.subscription?.trialEnd)!), { n: trialDaysLeft(data.subscription?.trialEnd)! }) : t(hint)}</p>
+        </div>
+        {canBuy && (
+          <Button variant="primary" onClick={onAction} disabled={busy || Boolean(data.pendingPlanPayment)}>{t(action)}</Button>
+        )}
+      </section>
 
       <div className="billing-facts">
         <div className="billing-fact">
@@ -443,6 +535,7 @@ export function BillingPanel({
                   used: data.usage.seats,
                   max: data.limits.seats,
                 })}
+            {data.limits.seats !== null && data.limits.seats > 0 && <progress aria-hidden="true" value={data.usage.seats} max={data.limits.seats} />}
           </span>
           <span>
             {data.limits.rooms === null
@@ -451,6 +544,7 @@ export function BillingPanel({
                   used: data.usage.rooms,
                   max: data.limits.rooms,
                 })}
+            {data.limits.rooms !== null && data.limits.rooms > 0 && <progress aria-hidden="true" value={data.usage.rooms} max={data.limits.rooms} />}
           </span>
         </div>
       </section>
@@ -462,6 +556,7 @@ export function BillingPanel({
         limitsRooms={data.limits.rooms}
         usageRooms={data.usage.rooms}
         frozenRooms={data.frozenRooms}
+        frozenCount={data.frozenCount}
         isOrgAdmin={isOrgAdmin}
         onSaved={read}
       />
@@ -483,15 +578,10 @@ export function BillingPanel({
         </section>
       )}
 
-      {personal ? (
-        <p className="muted">{t("billing.personal")}</p>
-      ) : !isOrgAdmin ? (
+      {!isOrgAdmin ? (
         <p className="muted">{t("billing.askOwner")}</p>
       ) : (
         <div className="billing-actions">
-          <Button variant="primary" onClick={choosePlan} disabled={busy}>
-            {t("billing.changePlan")}
-          </Button>
           {subscription &&
             (subscription.cancelAtPeriodEnd ? (
               <Button onClick={() => void changeSubscription("resume")} disabled={busy}>
@@ -505,8 +595,9 @@ export function BillingPanel({
         </div>
       )}
 
+      </div>
       {choosing && (
-        <section className="billing-choose">
+        <section className="billing-choose" id="billing-choose-plan" tabIndex={-1}>
           <div className="billing-choose-head">
             <h3>{t("billing.choose.title")}</h3>
             <Button size="compact" variant="ghost" onClick={() => setChoosing(false)}>
@@ -522,6 +613,12 @@ export function BillingPanel({
             // payment route; a blank card reads as a broken screen, so it says why
             // (`spec/billing.md` §2.1.1).
             <p className="muted">{t("billing.choose.unavailable")}</p>
+          )}
+
+          {!offer && isChanging && (
+            <Button onClick={() => void previewChange("free")} disabled={busy}>
+              {t("billing.change.schedule", { plan: planLabel("free") })}
+            </Button>
           )}
 
           {offer && (
@@ -558,68 +655,27 @@ export function BillingPanel({
                 />
               )}
 
-              <Table
-                caption={t("billing.choose.title")}
-                rows={plans.map((name) => ({ id: name }))}
-                columns={[
-                  {
-                    key: "plan",
-                    label: t("billing.plan"),
-                    render: (row) => planLabel(row.id),
-                  },
-                  {
-                    key: "month",
-                    label: t("billing.period.month"),
-                    numeric: true,
-                    render: (row) => {
-                      const amount = priceAmount(offer, row.id, "month");
-                      if (amount === null) return "—";
-                      return (
-                        <Button
-                          size="compact"
-                          variant={
-                            plan === row.id && interval === "month" ? "primary" : "ghost"
-                          }
-                          onClick={() => {
-                            setPlan(row.id);
-                            setInterval("month");
-                            setPromo(null);
-                            setPromoError(null);
-                          }}
-                        >
-                          {formatMoney(amount, offer.currency, lang)}
-                        </Button>
-                      );
-                    },
-                  },
-                  {
-                    key: "year",
-                    label: t("billing.period.year"),
-                    numeric: true,
-                    render: (row) => {
-                      const amount = priceAmount(offer, row.id, "year");
-                      if (amount === null) return "—";
-                      return (
-                        <Button
-                          size="compact"
-                          variant={
-                            plan === row.id && interval === "year" ? "primary" : "ghost"
-                          }
-                          onClick={() => {
-                            setPlan(row.id);
-                            setInterval("year");
-                            setPromo(null);
-                            setPromoError(null);
-                          }}
-                        >
-                          {formatMoney(amount, offer.currency, lang)}
-                        </Button>
-                      );
-                    },
-                  },
-                ]}
+              <ChoiceCard
+                label={t("billing.plan")}
+                value={plan}
+                onChange={value => { setPlan(value); setPromo(null); setPromoError(null); }}
+                options={[...plans.flatMap(name => {
+                  const amount = priceAmount(offer, name, interval);
+                  if (amount === null) return [];
+                  return [{ value: name, title: planLabel(name), hint: formatMoney(amount, offer.currency, lang) }];
+                }), ...(isChanging ? [{ value: "free", title: planLabel("free"), hint: t("billing.change.noCharge") }] : [])]}
               />
 
+              {isChanging ? (
+                <div className="billing-actions">
+                  <Button variant="primary"
+                    disabled={busy || !targetPriceId || subscription?.plan === plan && subscription.interval === interval}
+                    onClick={() => targetPriceId && void previewChange(targetPriceId)}>
+                    {t("billing.change.preview")}
+                  </Button>
+                </div>
+              ) : <>
+              <details className="billing-promo-disclosure"><summary>{t("billing.promo.title")}</summary>
               <div className="billing-promo">
                 <Input
                   label={t("billing.promo")}
@@ -640,15 +696,16 @@ export function BillingPanel({
                   {t("billing.promo.check")}
                 </Button>
               </div>
-              {promo && (
+              {validPromo && (
                 <p className="billing-promo-result" role="status">
                   {t("billing.promo.applied", {
-                    discount: formatMoney(promo.discount, promo.currency, lang),
-                    total: formatMoney(promo.total, promo.currency, lang),
+                    discount: formatMoney(validPromo.discount, validPromo.currency, lang),
+                    total: formatMoney(validPromo.total, validPromo.currency, lang),
                   })}
                 </p>
               )}
               {promoError && <p className="auth-error">{promoError}</p>}
+              </details>
 
               {methodOptions.length > 0 && (
                 <Segmented
@@ -667,10 +724,15 @@ export function BillingPanel({
                 onChange={(event) => setTerms(event.target.checked)}
                 label={
                   <>
-                    {t("billing.terms")}{" "}
-                    <Link href={termsHref} target="_blank" rel="noreferrer">
-                      {t("billing.termsLink")}
-                    </Link>
+                    {t("billing.terms")}
+                    {termsHref && (
+                      <>
+                        {" "}
+                        <Link href={termsHref} target="_blank" rel="noreferrer">
+                          {t("billing.termsLink")}
+                        </Link>
+                      </>
+                    )}
                   </>
                 }
               />
@@ -678,22 +740,25 @@ export function BillingPanel({
               <div className="billing-actions">
                 <Button
                   variant="primary"
-                  disabled={!selectedPrice || !method || !terms || busy}
+                  disabled={!selectedPrice || !method || !terms || pendingPromo || busy}
                   onClick={() => void pay()}
                 >
                   {busy
                     ? t("billing.paying")
                     : selectedPrice
                       ? t("billing.pay", {
-                          amount: formatMoney(selectedPrice.amount, offer.currency, lang),
+                          amount: formatMoney(validPromo?.total ?? selectedPrice.amount, offer.currency, lang),
                         })
                       : t("billing.pay", { amount: "—" })}
                 </Button>
               </div>
+              </>}
             </>
           )}
         </section>
       )}
+
+      </div>
 
       {isOrgAdmin && (
         <section className="billing-invoices">

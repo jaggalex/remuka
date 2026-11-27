@@ -29,19 +29,21 @@ test("the health probe reports ok, the build identity and the public name", asyn
 /**
  * The browser needs the installation's own name before it can say it in Russian or in
  * English; `null` means “use the brand” (ADR-254 §3). The same answer carries the
- * compliance zone, which is always present and `none` on a self-host (ADR-255 §3), and
+ * compliance zone, which is always present and `none` on a self-host (ADR-255 §3),
  * the legal documents of that zone, empty when the installation publishes none
- * (ADR-256 §4).
+ * (ADR-256 §4), and the guide's origin, `null` when the installation has no guide
+ * (ADR-284).
  */
 test("the config route offers the installation's own name or null", async ({ request }) => {
   const response = await request.get("/api/config");
   expect(response.status()).toBe(200);
   const body = await response.json();
-  expect(Object.keys(body).sort()).toEqual(["compliance", "legal", "productName"]);
+  expect(Object.keys(body).sort()).toEqual(["compliance", "docs", "legal", "productName"]);
   expect(body.productName === null || typeof body.productName === "string").toBe(true);
   expect(["eu", "ru", "none"]).toContain(body.compliance.zone);
   const { policyUrl } = body.compliance;
   expect(policyUrl === null || /^https:\/\//.test(policyUrl)).toBe(true);
+  expect(body.docs.origin === null || /^https:\/\/[^/]+$/.test(body.docs.origin)).toBe(true);
   expect(Array.isArray(body.legal.documents)).toBe(true);
   for (const document of body.legal.documents) {
     expect(typeof document.doc).toBe("string");

@@ -58,7 +58,7 @@ function client() {
     const setCookie = response.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";")[0];
     const text = await response.text();
-    return { status: response.status, body: text ? JSON.parse(text) : null };
+    return { status: response.status, headers: response.headers, body: text && response.headers.get("content-type")?.includes("application/json") ? JSON.parse(text) : text || null };
   };
 }
 
@@ -125,21 +125,65 @@ suite("agent API", () => {
     expect(Boolean(await store.getBoardAgent(boardId))).toBe(assigned.status === 200);
   });
 
-  it("keeps a clarification on the conversation's kind", async () => {
+  it("admits a clarification only while this thread has a published frame on the board", async () => {
     const { owner, boardId, agent } = await setup("room-thread-kind");
     expect((await owner("PUT", `/boards/${boardId}/agent`, { agentId: agent.id })).status).toBe(200);
     const created = await owner("POST", `/boards/${boardId}/agent-threads`, {
-      intent: "Group the interview observations",
-      kind: "problem-map",
+      intent: "Group the interview observations", kind: "problem-map",
     });
     expect(created.status).toBe(202);
-    const clarified = await owner("POST", `/agent-threads/${created.body.thread.id}/messages`, {
-      intent: "Add another observation",
-      kind: "process",
-    });
+    const { thread, task } = created.body;
+    const url = `/agent-threads/${thread.id}`;
+    const clarify = (key) => owner("POST", url + "/messages", {
+      intent: "Add another observation", kind: "process",
+    }, { "Idempotency-Key": key });
+    const missing = { status: 409, body: { error: "DRAFT_NOT_AVAILABLE" } };
+    for (const reply of await Promise.all([clarify("early-1"), clarify("early-2")])) {
+      expect(reply).toMatchObject(missing);
+    }
+    const before = await owner("GET", url);
+    expect(before.body.publishedFrameIds).toEqual([]);
+    expect(before.body.messages).toHaveLength(2);
+    await store.claimAgentTask(task.id);
+    expect(await clarify("running")).toMatchObject(missing);
+    const widgets = (await store.roomDocument(boardId)).getMap("widgets");
+    widgets.set("published", { id: "published", type: "frame", agent: { taskId: task.id } });
+    expect(await clarify("before-publication")).toMatchObject(missing);
+
+    // A recorded result without its frame (or with its id reused by a note) is insufficient.
+    await store.finishAgentTask({ id: task.id, status: "applied", result: { frameId: "published" } });
+    widgets.set("published", { id: "published", type: "sticky_note" });
+    expect(await clarify("replaced")).toMatchObject(missing);
+    widgets.set("published", { id: "published", type: "frame" });
+    // Older tasks can retain the applied result while their message lacks frame_ids.
+    const clarified = await clarify("accepted");
     expect(clarified.status).toBe(202);
-    // The open conversation owns the kind, not the client that asks for a clarification.
     expect(clarified.body.task.input.kind).toBe("problem-map");
+
+    await store.updateAgentThreadMessageByTask({
+      taskId: clarified.body.task.id, status: "ready", frameIds: ["later"],
+    });
+    expect((await owner("GET", url)).body.publishedFrameIds.sort()).toEqual(["later", "published"]);
+    // The later frame disappeared; the original published frame is still visible.
+    expect((await clarify("earlier-still-visible")).status).toBe(202);
+    widgets.delete("published");
+    expect(await clarify("all-removed")).toMatchObject(missing);
+    const replay = await clarify("accepted");
+    expect(replay.status).toBe(200);
+    expect(replay.body.task.id).toBe(clarified.body.task.id);
+  });
+
+  it.each(["stopped", "error"])("keeps clarification closed after a first %s attempt", async (status) => {
+    const { owner, boardId, agent } = await setup("first-" + status);
+    await owner("PUT", `/boards/${boardId}/agent`, { agentId: agent.id });
+    const start = () => owner("POST", `/boards/${boardId}/agent-threads`, { intent: "Start a map" });
+    const created = await start();
+    expect(created.status).toBe(202);
+    await store.updateAgentThreadMessageByTask({ taskId: created.body.task.id, status });
+    expect(await owner("POST", `/agent-threads/${created.body.thread.id}/messages`, {
+      intent: "Add context",
+    })).toMatchObject({ status: 409, body: { error: "DRAFT_NOT_AVAILABLE" } });
+    expect((await start()).status).toBe(202);
   });
 
   it("refuses room drafts on generic task and schedule endpoints", async () => {
@@ -235,6 +279,11 @@ suite("agent API", () => {
     });
     expect(created.status).toBe(201);
     expect(created.body.secret).toMatch(/^remo_agent_/);
+    const listed = await owner("GET", `/agents/${agent.id}/tokens`);
+    expect(listed.body.tokens[0].fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(listed.body.tokens[0].fingerprint).toBe(created.body.token.fingerprint);
+    expect(listed.body.tokens[0]).not.toHaveProperty("token_hash");
+    expect(JSON.stringify(listed.body)).not.toContain(created.body.secret);
 
     const anonymous = client();
     const me = await anonymous("GET", "/agent/me", undefined, {
@@ -685,6 +734,14 @@ suite("AI credentials and journal", () => {
     const runs = await owner("GET", `/orgs/${orgId}/ai/runs`);
     expect(runs.status).toBe(200);
     expect(runs.body.runs.length).toBeGreaterThan(0);
+    const summary = await owner("GET", `/orgs/${orgId}/ai/runs/summary`);
+    expect(summary.body.calls).toBe(runs.body.runs.length);
+    const download = await owner("GET", `/orgs/${orgId}/ai/runs/export.csv`);
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-disposition")).toContain("remuka-ai-journal.csv");
+    expect(download.body.split("\r\n")[0]).toContain("prev_hash,hash");
+    for (const row of runs.body.runs) expect(download.body).toContain(row.hash);
+
     const verify = await owner("GET", `/orgs/${orgId}/ai/runs/verify`);
     expect(verify.body).toMatchObject({ ok: true, brokenAt: null });
     expect(verify.body.checked).toBe(runs.body.runs.length);
@@ -814,6 +871,8 @@ suite("AI credentials and journal", () => {
     await member("POST", "/invitations/accept", {
       token: new URL(invite.body.url).searchParams.get("invite"),
     });
+    expect((await member("GET", `/orgs/${orgId}/ai/runs/summary`)).status).toBe(403);
+    expect((await member("GET", `/orgs/${orgId}/ai/runs/export.csv`)).status).toBe(403);
     expect((await member("GET", `/orgs/${orgId}/ai/runs`)).status).toBe(403);
     expect((await member("GET", `/orgs/${orgId}/ai/runs/verify`)).status).toBe(403);
   });

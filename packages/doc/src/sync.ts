@@ -24,6 +24,10 @@ export interface ConnectOptions {
   user: PresenceUser;
   /** Cross-tab sync without a server round trip; harmless but noisy in tests. */
   disableBroadcast?: boolean;
+  /** Keep durability accounting when reconnecting the same authorised room document. */
+  checkpoint?: { local: number; acknowledged: number };
+  /** Wait for a fresh access decision before another WebSocket handshake. */
+  pauseOnAccessChange?: boolean;
   /**
    * Extra query parameters for the socket URL.
    *
@@ -159,13 +163,13 @@ export function connectBoard(
   const syncListeners = new Set<(synced: boolean) => void>();
   const saveListeners = new Set<(state: SaveState) => void>();
   let current: ConnectionStatus = "connecting";
+  let hasSynced = false;
 
   /**
    * Cumulative local update numbers. One ack covers every update up to its sequence,
    * so `pending` is just the difference and a reconnect does not need a queue table.
    */
-  let localSequence = 0;
-  let acknowledgedSequence = 0;
+  const checkpoint = options.checkpoint ?? { local: 0, acknowledged: 0 };
 
   const publish = (status: ConnectionStatus) => {
     if (status === current) return;
@@ -175,10 +179,11 @@ export function connectBoard(
   };
 
   const saveState = (): SaveState => {
-    const pending = Math.max(0, localSequence - acknowledgedSequence);
+    const pending = Math.max(0, checkpoint.local - checkpoint.acknowledged);
     return computeSaveState({
       connection: current,
       synced: provider.synced,
+      hasSynced,
       pending,
       blocked: pending >= OFFLINE_EDIT_LIMIT,
     });
@@ -190,10 +195,10 @@ export function connectBoard(
   };
 
   const requestAck = () => {
-    if (localSequence <= acknowledgedSequence) return;
+    if (checkpoint.local <= checkpoint.acknowledged) return;
     const socket = provider.ws;
     if (!socket || socket.readyState !== SOCKET_OPEN) return;
-    socket.send(encodeSaveAck(localSequence));
+    socket.send(encodeSaveAck(checkpoint.local));
   };
 
   /**
@@ -218,6 +223,7 @@ export function connectBoard(
     if (event.status === "connected") scheduleAck();
   });
   provider.on("sync", (synced: boolean) => {
+    if (synced) hasSynced = true;
     for (const listener of syncListeners) listener(synced);
     publishSave();
     if (synced) scheduleAck();
@@ -234,6 +240,7 @@ export function connectBoard(
       limitResetTimer = null;
     }
     if (event?.code === 4403 || event?.code === 4401) {
+      if (options.pauseOnAccessChange) provider.disconnect();
       options.onAccessChanged?.(event.code);
     }
     if (event?.code === CLOSE_MOVED) {
@@ -273,7 +280,7 @@ export function connectBoard(
    */
   const onLocalUpdate = (_update: Uint8Array, origin: unknown) => {
     if (origin === provider) return;
-    localSequence += 1;
+    checkpoint.local += 1;
     publishSave();
     if (current === "connected") requestAck();
   };
@@ -299,9 +306,9 @@ export function connectBoard(
     const sequence = decodeSaveAck(decoder.arr.subarray(decoder.pos - 1));
     if (sequence === null) return;
     decoder.pos += 4;
-    acknowledgedSequence = Math.max(
-      acknowledgedSequence,
-      Math.min(sequence, localSequence),
+    checkpoint.acknowledged = Math.max(
+      checkpoint.acknowledged,
+      Math.min(sequence, checkpoint.local),
     );
     publishSave();
   };

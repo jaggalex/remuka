@@ -232,9 +232,11 @@ export function VoteResults({
             </Button>
           )
         )}
-        <Button variant="secondary" disabled={busy} onClick={onNewSession}>
-          {t("facilitation.vote.newSession")}
-        </Button>
+        {canFacilitate && (
+          <Button variant="secondary" disabled={busy} onClick={onNewSession}>
+            {t("facilitation.vote.newSession")}
+          </Button>
+        )}
       </div>
     </section>
   );

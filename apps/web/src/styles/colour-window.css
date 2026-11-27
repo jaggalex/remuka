@@ -116,7 +116,7 @@
 }
 
 /* "None" is the absence of a border or a line: the checkerboard is crossed out. */
-.cw-swatch.is-none::after {
+:is(.cw-swatch, .sb-paint-sample).is-none::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -158,6 +158,17 @@
   margin: 0;
   font: var(--type-caption);
   color: var(--text-secondary);
+}
+
+/* A person's colour that nearly disappears on this ground, and the way out (ADR-273 §2.3). */
+.cw-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--state-warning);
 }
 
 .cw-row {

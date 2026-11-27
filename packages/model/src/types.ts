@@ -67,10 +67,11 @@ export interface WidgetStyle {
    */
   textColor?: string;
   /**
-   * How far a kanban, frame or shape stands off the board (ADR-245). Absent is flat; the
-   * painter takes the colour from tokens and the geometry from the level, nothing else.
+   * How far a kanban, frame or shape stands off the board (ADR-245, ADR-267). Absent is
+   * flat; the painter takes the colour from tokens and the geometry from the level,
+   * nothing else. "cardboard" is the hard ink shadow without blur.
    */
-  elevation?: "raised" | "floating";
+  elevation?: "raised" | "cardboard" | "floating";
 }
 
 /** Preset sizes a sticky note can be set to from the toolbar. */
@@ -181,6 +182,16 @@ export interface Widget extends Rect {
   shapeKind?: ShapeKind;
 
   /**
+   * Clockwise rotation of the whole object, in degrees (ADR-271, T18).
+   *
+   * Absent is 0. The value is read normalised into (−180, 180] and only a shape, a
+   * sticky note, free text, an image or a frame honours it; a table section is a
+   * frame but stays straight, and every other kind ignores the field. The pivot is
+   * the object's centre — the one point a rotation never moves.
+   */
+  rotation?: number;
+
+  /**
    * The stored picture of an `image` object (ADR-249, §3.2).
    *
    * Flat in the widget like every other field: there is no `props` container, and the
@@ -232,11 +243,13 @@ export interface Widget extends Rect {
   /**
    * Explicit position in the stacking order (ADR-039).
    *
-   * Absent means "wherever this type usually goes" (`layerKey` in layers.ts). Set by
+   * New objects receive an explicit layer on creation (ADR-285). In older rooms, absent means "wherever this type usually goes" (`layerKey` in layers.ts). Set by
    * bring-to-front and friends, and it is what makes the order a decision rather
    * than a side effect of the object's type.
    */
   z?: number;
+  /** Additional order only when adjacent numeric layers have no representable gap. */
+  zTie?: number;
 
   /**
    * Locked against moving, resizing, editing and deleting (ADR-040).

@@ -11,10 +11,11 @@
  * share this database, so the policy on the eight tenant tables is installed below and
  * `rls.test.mjs` proves the whole `rls.sql` on its own database.
  */
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { entitlementsFor, resetEntitlementCache } from "./billing.mjs";
+import { entitlementsFor } from "./billing.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 
 const opened = await testDatabaseStore("billing");
@@ -215,7 +216,6 @@ async function installBillingPolicies() {
 
 describe.skipIf(!store)("db:billing (ADR-247)", () => {
   beforeAll(async () => {
-    resetEntitlementCache();
     await seed();
     await installBillingPolicies();
   });
@@ -252,7 +252,7 @@ describe.skipIf(!store)("db:billing (ADR-247)", () => {
 
   it("applies schema 29 with the billing tables and the two new columns", async () => {
     const { rows: meta } = await store.pool.query("select version from schema_meta where id = 1");
-    expect(meta[0].version).toBe(39);
+    expect(meta[0].version).toBe(SCHEMA_VERSION);
 
     const billingTables = [
       "prices",
@@ -319,6 +319,26 @@ describe.skipIf(!store)("db:billing (ADR-247)", () => {
 
     expect(active).toBe(1);
     expect(other).toBe(1);
+  });
+
+  it("keeps the active state outside a partial room selection and enforces the shared limit", async () => {
+    const scoped = `scope-${orgA}`;
+    await store.pool.query(
+      "insert into boards (id, title, org_id, owner_id) values ($1, 'Picker room', $2, $3)",
+      [scoped, orgA, people.member],
+    );
+    try {
+      await store.setFrozenRooms(orgA, [], { scope: [scoped], max: 1 });
+      expect(await store.frozenRoomCount(orgA)).toBe(1);
+      expect((await store.pool.query("select frozen_at from boards where id = $1", [boardActive])).rows[0].frozen_at).toBeNull();
+      await expect(store.setFrozenRooms(orgA, [scoped], { scope: [scoped], max: 1 })).rejects.toMatchObject({ code: "ACTIVE_ROOM_LIMIT" });
+      await expect(store.setFrozenRooms(orgA, [boardOther], { scope: [boardOther], max: 2 })).rejects.toMatchObject({ code: "BOARD_NOT_FOUND" });
+      expect(await store.frozenRoomCount(orgA)).toBe(1);
+      await store.setFrozenRooms(orgA, [scoped], { scope: [scoped], max: 2 });
+      expect(await store.frozenRoomCount(orgA)).toBe(0);
+    } finally {
+      await store.pool.query("delete from boards where id = $1", [scoped]);
+    }
   });
 
   it("names every billing tenant table in rls.sql and the admin inventory", () => {

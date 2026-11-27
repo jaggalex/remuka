@@ -79,6 +79,7 @@ export interface AgentThreadMessage {
 export interface AgentThreadDetail {
   thread: AgentThreadSummary;
   messages: AgentThreadMessage[];
+  publishedFrameIds?: string[];
 }
 
 export interface RoomTaskBody {

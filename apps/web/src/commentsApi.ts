@@ -7,7 +7,7 @@ import { call } from "./api";
  * 800-line budget, and comments are one domain with their own DTOs.
  */
 export type CommentAnchor =
-  | { kind: "widget"; widgetId: string }
+  | { kind: "widget"; widgetId: string; fx?: number; fy?: number }
   | { kind: "point"; x: number; y: number };
 
 export interface CommentMessage {
@@ -58,6 +58,10 @@ export const commentsApi = {
     call<{ thread: CommentThread }>(board(boardId), {
       method: "POST",
       body: { anchor, body },
+    }),
+  move: (boardId: string, threadId: string, expected: CommentAnchor, anchor: CommentAnchor) =>
+    call<{ anchor: CommentAnchor }>(`${board(boardId)}/${encodeURIComponent(threadId)}/anchor`, {
+      method: "PATCH", body: { expected, anchor },
     }),
   reply: (boardId: string, threadId: string, body: string) =>
     call<{ comment: CommentMessage }>(

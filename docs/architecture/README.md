@@ -6,6 +6,7 @@ behaviour, the boundaries and the invariants; the numbered decisions behind them
 
 | Note | What it answers |
 |---|---|
+| [Container backup and restore](../operations/backup-restore.md) | the database, file state and KEK needed for a complete restore, with an isolated recovery checklist |
 | [Brand: name, addresses and the move](../../spec/rebrand.md) | the public name Ремука/Remuka, the cloud hosts, the code name `remo` that stays, and the transition from old addresses (ADR-254) |
 | [Design system](../design/DESIGN.md) | the visual language: tokens, components, canvas chrome, panels (ADR-181) |
 | [Design system v1](../../spec/design-system.md) | accessibility, localisation, keyboard model, grid and layers, glossary; its visual sections are replaced by DESIGN.md |

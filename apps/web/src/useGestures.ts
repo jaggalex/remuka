@@ -2,9 +2,10 @@ import type { GestureEnv } from "./gestureEnv";
 import { useGestureEnv } from "./gestureEnv";
 import { pointerDown } from "./gesturePointerDown";
 import { pointerMove } from "./gesturePointerMove";
-import { pointerUp } from "./gesturePointerUp";
+import { pointerCancel, pointerUp } from "./gesturePointerUp";
 import { doubleClick } from "./gestureDoubleClick";
 import type { GestureDeps, Gestures } from "./gestureTypes";
+import { useQuietWhileGesturing } from "./quietChrome";
 
 export type { GestureDeps, Gestures, ConnectDraft } from "./gestureTypes";
 
@@ -17,6 +18,16 @@ export type { GestureDeps, Gestures, ConnectDraft } from "./gestureTypes";
  */
 export function useGestures(deps: GestureDeps): Gestures {
   const env: GestureEnv = useGestureEnv(deps);
+  // One publisher for quiet chrome (ADR-266 §7): the gesture states, not the callers.
+  useQuietWhileGesturing(
+    env.dragIds.length > 0 ||
+      env.preview.size > 0 ||
+      env.marquee !== null ||
+      env.shapeDraft !== null ||
+      env.connectDraft !== null ||
+      env.rotationDraft !== null ||
+      env.dragPreview !== null,
+  );
   return {
     cursor: env.cursor,
     dragPreview: env.dragPreview,
@@ -25,6 +36,9 @@ export function useGestures(deps: GestureDeps): Gestures {
     tableHover: env.tableHover,
     tableRefused: env.tableRefused,
     marquee: env.marquee,
+    shapeDraft: env.shapeDraft,
+    rotationDraft: env.rotationDraft,
+    rotationHover: env.rotationHover,
     preview: env.preview,
     dragIds: env.dragIds,
     dragGhostIds: env.dragGhostIds,
@@ -42,6 +56,7 @@ export function useGestures(deps: GestureDeps): Gestures {
     onPointerDown: (event) => pointerDown(env, event),
     onPointerMove: (event) => pointerMove(env, event),
     onPointerUp: () => pointerUp(env),
+    onPointerCancel: event => pointerCancel(env, event),
     onDoubleClick: (event) => doubleClick(env, event),
     startConnect: (fromId, side, client) => {
       // The press already travelled past the click threshold on the "+", so this is a

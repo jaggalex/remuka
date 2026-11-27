@@ -1,4 +1,6 @@
 import type { Tag } from "@remo/model";
+import { CursorMotion } from "./cursorMotion";
+import { ObjectHand } from "./objectHand";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   prepareLayer,
@@ -8,12 +10,12 @@ import {
   type OverlayPaintInput,
 } from "./painters";
 import { canvasPaletteFromTokens } from "./canvasPalette";
-import { connectorResolver, type ContinuePreview } from "./canvasGeometry";
+import { connectorResolver, previewResolver, type ContinuePreview } from "./canvasGeometry";
 import { useProposalLayout } from "./proposalStore";
 import { imageFieldsOf, imageVariantFallbacks, imageVariantForWidget } from "@remo/canvas";
 import { boardImageCache } from "./imageCache";
 import type { Camera, KanbanLayout } from "@remo/canvas";
-import type { Presence } from "@remo/doc";
+import { colorForAccount, type Presence } from "@remo/doc";
 import type { KanbanState, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 import type { GridStyle } from "./BoardCanvas";
@@ -96,6 +98,7 @@ export function useCanvasPainting({
     dragPreview,
     guides,
     marquee,
+    rotationDraft,
   } = gestures;
 
   // Cards resolve their box through the kanban placement (ADR-113), so a connector
@@ -105,8 +108,21 @@ export function useCanvasPainting({
     [widgets, layouts],
   );
 
+  /**
+   * The resolver the painter uses: the document plus the gesture in flight.
+   *
+   * A connector is derived from its ends, so a line to a note being carried or turned
+   * has to read the same preview the note itself is painted from. Without this the
+   * line would stay behind until the drop, and a turn would look like the line
+   * detaching from the object (ADR-271, T18).
+   */
+  const resolveLive = useMemo(
+    () => previewResolver(resolveConnector, preview),
+    [preview, resolveConnector],
+  );
+
   // A plan under review is painted over the room (ADR-188).
-  const proposal = useProposalLayout(resolveConnector, viewport);
+  const proposal = useProposalLayout(resolveConnector, viewport, overlayRef);
 
   const paintStats = useRef({
     board: 0,
@@ -164,6 +180,7 @@ export function useCanvasPainting({
       fontCap: settings.notes.fontCap,
       shapeStrokeWidth: settings.shapes.strokeWidth,
       cardPlaceholder: t("kanban.cardPlaceholder"),
+      kanbanTitle: t("canvas.kanbanPlate"),
       timerExpired: t("facilitation.timer.timeUp"),
       imageUnavailable: t("canvas.imageUnavailable"),
       cardStatus: {
@@ -173,6 +190,7 @@ export function useCanvasPainting({
       },
       palette,
       tags: new Map(Object.values(tags).map((tag) => [tag.id, tag])),
+      assigneeColor: colorForAccount,
     }),
     // `fontsLoaded` is not read: a new theme object is what makes both layers repaint.
     [settings, t, palette, fontsLoaded, tags],
@@ -207,12 +225,18 @@ export function useCanvasPainting({
     return boardImageCache.status(fileId, variant) === "error";
   }, [camera.zoom]);
 
+  /** Paper in the hand (ADR-265 §4.2): hover lift, drag shadow and the release spring. */
+  const objectHand = useRef(new ObjectHand());
+  const boardAgain = useRef(false);
+
   const paintBoard = useCallback(() => {
     const canvas = boardRef.current;
     if (!canvas) return;
     const started = performance.now();
     const ctx = prepareLayer(canvas, viewport);
     if (!ctx) return;
+    // Paper in the hand (ADR-265 §4.2): the frame is the clock for hover and settle.
+    objectHand.current.update(started, { hoverId, dragIds, calm: motionReduced() });
     const input: BoardPaintInput = {
       ctx,
       camera,
@@ -228,14 +252,16 @@ export function useCanvasPainting({
       dragIds,
       dragGhostIds,
       draggedCardId,
-      resolve: resolveConnector,
+      resolve: resolveLive,
       isCardOfKanban,
       theme: paintTheme,
       editingId,
       image: imageOf,
       imageUnavailable: imageIsUnavailable,
+      hand: (id) => objectHand.current.handOf(id, started),
     };
     paintBoardLayer(input);
+    boardAgain.current = objectHand.current.moving(started);
     paintStats.current.board += 1;
     paintStats.current.lastBoardMs = performance.now() - started;
   }, [
@@ -247,6 +273,7 @@ export function useCanvasPainting({
     editingId,
     grid,
     groupNames,
+    hoverId,
     isCardOfKanban,
     layouts,
     paintTheme,
@@ -254,12 +281,24 @@ export function useCanvasPainting({
     selectedIds,
     settings,
     viewport,
-    resolveConnector,
+    resolveLive,
     widgets,
     isCardOfKanban,
     imageOf,
     imageIsUnavailable,
   ]);
+
+  /**
+   * Remote cursors move on springs (ADR-265, `cursorMotion.ts`). The overlay paint feeds
+   * the springs and asks for another frame while any cursor is still travelling; a still
+   * room costs nothing, and an idle threshold (dim at 10 s, hide at 60 s) wakes one paint.
+   */
+  const cursorMotion = useRef(new CursorMotion());
+  const cursorWake = useRef<number | null>(null);
+  const overlayAgain = useRef(false);
+  /** Late-bound: the flush defined below re-schedules itself through these. */
+  const scheduleRef = useRef<() => void>(() => {});
+  const cursorWakeRef = useRef<() => void>(() => {});
 
   const paintOverlay = useCallback(() => {
     const canvas = overlayRef.current;
@@ -267,6 +306,22 @@ export function useCanvasPainting({
     const started = performance.now();
     const ctx = prepareLayer(canvas, viewport);
     if (!ctx) return;
+    const reduced = motionReduced();
+    cursorMotion.current.ingest(presence, started);
+    const motion = cursorMotion.current.step(started, {
+      zoom: camera.zoom,
+      teleport: (1.5 * Math.max(viewport.width, viewport.height)) / Math.max(camera.zoom, 1e-6),
+      reduced,
+    });
+    // The agent's hull breathes while a person considers it (ADR-265 §4.2).
+    const proposalAlpha =
+      reduced || !proposal
+        ? 1
+        : 0.86 + 0.14 * Math.cos((started / 2400) * Math.PI * 2);
+    overlayAgain.current = motion.moving || (proposal != null && !reduced);
+    if (cursorWake.current != null) window.clearTimeout(cursorWake.current);
+    cursorWake.current =
+      motion.wakeIn == null ? null : window.setTimeout(() => cursorWakeRef.current(), motion.wakeIn + 20);
     const input: OverlayPaintInput = {
       ctx,
       camera,
@@ -286,14 +341,17 @@ export function useCanvasPainting({
       guides,
       marquee,
       presence,
-      resolve: resolveConnector,
+      resolve: resolveLive,
       theme: paintTheme,
       focusedWaypoint,
       proposal,
       presenting,
       continuePreview,
+      rotationDraft,
       image: imageOf,
       imageUnavailable: imageIsUnavailable,
+      cursorAt: (peer) => cursorMotion.current.view(peer.sessionKey, started, reduced),
+      proposalAlpha,
     };
     paintOverlayLayer(input);
     paintStats.current.overlay += 1;
@@ -316,10 +374,11 @@ export function useCanvasPainting({
     proposal,
     presenting,
     continuePreview,
+    rotationDraft,
     selectedIds,
     settings,
     viewport,
-    resolveConnector,
+    resolveLive,
     widgets,
     isCardOfKanban,
     imageOf,
@@ -374,6 +433,17 @@ export function useCanvasPainting({
         dirty.current.overlay = false;
         painters.current.overlay();
       }
+      // A cursor or a sheet still on its way asks for the next frame (ADR-265).
+      if (overlayAgain.current) {
+        overlayAgain.current = false;
+        dirty.current.overlay = true;
+        scheduleRef.current();
+      }
+      if (boardAgain.current) {
+        boardAgain.current = false;
+        dirty.current.board = true;
+        scheduleRef.current();
+      }
     } catch (error) {
       paintStats.current.error = String(error);
       dirty.current.board = true;
@@ -407,6 +477,8 @@ export function useCanvasPainting({
 
   const invalidateBoard = useCallback(() => invalidate({ board: true }), [invalidate]);
   const invalidateOverlay = useCallback(() => invalidate({ overlay: true }), [invalidate]);
+  scheduleRef.current = schedulePaint;
+  cursorWakeRef.current = invalidateOverlay;
 
   /**
    * A decoded picture is a reason to repaint, and the only one the document cannot
@@ -434,6 +506,7 @@ export function useCanvasPainting({
         draggedCardId,
         preview,
         clock,
+        hoverId,
       };
       const changed = Object.keys(now).filter((key) => boardDeps.current[key] !== now[key]);
       boardDeps.current = now;
@@ -454,6 +527,7 @@ export function useCanvasPainting({
     draggedCardId,
     preview,
     clock,
+    hoverId,
     // The painter is memoized by theme, settings, grid, group names and viewport;
     // invalidating on the painter is what repaints a theme or language change.
     paintBoard,
@@ -493,7 +567,44 @@ export function useCanvasPainting({
         window.clearTimeout(fallback.current);
         fallback.current = null;
       }
+      if (cursorWake.current != null) {
+        window.clearTimeout(cursorWake.current);
+        cursorWake.current = null;
+      }
+      objectHand.current.reset();
     };
   }, []);
-  return { invalidateBoard, invalidateOverlay, paintStats };
+  /**
+   * Where the overlay would draw each peer's cursor right now, in board units.
+   *
+   * The dev probe needs it: a cursor is a canvas shape, so a browser scenario cannot
+   * read it from the DOM, and the spring is the thing under test. The getter steps
+   * nothing — it reads the track the last paint left — so sampling cannot change what
+   * people see.
+   */
+  const cursorView = useCallback(
+    () =>
+      presence.flatMap((peer) => {
+        if (peer.self || !peer.cursor) return [];
+        const now = performance.now();
+        const view = cursorMotion.current.view(peer.sessionKey, now, motionReduced());
+        return view
+          ? [{ sessionKey: peer.sessionKey, label: peer.label ?? peer.name, ...view, target: { ...peer.cursor } }]
+          : [];
+      }),
+    [presence],
+  );
+
+  // The palette is the canvas's theme resolved from tokens; DOM layers over the canvas
+  // (the inline editor, the header fields) read the same one, or their text would be the
+  // theme's rather than the ink of the surface under them (ADR-273 §2.4).
+  return { invalidateBoard, invalidateOverlay, paintStats, cursorView, palette };
+}
+
+/** prefers-reduced-motion, or "calm animations" in the account settings (ADR-265). */
+function motionReduced(): boolean {
+  if (typeof document !== "undefined" && document.documentElement.dataset.motion === "calm") return true;
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
 }

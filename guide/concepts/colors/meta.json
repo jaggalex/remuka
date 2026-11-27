@@ -16,11 +16,11 @@
     "capabilities/canvas",
     "how-to/build-board"
   ],
-  "updated": "2026-11-02",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:22683dd2306eb645ce506f22a82515ece44699c71cf9b426fc9cc726e8cf4115",
-      "targetHash": "sha256:74f3fb037f41a089a237e32adfd24122f5be01d62d3fce1e940647e5a7f9359f"
+      "sourceHash": "sha256:3e06255127205c47110e692f3241e99637b927d2632576752781e0c00445b012",
+      "targetHash": "sha256:86f5522bc370c1873986668ec8da7040a8dd2efa6b5073c75de0b480022d52b1"
     }
   }
 }

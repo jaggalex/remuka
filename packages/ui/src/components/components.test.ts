@@ -47,6 +47,25 @@ describe("components render with the strings contract", () => {
     expect(render(el).length).toBeGreaterThan(20);
   });
 
+  it("draws the one brand mark with role fills and no filter (ADR-272)", () => {
+    const html = render(h(UI.BrandMark, { size: 24 }));
+    expect(html).toContain('viewBox="0 0 200 200"');
+    expect(html).toContain('width="24"');
+    expect(html).toContain("var(--brand-mark-circle)");
+    expect(html).toContain("var(--brand-mark-square)");
+    expect(html).toContain("var(--brand-mark-ink)");
+    expect(html.match(/<(?:circle|rect|path) /g)).toHaveLength(3);
+    expect(html).not.toContain("filter");
+    expect(html).toContain('aria-hidden="true"');
+  });
+
+  it("sets the wordmark at the landing ratio beside the mark (spec §3.8)", () => {
+    const html = render(h(UI.BrandMark, { size: 30, wordmark: "Ремука" }));
+    expect(html).toContain("rm-brand-word");
+    expect(html).toContain("Ремука");
+    expect(html).toContain("--rm-brand-size:30px");
+  });
+
   it("puts the role source next to the name (П7)", () => {
     expect(render(h(UI.AccessRow, { name: "Oleg", role: "editor", source: "Through team PM", locked: true }))).toContain("Through team PM");
   });
@@ -119,5 +138,51 @@ describe("countPrimary (П2)", () => {
   it("counts primary and danger buttons through fragments and wrappers", () => {
     const footer = h("div", null, h(UI.Button, { variant: "secondary" }), h(UI.Button, { variant: "primary" }), h(UI.Button, { variant: "danger" }));
     expect(UI.countPrimary(footer)).toBe(2);
+  });
+});
+
+describe("disclosure and danger zone (ADR-236, ADR-266 §10)", () => {
+  it("renders a folded group with its current value and a body", () => {
+    const html = render(
+      h(UI.Disclosure, { label: "More settings", value: "2" }, h("span", null, "body")),
+    );
+    expect(html).toContain("<details");
+    expect(html).toContain("rm-disclosure");
+    expect(html).toContain("More settings");
+    expect(html).toContain("2");
+    expect(html).toContain("body");
+  });
+
+  it("renders the danger zone with the consequence in words", () => {
+    const html = render(
+      h(
+        UI.DangerZone,
+        { title: "Delete", description: "You can undo with Cmd Z" },
+        h("button", null, "Delete"),
+      ),
+    );
+    expect(html).toContain("rm-danger-zone");
+    expect(html).toContain('aria-label="Delete"');
+    expect(html).toContain("You can undo with Cmd Z");
+    expect(html).toContain("<button>Delete</button>");
+  });
+});
+
+describe("the toaster's rules (ADR-319)", () => {
+  it("lets feedback leave after 5 s and keeps warnings and errors until closed", () => {
+    expect(UI.TOAST_DURATION_MS).toBe(5000);
+    expect(UI.TOAST_LIMIT).toBe(3);
+    expect(UI.defaultToastDuration("success")).toBe(5000);
+    expect(UI.defaultToastDuration("neutral")).toBe(5000);
+    expect(UI.defaultToastDuration("warning")).toBeNull();
+    expect(UI.defaultToastDuration("danger")).toBeNull();
+  });
+
+  it("renders an empty, labelled region and does nothing outside a provider", () => {
+    expect(render(h(UI.ToastProvider, null, h("p", null, "page")))).toContain('<section class="rm-toaster" aria-label="notifications"></section>');
+    let api: ReturnType<typeof UI.useToast> | null = null;
+    const Probe = () => { api = UI.useToast(); return null; };
+    render(h(Probe));
+    expect(api!.show({ id: "x", body: "hi" })).toBe("x");
   });
 });

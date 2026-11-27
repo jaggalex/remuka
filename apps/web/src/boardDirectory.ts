@@ -11,10 +11,12 @@ export interface BoardTile {
   orgId: string;
   title: string;
   icon: string;
+  coverUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   visibility: string;
   archivedAt: string | null;
+  frozen?: boolean;
   teamId: string | null;
   teamName: string | null;
   createdByName: string | null;
@@ -34,6 +36,7 @@ export interface BoardDirectoryPage {
 
 export function boardDirectory(params: {
   org: string;
+  team?: string;
   q?: string;
   sort?: "updated" | "created" | "name" | "author";
   dir?: "asc" | "desc";
@@ -42,6 +45,7 @@ export function boardDirectory(params: {
   trash?: boolean;
 }): Promise<BoardDirectoryPage> {
   const query = new URLSearchParams({ org: params.org });
+  if (params.team) query.set("team", params.team);
   if (params.q) query.set("q", params.q);
   if (params.sort) query.set("sort", params.sort);
   if (params.dir) query.set("dir", params.dir);

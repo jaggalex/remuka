@@ -1,4 +1,4 @@
-import type { CardFields, CardStatus } from "@remo/model";
+import type { CardFields, CardStatus, Widget, WidgetStyle } from "@remo/model";
 import type { BoardDocument } from "./board";
 
 /**
@@ -67,6 +67,34 @@ export function setCardFields(
     else delete next.tagIds;
   }
 
+  board.transact(() => board.widgets.set(cardId, next));
+}
+
+/**
+ * A card's own fill, or `null` for "same as the column" (ADR-267 §2.1).
+ *
+ * A card without a colour reads its column when it is painted, so the document stays
+ * silent about it and a move recolours the card by itself. Choosing a colour writes
+ * `style.fillColor`, which then wins over the column and survives a move; "same as the
+ * column" deletes it again. The card is a canvas object, so the value is the palette's
+ * hex, not a token.
+ */
+export function setCardFill(
+  board: BoardDocument,
+  cardId: string,
+  color: string | null,
+): void {
+  const current = board.readWidget(cardId);
+  if (!current || current.type !== "card" || current.locked) return;
+
+  const style: WidgetStyle = { ...current.style };
+  if (color) style.fillColor = color;
+  else delete style.fillColor;
+  if (JSON.stringify(style) === JSON.stringify(current.style ?? {})) return;
+
+  const next: Widget = { ...current };
+  if (Object.keys(style).length) next.style = style;
+  else delete next.style;
   board.transact(() => board.widgets.set(cardId, next));
 }
 

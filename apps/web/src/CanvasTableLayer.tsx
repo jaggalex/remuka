@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { BoardDocument } from "@remo/doc";
-import type { Camera } from "@remo/canvas";
+import type { Camera, CanvasPalette } from "@remo/canvas";
 import type { Widget } from "@remo/model";
 import { TableCellMenu, type TableCellMenuState } from "./TableCellMenu";
 import { SectionLayoutDialog } from "./SectionLayoutDialog";
@@ -31,6 +31,7 @@ export function CanvasTableLayer({
   readOnly,
   presenting,
   menu,
+  palette,
 }: {
   board: BoardDocument;
   widgets: Widget[];
@@ -42,6 +43,8 @@ export function CanvasTableLayer({
   readOnly: boolean;
   presenting: boolean;
   menu: TableCellMenuState;
+  /** The canvas palette, for the ink of the section title (ADR-273). */
+  palette: CanvasPalette;
 }) {
   const { t } = useI18n();
   const selection = menu.point ? tableCellSelection() : null;
@@ -82,6 +85,7 @@ export function CanvasTableLayer({
         presenting={presenting}
         onSelect={onSelect}
         onNotice={onNotice}
+        palette={palette}
       />
       <TableSelectionLayer
         board={board}

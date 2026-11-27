@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import {
   clampTimerMs,
   TIMER_DEFAULT_MS,
@@ -53,7 +54,7 @@ export function createTimer(
     },
   };
   board.transact(() => {
-    board.widgets.set(id, {
+    insertNewWidget(board.widgets, {
       ...widget,
       ...(board.author && !widget.createdBy ? { createdBy: board.author } : {}),
       createdAt: Date.now(),

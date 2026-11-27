@@ -8,13 +8,16 @@
  *   pnpm billing:providers create --provider manual --mode live --currency RUB \
  *        --groups invoice --name "Счёт" --activate
  *   pnpm billing:providers set <id> --priority 10 --settings vat_code=1,tax_system_code=2
+ *   pnpm billing:providers verify <id>
+ *   pnpm billing:providers secret <id> [--secret-file <json>]
  *   pnpm billing:providers activate|pause|resume|retire|disable <id> --reason "..."
  *   pnpm billing:providers webhook-url <id>
  *
- * A secret is never an argument: it comes from `--secret-file` (JSON) so it cannot end up
- * in shell history or in a process listing. Only the fingerprint is printed. `manual`
- * needs no secret at all; the refusal for a provider without one is the adapter's, not a
- * hardcoded list here.
+ * A secret is never an argument: it comes from `--secret-file` (JSON) or a hidden prompt
+ * so it cannot end up in shell history or in a process listing. Only the fingerprint is
+ * printed. `manual` needs no secret at all; the refusal for a provider without one is the
+ * adapter's, not a hardcoded list here. The KEK is opened only by the commands that
+ * actually seal or unseal a secret, so `list` and `webhook-url` work without it.
  *
  * Parsing is exported and pure, so every operator typo is a unit test without a database.
  */
@@ -22,19 +25,20 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { PostgresStore } from "../apps/sync/postgres.mjs";
+import {
+  requireOperatorActor,
+  requireOperatorActorValue,
+} from "../apps/sync/operator-role.mjs";
+import { fakeProviderEnabled } from "../apps/sync/pay-fake.mjs";
+import { openConnectionSecret } from "../apps/sync/payment-connections.mjs";
 import {
   METHOD_GROUPS,
   MODES,
   PROVIDERS,
 } from "../apps/sync/pg/payment-providers.mjs";
-import { fakeProviderEnabled } from "../apps/sync/pay-fake.mjs";
+import { PostgresStore } from "../apps/sync/postgres.mjs";
 import { encryptSecret, fingerprintSecret, kekFromEnv } from "../apps/sync/secrets.mjs";
 import { assertLiveBillingAllowed } from "../apps/sync/stage.mjs";
-import {
-  requireOperatorActor,
-  requireOperatorActorValue,
-} from "../apps/sync/operator-role.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -50,16 +54,26 @@ export const PROVIDER_USAGE = `usage:
        [--secret-file <json>] [--activate] --as <operator>
   pnpm billing:providers set <connection-id> [--priority <n>] [--currency <ISO>]
        [--groups <group>[,<group>]] [--settings key=value[,key=value]] --as <operator>
+  pnpm billing:providers verify <connection-id>
+  pnpm billing:providers secret <connection-id> [--secret-file <json>] [--reason "..."] --as <operator>
   pnpm billing:providers activate|pause|resume|retire|disable <connection-id> [--reason "..."] --as <operator>
   pnpm billing:providers webhook-url <connection-id>
 
   --secret-file is a JSON object of the adapter's secret fields; it is sealed with
-  REMO_KEK and only its fingerprint is printed. A secret is never accepted as a flag.
+  REMO_KEK and only its fingerprint is printed. A secret is never accepted as a flag:
+  without --secret-file, "secret" reads one JSON object from a terminal without echo.
+  create probes the provider after validating the configuration; a failed probe leaves
+  the connection in draft and exits 1 with the reason. verify probes an existing
+  connection and records the answer; it never moves the lifecycle status.
+  secret replaces the sealed keys, records an audit row and probes the new ones.
   activate, pause, resume, retire and disable move one step of the lifecycle; pause,
   retire and disable require --reason. disable refuses while live subscriptions remain.
-  webhook-url prints REMO_APP_ORIGIN/billing/webhooks/<id>/<token>.
+  webhook-url prints REMO_APP_ORIGIN/api/billing/webhooks/<id>/<token>: the public
+  application origin proxies /api/ to the service, so the provider's URL carries it.
   Every command that writes a row names its author with --as (REMO_OPERATOR is the
-  fallback); list and webhook-url only read and need none.`;
+  fallback); list, verify and webhook-url only read and need none. REMO_KEK is required
+  by create with a secret, secret and verify of a connection that has one; list,
+  webhook-url and a manual verify work without it.`;
 
 /** One command's lifecycle step, so the CLI and the store agree on the edges. */
 const STATUS_COMMANDS = Object.freeze({
@@ -70,8 +84,7 @@ const STATUS_COMMANDS = Object.freeze({
   disable: { to: "disabled", from: ["active", "paused", "retiring"], needsReason: true },
 });
 
-/** Flags may repeat; a comma-separated value is the same as repeating the flag. */
-function readFlags(args, booleans = new Set()) {
+/** Flags may repeat; a comma-separated value is the same as repeating the flag. */function readFlags(args, booleans = new Set()) {
   const flags = new Map();
   const positionals = [];
   for (let index = 0; index < args.length; index += 1) {
@@ -190,6 +203,19 @@ function priorityOf(flags) {
   return value;
 }
 
+/**
+ * The address the provider posts to.
+ *
+ * The provider calls the application origin, and the web container proxies `/api/` to
+ * the service: the service's own route (`/billing/webhooks/…`) is not reachable from
+ * outside without that prefix. A URL without it lands in the app's fallback page, which
+ * answers 200 and applies nothing — the most silent failure a payment can have.
+ */
+export function webhookUrlFor(origin, connection) {
+  const base = String(origin ?? "http://localhost:5173").replace(/\/$/, "");
+  return `${base}/api/billing/webhooks/${connection.id}/${connection.webhookToken}`;
+}
+
 /** `--as` exactly as typed; empty is a typo, not a fallback. */
 function actorFlag(flags) {
   const value = flags.has("as") ? String(flags.get("as")).trim() : null;
@@ -282,6 +308,30 @@ export function parseProviderArgs(argv) {
     };
   }
 
+  if (command === "verify") {
+    rejectUnknown(flags, [], "verify");
+    const id = connectionId(positionals[0], "verify");
+    if (positionals.length > 1) throw new Error("verify takes one connection id");
+    return { command, id };
+  }
+
+  if (command === "secret") {
+    rejectUnknown(flags, ["secret-file", "reason", "as"], "secret");
+    const id = connectionId(positionals[0], "secret");
+    // A second value would be a key typed into the shell, which is the thing this
+    // command exists to avoid. Refuse it explicitly instead of ignoring it.
+    if (positionals.length > 1) {
+      throw new Error("secret takes one connection id: the key comes from --secret-file or a prompt");
+    }
+    return {
+      command,
+      id,
+      secretFile: one(flags, "secret-file") ? String(one(flags, "secret-file")) : null,
+      reason: reasonOf(flags, "secret", { required: false }),
+      as: actorFlag(flags),
+    };
+  }
+
   if (Object.hasOwn(STATUS_COMMANDS, command)) {
     const spec = STATUS_COMMANDS[command];
     rejectUnknown(flags, ["reason", "as"], command);
@@ -313,6 +363,7 @@ export function parseProviderArgs(argv) {
  */
 const ADAPTERS = Object.freeze({
   manual: () => import("../apps/sync/pay-manual.mjs"),
+  yookassa: () => import("../apps/sync/pay-yookassa.mjs"),
 });
 
 async function loadAdapter(provider) {
@@ -343,17 +394,93 @@ async function readSecretFile(path) {
   } catch (error) {
     throw new Error(`--secret-file: cannot read ${path} (${error.code ?? error.message})`);
   }
+  return parseSecretText(text, "--secret-file");
+}
+
+function parseSecretText(text, source) {
   let parsed;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("--secret-file must contain one JSON object");
+    throw new Error(`${source} must contain one JSON object`);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("--secret-file must contain one JSON object");
+    throw new Error(`${source} must contain one JSON object`);
   }
   return parsed;
 }
+
+/**
+ * The key never appears on screen, in the shell history or in the process list.
+ *
+ * Raw mode turns the terminal's own echo off; the characters are collected here and only
+ * the parsed object leaves this function. A pipeline cannot answer a hidden prompt, so
+ * `--secret-file` is the only non-interactive path — deliberately, not as an oversight.
+ */
+export async function readSecretFromTerminal({
+  input = process.stdin,
+  output = process.stderr,
+  prompt = "secret JSON (not echoed): ",
+} = {}) {
+  if (!input.isTTY) {
+    throw new Error(
+      "secret needs a terminal: type it at the prompt, or pass --secret-file <json> from a file only its owner can read",
+    );
+  }
+  const wasRaw = Boolean(input.isRaw);
+  output.write(prompt);
+  const text = await new Promise((resolve, reject) => {
+    let typed = "";
+    const finish = (error, value) => {
+      input.off("data", onData);
+      input.setRawMode(wasRaw);
+      input.pause();
+      output.write("\n");
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const onData = (chunk) => {
+      for (const char of String(chunk)) {
+        if (char === "\r" || char === "\n") {
+          finish(null, typed);
+          return;
+        }
+        if (char === "\u0003") {
+          finish(new Error("cancelled at the prompt; the secret was not changed"));
+          return;
+        }
+        if (char === "\u007f" || char === "\b") {
+          typed = typed.slice(0, -1);
+          continue;
+        }
+        typed += char;
+      }
+    };
+    input.setRawMode(true);
+    input.resume();
+    input.on("data", onData);
+  });
+  if (!text.trim()) throw new Error("no secret was entered; nothing was changed");
+  return parseSecretText(text, "the prompted secret");
+}
+
+/** The KEK is read only by a command that really seals or opens a secret. */
+function requireKek() {
+  const kek = kekFromEnv();
+  if (!kek) {
+    throw new Error(
+      "REMO_KEK is required (32 bytes, base64) to open or seal a connection secret; see docs/self-hosting",
+    );
+  }
+  return kek;
+}
+
+/** The connection as an adapter sees it: public fields plus the opened secret. */
+function withOpenSecret(connection, kek) {
+  if (!connection.has_secret) return { ...connection, secret: {} };
+  return { ...connection, secret: openConnectionSecret(connection, { kek }) };
+}
+
 
 function openStore() {
   const connectionString = process.env.DATABASE_URL;
@@ -387,13 +514,8 @@ async function main(argv) {
   // A stand never gets a live connection (`spec/stage.md` §5). Refused before the
   // database is opened, so a half-created row cannot exist.
   if (args.command === "create") assertLiveBillingAllowed(args.mode);
-  const writes = ["create", "set", ...Object.keys(STATUS_COMMANDS)].includes(args.command);
+  const writes = ["create", "set", "secret", ...Object.keys(STATUS_COMMANDS)].includes(args.command);
   const actorValue = writes ? requireOperatorActorValue(args.as) : null;
-
-  // The KEK is required even for `list`: a shell without it can read the table, but an
-  // operator who believes secrets work should learn here, not at the first checkout.
-  const kek = kekFromEnv();
-  if (!kek) throw new Error("REMO_KEK is required (32 bytes, base64); see docs/self-hosting");
 
   const store = openStore();
   await store.connect();
@@ -402,7 +524,7 @@ async function main(argv) {
     if (args.command === "list") {
       const rows = await store.listConnections();
       if (rows.length === 0) {
-        console.log("[billing:providers] no connections yet; create one with `pnpm billing:providers create ...`");
+        console.log("[billing:providers] no connections yet; create one with `billing-providers create ...`");
         return;
       }
       for (const row of rows) printConnection(row);
@@ -428,6 +550,13 @@ async function main(argv) {
         console.warn(`[billing:providers] warning: ${problem.field}: ${problem.message}`);
       }
 
+      // A key that cannot reach the shop still creates the row, but it must not be
+      // activated: the first payer would discover the problem instead of the operator.
+      const probe =
+        args.provider === "manual"
+          ? { ok: true, detail: "manual: no provider API to check" }
+          : await adapter.healthCheck({ provider: args.provider, settings: args.settings, secret });
+
       const id = randomUUID();
       let sealed = null;
       if (args.secretFile) {
@@ -435,7 +564,7 @@ async function main(argv) {
         // The AAD binds the envelope to this id, provider and scope; the plaintext is
         // dropped with this block and never printed.
         sealed = {
-          ...encryptSecret(text, { scope: "connection", scopeId: id, provider: args.provider, id, kek }),
+          ...encryptSecret(text, { scope: "connection", scopeId: id, provider: args.provider, id, kek: requireKek() }),
           fingerprint: fingerprintSecret(text),
         };
       }
@@ -460,8 +589,22 @@ async function main(argv) {
         reason: "payment connection created from the operator's shell",
       });
       console.log(`[billing:providers] created ${created.id} (${created.status})`);
+      if (args.provider !== "manual") {
+        await store.setConnectionHealth(created.id, {
+          ok: probe.ok,
+          error: probe.ok ? null : probe.detail,
+        });
+      }
       let result = created;
-      if (args.activate) {
+      if (!probe.ok) {
+        // No --activate, no status change: the row stays `draft` and the exit code says
+        // the connection is not usable yet.
+        console.error(`[billing:providers] health check failed: ${probe.detail}`);
+        console.error(
+          "[billing:providers] the connection stays draft; fix the keys with `secret` and run `verify`",
+        );
+        process.exitCode = 1;
+      } else if (args.activate) {
         result = await store.setConnectionStatus(created.id, {
           from: "draft",
           to: "active",
@@ -496,6 +639,84 @@ async function main(argv) {
         reason: "payment connection settings changed from the operator's shell",
       });
       console.log("[billing:providers] updated");
+      printConnection(updated);
+      return;
+    }
+
+    if (args.command === "verify") {
+      const connection = await store.connectionById(args.id);
+      if (!connection) throw new Error(`connection ${args.id} does not exist`);
+      const adapter = await loadAdapter(connection.provider);
+      const conn = withOpenSecret(connection, connection.has_secret ? requireKek() : null);
+      const health = await adapter.healthCheck(conn);
+      // A probe is a fact about the connection, not a lifecycle event: the status stays
+      // exactly as it was. `list` shows the answer in `last health`.
+      await store.setConnectionHealth(connection.id, {
+        ok: health.ok,
+        error: health.ok ? null : health.detail,
+      });
+      if (!health.ok) {
+        console.error(`[billing:providers] ${connection.id} failed: ${health.detail}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`[billing:providers] ${connection.id} ok: ${health.detail}`);
+      return;
+    }
+
+    if (args.command === "secret") {
+      const connection = await store.connectionById(args.id);
+      if (!connection) throw new Error(`connection ${args.id} does not exist`);
+      if (connection.provider === "manual") {
+        throw new Error("manual needs no secret; refuse to store an unused key");
+      }
+      const adapter = await loadAdapter(connection.provider);
+      const secret = args.secretFile ? await readSecretFile(args.secretFile) : await readSecretFromTerminal();
+      const problems = adapter.validateConfig(connection.settings, secret);
+      if (problems.length > 0) {
+        // Rotating to an incomplete secret would break a connection that works today.
+        for (const problem of problems) {
+          console.error(`[billing:providers] ${problem.field}: ${problem.message}`);
+        }
+        throw new Error("the secret is incomplete; nothing was changed");
+      }
+      const text = JSON.stringify(secret);
+      const reason = args.reason ?? "connection secret rotated from the operator's shell";
+      const updated = await store.rotateConnectionSecret(
+        connection.id,
+        {
+          ...encryptSecret(text, {
+            scope: "connection",
+            scopeId: connection.id,
+            provider: connection.provider,
+            id: connection.id,
+            kek: requireKek(),
+          }),
+          fingerprint: fingerprintSecret(text),
+        },
+        { reason, actorId: actor.id },
+      );
+      await store.recordAudit({
+        actorId: actor.id,
+        action: "billing.provider_secret_rotated",
+        subject: updated.id,
+        after: { fingerprint: updated.secret_fingerprint },
+        reason,
+      });
+      console.log(
+        `[billing:providers] rotated ${updated.id}; secret ${updated.secret_fingerprint ?? "?"}`,
+      );
+      const health = await adapter.healthCheck({ ...updated, secret });
+      await store.setConnectionHealth(updated.id, {
+        ok: health.ok,
+        error: health.ok ? null : health.detail,
+      });
+      if (!health.ok) {
+        console.error(`[billing:providers] health check failed: ${health.detail}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`[billing:providers] ${updated.id} ok: ${health.detail}`);
       printConnection(updated);
       return;
     }
@@ -542,8 +763,7 @@ async function main(argv) {
     if (args.command === "webhook-url") {
       const connection = await store.connectionById(args.id);
       if (!connection) throw new Error(`connection ${args.id} does not exist`);
-      const origin = String(process.env.REMO_APP_ORIGIN ?? "http://localhost:5173").replace(/\/$/, "");
-      console.log(`${origin}/billing/webhooks/${connection.id}/${connection.webhookToken}`);
+      console.log(webhookUrlFor(process.env.REMO_APP_ORIGIN, connection));
     }
   } finally {
     await store.close().catch(() => {});

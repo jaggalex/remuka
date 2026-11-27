@@ -1,5 +1,7 @@
+import { creationLayers, withLayer } from "@remo/model/stacking";
 import {
   bounds,
+  paintOrder,
   newId,
   type Board,
   type KanbanState,
@@ -71,6 +73,10 @@ export function insertTemplate(
   }
 
   board.transact(() => {
+    const sourceOrder = paintOrder(template.widgets).map(widget => ({
+      ...widget, x: widget.x + offset.x, y: widget.y + offset.y,
+    }));
+    const layers = creationLayers(board, sourceOrder);
     for (const widget of template.widgets) {
       const id = idMap.get(widget.id)!;
       const parentId = widget.parentId ? (idMap.get(widget.parentId) ?? null) : null;
@@ -78,7 +84,7 @@ export function insertTemplate(
       const end = widget.end?.item ? idMap.get(widget.end.item) : undefined;
       const groupId = widget.groupId ? groupMap.get(widget.groupId) : undefined;
       const next = {
-        ...widget,
+        ...withLayer(widget, layers.get(widget.id)!),
         id,
         parentId,
         x: widget.x + offset.x,

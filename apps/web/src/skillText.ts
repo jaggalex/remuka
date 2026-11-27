@@ -11,3 +11,8 @@ const KEYS: Record<string, TranslationKey> = {
 export function skillDescriptionKey(slug: string): TranslationKey | null {
   return KEYS[slug] ?? null;
 }
+
+/** User-defined skills keep the display name supplied by the organisation. */
+export function skillNameKey(slug: string): TranslationKey | null {
+  return KEYS[slug] ? `agents.skill.${slug}.name` as TranslationKey : null;
+}

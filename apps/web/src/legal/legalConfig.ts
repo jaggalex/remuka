@@ -13,6 +13,7 @@ export type LegalStatus = "draft" | "published";
 
 export interface LegalDocumentConfig {
   readonly doc: string;
+  readonly changes?: Partial<Record<"ru" | "en", string>>;
   readonly zone: string;
   readonly version: number;
   readonly sha256: string;
@@ -57,7 +58,15 @@ function documentOf(value: unknown): LegalDocumentConfig | null {
   if (!url) return null;
   const effective =
     typeof raw.effective === "string" && DATE.test(raw.effective) ? raw.effective : null;
+  const changes: Partial<Record<"ru" | "en", string>> = {};
+  if (raw.changes && typeof raw.changes === "object") {
+    for (const lang of ["ru", "en"] as const) {
+      const text = (raw.changes as Record<string, unknown>)[lang];
+      if (typeof text === "string" && text.trim()) changes[lang] = text;
+    }
+  }
   return {
+    ...(changes.ru || changes.en ? { changes } : {}),
     doc: raw.doc,
     zone: raw.zone,
     version: raw.version as number,
@@ -85,6 +94,20 @@ export function readLegalConfig(value: unknown): LegalDocumentConfig[] {
     result.push(document);
   }
   return result;
+}
+
+/**
+ * The offer a payer accepts: the installation's own document first.
+ *
+ * The zone names it differently — `offer` in the Russian installation, `terms` in the
+ * European one — so the screen asks for either and never builds the address from the
+ * guide. The guide is only the fallback for an installation that publishes no offer yet.
+ */
+export function offerDocumentUrl(
+  documents: readonly LegalDocumentConfig[],
+): string | null {
+  const offer = documents.find((document) => document.doc === "offer" || document.doc === "terms");
+  return offer?.url ?? null;
 }
 
 /** The documents the registration form must show as checkboxes (§2, §3). */

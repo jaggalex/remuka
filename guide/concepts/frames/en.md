@@ -22,7 +22,7 @@ objects move with the frame        a card belongs to a cell
 
 ## Frame
 
-A frame is a container. An object whose centre lands inside the frame becomes part of it and moves with it; drag it outside and it lives separately again. If frames overlap, the object joins the smaller one. Frame bounds do not clip the object — it stays visible even if it has gone beyond the edge.
+A frame is a container. An object whose centre lands inside the frame becomes part of it and moves with it; drag it outside and it lives separately again. If frames overlap, the object joins the smaller one. Frame bounds do not clip the object — it stays visible even if it has gone beyond the edge. A frame's name is an ink plate over its top-left corner and its handle at the same time: drag or click it to move and select the frame, and a double click renames it.
 
 A frame can lie in a frame too. It becomes nested when it fits wholly inside another frame: for a frame, the centre is not enough. A nested frame moves with its parent, with everything in it, is drawn above its parent and is picked by a click inside it. When a frame is deleted and its contents kept, its nested frames and objects go to its own parent. A table section takes no frames: its objects live in cells.
 

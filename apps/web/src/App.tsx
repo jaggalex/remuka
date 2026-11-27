@@ -1,8 +1,12 @@
+import { OrganisationPage } from "./OrganisationPage";
+import { organisationTab } from "./organisationRoute";
 import { BoardApp } from "./BoardApp";
 import { CookiePolicyPage } from "./CookiePolicyPage";
+import { AccountSettingsPage } from "./AccountSettingsPage";
 import { LegalDocumentsPage } from "./legal/LegalDocumentsPage";
 import { LegalProvider } from "./legal/LegalProvider";
 import { FakePaymentPage } from "./FakePaymentPage";
+import { SignUpScreen } from "./SignUpScreen";
 import { WorkspaceHome } from "./WorkspaceHome";
 import { roomFromUrl } from "./identity";
 import { readMailLinks } from "./mailLinks";
@@ -22,6 +26,17 @@ export function App() {
   const fakePay = params.get("fake_pay");
   const inviteToken = params.get("invite");
   const mail = readMailLinks();
+
+  // Registration is a page of its own (ADR-265 stage 3, ADR-286): the paper aside and the
+  // consents are part of the screen, not a dialog over a home. A stale `?room=` must not
+  // put a canvas behind it.
+  if (params.get("signup") === "1") {
+    return (
+      <Contained scope="panel">
+        <SignUpScreen />
+      </Contained>
+    );
+  }
 
   // `?legal=cookies` is the policy page (ADR-255 §6.4). It is a document, not a room:
   // it wins over a stale `?room=`, an invitation and a fake payment redirect.
@@ -44,6 +59,13 @@ export function App() {
         </LegalProvider>
       </Contained>
     );
+  }
+
+  const orgSection = organisationTab(location.pathname);
+  if (orgSection) return <Contained scope="panel"><LegalProvider><OrganisationPage tab={orgSection} /></LegalProvider></Contained>;
+
+  if (params.get("account") === "1") {
+    return <Contained scope="panel"><LegalProvider><AccountSettingsPage /></LegalProvider></Contained>;
   }
 
   // The fake provider's redirect lands before any workspace: completing a test payment

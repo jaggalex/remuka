@@ -108,7 +108,6 @@ test("the bar formats the caret's line while editing and shows what is pressed",
 
   const bar = page.getByRole("toolbar", { name: "Object properties" });
   const bullet = bar.getByRole("button", { name: /^Bulleted list/ });
-  const heading = bar.getByRole("button", { name: /^Heading 2/ });
 
   // The caret is on the second line: only that line becomes a list.
   await bullet.click();
@@ -122,7 +121,12 @@ test("the bar formats the caret's line while editing and shows what is pressed",
     },
   ]);
 
-  // Another format on the same line replaces it, and the pressed state follows.
+  // T8: the bar keeps six controls; the heading lives behind «⋯», in the panel.
+  await bar.getByRole("button", { name: "More actions" }).click();
+  await page.locator("aside.inspector details.properties-more > summary").click();
+  const heading = page
+    .locator("aside.inspector")
+    .getByRole("button", { name: /^Heading 2/ });
   await heading.click();
   await expect(heading).toHaveAttribute("aria-pressed", "true");
   await expect(bullet).toHaveAttribute("aria-pressed", "false");
@@ -144,8 +148,8 @@ test("⌘K validates and applies a link, ⌘E toggles inline code", async ({ pag
 
   await page.getByRole("button", { name: "Sticky note", exact: true }).click();
   await page.locator(".inline-editor").fill("ссылка");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+k");
 
   const dialog = page.getByRole("dialog", { name: "Link" });
   await expect(dialog).toBeVisible();
@@ -154,8 +158,8 @@ test("⌘K validates and applies a link, ⌘E toggles inline code", async ({ pag
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(editor).toBeFocused();
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+k");
   await expect(dialog).toBeVisible();
 
   const address = dialog.getByLabel("Address");
@@ -174,20 +178,20 @@ test("⌘K validates and applies a link, ⌘E toggles inline code", async ({ pag
 
   // On the link the same keys offer removal, and the text stays.
   await editor.locator("a").click();
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("ControlOrMeta+k");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Remove link" }).click();
   await expect(editor.locator("a")).toHaveCount(0);
   await expect(editor).toHaveText("ссылка");
 
   // ⌘E is inline code, and it toggles back.
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+e");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+e");
   await expect(editor.locator("code")).toHaveText("ссылка");
   await expect.poll(() => notes(page)).toMatchObject([
     { runs: [{ text: "ссылка", code: true }] },
   ]);
-  await page.keyboard.press("Meta+e");
+  await page.keyboard.press("ControlOrMeta+e");
   await expect(editor.locator("code")).toHaveCount(0);
 });
 
@@ -205,8 +209,8 @@ test("a link opens on Enter only with ⌘, so typing is not interrupted", async 
 
   await page.getByRole("button", { name: "Sticky note", exact: true }).click();
   await editor.fill("ссылка");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+k");
   const dialog = page.getByRole("dialog", { name: "Link" });
   await dialog.getByLabel("Address").fill("https://example.com/");
   await dialog.getByLabel("Address").press("Enter");
@@ -214,7 +218,7 @@ test("a link opens on Enter only with ⌘, so typing is not interrupted", async 
 
   // A plain Enter is a new line, not a navigation. The caret is put at the end of the
   // line, so the split is not in the middle of the word.
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
   expect(
@@ -224,7 +228,7 @@ test("a link opens on Enter only with ⌘, so typing is not interrupted", async 
 
   // ⌘Enter on the link is the one way to open it from the editor.
   await editor.locator("a").click();
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened))
     .toEqual(["https://example.com/"]);
@@ -244,8 +248,8 @@ test("⌘Ctrl+click opens a painted link, a plain click selects the object", asy
   await page.getByRole("button", { name: "Sticky note", exact: true }).click();
   const editor = page.locator(".inline-editor");
   await editor.fill("ссылка");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+k");
   const dialog = page.getByRole("dialog", { name: "Link" });
   await dialog.getByLabel("Address").fill("https://example.com/");
   await dialog.getByLabel("Address").press("Enter");
@@ -304,21 +308,21 @@ test("formats apply to every line of the selection and undoing takes one step", 
   await expect.poll(() => selected(page)).toEqual([id]);
 
   // ⌘⇧8 is the bulleted list for the whole object, not the line the caret last was on.
-  await page.keyboard.press("Meta+Shift+8");
+  await page.keyboard.press("ControlOrMeta+Shift+8");
   await expect.poll(() => notes(page)).toMatchObject([
     { lines: [{ block: "bullet" }, { block: "bullet" }] },
   ]);
 
   // The same keys again remove it; a note with no formats stores no `lines` at all.
-  await page.keyboard.press("Meta+Shift+8");
+  await page.keyboard.press("ControlOrMeta+Shift+8");
   await expect.poll(() => notes(page)).toMatchObject([
     { text: "первая\nвторая", lines: [] },
   ]);
-  await page.keyboard.press("Meta+Alt+1");
+  await page.keyboard.press("ControlOrMeta+Alt+1");
   await expect.poll(() => notes(page)).toMatchObject([
     { lines: [{ block: "h1" }, { block: "h1" }] },
   ]);
-  await page.keyboard.press("Meta+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(() => notes(page)).toMatchObject([{ text: "первая\nвторая", lines: [] }]);
 });
 
@@ -330,7 +334,7 @@ test("the checklist marker is a control, and the selection survives the click", 
   await page.keyboard.press("Escape");
   const point = await pointOf(page, id);
   await page.mouse.click(point.x, point.y);
-  await page.keyboard.press("Meta+Shift+9");
+  await page.keyboard.press("ControlOrMeta+Shift+9");
   await expect.poll(() => notes(page)).toMatchObject([
     { lines: [{ block: "check", checked: false }, { block: "check" }] },
   ]);
@@ -369,7 +373,7 @@ test("the checklist marker is a control, and the selection survives the click", 
   // The click toggles the item and does not drop the object's selection (ADR-252 §8).
   await expect.poll(() => selected(page)).toEqual([id]);
 
-  await page.keyboard.press("Meta+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(() => notes(page)).toMatchObject([
     { lines: [{ block: "check", checked: false }, { block: "check" }] },
   ]);
@@ -382,16 +386,16 @@ test("copying an object and pasting it keeps the line formats", async ({ page, c
   await page.keyboard.press("Escape");
   const point = await pointOf(page, id);
   await page.mouse.click(point.x, point.y);
-  await page.keyboard.press("Meta+Shift+8");
+  await page.keyboard.press("ControlOrMeta+Shift+8");
   await expect.poll(() => notes(page)).toMatchObject([
     { lines: [{ block: "bullet" }, { block: "bullet" }] },
   ]);
 
-  await page.keyboard.press("Meta+c");
+  await page.keyboard.press("ControlOrMeta+c");
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain("remo/fragment");
-  await page.keyboard.press("Meta+v");
+  await page.keyboard.press("ControlOrMeta+v");
   await expect.poll(async () => (await notes(page)).length).toBe(2);
   const [original, copy] = await notes(page);
   expect(copy!.id).not.toBe(original!.id);

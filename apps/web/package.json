@@ -9,15 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@remo/agent-plan": "workspace:*",
     "@remo/brand": "workspace:*",
     "@remo/canvas": "workspace:*",
     "@remo/consent": "workspace:*",
+    "@remo/doc": "workspace:*",
+    "@remo/metrics": "workspace:*",
     "@remo/model": "workspace:*",
     "@remo/ui": "workspace:*",
+    "emojibase-data": "^17.0.0",
+    "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@remo/doc": "workspace:*",
-    "qrcode-generator": "^2.0.4"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

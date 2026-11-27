@@ -5,11 +5,13 @@ A card keeps a status, one assignee and a date range. These fields appear on the
 ## Steps
 
 1. Select a card in the room, or click **+** in an empty kanban cell: the card is created in that column and swimlane and its text editor opens immediately.
-2. On the **Properties** panel, open Card fields.
-3. Choose a status: To do, In progress or Done. The empty value removes the status.
+2. Open **Properties**. The selected card’s text appears below the panel heading.
+3. Use the status next to the panel heading to choose To do, In progress or Done. Choose **No status** to clear it.
 4. Choose an assignee from the room's people, or leave it Unassigned.
 5. Set a start and a due date. Either can be empty; the card then shows one date.
 6. To clear a date, remove its value.
+
+Use **Tags** to assign tags. Under **Card colour**, choose **Same as column** or **Custom colour**. A reminder appears below the dates when the due date has passed.
 
 ## Check the result
 

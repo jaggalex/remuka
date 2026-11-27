@@ -60,11 +60,11 @@ button {
 
 /* `@remo/ui` paints its variants inside `@layer remo.components`, and an unlayered rule
    beats a layer whatever its specificity — the reset above was repainting primary and
-   danger labels with ink and dropping them to 3.5:1 on the accent (found by the vote
-   results a11y check, ADR-126). Restore the variant colour; disabled, loading and pressed
-   buttons paint their own surface and keep the design system's colour. */
+   danger labels with ink. Restore the variant colour; disabled, loading and pressed
+   buttons paint their own surface and keep the design system's colour. The primary is
+   coral with ink text (ADR-265), so the label takes the CTA pair, not the white one. */
 button.rm-btn-primary:not(:disabled, .is-loading, [aria-pressed="true"]) {
-  color: var(--text-on-accent);
+  color: var(--text-on-cta);
 }
 
 button.rm-btn-danger:not(:disabled, .is-loading, [aria-pressed="true"]) {
@@ -76,12 +76,11 @@ button.rm-menu-item.is-danger {
   color: var(--text-danger);
 }
 
-/* And the same cascade gap for the two states a rail button lives in: a pressed tool
-   keeps the accent of `is-selected`, a disabled one keeps the muted colour of `:disabled`
+/* A pressed tool takes ink for its chosen yellow surface; a disabled control keeps muted ink
    (order matters: disabled wins for a control that is both). */
 button.rm-btn.is-selected,
 button.rm-btn[aria-pressed="true"] {
-  color: var(--text-accent);
+  color: var(--text-on-chosen);
 }
 
 button.rm-btn:disabled {

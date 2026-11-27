@@ -29,6 +29,7 @@
 import { ELEVATING_TYPES } from "./elevation";
 import { safeExternalUrl } from "./externalUrl";
 import { WIDGET_KINDS } from "./kinds";
+import { isRotatable, normalizeDegrees } from "./rotation";
 import { isTagColor, type Tag } from "./tags";
 import { MAX_WAYPOINTS, type Widget } from "./types";
 
@@ -66,12 +67,6 @@ const NUMBER_FIELDS = [
 
 const BOOLEAN_FIELDS = ["locked", "elbowFlip"] as const;
 
-/**
- * Fields the model no longer has (ADR-209): a reader drops them instead of preserving
- * them as unknown data, so an old document gets smaller rather than carrying a value
- * nothing can read.
- */
-const REMOVED_FIELDS = ["rotation"] as const;
 const REMOVED_STYLE_FIELDS = ["fontFamily"] as const;
 
 const ENUM_FIELDS: Record<string, ReadonlySet<string>> = {
@@ -89,7 +84,7 @@ const STYLE_ENUMS: Record<string, ReadonlySet<string>> = {
   textAlign: new Set(["left", "center", "right"]),
   textVAlign: new Set(["top", "middle", "bottom"]),
   stickySize: new Set(["S", "M", "L"]),
-  elevation: new Set(["raised", "floating"]),
+  elevation: new Set(["raised", "cardboard", "floating"]),
 };
 
 const SIDES = new Set(["left", "right", "top", "bottom"]);
@@ -539,7 +534,6 @@ export function readWidget(raw: unknown, id: string): Widget | null {
   for (const key of BOOLEAN_FIELDS) {
     if (key in raw && typeof raw[key] !== "boolean") repair.drop(key);
   }
-  for (const key of REMOVED_FIELDS) repair.drop(key);
   for (const [key, allowed] of Object.entries(ENUM_FIELDS)) {
     if (key in raw && !(typeof raw[key] === "string" && allowed.has(raw[key] as string))) {
       repair.drop(key);
@@ -581,10 +575,26 @@ export function readWidget(raw: unknown, id: string): Widget | null {
     else if (lines !== raw.lines) repair.set("lines", lines);
   }
 
+  const layout = "layout" in raw ? readLayout(raw.layout) : undefined;
   if ("layout" in raw) {
-    const layout = readLayout(raw.layout);
     if (!layout) repair.drop("layout");
     else if (layout !== raw.layout) repair.set("layout", layout);
+  }
+
+  // Rotation (ADR-271, T18): read normalised into (−180, 180] and only for a kind
+  // that turns. A value on a kanban, table, line, card or timer was written by
+  // mistake or by a newer client, and the painter would never honour it.
+  if ("rotation" in raw) {
+    const type =
+      typeof raw.type === "string" && Object.hasOwn(WIDGET_KINDS, raw.type)
+        ? (raw.type as Widget["type"])
+        : "unsupported";
+    if (!isFiniteNumber(raw.rotation) || !isRotatable({ type, layout: layout as Widget["layout"] })) {
+      repair.drop("rotation");
+    } else {
+      const angle = normalizeDegrees(raw.rotation);
+      if (angle !== raw.rotation || Object.is(raw.rotation, -0)) repair.set("rotation", angle);
+    }
   }
 
   if ("cell" in raw) {

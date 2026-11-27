@@ -7,7 +7,7 @@
  */
 import {
   BUTTON_LABELS,
-  documentHtml,
+  bodyHtml,
   escapeHtml,
   param,
   ruNoun,
@@ -51,14 +51,14 @@ export function renderInvitation(lang, values) {
     const line = `${inviter} приглашает вас в ${kind} «${target}» в ${ruNoun(lang, values, "prepositional")}.`;
     const notice = `Приглашение действует до ${expires}.`;
     return {
-      subject: `${inviter} приглашает вас в ${target}`,
-      text: `${line} Принять приглашение: ${link}\n\n${notice}${documents ? `\n\n${documents}` : ""}`,
-      html: documentHtml({
+      subject: `${inviter} приглашает вас в ${kind} «${target}»`,
+      text: `${line} ${BUTTON_LABELS[lang].invitation}: ${link}\n\n${notice}${documents ? `\n\n${documents}` : ""}`,
+      html: bodyHtml({
         lang,
         paragraphs: paragraphs(
           `${escapeHtml(inviter)} приглашает вас в ${escapeHtml(kind)} «<strong>${escapeHtml(target)}</strong>» в ${escapeHtml(ruNoun(lang, values, "prepositional"))}.`,
         ),
-        footer: escapeHtml(notice),
+        highlight: escapeHtml(notice),
         link,
         label: escapeHtml(BUTTON_LABELS[lang].invitation),
       }),
@@ -69,13 +69,13 @@ export function renderInvitation(lang, values) {
   const notice = `The invitation is valid until ${expires}.`;
   return {
     subject: `${inviter} invited you to ${target}`,
-    text: `${line} Accept: ${link}\n\n${notice}${documents ? `\n\n${documents}` : ""}`,
-    html: documentHtml({
+    text: `${line} ${BUTTON_LABELS[lang].invitation}: ${link}\n\n${notice}${documents ? `\n\n${documents}` : ""}`,
+    html: bodyHtml({
       lang,
       paragraphs: paragraphs(
         `${escapeHtml(inviter)} invited you to the ${escapeHtml(kind)} "<strong>${escapeHtml(target)}</strong>" on ${escapeHtml(product)}.`,
       ),
-      footer: escapeHtml(notice),
+      highlight: escapeHtml(notice),
       link,
       label: escapeHtml(BUTTON_LABELS[lang].invitation),
     }),

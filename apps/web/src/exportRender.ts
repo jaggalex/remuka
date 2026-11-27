@@ -1,3 +1,5 @@
+import { pinWorld } from "./commentGeometry";
+import type { CommentAnchor } from "./commentsApi";
 import {
   drawKanban,
   drawTable,
@@ -5,6 +7,7 @@ import {
   imageFieldsOf,
   imageVariantFallbacks,
   imageVariantFor,
+  kanbanGroundOf,
   layoutKanban,
   layoutTable,
   type ImageVariant,
@@ -12,12 +15,15 @@ import {
   type PaintTheme,
 } from "@remo/canvas";
 import {
+  ink,
   paintOrder,
+  rotatedBounds,
   type KanbanState,
   type Rect,
   type Widget,
 } from "@remo/model";
 import { BRAND } from "@remo/brand";
+import { colorForAccount } from "@remo/doc";
 import { internalConnectors, placementOfCard } from "./canvasGeometry";
 import { boardImageCache, type ImageCache } from "./imageCache";
 import type { BoardSettings } from "./settings";
@@ -39,10 +45,10 @@ export type ExportScope = "selection" | "frame" | "board";
  */
 export interface ExportCommentThread {
   id: string;
-  anchor:
-    | { kind: "widget"; widgetId: string }
-    | { kind: "point"; x: number; y: number };
+  anchor: CommentAnchor;
   resolvedAt: string | null;
+  /** The author's account, so the pin carries the same colour as on the canvas (ADR-267). */
+  createdBy?: string | null;
   comments: Array<{
     authorName: string;
     body: string;
@@ -161,11 +167,16 @@ export async function preloadExportImages(
   return { image, unavailable, failed };
 }
 
-/** A frame selected directly, or the frame that contains the selected object. */
+/** A selected frame or its selected child takes precedence. With no selection, only
+ * a room with exactly one frame has an unambiguous frame scope (ADR-301). */
 export function frameForSelection(
   widgets: readonly Widget[],
   selectedIds: readonly string[],
 ): Widget | null {
+  if (selectedIds.length === 0) {
+    const frames = widgets.filter((widget) => widget.type === "frame");
+    return frames.length === 1 ? frames[0]! : null;
+  }
   const byId = new Map(widgets.map((widget) => [widget.id, widget]));
   for (const id of selectedIds) {
     let current = byId.get(id);
@@ -289,10 +300,18 @@ export function scopeBounds(
   const pad = 24;
   for (const widget of widgets) {
     const placement = placementOfCard(layouts, widget.id);
-    const x = placement ? placement.x - placement.width / 2 : widget.x - widget.width / 2;
-    const y = placement ? placement.y - placement.height / 2 : widget.y - widget.height / 2;
-    const width = placement ? placement.width : widget.width;
-    const height = placement ? placement.height : widget.height;
+    const box = placement
+      ? {
+          x: placement.x - placement.width / 2,
+          y: placement.y - placement.height / 2,
+          width: placement.width,
+          height: placement.height,
+        }
+      : rotatedBounds(widget);
+    const x = box.x;
+    const y = box.y;
+    const width = box.width;
+    const height = box.height;
     if (widget.type === "frame" && widget.layout?.kind === "table") {
       // The grid can be wider or taller than the frame's plate (manual axes, cells
       // that grew around their objects), so the picture must cover the grid too.
@@ -334,16 +353,8 @@ function commentPoint(
   byId: Map<string, Widget>,
   layouts: Map<string, KanbanLayout>,
 ): { x: number; y: number } | null {
-  if (thread.anchor.kind === "point") {
-    return { x: thread.anchor.x, y: thread.anchor.y };
-  }
-  const widget = byId.get(thread.anchor.widgetId);
-  if (!widget) return null;
-  const placement = placementOfCard(layouts, widget.id);
-  const x = placement ? placement.x : widget.x;
-  const y = placement ? placement.y : widget.y;
-  const height = placement ? placement.height : widget.height;
-  return { x, y: y - height / 2 };
+  const anchor = thread.anchor;
+  return pinWorld(anchor, anchor.kind === "widget" ? byId.get(anchor.widgetId) : undefined, layouts);
 }
 
 /** Unresolved threads whose anchor falls inside the exported scope. */
@@ -433,7 +444,8 @@ function paintWatermark(
   const size = Math.max(24, Math.min(width, height) / 14);
   ctx.save();
   ctx.globalAlpha = 0.16;
-  ctx.fillStyle = theme.palette.textPrimary;
+  // The sheet is the board's ground, so the mark is the ink of that ground (ADR-273).
+  ctx.fillStyle = ink(theme.palette.canvas, "text");
   ctx.font = `600 ${size}px ${theme.fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -448,58 +460,12 @@ function paintWatermark(
   ctx.restore();
 }
 
-const MAX_PIXELS = 16_000_000;
-
-/**
- * Paint the scope on a fresh canvas.
- *
- * A huge board is capped by total pixels rather than by refusing the export: the
- * person gets a smaller but complete picture, not a failed job with no explanation.
- */
-export function renderScope(input: ExportRenderInput): ExportRenderResult | null {
-  const scoped = scopeWidgets(input.widgets, input.selectedIds, input.scope);
-  if (!scoped.length) return null;
-
-  const layouts = layoutsFor(input.widgets, input.kanbanStates);
-  const box = scopeBounds(scoped, layouts);
-  if (!box) return null;
-
-  let scale = Math.max(0.5, input.scale ?? 2);
-  while (box.width * scale * box.height * scale > MAX_PIXELS && scale > 0.5) {
-    scale *= 0.8;
-  }
-
-  const byId = new Map(input.widgets.map((widget) => [widget.id, widget]));
-  const threads = input.includeComments
-    ? commentsInScope(input.comments ?? [], scoped, box, layouts)
-    : [];
-  const width = Math.max(1, Math.ceil(box.width * scale));
-  const boardHeight = Math.max(1, Math.ceil(box.height * scale));
-  const extra = legendHeight(threads);
-  const height = boardHeight + extra;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-
+/** One painter for full-size exports and server-generated room covers (ADR-285). */
+export function paintExportObjects(ctx: CanvasRenderingContext2D,
+  input: Pick<ExportRenderInput, "widgets" | "theme" | "image" | "imageUnavailable">,
+  scoped: Widget[], layouts: Map<string, KanbanLayout>, byId: Map<string, Widget>, scale: number,
+): void {
   const { palette } = input.theme;
-  ctx.fillStyle = palette.canvas;
-  ctx.fillRect(0, 0, width, boardHeight);
-  if (extra) {
-    ctx.fillStyle = palette.panel;
-    ctx.fillRect(0, boardHeight, width, extra);
-    ctx.strokeStyle = palette.borderSubtle;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, boardHeight + 0.5);
-    ctx.lineTo(width, boardHeight + 0.5);
-    ctx.stroke();
-  }
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.translate(-box.x, -box.y);
-
   const cardTitles = new Map<string, string>();
   const cards = new Map<string, Widget>();
   for (const widget of input.widgets) {
@@ -554,9 +520,66 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
         cards,
         cardStatus: input.theme.cardStatus,
         tags: input.theme.tags,
+        assigneeColor: input.theme.assigneeColor,
+        ground: kanbanGroundOf(widget, palette),
       });
     }
   }
+}
+
+const MAX_PIXELS = 16_000_000;
+
+/**
+ * Paint the scope on a fresh canvas.
+ *
+ * A huge board is capped by total pixels rather than by refusing the export: the
+ * person gets a smaller but complete picture, not a failed job with no explanation.
+ */
+export function renderScope(input: ExportRenderInput): ExportRenderResult | null {
+  const scoped = scopeWidgets(input.widgets, input.selectedIds, input.scope);
+  if (!scoped.length) return null;
+
+  const layouts = layoutsFor(input.widgets, input.kanbanStates);
+  const box = scopeBounds(scoped, layouts);
+  if (!box) return null;
+
+  let scale = Math.max(0.5, input.scale ?? 2);
+  while (box.width * scale * box.height * scale > MAX_PIXELS && scale > 0.5) {
+    scale *= 0.8;
+  }
+
+  const byId = new Map(input.widgets.map((widget) => [widget.id, widget]));
+  const threads = input.includeComments
+    ? commentsInScope(input.comments ?? [], scoped, box, layouts)
+    : [];
+  const width = Math.max(1, Math.ceil(box.width * scale));
+  const boardHeight = Math.max(1, Math.ceil(box.height * scale));
+  const extra = legendHeight(threads);
+  const height = boardHeight + extra;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const { palette } = input.theme;
+  ctx.fillStyle = palette.canvas;
+  ctx.fillRect(0, 0, width, boardHeight);
+  if (extra) {
+    ctx.fillStyle = palette.panel;
+    ctx.fillRect(0, boardHeight, width, extra);
+    ctx.strokeStyle = ink(palette.panel, "line");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, boardHeight + 0.5);
+    ctx.lineTo(width, boardHeight + 0.5);
+    ctx.stroke();
+  }
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(-box.x, -box.y);
+
+  paintExportObjects(ctx, input, scoped, layouts, byId, scale);
 
   // Numbered pins are part of the picture, but not of the board: they use the same
   // points as the rows in the legend below.
@@ -565,9 +588,10 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     const point = commentPoint(thread, byId, layouts);
     if (!point) return;
     const radius = 13 / scale;
-    ctx.fillStyle = palette.accent;
-    ctx.strokeStyle = palette.panel;
-    ctx.lineWidth = 2 / scale;
+    // A pin is the author's colour, with the number as the legend's link (ADR-267).
+    ctx.fillStyle = colorForAccount(thread.createdBy ?? null);
+    ctx.strokeStyle = palette.objectInk;
+    ctx.lineWidth = 1.5 / scale;
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -585,7 +609,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     let y = boardHeight + 30;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = palette.textPrimary;
+    ctx.fillStyle = ink(palette.panel, "text");
     ctx.font = `600 14px ${input.theme.fontFamily}`;
     ctx.fillText(
       `${input.commentsTitle ?? "Comments"} (${threads.length})`,
@@ -595,7 +619,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
     y += 24;
     const maxChars = Math.max(24, Math.floor((width - pad * 2) / 7.2));
     threads.forEach((thread, index) => {
-      ctx.fillStyle = palette.textPrimary;
+      ctx.fillStyle = ink(palette.panel, "text");
       ctx.font = `600 12.5px ${input.theme.fontFamily}`;
       ctx.fillText(
         `#${index + 1}  ${commentLabel(thread, byId, pointLabel).slice(0, maxChars)}`,
@@ -604,7 +628,7 @@ export function renderScope(input: ExportRenderInput): ExportRenderResult | null
       );
       y += 18;
       ctx.font = `12px ${input.theme.fontFamily}`;
-      ctx.fillStyle = palette.textSecondary;
+      ctx.fillStyle = ink(palette.panel, "muted");
       for (const comment of thread.comments.slice(0, 3)) {
         const body = comment.deletedAt ? "—" : comment.body;
         for (const line of wrapText(`${comment.authorName}: ${body}`, maxChars, 2)) {

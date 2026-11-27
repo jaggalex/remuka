@@ -1,17 +1,18 @@
 import { test, expect } from "@playwright/test";
-import { freshBoard } from "./helpers";
+import { freshBoard, openAccount } from "./helpers";
 
-test("theme switches in the board and survives in help", async ({ page }) => {
+test("theme switches in the account menu and survives in Help", async ({ page }) => {
   await freshBoard(page, "theme");
 
-  // Theme and language are the last two controls in the header (ADR-194); a new
-  // account starts light, and the account menu no longer carries the choice.
+  // Theme and language moved from the header's right edge into the account menu
+  // (ADR-266 §2); a new account starts light.
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.getByRole("button", { name: /Theme: light/ }).click();
+  await openAccount(page);
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   await page.goto("/help/en/comments.thread");

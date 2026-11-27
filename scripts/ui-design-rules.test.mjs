@@ -16,6 +16,23 @@ function tree(files) {
 }
 
 describe("design rules", () => {
+  it("rejects primary text on bright brand fills in product and DS styles", () => {
+    const root = tree({
+      "apps/web/src/styles/choices.css": [
+        ".active { background: var(--accent-chosen);",
+        "  color: var(--text-primary); }",
+        ".assistant { color: var(--text-primary); background-color: var(--agent); }",
+        ".good { color: var(--text-on-chosen); background: var(--accent-chosen); }",
+        ".paper { border-color: var(--accent-chosen); color: var(--text-primary); }",
+      ].join("\n"),
+      "packages/ui/src/components/buttons.css": ".cta {color: var(--text-primary);background:var(--accent-cta)}",
+    });
+    expect(scanDesignRules(root).filter(hit => hit.rule === "DS-COLOR-02/contrast")
+      .map(hit => [hit.file, hit.line])).toEqual([
+      ["apps/web/src/styles/choices.css", 2], ["apps/web/src/styles/choices.css", 3],
+      ["packages/ui/src/components/buttons.css", 1],
+    ]);
+  });
   it("finds a literal on a one-line rule and in a block", () => {
     const root = tree({
       "apps/web/src/styles/a.css": ".x { font-size: 13px; padding: 6px; }\n.y {\n  gap: var(--space-2);\n  font: var(--type-label);\n}\n",
@@ -26,7 +43,7 @@ describe("design rules", () => {
 
   it("reports an alias, a primitive and an undefined variable, but not one with a fallback", () => {
     const root = tree({
-      "apps/web/src/styles/a.css": ".x { color: var(--ink); border-color: var(--warning-300); background: var(--nope); width: var(--cols, 2); }\n",
+      "apps/web/src/styles/a.css": ".x { color: var(--muted); border-color: var(--warning-300); background: var(--nope); width: var(--cols, 2); }\n",
     });
     expect(scanDesignRules(root).map((f) => f.rule)).toEqual([
       "DS-COLOR-01/alias",

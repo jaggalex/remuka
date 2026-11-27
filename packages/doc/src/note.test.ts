@@ -12,6 +12,8 @@ import {
   createConnectedNote,
   createConnector,
   createShape,
+  createSticky,
+  createText,
   noteGap,
   setConnectorProps,
   setFillColor,
@@ -374,8 +376,9 @@ describe("connector properties", () => {
 
     board.undoOnce();
     const restored = board.widgets.get("c")!;
-    // The model's line Plain preset is what a new connector starts with (ADR-129).
-    expect(restored.style?.strokeColor).toBe(DEFAULT_LINE_PRESET.color);
+    // A new connector stores no colour: it is Auto and reads the canvas ground (ADR-273).
+    expect(restored.style?.strokeColor).toBeUndefined();
+    expect(DEFAULT_LINE_PRESET.color).toBeNull();
     expect(restored.style?.strokeWidth).toBe(2);
     expect(restored.arrow).toBe("none");
   });
@@ -435,6 +438,41 @@ describe("copy style and clear content", () => {
     expect(board.textOf("n")).toBe("");
     board.undoOnce();
     expect(board.textOf("n")).toBe("some text");
+  });
+});
+
+describe("a new object stores no ink (ADR-273 §2.3)", () => {
+  it("gives a new text no colour at all, so it is Auto", () => {
+    const board = new BoardDocument();
+    createText(board, "t1", { x: 0, y: 0 });
+    const widget = board.widgets.get("t1")!;
+    expect(widget.style?.color).toBeUndefined();
+    expect(widget.style?.textColor).toBeUndefined();
+    expect(widget.style).toBeUndefined();
+  });
+
+  it("gives a new note, shape and line no text colour", () => {
+    const board = new BoardDocument();
+    createSticky(board, "n1", { x: 0, y: 0 });
+    createShape(board, "s1", "rectangle", { x: 0, y: 0 });
+    createWidget(board, note("n2"));
+    createConnector(board, "c1", "n1", "n2");
+    for (const id of ["n1", "s1", "n2", "c1"]) {
+      const style = board.widgets.get(id)!.style;
+      expect(style?.textColor, id).toBeUndefined();
+      expect(style?.color, id).toBeUndefined();
+    }
+    // A line writes no colour either: its Auto ink comes from the canvas ground.
+    expect(board.widgets.get("c1")!.style?.strokeColor).toBeUndefined();
+  });
+
+  it("still writes a colour the person chooses, and Auto removes it", () => {
+    const board = new BoardDocument();
+    createText(board, "t1", { x: 0, y: 0 });
+    setTextColor(board, ["t1"], "#000000");
+    expect(board.widgets.get("t1")!.style?.color).toBe("#000000");
+    setTextColor(board, ["t1"], null);
+    expect(board.widgets.get("t1")!.style?.color).toBeUndefined();
   });
 });
 

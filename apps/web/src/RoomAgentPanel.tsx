@@ -1,3 +1,4 @@
+import { ApiError } from "./apiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { AgentThreadDetail, AgentThreadSummary, RoomAgentState, RoomTaskKind } from "./roomAgentApi";
@@ -172,7 +173,8 @@ export function RoomAgentPanel({
       if (threadId) await loadDetail(threadId).catch(() => {});
       onChanged();
     } catch (failure) {
-      setError((failure as Error)?.message ?? t("roomAgent.failed"));
+      setError(failure instanceof ApiError && failure.code === "DRAFT_NOT_AVAILABLE"
+        ? t("roomAgent.draftRequired") : (failure as Error)?.message ?? t("roomAgent.failed"));
     } finally {
       setBusy(false);
     }
@@ -180,7 +182,7 @@ export function RoomAgentPanel({
 
   const submit = (asClarification: boolean) => {
     const text = intent.trim();
-    if (text.length < 3 || sending.current) return;
+    if (text.length < 3 || sending.current || (asClarification && !canClarify)) return;
     const target = asClarification ? threadId : null;
     // A clarification continues the open conversation, so its kind is the thread's,
     // not whatever the new-task selector happened to show before coming back.
@@ -233,8 +235,11 @@ export function RoomAgentPanel({
   );
   const currentDetail = detail?.thread.id === threadId ? detail : null;
   const canAsk = Boolean(state?.canRequest && canEdit);
-  const canClarify = Boolean(canAsk && currentDetail
-    && (state?.owner || currentDetail.thread.created_by === userId));
+  const ownsConversation = Boolean(currentDetail && (state?.owner || currentDetail.thread.created_by === userId));
+  const publishedIds = currentDetail?.publishedFrameIds ?? currentDetail?.messages
+    .filter((message) => message.role === "agent").flatMap((message) => message.frame_ids) ?? [];
+  const visibleDraft = publishedIds.some(hasFrame);
+  const canClarify = canAsk && ownsConversation && visibleDraft;
   const canStop = Boolean(state?.owner || (canAsk && currentDetail?.thread.created_by === userId));
   const compose = canAsk && (newTask || !threadId || canClarify);
   const clarify = !newTask && Boolean(threadId);
@@ -243,6 +248,7 @@ export function RoomAgentPanel({
 
   return (
     <Dialog
+      className="room-agent-sheet"
       title={t("roomAgent.title")}
       description={boardTitle}
       help={<HelpLink topicId="agents.room" />}
@@ -470,6 +476,9 @@ export function RoomAgentPanel({
           </div>
         )}
 
+        {!newTask && canAsk && ownsConversation && !visibleDraft && (
+          <p className="muted">{t("roomAgent.draftRequired")}</p>
+        )}
         {compose && (
           <form
             className="agent-form"

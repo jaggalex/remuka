@@ -1,0 +1,81 @@
+.table-axis-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+}
+
+.table-axis-menu .rm-menu {
+  width: min(294px, calc(100vw - 2 * var(--space-2)));
+  max-height: calc(100dvh - 2 * var(--space-2));
+  overflow-y: auto;
+  background: var(--bg-panel);
+}
+
+.table-axis-menu .rm-menu-heading {
+  padding-block: var(--space-1) var(--space-2);
+  font: var(--type-palette-title);
+  color: var(--text-column-menu-heading);
+  overflow-wrap: anywhere;
+}
+
+.table-axis-menu .rm-menu-item {
+  padding-inline: var(--space-2);
+  font: var(--type-body);
+  height: var(--space-9);
+}
+
+.table-axis-menu .rm-menu-icon:empty {
+  display: none;
+}
+
+.table-axis-menu .rm-menu-item.is-danger {
+  color: var(--text-brand-danger);
+}
+
+.table-axis-menu .rm-menu-pair .rm-menu-item:first-child { padding-inline-end: var(--space-1); }
+.table-axis-menu .rm-menu-pair .rm-menu-item:last-child { padding-inline-start: var(--space-1); }
+
+.table-axis-menu .rm-menu-item .rm-kbd {
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: var(--type-caption);
+  text-align: end;
+}
+
+.table-axis-menu .rm-menu-sep { display: none; }
+
+/* ADR-313: the light desktop frame is available in Figma. */
+@media (min-width: 901px) {
+  :root[data-theme="light"] .table-axis-menu .rm-menu {
+    width: 240px;
+    background: var(--bg-raised);
+  }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-heading {
+    padding-block: var(--space-2) var(--space-1);
+    color: var(--text-muted);
+    font: var(--type-caption);
+    font-weight: 500;
+  }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-item {
+    height: var(--control-compact);
+    padding-inline: var(--space-3);
+    font: var(--type-label);
+    font-weight: 400;
+  }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-pair {
+    display: flex;
+    font: var(--type-label);
+  }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-pair .rm-menu-item {
+    width: auto;
+    white-space: nowrap;
+  }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-pair .rm-menu-item:first-child { padding-inline-end: var(--space-1); }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-pair .rm-menu-item:last-child { padding-inline-start: var(--space-1); }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-item .rm-kbd-group { display: none; }
+  :root[data-theme="light"] .table-axis-menu .rm-menu-sep {
+    display: block;
+    margin-inline: 0;
+  }
+}

@@ -1,17 +1,8 @@
 /**
  * `entitlementsFor` without a database (ADR-247, `spec/billing.md` §2.2).
- *
- * The store double counts reads on purpose: the cache promise is "a second call inside
- * sixty seconds does not touch the database", and a request cost is the thing that
- * regression is about.
  */
-import { beforeEach, describe, expect, it } from "vitest";
-import {
-  billingEnabled,
-  entitlementsFor,
-  invalidateEntitlements,
-  resetEntitlementCache,
-} from "./billing.mjs";
+import { describe, expect, it } from "vitest";
+import { billingEnabled, entitlementsFor } from "./billing.mjs";
 import { ALL_PAID, PLANS } from "./billing-catalog.mjs";
 
 const ON = { REMO_BILLING: "on" };
@@ -61,13 +52,10 @@ const limitShape = (plan) => ({
   storageBytes: plan.storageBytes,
 });
 
-/** Distinct ids per case: one cache entry per organisation is the whole contract. */
 let counter = 0;
 const nextOrg = () => `00000000-0000-4000-8000-${String((counter += 1)).padStart(12, "0")}`;
 
 describe("entitlements: self-host", () => {
-  beforeEach(() => resetEntitlementCache());
-
   it("limits nothing while billing is off and reads no row", async () => {
     const store = fakeStore({ subscription: subscription("business", "active") });
 
@@ -97,8 +85,6 @@ describe("entitlements: self-host", () => {
 });
 
 describe("entitlements: plans", () => {
-  beforeEach(() => resetEntitlementCache());
-
   it("falls back to Free when there is no live subscription", async () => {
     const store = fakeStore();
 
@@ -111,7 +97,7 @@ describe("entitlements: plans", () => {
       limits: limitShape(PLANS.free),
     });
     expect(entitlements.features).toEqual(new Set());
-    expect(store.reads).toEqual({ org: 1, subscription: 1, tenant: 1 });
+    expect(store.reads).toEqual({ org: 0, subscription: 1, tenant: 1 });
   });
 
   it.each(["pro", "team", "business"])("gives an active %s its catalogue", async (plan) => {
@@ -164,7 +150,7 @@ describe("entitlements: plans", () => {
     });
   });
 
-  it("keeps a personal organisation Free whatever the subscription says", async () => {
+  it("uses the subscription of a personal organisation", async () => {
     const store = fakeStore({
       org: { kind: "personal" },
       subscription: subscription("business", "active"),
@@ -173,13 +159,12 @@ describe("entitlements: plans", () => {
     const entitlements = await entitlementsFor(store, nextOrg(), { env: ON });
 
     expect(entitlements).toMatchObject({
-      plan: "free",
+      plan: "business",
       status: "active",
       reason: "plan",
-      limits: limitShape(PLANS.free),
+      limits: limitShape(PLANS.business),
     });
-    // The personal rule answers before any subscription is read.
-    expect(store.reads).toEqual({ org: 1, subscription: 0, tenant: 1 });
+    expect(store.reads).toEqual({ org: 0, subscription: 1, tenant: 1 });
   });
 
   it("answers Free for an unknown plan name instead of inventing one", async () => {
@@ -191,51 +176,12 @@ describe("entitlements: plans", () => {
   });
 });
 
-describe("entitlements: cache", () => {
-  beforeEach(() => resetEntitlementCache());
+it("reads the new paid subscription immediately after an earlier Free result", async () => {
+  const store = fakeStore();
+  const orgId = nextOrg();
 
-  it("serves a second call from memory and reads again after invalidation", async () => {
-    const store = fakeStore({ subscription: subscription("pro", "active") });
-    const orgId = nextOrg();
+  expect((await entitlementsFor(store, orgId, { env: ON })).plan).toBe("free");
 
-    await entitlementsFor(store, orgId, { env: ON });
-    expect(store.reads.org).toBe(1);
-
-    // A second call inside the window answers from the cache: one database trip per
-    // organisation per minute, not one per limited route.
-    await entitlementsFor(store, orgId, { env: ON });
-    expect(store.reads.org).toBe(1);
-
-    invalidateEntitlements(orgId);
-    await entitlementsFor(store, orgId, { env: ON });
-    expect(store.reads.org).toBe(2);
-  });
-
-  it("expires after sixty seconds", async () => {
-    const store = fakeStore({ subscription: subscription("team", "active") });
-    const orgId = nextOrg();
-    const start = 1_000_000;
-
-    await entitlementsFor(store, orgId, { env: ON, now: start });
-    await entitlementsFor(store, orgId, { env: ON, now: start + 59_000 });
-    expect(store.reads.org).toBe(1);
-
-    await entitlementsFor(store, orgId, { env: ON, now: start + 60_001 });
-    expect(store.reads.org).toBe(2);
-  });
-
-  it("never fills the cache while billing is off, so switching on re-reads after reset", async () => {
-    const store = fakeStore({ subscription: subscription("team", "active") });
-    const orgId = nextOrg();
-
-    await entitlementsFor(store, orgId, { env: ON });
-    expect(store.reads.org).toBe(1);
-
-    expect((await entitlementsFor(store, orgId, { env: OFF })).plan).toBe("unlimited");
-    expect(store.reads.org).toBe(1);
-
-    resetEntitlementCache();
-    await entitlementsFor(store, orgId, { env: ON });
-    expect(store.reads.org).toBe(2);
-  });
+  store.liveSubscription = async () => subscription("pro", "active");
+  expect((await entitlementsFor(store, orgId, { env: ON })).plan).toBe("pro");
 });

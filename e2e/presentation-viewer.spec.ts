@@ -28,7 +28,7 @@ test("a late viewer joins the current slide and stays after the stop", async ({
 
   const viewerPage = await second.newPage();
   await viewerPage.goto(`${origin}/?room=${account.boardId}&lang=en&user=Viewer`);
-  await expect(viewerPage.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(viewerPage.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   await startPresentation(page);
   await page

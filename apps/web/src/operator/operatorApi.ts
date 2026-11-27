@@ -81,6 +81,20 @@ export interface Pulse {
     collaboration: number | null;
     reason: string | null;
   };
+  chrome: {
+    /** The last complete day, the end of the trailing 28-day window. */
+    day: string | null;
+    /** Organisations with a value event in those 28 days (the denominator). */
+    activeOrgs: number | null;
+    items: Array<{
+      control: string;
+      where: "header" | "menu";
+      orgs: number | null;
+      share: number | null;
+      verdict: "deep" | "place" | null;
+    }>;
+    reason: string | null;
+  };
   money: {
     mrrByCurrency: Array<{ currency: string; amount: number }>;
     byPlan: Array<{ plan: string; amount: number }>;

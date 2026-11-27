@@ -1,83 +1,331 @@
 /* ------------------------------------------------------------------- menus */
 
+/* The canvas context menu (ADR-267 §3): paper, an ink outline, a hard 3 px shadow and
+   a title that names what was right-clicked. Rows are 36 px — higher than the chrome
+   menu's — because this one is read while pointing at an object. */
 .context-menu {
   position: fixed;
   z-index: var(--z-popover);
-  min-width: 216px;
+  width: 270px;
   /* A menu longer than the screen scrolls instead of running off it. */
   max-height: calc(100vh - 16px);
   overflow-y: auto;
+  box-sizing: border-box;
   padding: var(--space-2);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
   box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  animation: context-menu-in var(--dur-1) var(--ease) both;
+}
+
+@keyframes context-menu-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
 }
 
 .context-menu-title {
-  padding: var(--space-2) var(--space-2) var(--space-2);
-  font: var(--type-caption);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  font: var(--type-label);
+  color: var(--text-secondary);
 }
 
-.context-menu button:not(.rm-btn, .context-menu-swatch) {
-  text-align: left;
+.context-menu-stepper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: calc(var(--space-2) - 2px);
+  align-items: center;
+  margin-inline: var(--space-2);
+  padding-block: calc(var(--space-2) - 2px);
+  font: var(--type-body);
+}
+.context-menu-stepper output {
+  min-inline-size: var(--space-5);
+  font: var(--type-action-strong);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.context-menu-stepper small {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font: var(--type-caption);
+}
+.context-menu-stepper .rm-iconbtn {
+  --control-h: calc(var(--control-compact) + 2px);
+  border-radius: var(--space-2);
+}
+.kanban-column-menu {
+  position: absolute;
+  z-index: var(--z-canvas-overlay);
+  transform-origin: top left;
+  touch-action: none;
+  max-width: none;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--column-header-ink);
+}
+.kanban-column-menu, .kanban-column-menu:hover { background: transparent; }
+.kanban-column-menu .rm-btn-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-1);
+  font: var(--type-action-strong);
+  font-family: inherit;
+  opacity: 0;
+}
+.kanban-column-name { overflow: hidden; text-overflow: ellipsis; }
+.kanban-column-swatch {
+  flex: none;
+  margin-inline-start: auto;
+  width: var(--space-4);
+  height: var(--space-4);
+  background: var(--column-fill);
+  border: var(--panel-border-width) solid var(--column-marker-ink);
+  border-radius: var(--radius-xs);
+}
+.kanban-column-marker {
+  flex: none;
+  width: calc(var(--space-9) / 4);
+  aspect-ratio: 1.5;
+  background: var(--column-marker-ink);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.kanban-column-menu:is(:focus-visible, [aria-expanded="true"]) {
+  background: var(--column-header-paper);
+  border-color: var(--column-marker-ink);
+}
+.kanban-column-menu:is(:focus-visible, [aria-expanded="true"]) .rm-btn-label { opacity: 1; }
+
+.context-menu-group {
+  padding: var(--space-1) 0;
+}
+
+.context-menu-group + .context-menu-group {
+  border-top: var(--panel-border-width) solid var(--border-subtle);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-2);
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
-  border-radius: var(--radius-pill);
-  padding: var(--space-2);
-  font: var(--type-label);
+  color: var(--text-primary);
+  font: var(--type-body);
+  text-align: left;
   cursor: pointer;
 }
 
-.context-menu button:not(.rm-btn, .context-menu-swatch):hover:not(:disabled) {
+.context-menu-item:hover:not([aria-disabled="true"]),
+.context-menu-item:focus-visible {
   background: var(--bg-hover);
+  outline: none;
 }
 
-.context-menu button:not(.rm-btn, .context-menu-swatch):disabled {
+.context-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--border-focus);
+}
+
+.context-menu-item[aria-disabled="true"] {
   color: var(--text-muted);
   cursor: default;
 }
 
-.context-menu button:not(.rm-btn, .context-menu-swatch).danger {
-  color: var(--danger);
+.context-menu-item.danger {
+  color: var(--text-danger);
 }
 
-/* A row of colour swatches in a canvas menu (the column stripe): the palette's own
-   values, a hairline so a pale one still reads, a ring on the current one. */
-.context-menu-swatches {
-  padding: var(--space-1) var(--space-2) var(--space-2);
+.context-menu-item.danger:hover:not([aria-disabled="true"]),
+.context-menu-item.danger:focus-visible {
+  background: var(--danger-soft);
 }
 
-.context-menu-swatches-label {
+.context-menu-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--icon-sm);
+  color: inherit;
+}
+
+.context-menu-label {
+  flex: 1;
+  min-width: 0;
+  /* A long command name wraps instead of being cut: a menu row is read, not measured.
+     The one long label ("release every lock I may") takes a second line at 270 px. */
+  overflow-wrap: anywhere;
+}
+
+/* The keys, right-aligned in the monospace the design system reserves for them. */
+.context-menu-key {
+  flex: none;
+  font: var(--type-kbd);
+  color: var(--text-muted);
+}
+
+/* The colour submenu: the same seven-column grid the colour window draws (ADR-127). */
+.context-menu-grid {
+  width: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-menu);
+}
+
+.context-menu-grid .context-menu-title {
   margin-bottom: var(--space-2);
-  font: var(--type-label);
-  color: var(--text-primary);
+  padding: 0;
 }
 
 .context-menu-swatch-grid {
   display: grid;
-  grid-template-columns: repeat(7, var(--space-6));
-  gap: var(--space-1);
+  grid-template-columns: repeat(7, var(--space-7));
+  gap: var(--space-2);
 }
 
+.context-menu:has(.context-menu-inline-palette) {
+  width: min(304px, calc(100vw - var(--space-4)));
+  background: var(--bg-panel);
+}
+.context-menu:has(.context-menu-inline-palette) .context-menu-item > .context-menu-icon { display: none; }
+.context-menu:has(.context-menu-inline-palette) .context-menu-title {
+  font: var(--type-palette-title);
+  color: var(--text-column-menu-heading);
+}
+.context-menu:has(.context-menu-inline-palette) .context-menu-item.danger { color: var(--text-brand-danger); }
+.context-menu .rm-menu-pair .context-menu-item:first-child { padding-inline-end: var(--space-1); }
+.context-menu .rm-menu-pair .context-menu-item:last-child { padding-inline-start: var(--space-1); }
+.context-menu-inline-palette {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  font: var(--type-label);
+  font-weight: 400;
+  color: var(--text-column-menu-heading);
+}
+.context-menu-inline-palette .context-menu-swatch-grid {
+  grid-template-columns: repeat(7, minmax(0, var(--space-7)));
+  gap: calc(var(--space-2) - 1px);
+}
+.context-menu-inline-palette .context-menu-swatch { max-width: 100%; }
+
 .context-menu-swatch {
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--space-7);
+  height: var(--space-7);
   padding: 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
+.context-menu-swatch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--border-focus);
+}
+
 .context-menu-swatch[aria-checked="true"] {
-  box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--selection-stroke);
+  box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--border-ink);
+}
+
+.context-menu-swatch[aria-checked="true"]:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
+.context-menu-grid-reset {
+  margin-top: var(--space-2);
+}
+
+.context-menu-grid-reset[aria-checked="true"] {
+  font-weight: 600;
+}
+
+/* ADR-313 adopts the compact Figma column menu for the light desktop view. */
+@media (min-width: 901px) {
+  :root[data-theme="light"] .context-menu:has(.context-menu-inline-palette) {
+    width: calc(25 * var(--space-3));
+    gap: var(--space-1);
+    background: var(--bg-raised);
+
+    & .context-menu-title {
+      padding: 0;
+      font: var(--type-caption);
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    & .context-menu-group {
+      display: grid;
+      gap: var(--space-1);
+      padding: 0;
+    }
+
+    & .context-menu-group + .context-menu-group {
+      border-top: thin solid var(--border-subtle);
+      padding-top: var(--space-1);
+    }
+
+    & .context-menu-item,
+    & .rm-menu-pair {
+      font: var(--type-label);
+      font-weight: 400;
+    }
+
+    & .context-menu-item {
+      min-height: var(--control-compact);
+      padding-inline: var(--space-3);
+      border-radius: var(--radius-pill);
+    }
+
+    & .rm-menu-pair .context-menu-item:first-child { padding-inline-end: var(--space-1); }
+    & .rm-menu-pair .context-menu-item:last-child { padding-inline-start: var(--space-1); }
+
+    & .context-menu-inline-palette {
+      padding: var(--space-1) var(--space-3);
+      font: var(--type-caption);
+      color: var(--text-instruction);
+    }
+
+    & .context-menu-swatch-grid {
+      grid-template-columns: repeat(7, var(--space-5));
+      gap: calc(var(--space-3) / 2);
+    }
+
+    & .context-menu-swatch {
+      box-sizing: border-box;
+      width: var(--space-5);
+      height: var(--space-5);
+      border-width: thin;
+    }
+
+    & .context-menu-swatch[aria-checked="true"] {
+      border-width: calc(var(--space-1) / 2);
+      box-shadow: none;
+    }
+
+    & .context-menu-stepper {
+      margin: 0;
+      padding: 0 var(--space-3);
+      gap: var(--space-1) var(--space-2);
+      font: var(--type-label);
+      font-weight: 400;
+    }
+
+    & .context-menu-stepper output {
+      min-inline-size: 0;
+      font: var(--type-palette-title);
+    }
+
+    & .context-menu-stepper small { color: var(--text-instruction); }
+    & .context-menu-stepper .rm-iconbtn {
+      --control-h: var(--control-compact);
+      border-radius: var(--radius-control);
+    }
+  }
 }

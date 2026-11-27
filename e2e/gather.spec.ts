@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openBoard, register, seedNote } from "./helpers";
+import { ensureProperties, openBoard, register, seedNote } from "./helpers";
 
 interface ProbeWidget {
   id: string;
@@ -51,6 +51,8 @@ test("gathers two notes into one section and undoes as one step", async ({ page 
   await page.mouse.click(secondPoint.x, secondPoint.y);
   await page.keyboard.up("Shift");
 
+  // T8: the bar keeps seven elements; gather lives in the one properties panel.
+  await ensureProperties(page);
   // Pointing at the action shows the future section before anything is created.
   const action = page.getByRole("button", { name: "Gather into section" });
   await action.hover();

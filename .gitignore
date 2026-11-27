@@ -35,3 +35,9 @@ __pycache__/
 # Design workspace stays local; only product docs and baselines are tracked.
 /docs/design/sketches/
 /docs/design/visual/
+
+# Mockup reference PNGs are generated locally: pnpm mockups:shots (ADR-287)
+docs/design/reference/**/*.png
+
+# Local deployment settings and credentials never enter Git.
+/.config/

@@ -1,4 +1,4 @@
-import type { Rect, Widget } from "@remo/model";
+import { ink as inkOn, type Rect, type Widget } from "@remo/model";
 import { roundRect } from "./path";
 import { withAlpha, type CanvasPalette } from "./palette";
 
@@ -159,7 +159,7 @@ export function paintImage(
     // A dominant fill under a picture with transparency keeps the object readable
     // against a same-coloured board instead of showing it through.
     if (options.dominantColor) {
-      ctx.fillStyle = placeholderColour(options.dominantColor, palette.panel);
+      ctx.fillStyle = placeholderColour(options.dominantColor, palette.paper);
       ctx.fillRect(box.x, box.y, box.width, box.height);
     }
     ctx.drawImage(bitmap, fit.x, fit.y, fit.width, fit.height);
@@ -168,10 +168,12 @@ export function paintImage(
   }
 
   if (options.unavailable) {
-    ctx.fillStyle = palette.hover;
+    // A picture that failed is paper with a mark on it: content, so its ink is the
+    // paper's, not the chrome's (ADR-273 §2.4).
+    ctx.fillStyle = palette.paper;
     roundRect(ctx, box.x, box.y, box.width, box.height, radius);
     ctx.fill();
-    ctx.strokeStyle = palette.borderSubtle;
+    ctx.strokeStyle = inkOn(palette.paper, "line");
     ctx.lineWidth = 1 / zoom;
     ctx.stroke();
 
@@ -180,10 +182,10 @@ export function paintImage(
     const label = options.unavailableLabel ?? "Image unavailable";
     const withLabel = screenWidth >= 120 && box.height * zoom >= 56;
     const centreY = withLabel ? box.y + box.height / 2 - iconSize * 0.35 : box.y + box.height / 2;
-    drawGlyph(ctx, box.x + box.width / 2, centreY, iconSize, palette.textMuted, 1 / zoom, true);
+    drawGlyph(ctx, box.x + box.width / 2, centreY, iconSize, inkOn(palette.paper, "icon"), 1 / zoom, true);
 
     if (withLabel) {
-      ctx.fillStyle = palette.textSecondary;
+      ctx.fillStyle = inkOn(palette.paper, "muted");
       ctx.font = `400 ${Math.min(13, Math.max(9, box.height / 5))}px ${options.fontFamily}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -195,7 +197,7 @@ export function paintImage(
 
   // Loading: the dominant colour is known from the file row, so the object appears in
   // its own colour before a single byte has arrived.
-  ctx.fillStyle = placeholderColour(options.dominantColor, palette.hover);
+  ctx.fillStyle = placeholderColour(options.dominantColor, palette.paper);
   roundRect(ctx, box.x, box.y, box.width, box.height, radius);
   ctx.fill();
 
@@ -205,7 +207,7 @@ export function paintImage(
     box.x + box.width / 2,
     box.y + box.height / 2,
     iconSize,
-    withAlpha(palette.textMuted, 0.6),
+    withAlpha(inkOn(palette.paper, "icon"), 0.6),
     1 / zoom,
     false,
   );

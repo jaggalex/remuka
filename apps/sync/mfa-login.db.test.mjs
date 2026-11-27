@@ -12,7 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetFailures } from "./attempts.mjs";
 import { hashPassword } from "./iam.mjs";
 import { handleIam } from "./iam-api.mjs";
-import { totpCode, totpStep } from "./mfa.mjs";
+import { mfaIssuer, totpCode, totpStep } from "./mfa.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 
 const database = await testDatabaseStore("mfa login");
@@ -117,6 +117,7 @@ suite("second-factor sign-in", () => {
     const { api, login } = await signIn(person);
     expect(login.status).toBe(202);
     expect(login.body.mfaRequired).toBe(true);
+    expect(login.body.issuer).toBe(mfaIssuer());
     expect(typeof login.body.challenge).toBe("string");
     expect(login.headers.get("set-cookie")).toBeNull();
     expect((await api("GET", "/auth/me")).status).toBe(401);

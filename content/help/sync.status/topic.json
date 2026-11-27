@@ -6,20 +6,20 @@
     "en": "Save status and offline"
   },
   "summary": {
-    "ru": "Сохранено, сохраняется или офлайн: что означает индикатор в топбаре и что происходит с правками без связи.",
-    "en": "Saved, saving or offline: what the topbar indicator means and what happens to edits without a connection."
+    "ru": "Индикатора в сохранённой комнате нет. Что значат «Сохраняем…», «Нет связи» и «Сохранено» и что происходит с правками без связи.",
+    "en": "A saved room has no indicator. What “Saving…”, “No connection” and “Saved” mean, and what happens to edits without a connection."
   },
   "related": [
     "connectors.create",
     "connectors.waypoints"
   ],
-  "verifiedAgainst": "2026-11-06",
+  "verifiedAgainst": "2026-11-24",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:3d812677ae1accdaab48fb04d80b730a2fe777435cf7d17a3b6b83f9dfcf5fd5",
-      "targetHash": "sha256:446b723364c7c6d309f88c0495df6404f2a572417480083fe34a4ad3a3b339da"
+      "sourceHash": "sha256:27250c5bba0d088771535cfa698ef561106fa3fd5a98b595a1f112c49b4028ab",
+      "targetHash": "sha256:d8fcbe3b0ca3c72f122f3f7a3b7bdfba7988c98ddc28b4034bfb88bb662731f3"
     }
   }
 }

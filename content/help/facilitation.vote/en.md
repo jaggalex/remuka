@@ -12,7 +12,7 @@ Participants spread a limited number of votes across the chosen objects right in
 
 1. Start the shared timer if the vote should follow a common clock: it then ends with the timer.
 2. Select the objects to vote on.
-3. Open Facilitation ▾ and choose Voting.
+3. Open Run ▾ and choose Voting.
 4. On the New session tab set the votes per person, the duration and anonymity. When the room timer runs, the "With the timer" option is available and shows the time left.
 5. Click Start voting.
 
@@ -26,7 +26,7 @@ Participants spread a limited number of votes across the chosen objects right in
 ## What you see
 
 - On the Manage tab, three numbers: time left, how many people voted and how many votes were cast.
-- The session's objects with bars and totals; "Show in the room" selects an object and brings the camera to it.
+- Below the three totals you can see how many votes you have left. Select **Show session objects in the room** to bring them all into view. To find one object, use the eye button next to its name.
 - Totals per object — no names when the session is anonymous. With an anonymous session only totals are visible: nobody sees who voted for what, including the facilitator.
 
 ## Ending and results

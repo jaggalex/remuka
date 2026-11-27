@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Camera } from "@remo/canvas";
+import type { Camera, CanvasPalette } from "@remo/canvas";
 import type { TextMarks, Widget } from "@remo/model";
 import type { ArrangeBarTarget } from "./ArrangeBar";
 import type { ConnectorBarTarget } from "./ConnectorBar";
@@ -22,15 +22,20 @@ export function useFloatingBars({
   selectedIds,
   readOnly,
   noteMarks,
+  editingId,
   resolve,
+  palette,
 }: {
   camera: Camera;
   viewport: { width: number; height: number };
   settings: BoardSettings;
   selectedIds: readonly string[];
   readOnly: boolean;
+  editingId: string | null;
   noteMarks: (id: string) => TextMarks | null;
   resolve: (id: string) => Widget | undefined;
+  /** The canvas palette: a caption's ground, and the colour window's warning (ADR-273). */
+  palette: CanvasPalette;
 }): {
   stickyBar: StickyBarTarget | null;
   arrangeBar: ArrangeBarTarget | null;
@@ -46,8 +51,8 @@ export function useFloatingBars({
     const widget = resolve(selectedIds[0]!);
     if (!widget) return null;
     const marks = noteMarks(widget.id);
-    return floating.noteBarTarget({ widget, frame, settings, marks });
-  }, [frame, noteMarks, readOnly, selectedIds, settings, resolve]);
+    return floating.noteBarTarget({ widget, frame, settings, marks, editing: editingId === widget.id, palette, resolve });
+  }, [frame, editingId, noteMarks, readOnly, selectedIds, settings, resolve, palette]);
 
   /** The arrange bar's target: two or more selected objects. */
   const arrangeBar = useMemo<ArrangeBarTarget | null>(
@@ -61,8 +66,8 @@ export function useFloatingBars({
     if (selectedIds.length !== 1) return null;
     const widget = resolve(selectedIds[0]!);
     if (!widget) return null;
-    return floating.connectorBarTarget({ widget, frame, settings, resolve });
-  }, [frame, readOnly, selectedIds, settings, resolve]);
+    return floating.connectorBarTarget({ widget, frame, settings, resolve, palette });
+  }, [frame, readOnly, selectedIds, settings, resolve, palette]);
 
   /** The picture bar: one image, and not for a reader (every action is a write). */
   const imageBar = useMemo<ImageBarTarget | null>(() => {

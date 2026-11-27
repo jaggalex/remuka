@@ -33,6 +33,7 @@ export const CATEGORY_HINT_KEYS: Readonly<Record<ConsentCategory, TranslationKey
  * here.
  */
 export const LIFETIME_KEYS: Readonly<Record<string, TranslationKey>> = {
+  "48 hours": "consent.lifetime.hours48",
   "30 days": "consent.lifetime.days30",
   "12 hours": "consent.lifetime.hours12",
   "1 year": "consent.lifetime.year1",

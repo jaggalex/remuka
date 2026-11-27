@@ -135,7 +135,7 @@ export function pickVariant(variants, name) {
   return { name: chosen[0], ...chosen[1] };
 }
 
-/** The name may contain anything; only its last segment is shown, and only on download. */
+/** Only the last segment may be returned to a caller authorised to download. */
 function originalName(raw) {
   const name = String(raw ?? "")
     .split(/[\\/]/)
@@ -242,7 +242,7 @@ export function createFilesApi({
     const entitlements = await entitlementsFor(store, orgId);
     const max = entitlements.limits.storageBytes;
     if (max !== null && max !== undefined) {
-      const used = await store.storedBytesForOrg();
+      const used = await store.storedBytesForOrg(orgId);
       if (used + incomingBytes > max) {
         return { limit: "storage", current: used, max, plan: entitlements.plan };
       }
@@ -553,8 +553,9 @@ export function createFilesApi({
   }
 
   async function handleOriginal(request, response, fileId, url) {
-    if (request.method !== "GET") {
-      return fail(response, 405, "METHOD_NOT_ALLOWED", "use GET");
+    const metadataOnly = request.method === "HEAD";
+    if (!metadataOnly && request.method !== "GET") {
+      return fail(response, 405, "METHOD_NOT_ALLOWED", "use GET or HEAD");
     }
     const boardId = url.searchParams.get("board");
     if (!boardId) return notFound(response);
@@ -572,7 +573,9 @@ export function createFilesApi({
         const row = await store.fileById(fileId);
         if (!row || row.status !== "ready") return null;
         if (!(await store.fileUsedInBoard(fileId, boardId))) return null;
-        const stream = await files.get(fileKey(row.org_id, fileId, "original"));
+        const key = fileKey(row.org_id, fileId, "original");
+        if (metadataOnly) return (await files.head(key)) ? { row } : null;
+        const stream = await files.get(key);
         return { stream, row };
       });
     } catch (error) {
@@ -580,24 +583,32 @@ export function createFilesApi({
     }
     if (!prepared) return notFound(response);
 
-    await audit({
-      actorId: null,
-      orgId,
-      boardId,
-      action: "file.downloaded_original",
-      subject: fileId,
-    });
+    if (!metadataOnly) {
+      await audit({
+        actorId: null,
+        orgId,
+        boardId,
+        action: "file.downloaded_original",
+        subject: fileId,
+      });
+    }
 
     response.writeHead(200, {
       "Content-Type": prepared.row.mime,
       "Content-Length": String(prepared.row.bytes),
-      "Content-Disposition": disposition(originalName(prepared.row.original_name)),
+      ...(!metadataOnly || prepared.row.original_name
+        ? { "Content-Disposition": disposition(originalName(prepared.row.original_name)) }
+        : {}),
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "default-src 'none'; sandbox",
       // An original is personal data; no shared cache may keep it.
       "Cache-Control": "private, no-store",
       ETag: `"${prepared.row.sha256}"`,
     });
+    if (metadataOnly) {
+      response.end();
+      return true;
+    }
     try {
       await pipeline(prepared.stream, response);
     } catch (error) {

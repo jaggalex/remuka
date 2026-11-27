@@ -4,7 +4,7 @@ A room has one public link, and it is the same URL that was copied earlier. For 
 
 ## Steps
 
-1. Open Share in the room.
+1. Open Invite in the room.
 2. In the Public link block, click Turn on.
 3. Copy the link and send it to people who need read access.
 4. To close access, click Turn off. The link stops working for everyone immediately.
@@ -16,6 +16,8 @@ A room has one public link, and it is the same URL that was copied earlier. For 
 - Changing the password closes browsers that were already unlocked: they must enter the new password.
 - Expiry is checked on the server. A date in the past is rejected with an explicit error.
 - An expired link does not open the room; the owner can set a new expiry or remove it.
+
+On their first visit in this browser, guests enter the password if you set one, then choose a name. They can keep the suggested name and select **Enter room**. The browser remembers their choice for future visits.
 
 ## Check the result
 

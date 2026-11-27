@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { BoardDocument } from "@remo/doc";
 import { fitImageToNaturalSize, setImageAlt } from "@remo/doc";
 import { Button, IconButton, Menu } from "@remo/ui";
@@ -56,6 +56,14 @@ export function ImagePanel({
   const moreRef = useMenuFocus(open, "more");
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement | null>(null);
+  const descriptionAnchor = useRef<HTMLSpanElement>(null);
+  const previousOpen = useRef<PopoverName>(null);
+  useLayoutEffect(() => {
+    if (previousOpen.current === "alt" && !open && document.activeElement === document.body) {
+      descriptionAnchor.current?.querySelector("button")?.focus();
+    }
+    previousOpen.current = open;
+  }, [open]);
 
   if (!target) return null;
 
@@ -90,7 +98,7 @@ export function ImagePanel({
   };
 
   return (
-    <ObjectBar ref={ref} placement={target.placement} label={t("sticky.properties")}>
+    <ObjectBar ref={ref} className="image-selection-bar" placement={target.placement} label={t("tool.image")}>
       <input
         ref={input}
         type="file"
@@ -105,19 +113,13 @@ export function ImagePanel({
           if (file) void replace(file);
         }}
       />
-      {/* A locked picture has no Replace at all: the lock is the answer, not a greyed
-          button that would explain itself on hover (§9.5). */}
-      {!target.locked && (
-        <Button size="compact" loading={busy} onClick={() => input.current?.click()}>
-          {t("image.replace")}
-        </Button>
-      )}
-      <span className="sb-divider" aria-hidden="true" />
-      <span className="sb-anchor">
+      <strong className="image-bar-title">{t("tool.image")}</strong>
+      <span className="sb-anchor" ref={descriptionAnchor}>
         <Button
           size="compact"
           variant="ghost"
           disabled={target.locked}
+          selected={open === "alt"}
           aria-expanded={open === "alt"}
           onClick={() => setOpen(open === "alt" ? null : "alt")}
         >
@@ -131,12 +133,16 @@ export function ImagePanel({
           />
         )}
       </span>
-      <IconButton
-        icon="eye"
-        size="compact"
-        label={t("image.open")}
-        onClick={() => openImageViewer(target.id)}
-      />
+      {/* A locked picture has no Replace at all: the lock is the answer, not a greyed
+          button that would explain itself on hover (§9.5). */}
+      {!target.locked && (
+        <Button size="compact" variant="ghost" loading={busy} onClick={() => input.current?.click()}>
+          {t("image.replace")}
+        </Button>
+      )}
+      <Button size="compact" variant="ghost" onClick={() => openImageViewer(target.id)}>
+        {t("image.open")}
+      </Button>
       <span className="sb-more" ref={moreRef}>
         <IconButton
           icon="more"

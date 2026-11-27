@@ -1,6 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { 
+readFile } from "node:fs/promises";
+import { buffer } from "node:stream/consumers";
 import { test, expect } from "@playwright/test";
 import {
+  ensureProperties,
   addComment,
   addSticky,
   applyDefaultTableLayout,
@@ -14,6 +17,46 @@ import {
   seedObject,
 } from "./helpers";
 
+test("offers the only frame without selecting it or changing the default export scope", async ({ page }) => {
+  const room = await register(page, "export-only-frame");
+  const frame = await seedObject(page, room.boardId, {
+    type: "frame", title: "Sprint", x: 0, y: 0, width: 400, height: 240,
+  });
+  await seedNote(page, room.boardId, { x: 0, y: 0 }, undefined, "Inside", frame);
+  await seedNote(page, room.boardId, { x: 900, y: 0 }, undefined, "Outside");
+  await openBoard(page, room.boardId, { template: "empty" });
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  const dialog = page.locator(".export-dialog");
+  // A card can fit the window while a label paints across its neighbour.
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const clipped = await dialog.getByRole("radio").evaluateAll(choices => choices.flatMap(choice => {
+      const bounds = choice.getBoundingClientRect();
+      return Array.from(choice.children).filter(label => {
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        return Array.from(range.getClientRects()).some(rect => rect.width > 0 &&
+          (rect.left < bounds.left || rect.right > bounds.right || rect.top < bounds.top || rect.bottom > bounds.bottom));
+      }).map(label => label.textContent);
+    }));
+    expect(clipped, `export option text at ${width}px`).toEqual([]);
+  }
+  await expect(dialog.getByRole("radio", { name: /Selection/ })).toBeDisabled();
+  await expect(dialog.getByRole("radio", { name: /Whole room.*3 objects/ })).toBeChecked();
+  const frameScope = dialog.getByRole("radio", { name: /Frame.*“Sprint”/ });
+  await expect(frameScope).toBeEnabled();
+  await frameScope.click();
+  await expect(frameScope).toBeChecked();
+  await expect(dialog.locator(".export-note").filter({ hasText: "2 objects" })).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    dialog.getByRole("button", { name: "Download PNG" }).click(),
+  ]);
+  const png = await buffer(await download.createReadStream());
+  expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+});
+
 test("exports a PNG and downloads and restores a backup with a Cyrillic filename", async ({ page }) => {
   const title = "План «Ёж»";
   const account = await register(page, "export", { title });
@@ -23,14 +66,14 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
   await addComment(page, "Reviewed before export");
   await page.getByRole("button", { name: "Resolve", exact: true }).click();
   await expect(page.locator(".comments-list li")).toHaveCount(0);
-  await page.locator(".comments-panel header button").click();
+  await page.locator(".comments-panel").getByRole("button", { name: "Close" }).click();
 
   // A real download, not a mocked canvas: the browser renderer is part of the product.
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
-  await page.locator(".export-dialog .export-choice", { hasText: "Whole room" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  await page.locator(".export-dialog .export-scopes .export-choice", { hasText: "Whole room" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PNG", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.png$/);
   await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
@@ -39,7 +82,7 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
   await dialog.getByRole("radio", { name: /Room backup/ }).click();
   const [backup] = await Promise.all([
     page.waitForEvent("download"),
-    dialog.getByRole("button", { name: "Export", exact: true }).click(),
+    dialog.getByRole("button", { name: "Download backup", exact: true }).click(),
   ]);
   expect(backup.suggestedFilename()).toBe("план-ёж.remuka-backup.json");
   const contents = await readFile(await backup.path());
@@ -50,6 +93,12 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
     comments: [{ body: "Reviewed before export" }],
   }]);
 
+  await expect(dialog.getByRole("radiogroup", { name: "What to export" })).toHaveCount(0);
+  await dialog.getByRole("radio", { name: /^PNG/ }).click();
+  const restore = dialog.locator(".export-import summary");
+  await expect(restore).toBeInViewport({ ratio: 1 });
+  await restore.press("Enter");
+  await expect(restore).toBeFocused();
   await dialog.locator(".export-import input[type=file]").setInputFiles({
     name: backup.suggestedFilename(),
     mimeType: "application/json",
@@ -58,6 +107,64 @@ test("exports a PNG and downloads and restores a backup with a Cyrillic filename
   await expect(page.locator(".export-import-confirm")).toContainText("Replace the whole room");
   await page.getByRole("button", { name: "Replace the room" }).click();
   await expect(page.locator(".canvas-notice")).toContainText("restored from the backup");
+});
+
+test("a room backup restores the rotation angle (T18)", async ({ page }) => {
+  const account = await register(page, "export-rotation");
+  await openBoard(page, account.boardId, { template: "empty" });
+  const id = await seedObject(page, account.boardId, {
+    type: "sticky_note",
+    x: 0,
+    y: 0,
+    width: 160,
+    height: 180,
+    content: "Идея",
+    rotation: -12,
+  });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (widgetId) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; rotation: number }> } }).__remo.widgets.find(
+            (widget) => widget.id === widgetId,
+          )?.rotation ?? null,
+        id,
+      ),
+    )
+    .toBe(-12);
+
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  const dialog = page.locator(".export-dialog");
+  await dialog.getByRole("radio", { name: /Room backup/ }).click();
+  const [backup] = await Promise.all([
+    page.waitForEvent("download"),
+    dialog.getByRole("button", { name: "Download backup", exact: true }).click(),
+  ]);
+  const contents = await readFile(await backup.path());
+  await expect(dialog.getByRole("radiogroup", { name: "What to export" })).toHaveCount(0);
+  await dialog.locator(".export-import summary").click();
+  await dialog.locator(".export-import input[type=file]").setInputFiles({
+    name: backup.suggestedFilename(),
+    mimeType: "application/json",
+    buffer: contents,
+  });
+  await page.getByRole("button", { name: "Replace the room" }).click();
+  await expect(page.locator(".canvas-notice")).toContainText("restored from the backup");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (widgetId) =>
+          (window as unknown as { __remo: { widgets: Array<{ id: string; rotation: number }> } }).__remo.widgets.find(
+            (widget) => widget.id === widgetId,
+          )?.rotation ?? null,
+        id,
+      ),
+    )
+    .toBe(-12);
 });
 
 test("exports a selection with the line between the selected objects", async ({ page }) => {
@@ -103,14 +210,14 @@ test("exports a selection with the line between the selected objects", async ({ 
   expect(selected).toEqual(expect.arrayContaining([left, right, line]));
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await page.locator(".export-dialog .export-choice", { hasText: "Selection" }).click();
   await page.locator(".export-dialog .export-choice", { hasText: "PDF" }).click();
   // Two notes and the line: a scope of three objects means the line is in the picture.
   await expect(page.locator(".export-dialog .export-note")).toContainText("3 objects");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PDF", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.pdf$/);
   await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
@@ -121,14 +228,15 @@ test("exports a PNG with comment pins and the legend", async ({ page }) => {
   await addSticky(page);
   await openComments(page);
   await addComment(page, "Please review this");
-  await page.locator(".comments-panel header button").click();
+  await page.locator(".comments-panel").getByRole("button", { name: "Close" }).click();
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
-  await page.locator(".export-dialog .export-choice", { hasText: "Whole room" }).click();
-  await expect(page.locator(".export-comments input")).toBeChecked();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  await page.locator(".export-dialog .export-scopes .export-choice", { hasText: "Whole room" }).click();
+  await expect(page.locator(".export-comments input")).not.toBeChecked();
+  await page.locator(".export-comments input").check();
   const downloadPromise = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PNG", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.png$/);
   await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
@@ -184,16 +292,16 @@ test("exports a table grid and carries its layout in the backup", async ({ page 
       ),
     frameId,
   );
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   await page.locator(".section-panel").getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
   await expect(page.locator(".section-axis-row")).toHaveCount(3);
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
-  await page.locator(".export-dialog .export-choice", { hasText: "Whole room" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  await page.locator(".export-dialog .export-scopes .export-choice", { hasText: "Whole room" }).click();
   const pngPromise = page.waitForEvent("download");
-  await page.locator(".export-dialog").getByRole("button", { name: "Export", exact: true }).click();
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PNG", exact: true }).click();
   const png = await pngPromise;
   expect(png.suggestedFilename()).toMatch(/\.png$/);
   const pngBytes = await readFile(await png.path());
@@ -204,7 +312,7 @@ test("exports a table grid and carries its layout in the backup", async ({ page 
   await dialog.getByRole("radio", { name: /Room backup/ }).click();
   const [backup] = await Promise.all([
     page.waitForEvent("download"),
-    dialog.getByRole("button", { name: "Export", exact: true }).click(),
+    dialog.getByRole("button", { name: "Download backup", exact: true }).click(),
   ]);
   const bundle = JSON.parse((await readFile(await backup.path())).toString());
   expect(bundle.widgets[frameId].layout).toMatchObject({ kind: "table" });

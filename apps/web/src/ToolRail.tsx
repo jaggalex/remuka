@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
-import type { ShapeKind } from "@remo/model";
-import { Button, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
+import { useEffect, useRef, type Ref } from "react";
+import type { ConnectorRouting, ShapeKind } from "@remo/model";
+import { Button, Icon, IconButton, Popover, Separator, Tooltip } from "@remo/ui";
 import type { IconName } from "@remo/ui";
 import { useI18n, type TranslationKey } from "./i18n";
-import { COLOR_WINDOW_WIDTH, ColorSwatch } from "./object-panel/ColorWindow";
-import {
-  defaultStickerFill,
-  type NamedFillChoice,
-  type NoteFillChoice,
-} from "./object-panel/palette";
-import { HelpLink } from "./help/HelpLink";
+import { useChromeQuiet } from "./quietChrome";
+import type { NoteFillChoice } from "./object-panel/palette";
+import { ShapeKindList } from "./object-panel/ShapeKindPicker";
 
 /** A rail tool. Select is not a creation tool; it only drops the selection. */
 export type RailTool =
@@ -26,17 +22,35 @@ export type RailTool =
   | "comment"
   | "sticky-stack";
 
+/** The flyout a tool (or "More") opens, one at a time. */
+export type RailFlyout = "sticky" | "shape" | "connector" | "more" | null;
+
+/** One row of «Ещё», already resolved from the command registry by the caller. */
+export interface RailMoreItem {
+  id: string;
+  label: string;
+  icon: IconName;
+  disabled?: boolean;
+  reason?: string;
+  onSelect: () => void;
+}
+
+const ROUTINGS: ReadonlyArray<{ value: ConnectorRouting; key: TranslationKey; icon: IconName }> = [
+  { value: "curved", key: "line.curved", icon: "connector-curved" },
+  { value: "straight", key: "line.straight", icon: "connector-straight" },
+  { value: "elbow", key: "line.elbowed", icon: "connector-elbow" },
+];
+
 /**
- * The one place objects are created (ADR-119).
+ * The one place objects are created (ADR-119, ADR-266 §10a).
  *
- * The rail holds creation, selection and history; the top bar describes the board. A
- * tool with variants carries a corner marker that opens a flyout of samples (note
- * colours, shape silhouettes); a direct tool creates at once and the rail returns to
- * Select, because there is no placement mode — the canvas keeps its current gesture model.
+ * Seven tools — select, note, shape, text, connector, frame, picture — and «More» for
+ * the rest. A tool with variants opens its samples on the tool itself: the marker in
+ * the corner, or a click on the tool while it is the active one. The choice is
+ * remembered for the next object by `toolDefaults`; this file only shows it.
  *
- * Every button is a design-system `IconButton` in one panel, and history is a second
- * panel: the rail is a surface of its own, not a strip of icons on the canvas edge
- * (ADR-119).
+ * History is in the same paper panel under the hairline, not a second pill: the rail is
+ * one control surface, as the mockup draws it (ADR-286).
  */
 export function ToolRail({
   writeBlocked,
@@ -60,14 +74,20 @@ export function ToolRail({
   canConnect,
   canAddCard,
   noteColors,
-  noteExtras,
+  noteFill,
+  armedShape, activeTool, lockedTool, onPointSeries,
+  defaultShape,
+  onShapeSeries,
+  connectorRouting,
+  onRouting,
+  more,
 }: {
   writeBlocked: boolean;
   /** Why creation is off (view-only or the offline queue): the tooltip says it. */
   blockedHint: string;
   canComment: boolean;
-  flyout: "sticky" | "shape" | null;
-  onFlyout: (next: "sticky" | "shape" | null) => void;
+  flyout: RailFlyout;
+  onFlyout: (next: RailFlyout) => void;
   onSelect: () => void;
   onSticky: (fill?: string) => void;
   onText: () => void;
@@ -85,26 +105,54 @@ export function ToolRail({
   canConnect: boolean;
   canAddCard: boolean;
   noteColors: readonly NoteFillChoice[];
-  /** The named chips beside the grid — White and Black (ADR-140). */
-  noteExtras: readonly NamedFillChoice[];
+  /** The fill the next note takes; it is what the flyout rings (ADR-266 §10a). */
+  noteFill: string;
+  /** The shape waiting for a drag on the canvas (ADR-271). */
+  armedShape: ShapeKind | null;
+  activeTool: "sticky" | "shape" | "text" | null;
+  lockedTool: "sticky" | "shape" | "text" | null;
+  onPointSeries: (tool: "sticky" | "text") => void;
+  /** The kind a click arms: the last one chosen in this browser (ADR-266 §10a). */
+  defaultShape: ShapeKind;
+  /** A double-click on the tool keeps it armed for a series until Escape. */
+  onShapeSeries: (kind: ShapeKind) => void;
+  /** The line type the next connector takes, and the one the flyout rings. */
+  connectorRouting: ConnectorRouting;
+  onRouting: (routing: ConnectorRouting) => void;
+  /** «More»: the same commands the search finds (T7, T8). */
+  more: readonly RailMoreItem[];
 }) {
   const { t } = useI18n();
+  const quiet = useChromeQuiet();
   const rail = useRef<HTMLDivElement | null>(null);
-  const defaultFill = useMemo(() => defaultStickerFill(), []);
+  const stickyDisclosure = useRef<HTMLButtonElement | null>(null);
+  const pendingClick = useRef<number | undefined>(undefined);
+  const cancelClick = () => {
+    window.clearTimeout(pendingClick.current);
+    pendingClick.current = undefined;
+  };
+  useEffect(() => cancelClick, []);
 
   useEffect(() => {
     if (!flyout) return;
     const onDown = (event: PointerEvent) => {
-      if (!rail.current?.contains(event.target as Node)) onFlyout(null);
+      const boundary = flyout === "sticky" ? stickyDisclosure.current?.parentElement : rail.current;
+      if (!boundary?.contains(event.target as Node)) onFlyout(null);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onFlyout(null);
+      if (event.key !== "Escape") return;
+      if (flyout === "sticky") {
+        event.preventDefault();
+        event.stopPropagation();
+        stickyDisclosure.current?.focus({ preventScroll: true });
+      }
+      onFlyout(null);
     };
     document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, flyout === "sticky");
     return () => {
       document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, flyout === "sticky");
     };
   }, [flyout, onFlyout]);
 
@@ -125,6 +173,8 @@ export function ToolRail({
     reason?: string;
     disabled?: boolean;
     expanded?: boolean;
+    locked?: boolean;
+    onDoubleClick?: () => void;
     onClick: () => void;
   }) => {
     const disabled = Boolean(options.disabled);
@@ -148,87 +198,103 @@ export function ToolRail({
           className="tool-rail-button"
           disabled={disabled}
           selected={options.expanded}
-          onClick={options.onClick}
+          aria-description={options.locked ? t("tool.seriesLocked") : undefined}
+          onMouseDown={event => {
+            // Keep an active text edit intact while distinguishing placement from tool lock.
+            if (options.onDoubleClick && document.activeElement?.closest(".inline-editor")) {
+              event.preventDefault();
+            }
+          }}
+          onClick={event => {
+            cancelClick();
+            if (!options.onDoubleClick || event.detail === 0) {
+              options.onClick();
+            } else if (event.detail === 1) {
+              pendingClick.current = window.setTimeout(() => {
+                pendingClick.current = undefined;
+                const editor = document.activeElement;
+                if (editor instanceof HTMLElement && editor.closest(".inline-editor")) editor.blur();
+                options.onClick();
+              }, 400);
+            }
+          }}
+          onDoubleClick={options.onDoubleClick}
         />
       </Tooltip>
     );
   };
 
+  const pickShape = (kind: ShapeKind) => {
+    onShape(kind);
+    onFlyout(null);
+  };
+
   return (
-    <div className="tool-rail" role="toolbar" aria-label={t("tool.rail")} ref={rail}>
+    <div
+      className={quiet ? "tool-rail is-quiet" : "tool-rail"}
+      role="toolbar"
+      aria-label={t("tool.rail")}
+      ref={rail}
+    >
       <div className="tool-rail-panel">
         {tool({
           icon: "cursor",
           label: "tool.select",
           shortcut: "V",
-          expanded: true,
+          expanded: activeTool === null && flyout === null,
           onClick: onSelect,
         })}
 
-        <Separator />
-
-        <div className="tool-rail-item">
+        <div className="tool-rail-item tool-rail-sticky">
           {tool({
             icon: "sticky",
             label: "tool.sticky",
             shortcut: "N",
             disabled: writeBlocked,
-            onClick: () => onSticky(),
+            expanded: activeTool === "sticky" || flyout === "sticky",
+            locked: lockedTool === "sticky",
+            onDoubleClick: () => onPointSeries("sticky"),
+            onClick: () => {
+              // The active tool explains its variants; a tool that is off acts at once.
+              if (flyout === "sticky") onFlyout(null);
+              else onSticky(noteFill);
+            },
           })}
-          <Disclosure
+          {lockedTool === "sticky" && <SeriesLock />}
+          <ToolDisclosure
+            triggerRef={stickyDisclosure}
             label={t("tool.stickyColors")}
             open={flyout === "sticky"}
             disabled={writeBlocked}
             onClick={() => onFlyout(flyout === "sticky" ? null : "sticky")}
           />
           {flyout === "sticky" && (
-            <Popover
-              title={t("tool.sticky")}
-              width={COLOR_WINDOW_WIDTH}
-              side="right"
-              onClose={() => onFlyout(null)}
-            >
-              <div className="tool-flyout-palette" role="group" aria-label={t("tool.stickyColors")}>
-                <div className="tool-flyout-extras">
-                  {noteExtras.map((extra) => (
-                    <ColorSwatch
-                      key={extra.id}
-                      hex={extra.value}
-                      word={t(extra.key)}
-                      className="tool-extra"
-                      onClick={() => onSticky(extra.value)}
-                    />
-                  ))}
-                </div>
-                <div className="tool-flyout-swatches">
-                  {noteColors.map((color) => (
-                    <ColorSwatch
-                      key={`${color.tone}-${color.level}`}
-                      hex={color.hex}
-                      word={t(color.key)}
-                      dataHex={color.hex}
-                      className={
-                        color.hex === defaultFill ? "tool-swatch is-default" : "tool-swatch"
-                      }
-                      onClick={() => onSticky(color.hex)}
-                    />
-                  ))}
-                </div>
+            <Popover title={t("tool.stickyPaletteTitle")} side="right">
+              <div className="tool-flyout-swatches" role="group" aria-label={t("tool.stickyColors")}>
+                {noteColors.map((color) => (
+                  <Tooltip key={color.tone} label={t(color.key)}>
+                    <Button
+                      variant="ghost"
+                      className="tool-swatch"
+                      data-hex={color.hex}
+                      aria-label={t(color.key)}
+                      selected={color.hex === noteFill}
+                      onClick={() => {
+                        onSticky(color.hex);
+                        onFlyout(null);
+                      }}
+                    >
+                      <span className="tool-swatch-paper" style={{ backgroundColor: color.hex }} />
+                    </Button>
+                  </Tooltip>
+                ))}
               </div>
               <p className="tool-flyout-note">
-                {t("tool.stickyDefault")} <HelpLink topicId="room.colours" className="help-link icon-link" />
+                {t("tool.seriesHint")} {t("tool.seriesLockHint")}
               </p>
             </Popover>
           )}
         </div>
-
-        {tool({
-          icon: "text",
-          label: "tool.text",
-          shortcut: "T",
-          disabled: writeBlocked,
-          onClick: onText,
-        })}
 
         <div className="tool-rail-item">
           {tool({
@@ -236,66 +302,102 @@ export function ToolRail({
             label: "tool.shape",
             shortcut: "R",
             disabled: writeBlocked,
-            onClick: () => onShape("rectangle"),
+            expanded: armedShape !== null || flyout === "shape",
+            locked: lockedTool === "shape",
+            onClick: () => {
+              // An armed tool explains its five silhouettes; a fresh one arms.
+              if (armedShape !== null) onFlyout(flyout === "shape" ? null : "shape");
+              else onShape(defaultShape);
+            },
+            onDoubleClick: () => onShapeSeries(armedShape ?? defaultShape),
           })}
-          <Disclosure
+          {lockedTool === "shape" && <SeriesLock />}
+          <ToolDisclosure
             label={t("tool.shapeVariants")}
             open={flyout === "shape"}
             disabled={writeBlocked}
             onClick={() => onFlyout(flyout === "shape" ? null : "shape")}
           />
           {flyout === "shape" && (
-            <Popover title={t("tool.shape")} width={232} side="right" onClose={() => onFlyout(null)}>
-              <div className="tool-flyout-shapes" role="group" aria-label={t("tool.shapeVariants")}>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeRectangle")}
-                  onClick={() => onShape("rectangle")}
-                >
-                  <span className="tool-shape-rect" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeEllipse")}
-                  onClick={() => onShape("ellipse")}
-                >
-                  <span className="tool-shape-ellipse" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="compact"
-                  className="tool-shape"
-                  aria-label={t("tool.shapeDiamond")}
-                  onClick={() => onShape("diamond")}
-                >
-                  <span className="tool-shape-diamond" aria-hidden="true" />
-                </Button>
-              </div>
+            <Popover
+              title={t("tool.shapeVariants")}
+              width={252}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <ShapeKindList
+                value={armedShape}
+                ariaLabel={t("tool.shapeVariants")}
+                onPick={pickShape}
+              />
             </Popover>
           )}
         </div>
 
-        {tool({
-          icon: "image",
-          label: "tool.image",
-          shortcut: "I",
-          hint: t("tool.imageHint"),
+        <div className="tool-rail-item">
+          {tool({
+          icon: "text",
+          label: "tool.text",
+          shortcut: "T",
           disabled: writeBlocked,
-          onClick: onImage,
-        })}
+          expanded: activeTool === "text",
+          locked: lockedTool === "text",
+          onDoubleClick: () => onPointSeries("text"),
+          onClick: onText,
+          })}
+          {lockedTool === "text" && <SeriesLock />}
+        </div>
 
-        {tool({
-          icon: "connector",
-          label: "tool.connector",
-          shortcut: "L",
-          hint: canConnect ? undefined : t("tool.connectorHint"),
-          disabled: writeBlocked,
-          onClick: onConnector,
-        })}
+        <div className="tool-rail-item">
+          {tool({
+            icon: "connector",
+            label: "tool.connector",
+            shortcut: "L",
+            hint: canConnect ? undefined : t("tool.connectorHint"),
+            disabled: writeBlocked,
+            expanded: flyout === "connector",
+            onClick: () => {
+              if (flyout === "connector") onFlyout(null);
+              else onConnector();
+            },
+          })}
+          <ToolDisclosure
+            label={t("tool.connectorVariants")}
+            open={flyout === "connector"}
+            disabled={writeBlocked}
+            onClick={() => onFlyout(flyout === "connector" ? null : "connector")}
+          />
+          {flyout === "connector" && (
+            <Popover
+              title={t("tool.connectorVariants")}
+              width={196}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <div
+                className="tool-flyout-connector"
+                role="group"
+                aria-label={t("tool.connectorVariants")}
+              >
+                {ROUTINGS.map((entry) => (
+                  <Tooltip key={entry.value} label={t(entry.key)} side="bottom">
+                    <IconButton
+                      icon={entry.icon}
+                      label={t(entry.key)}
+                      iconSize={20}
+                      selected={connectorRouting === entry.value}
+                      onClick={() => {
+                        onRouting(entry.value);
+                        onFlyout(null);
+                      }}
+                    />
+                  </Tooltip>
+                ))}
+              </div>
+              <p className="tool-flyout-note">{t("tool.connectorNote")}</p>
+            </Popover>
+          )}
+        </div>
 
         {tool({
           icon: "frame",
@@ -306,35 +408,62 @@ export function ToolRail({
         })}
 
         {tool({
-          icon: "card",
-          label: "tool.card",
-          shortcut: "C",
-          hint: canAddCard ? undefined : t("tool.cardHint"),
+          icon: "image",
+          label: "tool.image",
+          shortcut: "I",
+          hint: t("tool.imageHint"),
           disabled: writeBlocked,
-          onClick: onCard,
+          onClick: onImage,
         })}
+
+        <div className="tool-rail-item">
+          {tool({
+            icon: "more",
+            label: "tool.more",
+            disabled: writeBlocked,
+            expanded: flyout === "more",
+            onClick: () => onFlyout(flyout === "more" ? null : "more"),
+          })}
+          {flyout === "more" && (
+            <Popover
+              title={t("tool.more")}
+              width={240}
+              side="right"
+              onClose={() => onFlyout(null)}
+            >
+              <div className="tool-more-list" role="menu" aria-label={t("tool.more")}>
+                {more.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className="tool-more-item"
+                    data-command={item.id}
+                    disabled={item.disabled}
+                    title={item.disabled ? item.reason : undefined}
+                    onClick={() => {
+                      onFlyout(null);
+                      item.onSelect();
+                    }}
+                  >
+                    <Icon name={item.icon} size={16} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          )}
+        </div>
 
         <Separator />
 
-        {tool({
-          icon: "comment",
-          label: "tool.comment",
-          hint: canComment ? undefined : t("tool.commentHint"),
-          reason: writeBlocked ? undefined : t("tool.commentHint"),
-          disabled: writeBlocked || !canComment,
-          onClick: onComment,
-        })}
-      </div>
-
-      {/* History is separate on purpose: undo is not a creation tool (§10.2, Р3). */}
-      <div className="tool-rail-panel">
         <Tooltip side="right" label={t("board.undo")}>
           <IconButton
             icon="undo"
             label={t("board.undo")}
-            iconSize={20}
-            className="tool-rail-button"
-            disabled={writeBlocked || !canUndo}
+            iconSize={18}
+            className="tool-rail-button tool-history-button"
+            disabled={!canUndo}
             onClick={onUndo}
           />
         </Tooltip>
@@ -342,9 +471,9 @@ export function ToolRail({
           <IconButton
             icon="redo"
             label={t("board.redo")}
-            iconSize={20}
-            className="tool-rail-button"
-            disabled={writeBlocked || !canRedo}
+            iconSize={18}
+            className="tool-rail-button tool-history-button"
+            disabled={!canRedo}
             onClick={onRedo}
           />
         </Tooltip>
@@ -356,16 +485,18 @@ export function ToolRail({
 /**
  * The corner marker of a tool with variants.
  *
- * A 6 px corner in the bottom-right of the 40 px button, the way the mockup draws it:
- * it marks "more here" and keeps its hit area off the glyph, so the icon is never
- * covered and a click on the icon always creates (Р2).
+ * A 6 px wedge in the bottom-right of the 44 px button, the way the mockup draws it: it
+ * marks "more here" and keeps its hit area off the glyph, so the icon is never covered
+ * and a click on the icon still creates (Р2).
  */
-function Disclosure({
+function ToolDisclosure({
+  triggerRef,
   label,
   open,
   disabled,
   onClick,
 }: {
+  triggerRef?: Ref<HTMLButtonElement>;
   label: string;
   open: boolean;
   disabled: boolean;
@@ -373,6 +504,7 @@ function Disclosure({
 }) {
   return (
     <button
+      ref={triggerRef}
       type="button"
       className={`tool-rail-caret${open ? " open" : ""}`}
       aria-label={label}
@@ -380,7 +512,21 @@ function Disclosure({
       aria-haspopup="dialog"
       tabIndex={disabled ? -1 : 0}
       disabled={disabled}
+      onMouseDown={event => {
+        // Browsing variants leaves the inline editor and its text selection in place.
+        if (document.activeElement?.closest(".inline-editor")) event.preventDefault();
+      }}
       onClick={onClick}
     />
+  );
+}
+
+function SeriesLock() {
+  return (
+    <span className="tool-series-lock" aria-hidden="true">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z" />
+      </svg>
+    </span>
   );
 }

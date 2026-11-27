@@ -24,6 +24,8 @@ test("10 000 objects stay inside the paint budget", async ({ page }) => {
   // The product culls to the viewport; the baseline is only meaningful when the camera
   // actually sees a large part of the room.
   expect(measured.visible).toBeGreaterThan(400);
+  // The scene carries 500 turned objects, so the budget covers them (T18 acceptance 11).
+  expect(measured.rotated).toBeGreaterThanOrEqual(500);
   expect(measured.average).toBeLessThan(16);
   expect(measured.worst).toBeLessThan(80);
 });

@@ -15,7 +15,7 @@ The meeting runs in the room: you need to keep to time, pick an option quickly a
 
 ## Steps: voting
 
-1. Select the option objects and open **Facilitation ▾ → Voting**.
+1. Select the option objects and open **Run ▾ → Voting**.
 2. Set the quota (3 by default), the duration and anonymity. An anonymous session shows only sums; an open session names who voted for what after it ends.
 3. Let people vote. Result: counters appear on the objects and a line above the room shows the votes left and the time.
 4. End the session or wait for the deadline. Result: the voting buttons disappear and each object keeps its result.
@@ -23,7 +23,7 @@ The meeting runs in the room: you need to keep to time, pick an option quickly a
 
 ## Steps: gathering people
 
-1. Open **Facilitation ▾ → Shared viewing** and press **Bring everyone to me**. Result: with automatic following (**Follow automatically**) on, participants' view moves at once; otherwise each person gets a "Follow / Stay" invitation.
+1. Open **Run ▾ → Shared viewing** and press **Bring everyone to me**. Result: with automatic following (**Follow automatically**) on, participants' view moves at once; otherwise each person gets a "Follow / Stay" invitation.
 2. Each person accepts for themselves. Result: everyone ends up in your part of the room.
 
 ## Check

@@ -6,7 +6,6 @@
  * must not read a row at all.
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { resetEntitlementCache } from "./billing.mjs";
 import {
   agentTaskLimit,
   featureLimit,
@@ -21,13 +20,11 @@ const ORIGINAL_BILLING = process.env.REMO_BILLING;
 afterAll(() => {
   if (ORIGINAL_BILLING === undefined) delete process.env.REMO_BILLING;
   else process.env.REMO_BILLING = ORIGINAL_BILLING;
-  resetEntitlementCache();
 });
 
 beforeEach(() => {
   // The guard reads the setting the way a route does; each file gets its own process.
   process.env.REMO_BILLING = "on";
-  resetEntitlementCache();
 });
 
 function subscription(plan, status = "active") {

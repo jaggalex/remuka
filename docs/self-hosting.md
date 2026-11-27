@@ -44,7 +44,7 @@ Copy `deploy/production.env.example` to a private file (mode 600) and replace ev
 | `REMO_LOGIN_LIMIT`, `REMO_LOGIN_IP_LIMIT`, `REMO_REGISTER_LIMIT` | optional rate-limit overrides (defaults: 10 per email+IP, 100 per IP, 20 registrations per IP; the first two per 15 minutes, registration per hour) |
 | `REMO_EDGE_NETWORK`, `REMO_DB_NETWORK` | Docker networks shared with the proxy and the database |
 | `REMO_DB_HOST` | host used by the `db-tools` container |
-| `REMO_DOCS_ORIGIN`, `REMO_METRICS` | optional docs origin and metrics switch |
+| `REMO_DOCS_ORIGIN`, `REMO_METRICS` | optional guide origin and metrics switch. The guide is read at start and published in `GET /api/config` as `docs.origin`; the interface and the in-app help build every guide link from it (ADR-284). Unset, the zone picks the cloud's guide and an installation with no zone shows no guide links |
 | `REMO_HASH_CONCURRENCY` | parallel password hashes (default 4) |
 | `REMO_WS_RATE_BYTES`, `REMO_WS_BURST_BYTES` | optional write budget per socket (defaults: 256 KiB/s, 16 MiB burst; ADR-173) |
 | `REMO_ORG_WS_RATE_BYTES`, `REMO_ORG_WS_BURST_BYTES` | optional write budget shared by an organisation's sockets (defaults: 2 MiB/s, 64 MiB burst) |

@@ -70,15 +70,17 @@ async function enableAgents(page: Page, orgId: string, boardId: string): Promise
 async function selectAll(page: Page): Promise<void> {
   const rows = await widgets(page);
   expect(rows.length).toBeGreaterThan(0);
-  const current = await geometry(page);
-  const first = toClient(current, { x: rows[0].x, y: rows[0].y });
-  await page.mouse.click(first.x, first.y);
-  await page.keyboard.down("Shift");
-  for (const row of rows.slice(1)) {
-    const point = toClient(current, { x: row.x, y: row.y });
-    await page.mouse.click(point.x, point.y);
-  }
-  await page.keyboard.up("Shift");
+  // One marquee from the empty margin of the fitted view: before the first selection
+  // there is no arrange bar, so nothing can cover the press (the bar and the rotation
+  // handle live above a selection once it exists).
+  const canvas = (await page.locator(".layer.overlay").boundingBox())!;
+  // Clear of the rail on the left and the header on top.
+  await page.mouse.move(canvas.x + 100, canvas.y + 140);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 100, canvas.y + canvas.height - 100, {
+    steps: 12,
+  });
+  await page.mouse.up();
   await expect
     .poll(() =>
       page.evaluate(
@@ -96,7 +98,7 @@ async function openTidyFromBar(page: Page): Promise<void> {
 async function runTidy(page: Page): Promise<void> {
   const tidy = page.getByRole("dialog", { name: "Tidy up selection" });
   await tidy.getByRole("button", { name: "Tidy up", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Agent plan" })).toBeVisible({
+  await expect(page.locator(".agent-task-panel[data-tidy]")).toBeVisible({
     timeout: 20_000,
   });
 }
@@ -122,9 +124,17 @@ test("five scattered notes become one even column and ⌘Z returns them", async 
   await openTidyFromBar(page);
   await runTidy(page);
 
-  const plan = page.getByRole("dialog", { name: "Agent plan" });
+  const plan = page.locator(".agent-task-panel[data-tidy]");
   await expect(plan).toContainText("Moves: 5");
   await expect(plan).toContainText("Blocks: US");
+
+  const roomTags = plan.getByRole("region", { name: "Room tags" });
+  await expect(roomTags.getByText("This room has no tags yet.")).toBeVisible();
+  await roomTags.getByRole("textbox", { name: "New tag" }).fill("Sprint");
+  await roomTags.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(roomTags.locator(".tag-row")).toContainText("Sprint");
+  await expect(roomTags.getByRole("button", { name: "Select (0)", exact: true })).toBeDisabled();
+  await expect(plan).toContainText("Moves: 5");
 
   // The room is the preview (ADR-188): five ghosts at their targets and one hull for the
   // block, drawn over the live notes, which have not moved.
@@ -152,7 +162,7 @@ test("five scattered notes become one even column and ⌘Z returns them", async 
     .toEqual([]);
   await expect(plan).toBeVisible();
 
-  await plan.getByRole("button", { name: "Apply" }).click();
+  await plan.getByRole("button", { name: "Tidy up", exact: true }).click();
   await expect(plan).toContainText("One ⌘Z puts every object back.");
   await plan.getByRole("button", { name: "Show in room" }).click();
 
@@ -164,6 +174,11 @@ test("five scattered notes become one even column and ⌘Z returns them", async 
     .filter((widget) => widget.type === "sticky_note")
     .sort((a, b) => a.y - b.y);
   expect(notes).toHaveLength(5);
+  for (const original of before) {
+    expect(notes.find(note => note.id === original.id)).toMatchObject({
+      width: original.width, height: original.height, text: original.text,
+    });
+  }
   // One column: every note shares the same centre x, and the reading order is natural.
   const xs = notes.map((note) => note.x);
   expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(0.5);
@@ -221,10 +236,10 @@ test("a selected frame is laid out inside itself and the frame does not move", a
   await expect(page.getByRole("dialog", { name: "Tidy up selection" })).toBeVisible();
   await runTidy(page);
 
-  const plan = page.getByRole("dialog", { name: "Agent plan" });
+  const plan = page.locator(".agent-task-panel[data-tidy]");
   await expect(plan).toContainText("Moves: 3");
   await expect(plan).toContainText("new blocks: 0");
-  await plan.getByRole("button", { name: "Apply" }).click();
+  await plan.getByRole("button", { name: "Tidy up", exact: true }).click();
   await plan.getByRole("button", { name: "Show in room" }).click();
 
   const after = await widgets(page);
@@ -256,14 +271,12 @@ test("a model may name the blocks, and the person reads them before applying", a
   await tidy.getByRole("button", { name: "By meaning" }).click();
   await tidy.getByRole("button", { name: "Tidy up", exact: true }).click();
 
-  const plan = page.getByRole("dialog", { name: "Agent plan" });
+  const plan = page.locator(".agent-task-panel[data-tidy]");
   await expect(plan).toBeVisible({ timeout: 20_000 });
   await expect(plan).toContainText("Blocks: Billing, Flow");
-  // The strategy switch is a detail of the plan; the panel opens it in place.
-  await plan.getByRole("button", { name: "Details" }).click();
-  await expect(plan.getByRole("button", { name: "By meaning" })).toHaveClass(
-    /rm-btn-primary/,
-  );
+  await expect(plan).toHaveAccessibleName("Tidy up selection");
+  await expect(plan).toContainText("Selected: 4 objects");
+  await expect(plan.getByRole("button", { name: "By meaning", pressed: true })).toBeVisible();
   // Switching the reading keeps the labels and recomputes only the geometry.
   await plan.getByRole("button", { name: "Grid" }).click();
   await expect(plan).toContainText("Moves: 4");

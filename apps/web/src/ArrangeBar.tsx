@@ -5,6 +5,7 @@ import { useMenuFocus } from "./useMenuFocus";
 import { usePopover } from "./usePopover";
 import { ObjectBar } from "./object-panel/ObjectBar";
 import { ColorGridSection, ColorWindow } from "./object-panel/ColorWindow";
+import { SHAPE_KIND_LABEL, ShapeKindGrid, shapeSelection } from "./object-panel/ShapeKindPicker";
 import { colorName, isTransparent } from "./object-panel/colorWindowData";
 import { PanelWindow } from "./object-panel/PanelWindow";
 
@@ -21,6 +22,8 @@ export interface ArrangeBarTarget {
   types: Array<{ type: string; count: number }>;
   /** The one colour role every selected object has, or null when they share none. */
   colour: { role: "fill" | "line"; value: string; mixed: boolean } | null;
+  /** The kinds of the selected shapes; empty unless every selected object is a shape. */
+  shapeKinds: import("@remo/model").ShapeKind[];
   /** Two or more ordinary objects can become one section (ADR-198). */
   canGather: boolean;
 }
@@ -30,7 +33,7 @@ export interface ArrangeBarActions {
   distribute: (axis: DistributeAxis) => void;
   group: () => void;
   ungroup: () => void;
-  /** Delete from "More" — the same path as the Delete key, confirmation included. */
+  /** Delete from the properties panel — the same path as the Delete key. */
   remove: () => void;
   /** Two or more roots can become one group (the command registry's predicate). */
   canGroup: boolean;
@@ -38,14 +41,14 @@ export interface ArrangeBarActions {
   canUngroup: boolean;
   /** Open the tidy preview for the selection (ADR-143). */
   tidy: () => void;
-  /** Gather compatible objects into one section (ADR-198). */
-  gather: () => void;
-  /** Show or hide the future section's outline while the action is pointed at. */
-  previewGather?: (on: boolean) => void;
   /** Narrow the selection to one type; `null` restores the selection before narrowing. */
   selectType: (type: string | null) => void;
   /** Write the shared role to every selected object: one transaction, one undo step. */
   setColour: (color: string) => void;
+  /** Switch every selected shape to one kind; one transaction, one undo step. */
+  setShapeKind: (kind: import("@remo/model").ShapeKind) => void;
+  /** «⋯»: the one properties panel (T8). */
+  openProperties: () => void;
 }
 
 const ALIGN = [
@@ -63,17 +66,13 @@ const DISTRIBUTE = [
 ] as const satisfies ReadonlyArray<{ axis: DistributeAxis; key: string }>;
 
 /**
- * The arrange bar.
+ * The multi-selection bar (ADR-120, ADR-266 §10a).
  *
- * Appears above a multi-selection: what is selected in words and by type (with a menu
- * that narrows to one type), the one colour role every selected object shares — "≠ Mixed"
- * when they disagree — the six alignments and two distributions behind one "Align"
- * popover, grouping, and "More", where Delete lives after a separator with the count
- * (ADR-120, ADR-124).
- *
- * Buttons, popover and menu come from `@remo/ui`. Icons rather than words for the eight
- * arrangements: eight labels would be wider than the selection, and the tooltips say the
- * rest (ADR-036).
+ * Six elements: what is selected, align (with distribution in its window), tidy, group,
+ * the shared colour, «⋯». The type menu stays on the summary: it narrows the selection,
+ * which is a property of what is selected rather than another action. Everything rarer
+ * — the type of every shape, gathering into a section, ungrouping, delete — is in the
+ * properties panel, so the bar stays a bar.
  */
 export function ArrangeBar({
   target,
@@ -83,14 +82,10 @@ export function ArrangeBar({
   actions: ArrangeBarActions;
 }) {
   const { t, count, typeCount } = useI18n();
-  // A different selection closes whatever was open for the previous one.
-  const { open, setOpen, ref } = usePopover<"types" | "align" | "colour" | "more">(
+  const { open, setOpen, ref } = usePopover<"types" | "align" | "colour" | "kind">(
     target ? `${target.objects}:${target.units}` : undefined,
   );
-  // The DS menu expects something focused inside it, and focus comes back to its button
-  // on close, so Escape does not drop a keyboard user at the top of the page.
   const typesRef = useMenuFocus(open, "types");
-  const moreRef = useMenuFocus(open, "more");
 
   if (!target) return null;
 
@@ -106,28 +101,34 @@ export function ArrangeBar({
   const colourValue = target.colour
     ? target.colour.mixed
       ? t("color.mixed")
-      : t(colorName(target.colour.value, { role: colourRoleKind }).key)
+      : t(
+          colorName(target.colour.value, {
+            role: colourRoleKind,
+            auto: colourRoleKind === "stroke" && !target.colour.value,
+          }).key,
+        )
     : "";
+
+  const shape = target.shapeKinds.length ? shapeSelection(target.shapeKinds) : null;
+  const shapeName = shape?.kind ? t(SHAPE_KIND_LABEL[shape.kind]) : t("shape.kindMixed");
 
   return (
     <ObjectBar
       ref={ref}
       placement={target.placement}
       label={t("canvas.selected", { count: target.objects })}
-      className="arrange-bar"
+      className={shape ? "arrange-bar arrange-shapes" : "arrange-bar"}
     >
-      {/* What is selected, and a way to keep just one type of it (ADR-120 §4.2). */}
       <span className="sb-anchor" ref={typesRef}>
         <Button
           variant="ghost"
           size="compact"
-          iconEnd="chevron-down"
           aria-label={`${t("arrange.types")}: ${summary}`}
           aria-haspopup="menu"
           aria-expanded={open === "types"}
           onClick={() => setOpen(open === "types" ? null : "types")}
         >
-          {summary}
+          {count("objects", target.objects)}
         </Button>
         {open === "types" && (
           <PanelWindow>
@@ -157,93 +158,53 @@ export function ArrangeBar({
         )}
       </span>
 
-      {target.canGather && (
-        <Button
-          variant="ghost"
-          size="compact"
-          onClick={() => {
-            actions.previewGather?.(false);
-            actions.gather();
-          }}
-          onPointerEnter={() => actions.previewGather?.(true)}
-          onPointerLeave={() => actions.previewGather?.(false)}
-          onFocus={() => actions.previewGather?.(true)}
-          onBlur={() => actions.previewGather?.(false)}
-        >
-          {t("selection.gather")}
-        </Button>
-      )}
+      <span className="sb-divider" aria-hidden="true" />
 
-      {target.colour && (
+
+      {shape && (
         <span className="sb-anchor">
           <Button
             variant="ghost"
             size="compact"
-            className="sb-colour sb-multi-colour"
             iconEnd="chevron-down"
-            aria-label={`${colourRole}: ${colourValue}`}
-            aria-haspopup="dialog"
-            aria-expanded={open === "colour"}
-            selected={open === "colour"}
-            onClick={() => setOpen(open === "colour" ? null : "colour")}
+            aria-label={`${t("shape.kind")}: ${shapeName}`}
+            aria-expanded={open === "kind"}
+            selected={open === "kind"}
+            onClick={() => setOpen(open === "kind" ? null : "kind")}
           >
-            <span className="sb-role-label">{colourRole}</span>
-            <span
-              className={
-                target.colour.mixed
-                  ? "sb-multi-swatch is-mixed"
-                  : isTransparent(target.colour.value)
-                    ? "sb-multi-swatch checkerboard"
-                    : "sb-multi-swatch"
-              }
-              style={
-                target.colour.mixed || isTransparent(target.colour.value)
-                  ? undefined
-                  : { background: target.colour.value }
-              }
-              aria-hidden="true"
-            >
-              {target.colour.mixed ? "≠" : null}
-            </span>
+            {t("shape.kind")}
           </Button>
-          {open === "colour" && (
-            <ColorWindow title={colourRole} onClose={() => setOpen(null)}>
-              <ColorGridSection
-                ariaLabel={colourRole}
-                levels={target.colour.role === "fill" ? [100, 300] : [600]}
-                value={target.colour.value}
-                mixed={target.colour.mixed}
-                role={colourRoleKind}
-                onPick={actions.setColour}
-                showKeys
-              />
-            </ColorWindow>
+          {open === "kind" && (
+            <PanelWindow>
+              <Popover title={t("shape.kindTitle")} width={240} onClose={() => setOpen(null)}>
+                <ShapeKindGrid
+                  value={shape.kind}
+                  ariaLabel={t("shape.kindTitle")}
+                  onPick={(kind) => {
+                    actions.setShapeKind(kind);
+                    setOpen(null);
+                  }}
+                />
+              </Popover>
+            </PanelWindow>
           )}
         </span>
       )}
 
-      <span className="sb-divider" aria-hidden="true" />
-
       <span className="sb-anchor">
-        <Button
-          variant="secondary"
+        <IconButton
+          variant="ghost"
           size="compact"
-          iconEnd="chevron-down"
-          aria-label={t("arrange.title")}
+          icon="align-objects"
+          label={t("arrange.title")}
           aria-haspopup="dialog"
           aria-expanded={open === "align"}
           disabled={!target.canArrange}
           onClick={() => setOpen(open === "align" ? null : "align")}
-        >
-          {t("arrange.title")}
-        </Button>
+        />
         {open === "align" && (
           <PanelWindow>
-            <Popover
-              title={t("arrange.title")}
-              width={240}
-              onClose={() => setOpen(null)}
-            >
+            <Popover title={t("arrange.title")} width={240} onClose={() => setOpen(null)}>
               <div className="arrange-grid" role="group" aria-label={t("arrange.alignment")}>
                 {ALIGN.map(({ edge, key }) => (
                   <Button
@@ -280,55 +241,69 @@ export function ArrangeBar({
         )}
       </span>
 
-      <Button variant="ghost" size="compact" onClick={actions.tidy}>
-        {t("tidy.action")}
-      </Button>
-
-      {actions.canGroup && (
-        <Button variant="ghost" size="compact" onClick={actions.group}>
-          {t("menu.group")}
-        </Button>
-      )}
-      {actions.canUngroup && (
-        <Button variant="ghost" size="compact" onClick={actions.ungroup}>
-          {t("menu.ungroup")}
-        </Button>
+      <IconButton variant="ghost" size="compact" icon="tidy" label={t("tidy.action")} onClick={actions.tidy} />
+      {(actions.canGroup || actions.canUngroup) && (
+        <IconButton variant="ghost" size="compact" icon={actions.canUngroup ? "group-break" : "group-make"}
+          label={actions.canUngroup ? t("menu.ungroup") : t("menu.group")}
+          onClick={actions.canUngroup ? actions.ungroup : actions.group} />
       )}
 
-      <span className="sb-divider" aria-hidden="true" />
+      {target.colour && (
+        <span className="sb-anchor">
+          <Button
+            variant="ghost"
+            size="compact"
+            className="sb-colour sb-multi-colour"
+            aria-label={`${colourRole}: ${colourValue}`}
+            aria-haspopup="dialog"
+            aria-expanded={open === "colour"}
+            selected={open === "colour"}
+            onClick={() => setOpen(open === "colour" ? null : "colour")}
+          >
+            <span
+              className={
+                target.colour.mixed
+                  ? "sb-multi-swatch is-mixed"
+                  : isTransparent(target.colour.value)
+                    ? "sb-multi-swatch checkerboard"
+                    : target.colour.value
+                      ? "sb-multi-swatch"
+                      : "sb-multi-swatch is-auto"
+              }
+              style={
+                target.colour.mixed || isTransparent(target.colour.value) || !target.colour.value
+                  ? undefined
+                  : { background: target.colour.value }
+              }
+              aria-hidden="true"
+            >
+              {target.colour.mixed ? "≠" : null}
+            </span>
+          </Button>
+          {open === "colour" && (
+            <ColorWindow title={colourRole} onClose={() => setOpen(null)}>
+              <ColorGridSection
+                ariaLabel={colourRole}
+                levels={target.colour.role === "fill" ? [100, 300] : [600]}
+                value={target.colour.value}
+                mixed={target.colour.mixed}
+                role={colourRoleKind}
+                onPick={actions.setColour}
+                showKeys
+              />
+            </ColorWindow>
+          )}
+        </span>
+      )}
 
-      {/* Delete lives here and nowhere else on the bar, after a separator (ADR-120). */}
-      <span className="sb-more" ref={moreRef}>
-        <IconButton
-          icon="more"
-          size="compact"
-          label={t("arrange.more")}
-          aria-expanded={open === "more"}
-          selected={open === "more"}
-          onClick={() => setOpen(open === "more" ? null : "more")}
-        />
-        {open === "more" && (
-          <PanelWindow>
-            <Menu
-              label={t("arrange.more")}
-              onClose={() => setOpen(null)}
-              items={[
-                { separator: true },
-                {
-                  label: t("menu.delete"),
-                  icon: "trash",
-                  hint: count("objects", target.objects),
-                  danger: true,
-                  onSelect: () => {
-                    actions.remove();
-                    setOpen(null);
-                  },
-                },
-              ]}
-            />
-          </PanelWindow>
-        )}
-      </span>
+
+      <IconButton
+        icon="more"
+        size="compact"
+        label={t("inspector.moreActions")}
+        aria-haspopup="dialog"
+        onClick={actions.openProperties}
+      />
     </ObjectBar>
   );
 }

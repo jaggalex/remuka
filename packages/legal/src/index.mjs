@@ -278,6 +278,25 @@ export function validateLegalIndex(index) {
         }
       }
     }
+    const summary = entry.changes;
+    if (summary !== undefined || (entry.status === "published" && entry.current > 1)) {
+      const lang = entry.lang?.[0];
+      if (!summary || typeof summary !== "object" || Array.isArray(summary) || !summary[lang]) {
+        problems.push(`${label}: changes must include a short summary in ${lang}`);
+      } else {
+        for (const [locale, text] of Object.entries(summary)) {
+          if (!LEGAL_LANGS.includes(locale) || typeof text !== "string" || !text.trim() ||
+              [...new Intl.Segmenter(locale, { granularity: "sentence" }).segment(text)].length > 3) {
+            problems.push(`${label}: changes must contain one to three short sentences per language`);
+          }
+        }
+      }
+    }
+    if (entry.changesHistory !== undefined && (!entry.changesHistory || typeof entry.changesHistory !== "object" ||
+        Array.isArray(entry.changesHistory) || Object.keys(entry.changesHistory).some(key =>
+          !/^[1-9]\d*$/.test(key) || Number(key) > entry.current))) {
+      problems.push(`${label}: changesHistory must map past or current revision numbers to sealed summaries`);
+    }
     if (entry.sha256 !== undefined) {
       if (!entry.sha256 || typeof entry.sha256 !== "object" || Array.isArray(entry.sha256)) {
         problems.push(`${label}: sha256 must map a revision number to its hash`);

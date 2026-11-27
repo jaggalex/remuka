@@ -1,7 +1,7 @@
 # The test stand: two zones on one machine
 
 For the current two-VPS deployment, access credentials, readiness limits and the acceptance
-procedure, see [Как войти на stage и провести приёмку](stage-testing.md).
+procedure, see [Как войти на stage и провести приёмку](../../spec/stage.md#8-приёмка).
 
 The stand is where interface acceptance (`spec/ui-acceptance.md`) runs: it creates accounts,
 payments and deletions, so it must not be production. It repeats the cloud as two independent
@@ -168,12 +168,18 @@ After every rendered-file change: `docker exec stage-nginx nginx -t && docker ex
 stage-nginx nginx -s reload`. The template uses `http2 on;` (nginx 1.25.1+); an older
 distribution nginx needs `listen 443 ssl http2` instead.
 
+When Caddy terminates TLS for `app.stage.remuka.ru`, the Nginx app vhost must trust
+only that proxy. Use its Docker DNS name (`set_real_ip_from remo-edge;` on the shared
+host) with `real_ip_header X-Forwarded-For;`. Forward the resulting `$remote_addr`
+to the app so YooKassa's sender check sees the original address. Reload Nginx after
+recreating the edge container so it resolves the name again.
+
 What the template guarantees (`spec/stage.md` §4.1):
 
 - `auth_basic` on all four hosts of both zones, one shared `htpasswd`.
-- No basic auth on exactly two application paths: `/api/billing/webhooks/` (the provider
-  cannot send a password; the handler verifies the signature) and `/api/health` (the release
-  script's check). `/mcp` and the agent routes stay behind it. The ACME challenge paths are
+- No basic auth on exactly two application paths, `/api/billing/webhooks/` and
+  `/api/health`. The app verifies provider notifications and the release script checks
+  health. `/mcp` and the agent routes stay behind basic auth. The ACME challenge paths are
   also open: a certificate authority does not log in.
 - `X-Robots-Tag: noindex, nofollow` on every host and a `robots.txt` with `Disallow: /`.
 - `/sync/` passes through with the upgrade headers; the credentials the browser used for the
@@ -212,6 +218,11 @@ per instance (`openssl rand`). `REMO_MAIL_FROM` uses the stand's own domain.
 banner, `noindex`, the `[Стенд]` / `[Stage]` mail subject, the export watermark, the mail
 allow-list, the refusal of live payments and the `stage:*` commands. `/api/health` then
 answers `"stage": true`; on production the field is absent (`spec/stage.md` §5).
+
+`REMO_DOCS_ORIGIN` on a stand is part of that isolation, not a note: sync reads it and
+publishes it in `GET /api/config` as `docs.origin`, and «Документация», «Оферта» and the
+help's «О Ремуке» lead to the stand's own guide (ADR-284). Without the variable the zone
+answer would send the stand's people to the production guide.
 
 The rest of the stand-only keys belong in the same file. They are secrets or instance
 addresses and follow the same rule: mode `600`, never in Git.
@@ -333,6 +344,10 @@ scp scripts/db-rls-setup.mjs deploy@<stand-ip>:/tmp/
    commit, prepares the schema, starts the containers and checks `/api/health`, the app
    and the guide on `app.stage.remuka.ru` / `docs.stage.remuka.ru`. The health check is
    the one path that does not need the password.
+
+   Deploy the commit that passed CI on `main`: stage is the trunk, production is a tag
+   (`CONTRIBUTING.md`, «Branches, stage and the release train»). Both zones must report the
+   same commit on `/api/health` before the acceptance list runs.
 
 6. **The inbox.** Start it after the first release, because it joins the application's
    `backend` network:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readLegalConfig, signupLegalDocuments } from "./legalConfig";
+import { offerDocumentUrl, readLegalConfig, signupLegalDocuments } from "./legalConfig";
 
 const HASH = "a".repeat(64);
 
@@ -55,5 +55,20 @@ describe("the legal field of /config (ADR-256 §4)", () => {
     expect(readLegalConfig({ documents: "offer" })).toEqual([]);
     // A duplicate id is one document, not two checkboxes for the same acceptance.
     expect(readLegalConfig({ documents: [document(), document()] })).toHaveLength(1);
+  });
+});
+
+describe("the offer a payer accepts", () => {
+  it("takes this installation's offer document, whichever name the zone uses", () => {
+    const ru = readLegalConfig({ documents: [document({ doc: "offer" })] });
+    const eu = readLegalConfig({ documents: [document({ doc: "terms" })] });
+    expect(offerDocumentUrl(ru)).toBe("https://app.remuka.ru/legal/offer");
+    expect(offerDocumentUrl(eu)).toBe("https://app.remuka.ru/legal/offer");
+  });
+
+  it("answers null when the installation publishes no offer", () => {
+    expect(offerDocumentUrl([])).toBeNull();
+    const privacy = readLegalConfig({ documents: [document({ doc: "privacy" })] });
+    expect(offerDocumentUrl(privacy)).toBeNull();
   });
 });

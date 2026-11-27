@@ -5,6 +5,7 @@ import {
   fakeModelEnabled,
   fakePlanClient,
   fakePlanReply,
+  fakeTidyReply,
 } from "./ai-fake.mjs";
 
 /**
@@ -35,6 +36,20 @@ describe("fake plan provider", () => {
     expect(reply.json.operations[0].op).toBe("create_structure");
     expect(reply.usage).toEqual({ promptTokens: 0, completionTokens: 0, costUsd: 0 });
     expect(reply.model).toBe("fake/plan");
+  });
+
+  it("labels the retro selection by its texts and keeps the actual object ids", () => {
+    const titles = ["Ментор", "Меньше встреч", "Демо раньше", "Ревью в день 1", "Один канал",
+      "Чек-лист", "Счёт за сервера", "Скидка первым", "Тариф Team", "Онбординг", "Найм дизайнера", "Отпуск Ильи"];
+    const objects = titles.map((text, i) => ({ id: `note-${i}`, text, type: "sticky_note" }));
+    const read = rows => fakeTidyReply(`<selection strategy="meaning">${JSON.stringify({ objects: rows })}</selection>`);
+    const { blocks } = read(objects);
+    expect(blocks.map(block => [block.label, block.ids.length])).toEqual([
+      ["Процесс", 5], ["Деньги", 3], ["Люди", 4],
+    ]);
+    expect(blocks[2].ids).toContain("note-0");
+    expect(blocks.flatMap(block => block.ids).sort()).toEqual(objects.map(note => note.id).sort());
+    expect(read(objects.slice(1)).strategy).toBe("prefix");
   });
 
   it("switches to a two-object connector fixture when the brief asks for it", async () => {

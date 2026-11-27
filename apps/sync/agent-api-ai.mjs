@@ -15,6 +15,9 @@ import {
   fingerprintSecret,
   kekFromEnv,
 } from "./secrets.mjs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { journalCsv } from "./ai-journal-export.mjs";
 import { randomUUID } from "node:crypto";
 import { safeFetch } from "@remo/outbound";
 
@@ -74,6 +77,7 @@ export async function handleAiCredentials(ctx) {
         signal: controller.signal,
         // The gateway is the one private address sync may reach (ADR-251).
         allowPrivate: true,
+        ...(gateway.ca ? { ca: gateway.ca } : {}),
       });
       if (answer.ok) return true;
       const body = await answer.text().catch(() => "");
@@ -190,6 +194,27 @@ export async function handleAiCredentials(ctx) {
         (await isOrgAdmin(orgId)) || (await store.hasOrgRole(orgId, me.id, "security_admin"));
       if (!admin) {
         fail(response, 403, "FORBIDDEN", "only an administrator can read the AI journal");
+        return true;
+      }
+      if (suffix.length === 2 && suffix[1] === "summary" && method === "GET") {
+        json(response, 200, await store.aiJournalSummary(orgId));
+        return true;
+      }
+      if (suffix.length === 2 && suffix[1] === "export.csv" && method === "GET") {
+        const { through } = await store.aiJournalSummary(orgId);
+        response.writeHead(200, {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="remuka-ai-journal.csv"',
+          "Cache-Control": "private, no-store",
+        });
+        // Await the pipeline inside the caller's tenant context, including downstream backpressure.
+        try {
+          await pipeline(Readable.from(journalCsv(store, orgId, through)), response);
+        } catch (error) {
+          // The headers have already been sent. A partial CSV must terminate as an interrupted download.
+          if (!response.destroyed) response.destroy();
+          if (error.code !== "ERR_STREAM_PREMATURE_CLOSE") console.error("AI journal export interrupted", error.code ?? "STREAM_ERROR");
+        }
         return true;
       }
       if (suffix[1] === "verify" && method === "GET") {

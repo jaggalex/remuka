@@ -1,3 +1,5 @@
+import { useHintCatalog, catalogueStrings, emptyCatalog, type Catalog } from "./hintCatalog";
+import { hintStrings } from "./hintSlots";
 import {
   createContext,
   useCallback,
@@ -11,6 +13,7 @@ import { UiStringsProvider, type UiCountKey, type UiKey, type UiStrings } from "
 import { brandName } from "@remo/brand";
 import { call } from "./apiCall";
 import { NO_COMPLIANCE, readCompliance, type ComplianceInfo } from "./compliance";
+import { readDocsOrigin } from "./docsLinks";
 import { readLegalConfig, type LegalDocumentConfig } from "./legal/legalConfig";
 import type { MoveInfo } from "./moveBanner";
 
@@ -29,6 +32,7 @@ const STORAGE_KEY = "remo.lang";
  * after the English text, so a wording change never renames a key.
  */
 import { enCore } from "./i18n/en-core";
+import { enChrome } from "./i18n/en-chrome";
 import { enCollab } from "./i18n/en-collab";
 import { enWork } from "./i18n/en-work";
 import { enSection } from "./i18n/en-section";
@@ -41,6 +45,9 @@ import { enConsent } from "./i18n/en-consent";
 import { enAccount } from "./i18n/en-account";
 import { enLegal } from "./i18n/en-legal";
 import { ruCore } from "./i18n/ru-core";
+import { ruHome } from "./i18n/ru-home";
+import { enHome } from "./i18n/en-home";
+import { ruChrome } from "./i18n/ru-chrome";
 import { ruCollab } from "./i18n/ru-collab";
 import { ruWork } from "./i18n/ru-work";
 import { ruSection } from "./i18n/ru-section";
@@ -58,7 +65,10 @@ import { enMfa } from "./i18n/en-mfa";
 import { ruMfa } from "./i18n/ru-mfa";
 
 const en = {
+  ...hintStrings("en"),
   ...enCore,
+  ...enHome,
+  ...enChrome,
   ...enCollab,
   ...enWork,
   ...enSection,
@@ -79,7 +89,10 @@ type Key = keyof typeof en;
 export type TranslationKey = Key;
 
 const ru: Record<Key, string> = {
+  ...hintStrings("ru"),
   ...ruCore,
+  ...ruHome,
+  ...ruChrome,
   ...ruCollab,
   ...ruWork,
   ...ruSection,
@@ -123,7 +136,9 @@ type CountKey =
   | "dsReplies"
   | "followers"
   /** Uploads on the canvas: "3 изображения" (§9.2). */
-  | "images";
+  | "images"
+  /** Rooms on the team home: "4 комнаты" (mockup App-Home). */
+  | "rooms";
 
 const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
   en: {
@@ -133,7 +148,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     widgets: ["{n} widget", "{n} widgets", "{n} widgets"],
     grants: ["{n} grant", "{n} grants", "{n} grants"],
     selected: ["{n} selected", "{n} selected", "{n} selected"],
-    scalable: ["{n} changes size", "{n} change size", "{n} change size"],
+    scalable: ["{n} can be resized", "{n} can be resized", "{n} can be resized"],
     pinned: ["{n} pinned", "{n} pinned", "{n} pinned"],
     cards: ["{n} card", "{n} cards", "{n} cards"],
     columns: ["{n} column", "{n} columns", "{n} columns"],
@@ -144,6 +159,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     dsReplies: ["{n} reply", "{n} replies", "{n} replies"],
     followers: ["{n} follower", "{n} followers", "{n} followers"],
     images: ["{n} image", "{n} images", "{n} images"],
+    rooms: ["{n} room", "{n} rooms", "{n} rooms"],
   },
   ru: {
     objects: ["{n} объект", "{n} объекта", "{n} объектов"],
@@ -152,7 +168,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     widgets: ["{n} объект", "{n} объекта", "{n} объектов"],
     grants: ["{n} доступ", "{n} доступа", "{n} доступов"],
     selected: ["Выбрано: {n}", "Выбрано: {n}", "Выбрано: {n}"],
-    scalable: ["{n} меняет размер", "{n} меняют размер", "{n} меняют размер"],
+    scalable: ["{n} можно масштабировать", "{n} можно масштабировать", "{n} можно масштабировать"],
     pinned: ["{n} закреплён", "{n} закреплены", "{n} закреплены"],
     cards: ["{n} карточка", "{n} карточки", "{n} карточек"],
     columns: ["{n} колонка", "{n} колонки", "{n} колонок"],
@@ -163,6 +179,7 @@ const COUNTS: Record<Lang, Record<CountKey, [string, string, string]>> = {
     dsReplies: ["{n} ответ", "{n} ответа", "{n} ответов"],
     followers: ["{n} подписчик", "{n} подписчика", "{n} подписчиков"],
     images: ["{n} изображение", "{n} изображения", "{n} изображений"],
+    rooms: ["{n} комната", "{n} комнаты", "{n} комнат"],
   },
 };
 
@@ -272,7 +289,7 @@ const TYPE_DATIVE: Record<Lang, Record<string, [string, string, string]>> = {
   },
 };
 
-function pluralForm(lang: Lang, n: number): 0 | 1 | 2 {
+export function pluralForm(lang: Lang, n: number): 0 | 1 | 2 {
   if (lang === "en") return n === 1 ? 0 : 2;
   const last = n % 10;
   const lastTwo = n % 100;
@@ -314,6 +331,8 @@ function initialLang(): Lang {
 
 interface I18nValue {
   lang: Lang;
+  hints: Catalog;
+  hintsReady: boolean;
   setLang: (lang: Lang) => void;
   /** The installation's own name from `REMO_PRODUCT_NAME`, or `null` for the brand. */
   productName: string | null;
@@ -325,6 +344,11 @@ interface I18nValue {
   compliance: ComplianceInfo;
   /** The legal documents of this installation's zone from `/config`. */
   legal: readonly LegalDocumentConfig[];
+  /**
+   * The guide this installation links to, or `null` when it has none (ADR-284).
+   * Every guide link is built from it with `docsHref`; nothing names a host.
+   */
+  docsOrigin: string | null;
   /** Re-read the registry after the server refused a stale acceptance (§4). */
   refreshLegal: () => Promise<readonly LegalDocumentConfig[]>;
   t: (key: Key, vars?: Record<string, string | number>) => string;
@@ -343,6 +367,10 @@ const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
+  const catalogue = useHintCatalog(lang);
+  const hintsReady = catalogue !== null;
+  const hints = catalogue ?? emptyCatalog;
+  const wording = useMemo(() => catalogueStrings(hints), [hints]);
   // One image serves every installation, so the instance's own name arrives from the
   // service rather than from the build (ADR-254 §3). Until it answers, the brand shows.
   const [productName, setProductName] = useState<string | null>(null);
@@ -357,6 +385,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // The registry of the installation, not of the reader: a form cannot invent a document
   // and a link cannot point at another zone (§2, §4).
   const [legal, setLegal] = useState<readonly LegalDocumentConfig[]>([]);
+  // The guide belongs to the installation too: `/config` names it, and an absent answer
+  // means no guide at all, never the cloud's (ADR-284).
+  const [docsOrigin, setDocsOrigin] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,6 +396,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       move?: MoveInfo | null;
       compliance?: unknown;
       legal?: unknown;
+      docs?: unknown;
       stage?: unknown;
     }>("/config")
       .then((config) => {
@@ -374,6 +406,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         setMove(config.move ?? null);
         setCompliance(readCompliance(config.compliance));
         setLegal(readLegalConfig(config.legal));
+        setDocsOrigin(readDocsOrigin(config.docs));
       })
       .catch(() => {
         // A missing config route is not an error: the brand name is the default.
@@ -422,6 +455,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<I18nValue>(
     () => ({
+      hints, hintsReady,
       lang,
       setLang,
       productName,
@@ -429,9 +463,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       move,
       compliance,
       legal,
+      docsOrigin,
       refreshLegal,
       t: (key, vars) =>
-        interpolate(STRINGS[lang][key], {
+        interpolate(wording[key] ?? STRINGS[lang][key], {
           product: brandName({ locale: lang, productName }),
           ...vars,
         }),
@@ -454,7 +489,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         locale: lang === "ru" ? "ru-RU" : "en-US",
       },
     }),
-    [lang, setLang, productName, stage, move, compliance, legal, refreshLegal],
+    [hints, hintsReady, wording, lang, setLang, productName, stage, move, compliance, legal, docsOrigin, refreshLegal],
   );
 
   return (
@@ -478,4 +513,14 @@ export function useI18n(): I18nValue {
  */
 export function useCompliance(): ComplianceInfo {
   return useI18n().compliance;
+}
+
+/**
+ * The guide of this installation, or `null` (ADR-284).
+ *
+ * A component that links into the guide builds the address with `docsHref(docsOrigin, path)`
+ * and renders the link only when that answers a string.
+ */
+export function useDocsOrigin(): string | null {
+  return useI18n().docsOrigin;
 }

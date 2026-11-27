@@ -240,3 +240,67 @@ export function Tooltip({ label, shortcut, side = "bottom", align = "center", op
 }
 
 export { who };
+
+/**
+ * A rare group folded to one row (ADR-236, `spec/tidy-desk.md` §10): its name, what it
+ * holds now (nothing when empty) and a chevron. One disclosure for every panel, so there
+ * is no second kind of "+" or "▸" to learn; the body is the caller's.
+ */
+export function Disclosure({
+  label,
+  value = "",
+  open = false,
+  className,
+  children,
+}: {
+  label: string;
+  /** The current value, shown at the right; empty hides the slot. */
+  value?: string;
+  /** Start open for an object whose fields are its subject. */
+  open?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [shown, setShown] = useState(open);
+  useEffect(() => setShown(open), [open]);
+  return (
+    <details
+      className={cx("rm-disclosure", className)}
+      open={shown}
+      onToggle={(event) => setShown(event.currentTarget.open)}
+    >
+      <summary onPointerDown={(event) => event.preventDefault()}>
+        <span className="rm-disclosure-label">{label}</span>
+        {value ? <span className="rm-disclosure-value">{value}</span> : void 0}
+        <Icon name="chevron-right" size={16} />
+      </summary>
+      <div className="rm-disclosure-body">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The danger at the bottom of a panel (ADR-266, `spec/tidy-desk.md` §10): a note with the
+ * consequence in words and the action itself. The caller owns the button; the zone owns
+ * the place so every panel puts it in the same spot.
+ */
+export function DangerZone({
+  title,
+  description,
+  className,
+  children,
+}: {
+  /** Names the zone for assistive technology. */
+  title: string;
+  /** The consequence in words (ADR-265 §2), above the action. */
+  description?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={cx("rm-danger-zone", className)} aria-label={title}>
+      {description ? <span className="rm-danger-zone-note">{description}</span> : void 0}
+      {children}
+    </section>
+  );
+}

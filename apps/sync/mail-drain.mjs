@@ -8,6 +8,7 @@
  */
 import { backoffMs } from "./backoff.mjs";
 import { mailFrom } from "./mail.mjs";
+import { supportContact } from "./compliance.mjs";
 import { render } from "./mail-templates.mjs";
 import { sealedMailRow } from "./pg/mail.mjs";
 import { decryptSecret, kekFromEnv } from "./secrets.mjs";
@@ -106,6 +107,9 @@ export function createMailDrain({
       }
       const { subject, text, html } = render(row.template, row.locale, params, {
         stage: config?.stage === true,
+        // The support mailbox is the installation's, not the reader's language: the
+        // zone decides (`supportContact`), and a self-host without one prints no address.
+        support: supportContact(),
       });
       const { providerId } = await driver.send({
         id: row.id,

@@ -16,12 +16,14 @@ ENV NODE_ENV=production PORT=1234 REMO_DATA_DIR=/var/lib/remo
 # Keep the repository-relative imports shared by the service and operator scripts.
 WORKDIR /app/apps/sync
 COPY --from=build --chown=node:node /runtime/ ./
+COPY --from=build --chown=node:node /src/apps/sync/dist/room-cover.mjs ./dist/room-cover.mjs
 COPY --from=build --chown=node:node /src/scripts /app/scripts
 RUN ln -s /app/apps/sync/node_modules /app/node_modules
 # The registry and texts of the installation's legal documents (ADR-256). The service
 # reads `content/legal/` at start; shipping it with the image keeps the hash a person
 # accepts and the hash the server checks the same bytes.
 COPY --from=build --chown=node:node /src/content/legal ./content/legal
+COPY --from=build --chown=node:node /src/content/hints ./content/hints
 RUN mkdir -p /var/lib/remo && chown node:node /var/lib/remo
 USER node
 EXPOSE 1234

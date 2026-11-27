@@ -42,29 +42,51 @@ export interface ToneColor {
 /**
  * The twenty-one values, by column.
  *
- * The 100 and 300 rows are paper tones (ADR-182): muted, so ink reads on every one of them
- * at 6.98:1 or better, and the concept's taupe is orange 300 rather than an eighth tone.
- * They are the design system's `paper-<tone>-<level>` primitives. The 600 row is the
- * line/border/text scale (`neutral-600`, `ochre-600`, `<tone>-600`), unchanged since
- * ADR-127.
+ * The 100 row is the mockups' sticker paper and the 300 row the landing page's fills
+ * (ADR-267, `spec/canvas-character.md` §1): the bright row is the palette as it was
+ * before ADR-182, restored. Ink reads on every 100 and 300 fill at 6.81:1 or better
+ * (orange 300 is the darkest), checked by `contrast.mjs`. They are the design system's
+ * `paper-<tone>-<level>` primitives. The 600 row is the line/border/text scale
+ * (`neutral-600`, `ochre-600`, `<tone>-600`), unchanged since ADR-127.
  */
 export const TONE_LEVELS = {
   grey: { 100: "#f3f1ec", 300: "#cdc8c0", 600: "#58534e" },
-  yellow: { 100: "#ece2c8", 300: "#d8c79e", 600: "#9a5800" },
-  orange: { 100: "#e2d2c4", 300: "#bca996", 600: "#c93e0a" },
-  pink: { 100: "#e8d6d3", 300: "#cdb0ab", 600: "#cc2470" },
-  violet: { 100: "#dcd8e2", 300: "#b9b1c9", 600: "#8a35d6" },
-  blue: { 100: "#d8dde3", 300: "#aab7c5", 600: "#1a6ad8" },
-  green: { 100: "#dedfd4", 300: "#bcbfa9", 600: "#2b7f17" },
+  yellow: { 100: "#f4e0a8", 300: "#f2b94a", 600: "#9a5800" },
+  orange: { 100: "#ffdcc6", 300: "#ff8a57", 600: "#c93e0a" },
+  pink: { 100: "#f9d3cd", 300: "#ff8fbd", 600: "#cc2470" },
+  violet: { 100: "#f3e8ff", 300: "#c69bff", 600: "#8a35d6" },
+  blue: { 100: "#cddff8", 300: "#78b4ff", 600: "#1a6ad8" },
+  green: { 100: "#c8e8d4", 300: "#85d965", 600: "#2b7f17" },
 } as const satisfies Record<ColorTone, Record<ColorLevel, string>>;
 
 /**
- * The fill rows as they were before ADR-182 — read-only.
+ * The fill rows as they were between ADR-182 and ADR-267 — read-only.
  *
- * A widget stores its hex and ADR-127 forbids rewriting stored colours, so rooms made
- * before the switch keep these saturated values. They are never offered as swatches; the
- * table only lets the window call such a note by its tone and level ("Yellow 100") and
- * ring that swatch, instead of "Custom colour". Choosing any swatch writes the new value.
+ * A widget stores its hex and ADR-127 forbids rewriting stored colours, so rooms painted
+ * with the muted paper tones keep them. They are never offered as swatches; the table
+ * only lets the window call such a note by its tone and level ("Yellow 100") and ring
+ * that swatch, instead of "Custom colour". Choosing any swatch writes the current value.
+ *
+ * Grey did not change: its two values are the current ones, and the lookup finds the
+ * current palette first.
+ */
+export const PREVIOUS_FILL_LEVELS_182 = {
+  grey: { 100: "#f3f1ec", 300: "#cdc8c0" },
+  yellow: { 100: "#ece2c8", 300: "#d8c79e" },
+  orange: { 100: "#e2d2c4", 300: "#bca996" },
+  pink: { 100: "#e8d6d3", 300: "#cdb0ab" },
+  violet: { 100: "#dcd8e2", 300: "#b9b1c9" },
+  blue: { 100: "#d8dde3", 300: "#aab7c5" },
+  green: { 100: "#dedfd4", 300: "#bcbfa9" },
+} as const satisfies Record<ColorTone, Record<(typeof FILL_LEVELS)[number], string>>;
+
+/**
+ * The fill rows as they were before ADR-182 — read-only, the second previous set.
+ *
+ * Their 300 row is the current one (the landing page's colours came from it); the 100
+ * row is the bright palette of the captured templates. Recognised for the same reason as
+ * `PREVIOUS_FILL_LEVELS_182`: the window rings the matching swatch and never rewrites a
+ * stored hex. Grey's old 300 is still only here.
  */
 export const PREVIOUS_FILL_LEVELS = {
   grey: { 100: "#efece8", 300: "#bfb9b1" },
@@ -124,8 +146,8 @@ export interface ColorMatch {
  * The palette entry a stored hex belongs to, or null for something that is not a colour.
  *
  * Exact first: a note painted from the palette keeps its swatch highlighted, and so does a
- * note painted before ADR-182 with the entry's previous value. Anything else gets the
- * nearest entry, which is what lets an object from the old 22-colour
+ * note painted with one of the two previous sets (ADR-182 and before). Anything else gets
+ * the nearest entry, which is what lets an object from the old 22-colour
  * palette show its closeness without offering to repaint it (ADR-127: no migration).
  * The distance is plain RGB — good enough to sort twenty-one candidates, and it never
  * leaves the model.
@@ -133,6 +155,10 @@ export interface ColorMatch {
 export function matchColor(hex: string): ColorMatch | null {
   const value = normalizeHex(hex);
   if (!value) return null;
+  // Current first: a value that did not change between palettes (grey) is a swatch now,
+  // not a memory of one.
+  const exact = COLOR_LEVELS.find((color) => color.hex === value);
+  if (exact) return { color: exact, exact: true, previous: false, distance: 0 };
   const previous = previousEntry(value);
   if (previous) return { color: previous, exact: true, previous: true, distance: 0 };
   const rgb = channels(value);
@@ -148,7 +174,7 @@ export function matchColor(hex: string): ColorMatch | null {
 
 /**
  * The palette value a stored hex stands for: itself for one of the twenty-one, the new
- * value for a fill painted before ADR-182, null for anything else.
+ * value for a fill painted with a previous set, null for anything else.
  *
  * The window rings and names a swatch by this value; the stored hex is never rewritten.
  */
@@ -160,9 +186,14 @@ export function paletteValue(hex: string): string | null {
 }
 
 function previousEntry(value: string): ToneColor | null {
-  for (const tone of TONES) {
-    for (const level of FILL_LEVELS) {
-      if (PREVIOUS_FILL_LEVELS[tone][level] === value) return colorAt(tone, level);
+  // Newest first: a value that was in two previous sets means the nearer one. The
+  // landing page's 300 row is both current and pre-ADR-182; the current check above
+  // already answered that case.
+  for (const table of [PREVIOUS_FILL_LEVELS_182, PREVIOUS_FILL_LEVELS]) {
+    for (const tone of TONES) {
+      for (const level of FILL_LEVELS) {
+        if (table[tone][level] === value) return colorAt(tone, level);
+      }
     }
   }
   return null;

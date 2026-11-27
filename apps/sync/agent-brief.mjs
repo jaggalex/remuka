@@ -18,78 +18,18 @@ export const BRIEF_SKILL = Object.freeze({
   tools: Object.freeze(["read_board", "propose_plan"]),
 });
 
-export const SNAPSHOT_LIMITS = Object.freeze({
-  /** Objects described to the model. A larger board is reported as truncated. */
-  objects: 200,
-  frames: 50,
-  kanbans: 20,
-  columns: 12,
-});
+export { SNAPSHOT_LIMITS, boardSnapshot } from "@remo/agent-plan/model-context";
 
 const MAX_PROMPT_TEXT = 20_000;
+const MAX_UNCERTAINTIES = 8;
+const MAX_WARNING_SOURCES = 8;
+const UNCERTAINTY_KEYS = new Set(["kind", "tempId", "sourceIds"]);
+const MAX_SELECTION_OBJECTS = 50;
 const UNSAFE = /<(script|iframe|object|embed|style)\b|javascript:/i;
 
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.round(number * 10) / 10 : fallback;
-}
-
-function snapshotObject(widget) {
-  if (!widget || typeof widget !== "object" || !widget.id || !widget.type) return null;
-  return {
-    id: String(widget.id),
-    type: String(widget.type),
-    x: finite(widget.x),
-    y: finite(widget.y),
-    width: finite(widget.width),
-    height: finite(widget.height),
-    ...(widget.parentId ? { parentId: String(widget.parentId) } : {}),
-    ...(widget.type === "connector" && widget.start?.item && widget.end?.item
-      ? { from: String(widget.start.item), to: String(widget.end.item) }
-      : {}),
-  };
-}
-
-function columnIds(kanban) {
-  const columns = kanban?.get?.("columns");
-  if (!columns) return [];
-  const list = typeof columns.toArray === "function" ? columns.toArray() : [];
-  return list
-    .map((column) => String(column?.get?.("id") ?? ""))
-    .filter(Boolean)
-    .slice(0, SNAPSHOT_LIMITS.columns);
-}
-
-/**
- * The smallest board description that still lets a plan be placed: ids, kinds, boxes,
- * frames and kanban column ids. Deliberately no titles, text, comments, tags or people.
- */
-export function boardSnapshot(ydoc) {
-  const widgets = ydoc.getMap("widgets");
-  const kanbanMap = ydoc.getMap("kanbans");
-  const objects = [];
-  const frames = [];
-  const kanbans = [];
-  widgets.forEach((widget) => {
-    const item = snapshotObject(widget);
-    if (!item) return;
-    if (objects.length < SNAPSHOT_LIMITS.objects) objects.push(item);
-    if (item.type === "frame" && frames.length < SNAPSHOT_LIMITS.frames) frames.push(item.id);
-    if (item.type === "kanban" && kanbans.length < SNAPSHOT_LIMITS.kanbans) {
-      kanbans.push({ id: item.id, columns: columnIds(kanbanMap.get(item.id)) });
-    }
-  });
-  objects.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return {
-    objects,
-    frames,
-    kanbans,
-    counts: {
-      objects: widgets.size,
-      described: objects.length,
-      truncated: widgets.size > objects.length,
-    },
-  };
 }
 
 function inputBlock(inputs, source) {
@@ -105,6 +45,23 @@ function dataJson(value) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }
 
+/** Only objects actually included in the model context may serve as warning sources. */
+export function briefSelection(inputs) {
+  const selectionRow = inputBlock(inputs, "selection");
+
+  if (selectionRow?.content) {
+    try {
+      const parsed = JSON.parse(selectionRow.content);
+      if (Array.isArray(parsed?.objects)) {
+        return { ...parsed, objects: parsed.objects.slice(0, MAX_SELECTION_OBJECTS) };
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Build the two messages. The system message carries the contract; the user message
  * carries the task and the data, each in a labelled JSON block so a line like
@@ -113,21 +70,13 @@ function dataJson(value) {
 export function briefPrompt({ intent, origin = { x: 0, y: 0 }, inputs = [], snapshot }) {
   const text = inputBlock(inputs, "text");
   const file = inputBlock(inputs, "file");
-  const selectionRow = inputBlock(inputs, "selection");
-  let selection = null;
-  if (selectionRow?.content) {
-    try {
-      const parsed = JSON.parse(selectionRow.content);
-      selection = parsed && typeof parsed === "object" ? parsed : null;
-    } catch {
-      selection = null;
-    }
-  }
+  const selection = briefSelection(inputs);
   const clean = (value) => String(value ?? "").slice(0, MAX_PROMPT_TEXT);
 
   const system = [
     "You turn a brief into a plan for a whiteboard.",
-    "Reply with JSON only, no prose, exactly one key: {\"operations\":[...]}.",
+    'Reply with JSON only: {"operations":[...]}. Optionally include "uncertainties" when a proposed step has an unresolved responsible role.',
+    `Each uncertainty is {"kind":"missing_role","tempId":"proposed_object","sourceIds":["selected_object"]}. The tempId must name a created object with a short plain text label. Only cite selected objects that support the question. Omit sourceIds if the question comes from the brief or attached file. At most ${MAX_UNCERTAINTIES} uncertainties and ${MAX_WARNING_SOURCES} sources each. Never invent a role or a source, a message, or a severity.`,
     `Operations (1 to ${PLAN_LIMITS.operations}):`,
     '{"op":"create_widgets","objects":[{"tempId":"note_1","type":"sticky_note","x":0,"y":0,"width":161.2,"height":184.7,"parentRef":"frame_1","markdown":"# Heading\\n- one\\n- [ ] two"}]};',
     'An object carries either "text" (one plain string) or "markdown" (the same text with formatting), never both.',
@@ -159,7 +108,7 @@ export function briefPrompt({ intent, origin = { x: 0, y: 0 }, inputs = [], snap
       : "",
     selection
       ? `<selection>${dataJson({
-          objects: (selection.objects ?? []).slice(0, 50).map((object) => ({
+          objects: (selection.objects ?? []).map((object) => ({
             id: String(object.id ?? ""),
             type: String(object.type ?? ""),
             text: clean(object.text),
@@ -199,7 +148,7 @@ function assertSafeStrings(value, path = "operations") {
 }
 
 /**
- * Strict reply → operations. No repair: a chatty envelope, an extra key or an empty
+ * Read the creation operations and optional findings. A chatty envelope or an empty
  * operation list is a refusal with a code.
  */
 export function parseBriefReply(raw) {
@@ -207,10 +156,10 @@ export function parseBriefReply(raw) {
     throw new PlanError("BRIEF_SCHEMA", "the model must return a JSON object with operations");
   }
   const keys = Object.keys(raw);
-  if (keys.length !== 1 || keys[0] !== "operations") {
+  if (!Object.hasOwn(raw, "operations") || keys.some(key => key !== "operations" && key !== "uncertainties")) {
     throw new PlanError(
       "BRIEF_SCHEMA",
-      'the reply must have exactly one key, "operations"',
+      'only operations and optional uncertainties are allowed',
     );
   }
   const operations = raw.operations;
@@ -224,5 +173,40 @@ export function parseBriefReply(raw) {
     );
   }
   assertSafeStrings(operations);
-  return operations;
+  const uncertainties = Object.hasOwn(raw, "uncertainties") ? raw.uncertainties : [];
+  if (!Array.isArray(uncertainties) || uncertainties.length > MAX_UNCERTAINTIES) {
+    throw new PlanError("BRIEF_SCHEMA", "uncertainties must be a bounded array");
+  }
+  return { operations, uncertainties };
+}
+
+/** Resolve untrusted model references against the validated plan and the task's own selection. */
+export function briefWarnings(uncertainties, objects, selectionIds) {
+  const targets = new Map(objects.map(object => [object.tempId, object]));
+  const sources = new Set(selectionIds);
+  const warnings = new Map();
+  for (const finding of uncertainties) {
+    if (!finding || typeof finding !== "object" || Array.isArray(finding) ||
+        finding.kind !== "missing_role" || Object.keys(finding).some(key => !UNCERTAINTY_KEYS.has(key))) {
+      throw new PlanError("BRIEF_SCHEMA", "unsupported uncertainty or field");
+    }
+    const target = targets.get(finding.tempId);
+    const label = (target?.title || target?.text || "").trim();
+    if (!label) throw new PlanError("BRIEF_SCHEMA", "uncertainty needs a labelled proposed object");
+    const cited = Object.hasOwn(finding, "sourceIds") ? finding.sourceIds : [];
+    if (!Array.isArray(cited) || cited.length > MAX_WARNING_SOURCES ||
+        cited.some(id => typeof id !== "string" || !sources.has(id)) || new Set(cited).size !== cited.length) {
+      throw new PlanError("BRIEF_SCHEMA", "uncertainty has an invalid selection source");
+    }
+    const sourceIds = [...cited].sort();
+    const previous = warnings.get(target.tempId);
+    if (previous && JSON.stringify(previous.sourceIds) !== JSON.stringify(sourceIds)) {
+      throw new PlanError("BRIEF_SCHEMA", "repeated uncertainty cites inconsistent sources");
+    }
+    warnings.set(target.tempId, {
+      code: "MISSING_ROLE", tempId: target.tempId, title: label.slice(0, PLAN_LIMITS.titleLength),
+      message: "Clarify who is responsible for this step.", sourceIds,
+    });
+  }
+  return [...warnings.values()];
 }

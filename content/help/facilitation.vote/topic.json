@@ -13,13 +13,13 @@
     "access.roles",
     "facilitation.timer"
   ],
-  "verifiedAgainst": "2026-11-02",
+  "verifiedAgainst": "2026-11-26",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:e8b226f0fe0ad9dd3a8076b73037445d4e0e753422d8d4b42acadd0d0471af23",
-      "targetHash": "sha256:20dc94e0628e1d248bbe45a520b412c03562cd4ec2e9c3225a2da036965b9f7f"
+      "sourceHash": "sha256:976b659f976f88470de0c015813d89a4ca2f0992af0f008f774a85a005d09a6d",
+      "targetHash": "sha256:f4aba2e4338c2238477a45e3c7f267608a3864efef01f058059e165033f8b9d0"
     }
   }
 }

@@ -10,7 +10,7 @@ app origin:
 - `nginx.conf` — a server block that serves only those two files, allows framing by one
   app origin, and refuses everything else.
 
-The app frames `https://support.<domain>/widget.html?lang=ru|en` inside `SupportPanel` with
+The app frames `https://support.<domain>/widget.html?lang=ru|en&theme=light|dark` inside `SupportPanel` with
 a sandbox and `referrerpolicy="no-referrer"`. No third-party script is ever loaded on the
 app origin; this page is the sandbox boundary.
 
@@ -80,13 +80,16 @@ Expect `frame-ancestors https://boards.example.com` and **no** `X-Frame-Options`
 2. **Identity Validation: on, mandatory.** Copy the HMAC key into the core's
    `REMO_SUPPORT_HMAC_SECRET`. Without it anyone can write as another person; with it the
    `identifier_hash` sent by the app is verified by Chatwoot.
+   Set the Website inbox **Widget color** to the product ink color `#1e2136` (Remuka’s `--neutral-900`) for dark bubbles with light text. Preview the input, buttons and both themes in the embedded chat. Color changes apply to the entire inbox. The operator page forwards theme changes to Chatwoot CE 4.14.0.
+
 3. **Pre-chat form: off.** The identity is already known.
 4. Create these **contact custom attributes** (Settings → Custom attributes) before the
    first conversation; Chatwoot ignores an attribute that is not defined:
 
    | Attribute | Type | Source |
    |---|---|---|
-   | `remo_user_id`, `plan`, `org_id`, `org_name`, `lang`, `app_version`, `region` | text | signed identity from `/api/support/identity` |
+   | `remo_user_id`, `plan`, `org_id`, `org_name`, `app_version`, `region` | text | identity from `/api/support/identity` |
+   | `lang` | text | active Remuka interface language supplied by the panel, including when diagnostics are off |
    | `remo_app` | text | `version+build` |
    | `remo_browser`, `remo_os`, `remo_lang`, `remo_connection` | text | technical context, only after consent |
    | `remo_viewport` | text | `1440x900` |
@@ -123,6 +126,7 @@ origin and `event.source` is the parent window. Messages to the app always use
 | Direction | `type` | Payload | Effect |
 |---|---|---|---|
 | app → page | `remo:support:identity` | `{ identity: { identifier, identifierHash, name, email, attributes } }` | `$chatwoot.setUser(identifier, { name, email, identifier_hash })`, then `setCustomAttributes` for `remo_user_id`, `plan`, `org_id`, `org_name`, `lang`, `app_version`, `region` |
+| app → page | `remo:support:theme` | `{ theme: "light" \| "dark" }` | Updates the page and calls `setColorScheme` on the open widget |
 | app → page | `remo:support:technical` | `{ technical: { app, browser, os, lang, viewport, room, connection, errors } }` | `setCustomAttributes` with the `remo_*` names above |
 | app → page | `remo:support:technical` | `{ technical: null }` | deletes every technical attribute (consent withdrawn) |
 | app → page | `remo:support:reset` | `{}` | `$chatwoot.reset()`, clears the local identity/technical state, reopens the chat |

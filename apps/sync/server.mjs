@@ -30,6 +30,7 @@ import { createConnections } from "./sync-connections.mjs";
 import { createSaveAcks } from "./sync-save-ack.mjs";
 import { createExportRoutes } from "./sync-export.mjs";
 import { createFilesApi } from "./files-api.mjs";
+import { createRoomCovers } from "./room-covers.mjs";
 import { createFilesGc } from "./files-gc.mjs";
 import { createFileStore } from "./files-store.mjs";
 import { attachWebSocket } from "./sync-websocket.mjs";
@@ -43,29 +44,33 @@ import { corsHeadersFor, deprecationHeaders } from "./origins.mjs";
 import { newToken } from "./iam.mjs";
 import { createAgentLoops } from "./sync-agents.mjs";
 import { createEventDrain, createWebhookConsumer } from "./sync-events.mjs";
-import { assertMailConfig, enqueueMail, mailCapabilities, mailDriver, resolveMailConfig } from "./mail.mjs";
+import { assertMailConfig, mailCapabilities, mailDriver, resolveMailConfig } from "./mail.mjs";
 import { createMailDrain } from "./mail-drain.mjs";
 import { createAccountPurge } from "./account-purge.mjs";
 import { resolveSupportConfig } from "./support.mjs";
-import { createBillingLoops, openPaymentMethodRef } from "./billing-renewals.mjs";
+import { createBillingLoops } from "./billing-renewals.mjs";
+import { createBillingCharge } from "./billing-charge.mjs";
+import { createBillingInbox } from "./billing-inbox.mjs";
+import { createBillingLetters } from "./billing-letters.mjs";
+import { createBillingNotify } from "./billing-notify.mjs";
 import { assertFakeProviderGate } from "./pay-fake.mjs";
-import { paymentAdapters } from "./payment-adapters.mjs";
-import { openConnectionSecret } from "./payment-connections.mjs";
-import { kekFromEnv } from "./secrets.mjs";
 import { handleBilling } from "./billing-api.mjs";
 import { buildInfo } from "./build-info.mjs";
 import { productName, productNameOverride, warnDeprecatedProductName } from "./product-name.mjs";
 import { resolveMove, warnMove } from "./move.mjs";
 import { resolveCompliance, warnCompliance } from "./compliance.mjs";
+import { resolveDocsOrigin } from "./docs-origin.mjs";
 import { createLegalRuntime } from "./legal.mjs";
 import { handlePublicRoutes } from "./public-api.mjs";
 import { isStage } from "./stage.mjs";
 import { handleConsentRoutes } from "./consent-api.mjs";
 import { handleOperatorConsole } from "./operator-console-api.mjs";
+import { handlePublicHints } from "./hints/api.mjs";
+import { handleHomeNews } from "./home-news.mjs";
+import { handleChromeUseRoute } from "./pulse/chrome-use.mjs";
 import { createPulseRuntime } from "./pulse-runtime.mjs";
 
 import { websocketUtils } from "./y.mjs";
-
 const { docs, getYDoc, setPersistence } = websocketUtils;
 
 // A local `.env` is a convenience for development; production passes the same values
@@ -84,7 +89,6 @@ try {
 // The fake payment provider is a development seam: a production process that carries
 // the flag stops here instead of starting with a switchable free-money button.
 assertFakeProviderGate();
-
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.REMO_DATA_DIR ?? join(HERE, ".data");
 const PORT = Number(process.env.PORT ?? 1234);
@@ -101,6 +105,11 @@ const MOVE = resolveMove();
  * `REMO_COMPLIANCE_ZONE` stops the start instead of quietly serving the wrong rules.
  */
 const COMPLIANCE = resolveCompliance();
+/**
+ * The guide this installation links to (ADR-284). Resolved once, so a malformed
+ * `REMO_DOCS_ORIGIN` stops the start instead of quietly removing every guide link.
+ */
+const DOCS_ORIGIN = resolveDocsOrigin();
 
 await mkdir(DATA_DIR, { recursive: true });
 
@@ -156,6 +165,9 @@ metrics.describe(
   "Transactional mail a test stand refused by its recipient allow-list",
 );
 metrics.describe("remo_mail_queue_depth", "Mail rows waiting to be sent", "gauge");
+metrics.describe("remo_billing_events_applied_total", "Payment webhook events that changed the ledger");
+metrics.describe("remo_billing_events_failed_total", "Payment webhook events scheduled for a retry, by code");
+metrics.describe("remo_billing_events_dead_total", "Payment webhook events buried after their attempts, by code");
 // Proof of a consent choice that could not be written: the choice is kept (ADR-255 §4).
 describeConsentMetrics(metrics);
 describeMfaMetrics(metrics);
@@ -296,6 +308,7 @@ const exports = createExportRoutes({
 
 // A file no image widget points at waits a month before the collector removes it
 // (ADR-249, §5.4). A disk store has no `files` rows, so it is started only on Postgres.
+const roomCovers = createRoomCovers({ store, fileStore });
 const filesGc = createFilesGc({ store, fileStore, log: console, metrics });
 
 const agents = createAgentLoops({ store, ai, log: console });
@@ -336,63 +349,25 @@ const supportConfig = resolveSupportConfig();
 // Renewal runs in this process for providers that charge a saved method (ADR-247 §3.3).
 // With billing off there is nothing to renew, and a missing connection or saved method is
 // a failed attempt, not a crash: the subscription moves to `past_due` and a letter says so.
+const billingNotify = createBillingNotify({ store, mailConfig, log: console });
 const billing = createBillingLoops({
   store,
-  async charge({ subscription, invoice, idempotencyKey }) {
-    if (process.env.REMO_BILLING !== "on") throw new Error("billing is off");
-    const connection = await store.connectionById(subscription.connection_id);
-    const adapter = connection ? paymentAdapters()[connection.provider] : null;
-    if (!connection || typeof adapter?.chargeSaved !== "function") {
-      throw new Error("this connection cannot renew");
-    }
-    const method = await store.withTenant(subscription.org_id, () =>
-      store.paymentMethod(subscription.org_id),
-    );
-    if (!method) throw new Error("no saved payment method");
-    const kek = kekFromEnv();
-    const sealed = {
-      ciphertext: method.ref_ciphertext,
-      nonce: method.ref_nonce,
-      dek_wrapped: method.ref_dek_wrapped,
-      dek_nonce: method.ref_dek_nonce,
-    };
-    const payment = await adapter.chargeSaved(
-      { ...connection, secret: openConnectionSecret(connection, { kek }) },
-      {
-        paymentId: invoice.id,
-        idempotencyKey,
-        methodRef: openPaymentMethodRef({ sealed }, { kek }),
-        amount: Number(invoice.total),
-        currency: invoice.currency,
-        description: `Subscription ${subscription.plan}`,
-      },
-    );
-    return { status: payment.status, failureCode: payment.failureCode };
-  },
-  async notify(type, { orgId, invoice, failureCode }) {
-    if (!mailConfig || mailConfig.driver === "disabled") return;
-    const account = orgId
-      ? await store.withTenant(orgId, () => store.billingAccount(orgId))
-      : null;
-    const toEmail = account?.billing_email;
-    if (!toEmail) return;
-    const amount = invoice ? `${Number(invoice.total) / 100} ${invoice.currency}` : "";
-    const params = {
-      amount,
-      currency: invoice?.currency ?? "",
-      period: invoice?.period_end ? new Date(invoice.period_end).toISOString().slice(0, 10) : "",
-      retryAt: new Date(Date.now() + 24 * 3600_000).toISOString().slice(0, 10),
-      date: new Date().toISOString().slice(0, 10),
-      invoiceUrl: `${mailConfig.appOrigin}/?billing=1`,
-      billingUrl: `${mailConfig.appOrigin}/?billing=1`,
-      failureCode: failureCode ?? "",
-    };
-    await enqueueMail(
-      store,
-      { toEmail, template: type, locale: "ru", params },
-      { config: mailConfig, kek: kekFromEnv() },
-    );
-  },
+  charge: createBillingCharge(store),
+  notify: billingNotify,
+});
+
+// Letters that follow a plan decision or the calendar (ADR-319): a downgrade, auto-renewal
+// off, a trial, a yearly renewal, a card. Each has a derived id, so a repeated tick is free.
+const billingLetters = createBillingLetters({ store, notify: billingNotify, log: console });
+
+// The inbound journal (`spec/payment-providers.md` §5): webhooks only record, this loop
+// applies money every two seconds and reconciles pending payments once an hour on the
+// same timer. It is the only caller of `settleInvoice` besides the operator's command.
+const billingInbox = createBillingInbox({
+  store,
+  notify: billingNotify,
+  log: console,
+  metrics,
 });
 
 // Product metrics live in their own database (ADR-082), and the Pulse aggregates and the
@@ -407,7 +382,6 @@ const pulse = await createPulseRuntime({
 const metricsStore = pulse.metricsStore;
 
 setPersistence(guardPersistence(store, { metrics }));
-
 /** The disk fallback has no query layer; say so instead of returning an empty list. */
 function notSupported(response, store) {
   response.writeHead(501, { "Content-Type": "application/json" });
@@ -473,7 +447,6 @@ async function handleRequest(request, response) {
   }
   return routeRequest(request, response, url);
 }
-
 async function routeRequest(request, response, url) {
   // A fixed label per route family: a label per path would let an anonymous client
   // grow the in-memory registry without bound (the protected /metrics endpoint does
@@ -522,10 +495,10 @@ async function routeRequest(request, response, url) {
     return;
   }
 
-  // The cookie choice and its journal (ADR-255 §4); `/consent` shares no prefix with a
-  // domain route and must answer for a guest and in the `none` zone.
   if (await handleConsentRoutes({ request, response, url, store, zone: COMPLIANCE.zone, metrics, log: console })) return;
-
+  if (await handlePublicHints({ request, response, url, store })) return;
+  if (await handleHomeNews({ request, response, url, store, connections })) return;
+  if (await handleChromeUseRoute({ request, response, url, store })) return;
   /**
    * The operator console (ADR-259 §5, stage 2). Its own prefix, answered before IAM:
    * `/operator` is not a customer route, and a non-operator gets the same 404 an unknown
@@ -632,8 +605,7 @@ async function routeRequest(request, response, url) {
     return;
   }
 
-  // Public branding and the health probe; neither needs a session (ADR-254 §3).
-  const publicRoutes = { request, response, url, store, build: BUILD, productName: PRODUCT_NAME, productNameOverride: PRODUCT_NAME_OVERRIDE, move: MOVE, compliance: COMPLIANCE, legal: legal.config, stage: isStage() };
+  const publicRoutes = { request, response, url, store, build: BUILD, productName: PRODUCT_NAME, productNameOverride: PRODUCT_NAME_OVERRIDE, move: MOVE, compliance: COMPLIANCE, legal: legal.config, docsOrigin: DOCS_ORIGIN, stage: isStage() };
   if (await handlePublicRoutes(publicRoutes)) return;
 
   if (url.pathname === "/metrics") {
@@ -662,6 +634,7 @@ async function routeRequest(request, response, url) {
       }
       const page = await store.listBoardDirectory(session.user.id, {
         orgSlug,
+        teamId: url.searchParams.get("team"),
         q: url.searchParams.get("q"),
         sort: url.searchParams.get("sort") ?? "updated",
         dir: url.searchParams.get("dir") ?? "desc",
@@ -749,8 +722,12 @@ server.listen(PORT, () => {
   // Timers that only make sense once the port is open; files and billing start under
   // their own conditions below.
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.start();
-  if (databaseUrl) filesGc.start();
-  if (process.env.REMO_BILLING === "on") billing.start();
+  if (databaseUrl) { filesGc.start(); roomCovers.start(); }
+  if (process.env.REMO_BILLING === "on") {
+    billing.start();
+    billingLetters.start();
+    billingInbox.start();
+  }
   // The Pulse writes in the background; the catch-up inside `start` does not block here.
   pulse.loop.start();
   pulse.peerCollector.start();
@@ -769,8 +746,10 @@ const shutdown = async (signal, exitCode = 0) => {
   shuttingDown = true;
   console.log(`[sync] ${signal} received, flushing rooms`);
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.stop();
-  filesGc.stop();
+  filesGc.stop(); roomCovers.stop();
   billing.stop();
+  billingLetters.stop();
+  billingInbox.stop();
   pulse.loop.stop();
   pulse.peerCollector.stop();
   connections.stopSweep();

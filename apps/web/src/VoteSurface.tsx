@@ -22,6 +22,7 @@ export function VoteSurface({
   boardId,
   setSelectedIds,
   onReveal,
+  onRevealSession,
   onClose,
 }: {
   open: boolean;
@@ -34,6 +35,7 @@ export function VoteSurface({
   boardId: string;
   setSelectedIds: (ids: string[]) => void;
   onReveal: (objectId: string) => void;
+  onRevealSession: (ids: readonly string[]) => boolean;
   onClose: () => void;
 }) {
   return (
@@ -45,10 +47,12 @@ export function VoteSurface({
       selectedIds={selectedIds}
       timerEndsAt={timerEndsAt}
       timerLeft={timerLeft}
-      onClose={onClose}
       onReveal={(objectId) => {
         onReveal(objectId);
         onClose();
+      }}
+      onRevealSession={(ids) => {
+        if (onRevealSession(ids)) onClose();
       }}
       onPublish={async (sessionId, content) => {
         const camera = cameraStore.get();

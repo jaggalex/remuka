@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import {
   canConnect,
   DEFAULT_LINE_PRESET,
@@ -41,7 +42,8 @@ export interface ConnectorOptions {
   arrow?: "none" | "end" | "both" | "start";
   startSide?: ConnectorSide;
   endSide?: ConnectorSide;
-  strokeColor?: string;
+  /** Null restores Auto: the line takes the ink of the canvas ground (ADR-273). */
+  strokeColor?: string | null;
   strokeStyle?: "normal" | "dashed" | "dotted";
   strokeWidth?: number;
 }
@@ -71,7 +73,7 @@ export function createConnector(
 
     const arrow =
       options.arrow ?? (from.type === "shape" || to.type === "shape" ? "end" : "none");
-    board.widgets.set(id, {
+    insertNewWidget(board.widgets, {
       id,
       type: "connector",
       parentId: null,
@@ -93,9 +95,9 @@ export function createConnector(
       // line that happens to touch two boxes (ADR-030).
       routing: options.routing ?? (options.shape ? routingFromShape(options.shape) : "elbow"),
       style: {
-        // The line Plain preset: a new line rings its own sample on the first open,
-        // and no swatch-less hex is written (ADR-129).
-        strokeColor: options.strokeColor ?? DEFAULT_LINE_PRESET.color,
+        // A new line stores no colour: it is Auto and takes the ink of the canvas ground
+        // (ADR-273 §2.3). A person's choice is written by `setConnectorProps`.
+        ...(options.strokeColor ? { strokeColor: options.strokeColor } : {}),
         strokeWidth: options.strokeWidth ?? DEFAULT_LINE_PRESET.width,
         ...(options.strokeStyle ? { strokeStyle: options.strokeStyle } : {}),
       },
@@ -113,7 +115,8 @@ export interface ConnectorPatch {
   /** Legacy settings value; mapped to `routing` and never written as-is. */
   connectorShape?: ConnectorShape;
   arrow?: "none" | "end" | "both" | "start";
-  strokeColor?: string;
+  /** Null restores Auto: the line takes the ink of the canvas ground (ADR-273). */
+  strokeColor?: string | null;
   strokeStyle?: "normal" | "dashed" | "dotted";
   strokeWidth?: number;
   /** Where the label sits along the line, and how far off it. */
@@ -135,7 +138,12 @@ export function setConnectorProps(
       if (patch.routing !== undefined) next = withRouting(next, patch.routing);
       else if (patch.connectorShape !== undefined) next = withRouting(next, routingFromShape(patch.connectorShape));
       if (patch.arrow !== undefined) next.arrow = patch.arrow;
-      if (patch.strokeColor !== undefined) next.style = { ...next.style, strokeColor: patch.strokeColor };
+      if (patch.strokeColor !== undefined) {
+        const style = { ...next.style };
+        if (patch.strokeColor) style.strokeColor = patch.strokeColor;
+        else delete style.strokeColor;
+        next.style = style;
+      }
       if (patch.strokeStyle !== undefined) next.style = { ...next.style, strokeStyle: patch.strokeStyle };
       if (patch.strokeWidth !== undefined) next.style = { ...next.style, strokeWidth: patch.strokeWidth };
       if (patch.labelAt !== undefined) next.labelAt = { ...patch.labelAt };

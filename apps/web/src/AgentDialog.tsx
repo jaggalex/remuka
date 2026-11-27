@@ -1,20 +1,24 @@
+import { resolveSkill } from "@remo/agent-plan/skill-choice";
+import { PLAN_LIMITS } from "@remo/agent-plan";
+import { homeAction } from "./homeAction";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentPlan, AppliedAgentPlan } from "@remo/doc";
+import type { AgentPlan, AppliedAgentPlan, BoardDocument } from "@remo/doc";
 import type { Widget } from "@remo/model";
 import { api, type BoardAgents, type ChangeSet } from "./api";
 import { cameraStore } from "./cameraStore";
+import { AgentTaskHistory } from "./AgentTaskHistory";
 import { AgentFileField } from "./AgentFileField";
 import { AgentPlanPanel } from "./AgentPlanPanel";
 import type { TaskFile } from "./agentFile";
 import { agentFailureText, taskFailureText } from "./agentError";
-import { selectionPreview } from "./agentPayload";
+import { agentPayload } from "./agentPayload";
 import { AgentSelectionSource } from "./AgentSelectionSource";
 import { AUTO_SKILL, compatibleSkills } from "./agentSkills";
-import { skillDescriptionKey } from "./skillText";
+import { skillDescriptionKey, skillNameKey } from "./skillText";
 import { formatMoment } from "./format";
 import { newIdempotencyKey } from "./idempotency";
 import { HelpLink } from "./help/HelpLink";
-import { Button, Dialog, Input, Select, Switch, Textarea } from "@remo/ui";
+import { Button, Dialog, Input, Select, Switch, Textarea, Radio, IconButton } from "@remo/ui";
 import { useI18n } from "./i18n";
 
 /**
@@ -25,7 +29,10 @@ import { useI18n } from "./i18n";
  * (`board.manage`), running a task needs `board.edit`.
  */
 export function AgentDialog({
+  board,
   open,
+  roomTags,
+  initialIntent = "",
   boardId,
   boardTitle,
   canManage,
@@ -36,7 +43,11 @@ export function AgentDialog({
   onClose,
   onOpenOrg,
 }: {
+  board: BoardDocument;
   open: boolean;
+  roomTags: React.ReactNode;
+  /** A task the command search already typed for the person (T7). */
+  initialIntent?: string;
   boardId: string;
   boardTitle: string;
   canManage: boolean;
@@ -67,11 +78,15 @@ export function AgentDialog({
   const [skillSlug, setSkillSlug] = useState("");
   const [targetKind, setTargetKind] = useState<"standalone" | "kanban">("standalone");
   const [mode, setMode] = useState<"copy" | "move">("copy");
+  const [dismissedTask, setDismissedTask] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const intentField = useRef<HTMLTextAreaElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [jobPreview, setJobPreview] = useState<{ id: string; cards: number } | null>(null);
   const [changeSets, setChangeSets] = useState<ChangeSet[]>([]);
   const [file, setFile] = useState<TaskFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [newsTarget] = useState(() => homeAction("agent"));
   const [planTaskId, setPlanTaskId] = useState<string | null>(null);
   /** One key per unchanged draft, reused after a failed request (ADR-155). */
   const pendingKey = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -125,6 +140,7 @@ export function AgentDialog({
       return;
     }
     setNotice(null);
+    setSettingsOpen(false);
     setJobPreview(null);
     setFile(null);
     setFileError(null);
@@ -133,17 +149,22 @@ export function AgentDialog({
     void load();
   }, [open, load, selectionIds.join(",")]);
 
+  // The search's last line opens the dialog with its words already in the field; the
+  // person still presses the button, so nothing runs by itself (ADR-266 §1.2).
+  useEffect(() => {
+    if (open && initialIntent) setIntent(initialIntent);
+  }, [open, initialIntent]);
+
   // A finished brief becomes a preview by itself. The person still decides: no plan
   // reaches the board without the Apply button (ADR-142).
   useEffect(() => {
     if (!open || planTaskId) return;
-    const ready = (data?.tasks ?? []).find(
-      (task) => task.status === "awaiting_approval" && !openedPlans.current.has(task.id),
-    );
+    const pending = (data?.tasks ?? []).filter(task => task.status === "awaiting_approval" && !openedPlans.current.has(task.id));
+    const ready = newsTarget ? pending.find(task => task.id === newsTarget) : pending[0];
     if (!ready) return;
     openedPlans.current.add(ready.id);
     setPlanTaskId(ready.id);
-  }, [open, data, planTaskId]);
+  }, [open, data, planTaskId, newsTarget]);
 
   useEffect(() => {
     setJobPreview(null);
@@ -160,19 +181,11 @@ export function AgentDialog({
     return () => window.clearInterval(timer);
   }, [open, data, changeSets, load]);
 
-  /**
-   * Exactly what leaves for the model.
-   *
-   * The service reads the selection the same way: groups expand, a frame comes whole,
-   * the order is top-down, empty and repeated texts are dropped, and the caps are
-   * fifty objects and twenty thousand characters (ADR-143). Showing that list before
-   * the run is the difference between "we may send something" and a person deciding.
-   */
-  const preview = useMemo(
-    () => selectionPreview(widgets, sourceIds),
-    [widgets, sourceIds],
-  );
-
+  // The snapshot identity changes whenever the shared document does. Read the
+  // live Y.Doc with the exact extraction functions used by the agent runner.
+  const context = useMemo(() => {
+    return open ? agentPayload(board, sourceIds) : null;
+  }, [open, board, widgets, sourceIds]);
   const hasSelection = sourceIds.length > 0;
   const skills = useMemo(
     () => compatibleSkills(data?.skills ?? [], { hasSelection }),
@@ -188,31 +201,18 @@ export function AgentDialog({
   }, [skillSlug, skills]);
 
   const isBrief = skillSlug === "brief-to-board" || skillSlug === AUTO_SKILL;
-  const snapshotTotal = widgets.length;
-  const snapshotSent = Math.min(snapshotTotal, 200);
 
+  const modelSkill = resolveSkill(data?.skills ?? [], { slug: skillSlug, intent })?.slug ?? "diagram";
   // A budget is an agreement, not a default: with no limit there is nothing to agree on.
   const budgetReady = Number.isFinite(maxActions) && maxActions >= 1;
 
-  if (!open) return null;
-
-  if (planTaskId) {
-    return (
-      <AgentPlanPanel
-        taskId={planTaskId}
-        canEdit={canEdit}
-        onApply={onApplyPlan}
-        onClose={() => setPlanTaskId(null)}
-        onShowOnBoard={() => {
-          setPlanTaskId(null);
-          onClose();
-        }}
-        onApplied={() => {
-          void load();
-        }}
-      />
-    );
-  }
+  if (!context) return null;
+  const snapshotTotal = context.snapshot.counts.objects;
+  const snapshotSent = context.snapshot.counts.described;
+  const modelObjects = modelSkill === "diagram" ? context.diagram
+    : modelSkill === "tidy-selection"
+      ? context.selection.objects.map((item) => ({...item, text: item.text.slice(0, PLAN_LIMITS.textLength)}))
+      : context.selection.objects;
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -238,8 +238,8 @@ export function AgentDialog({
       targetKind,
       mode,
       sourceIds,
-      file: file?.name ?? null,
-      fileSize: file?.content.length ?? 0,
+      file: file ? { name: file.name, content: file.content } : null,
+      budget,
     });
     if (pendingKey.current?.fingerprint !== fingerprint) {
       pendingKey.current = { fingerprint, key: newIdempotencyKey() };
@@ -322,12 +322,56 @@ export function AgentDialog({
   const isCards = skillSlug === "cards";
   const cardsBlocked = isCards && !hasSelection;
   const tasks = data?.tasks ?? [];
+  const latest = tasks[0];
+  const phaseTask = latest && !intent && latest.id !== dismissedTask &&
+    ["queued", "running", "failed"].includes(latest.status) ? latest : null;
+  const startAnother = () => {
+    if (phaseTask) {
+      setDismissedTask(phaseTask.id);
+      if (phaseTask.status === "failed") setIntent(phaseTask.intent);
+    }
+    requestAnimationFrame(() => intentField.current?.focus());
+  };
+
+  const agent = data?.agents.find((entry) => entry.id === (phaseTask?.agent_id ?? agentId));
+  const identity = agent?.owner_name ? t("agents.panel.identity", {agent: agent.name, name: agent.owner_name}) : agent?.name;
+  const earlierTasks = tasks.filter((task) => task.id !== (planTaskId ?? phaseTask?.id));
+  const history = <AgentTaskHistory tasks={earlierTasks} busy={busy} onPlan={setPlanTaskId}
+    onCancel={(id) => void run(() => api.cancelAgentTask(id))} />;
+  if (planTaskId) {
+    return (
+      <AgentPlanPanel
+        roomTags={roomTags}
+        key={planTaskId}
+        taskId={planTaskId}
+        history={history}
+        agentOwnerName={data?.agents.find((entry) => entry.id === tasks.find((task) => task.id === planTaskId)?.agent_id)?.owner_name}
+        onNewTask={() => { setPlanTaskId(null); setIntent(""); requestAnimationFrame(() => intentField.current?.focus()); }}
+        canEdit={canEdit}
+        undoManager={board.undo}
+        onApply={onApplyPlan}
+        onClose={() => setPlanTaskId(null)}
+        onShowOnBoard={() => {
+          setPlanTaskId(null);
+          onClose();
+        }}
+        onApplied={() => {
+          void load();
+        }}
+      />
+    );
+  }
 
   return (
     <Dialog
-      title={t("agents.dialogTitle")}
-      description={boardTitle}
-      help={<HelpLink topicId="agents.task" />}
+      className="room-agent-sheet agent-task-sheet"
+      title={t(!phaseTask ? "agents.panel.new" : phaseTask.status === "failed" ? "agents.panel.error" : "agents.phase.running")}
+      description={identity ?? boardTitle}
+      help={<>
+        <IconButton icon="more" label={t("agents.panel.settings")} size="compact"
+          aria-expanded={Boolean(settingsOpen || !ready)} onClick={() => setSettingsOpen(!settingsOpen)} />
+        <HelpLink topicId="agents.task" />
+      </>}
       size="md"
       onClose={onClose}
     >
@@ -349,7 +393,7 @@ export function AgentDialog({
 
         {data && (
           <>
-            <div className="agent-enable">
+            {(settingsOpen || !ready) && <div className="agent-enable">
               <Switch
                 label={t("agents.boardSwitch")}
                 checked={data.enabled}
@@ -367,25 +411,8 @@ export function AgentDialog({
                   </Button>
                 </p>
               )}
-            </div>
-
-            {ready && (
-              <>
-                {data.agents.length === 0 ? (
-                  <p className="muted">
-                    {t("agents.noneYet")}{" "}
-                    <Button variant="ghost" size="compact" onClick={onOpenOrg}>
-                      {t("agents.openOrg")}
-                    </Button>
-                  </p>
-                ) : (
-                  <form
-                    className="agent-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      submit();
-                    }}
-                  >
+              {ready && data.agents.length > 0 && (
+                <>
                     <Select
                       label={t("agents.choose")}
                       options={[
@@ -395,47 +422,96 @@ export function AgentDialog({
                       onChange={(event) => setAgentId(event.target.value)}
                       disabled={!canEdit}
                     />
-                    <AgentSelectionSource
-                      preview={preview}
-                      hasSelection={hasSelection}
-                      selectionOnly={selectionOnly}
-                      onRemove={() => {
-                        setSourceIds([]);
-                        setSelectionOnly(false);
-                      }}
-                      onOnly={() => {
-                        setIntent(t("agents.source.onlyIntent"));
-                        setFile(null);
-                        setFileError(null);
-                        setSelectionOnly(true);
-                      }}
-                    />
-
-                    <div className="agent-budget">
                       <Select
-                        label={t("agents.skill")}
-                        hint={
-                          skillSlug === AUTO_SKILL
-                            ? t("agents.skill.autoHint")
-                            : selectedSkill
-                              ? selectedDescriptionKey
-                                ? t(selectedDescriptionKey)
-                                : selectedSkill.description
-                              : undefined
-                        }
+                        label={t("agents.repeat")}
                         options={[
-                          { value: AUTO_SKILL, label: t("agents.skill.auto") },
-                          ...skills.map((skill) => ({ value: skill.slug, label: skill.name })),
+                          { value: "once", label: t("agents.once") },
+                          { value: "hourly", label: t("agents.hourly") },
+                          { value: "daily", label: t("agents.daily") },
+                          { value: "weekly", label: t("agents.weekly") },
                         ]}
-                        value={skillSlug}
-                        onChange={(event) => {
-                          setSkillSlug(event.target.value);
-                          if (event.target.value === "cards" && sourceIds.length > maxActions) {
-                            setMaxActions(Math.min(500, Math.max(20, sourceIds.length)));
-                          }
-                        }}
+                        value={repeat}
+                        onChange={(event) => setRepeat(event.target.value as typeof repeat)}
                         disabled={!canEdit}
                       />
+                  {phaseTask && phaseTask.status !== "failed" && canEdit && <Button onClick={startAnother}>{t("agents.phase.new")}</Button>}
+                </>
+              )}
+            </div>}
+
+            {ready && (
+              <>
+                {phaseTask && (
+                  <section className="agent-active-task" aria-labelledby="agent-current-task">
+                    {phaseTask.status !== "failed" && <p className="agent-brief-quote">{phaseTask.intent}</p>}
+                    <div className="agent-phase-card" data-error={phaseTask.status === "failed" || undefined}>
+                      <h3 id="agent-current-task">{t(phaseTask.status === "failed"
+                        ? phaseTask.error?.startsWith("BUDGET_EXCEEDED") ? "agents.panel.budgetError" : "agents.phase.error"
+                        : "agents.phase.running")}</h3>
+                      <p role="status">{phaseTask.status === "failed"
+                        ? taskFailureText(phaseTask.error ?? "AI_FAILED", t)
+                        : phaseTask.progress?.total
+                          ? t("agents.progress", { done: phaseTask.progress.done ?? 0, total: phaseTask.progress.total })
+                          : t("agents.phase.preparing")}</p>
+                      {phaseTask.status === "failed" && canEdit && (
+                        <Button variant="secondary" onClick={startAnother}>{t("agents.phase.edit")}</Button>
+                      )}
+                    </div>
+                    {phaseTask.status !== "failed" && canEdit && (
+                      <div className="agent-phase-actions">
+                        <Button variant="secondary" disabled={busy} onClick={() => void run(() => api.cancelAgentTask(phaseTask.id))}>{t("agents.panel.stop")}</Button>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {data.agents.length === 0 ? (
+                  <p className="muted">
+                    {t("agents.noneYet")}{" "}
+                    <Button variant="ghost" size="compact" onClick={onOpenOrg}>
+                      {t("agents.openOrg")}
+                    </Button>
+                  </p>
+                ) : !phaseTask && (
+                  <form
+                    className="agent-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submit();
+                    }}
+                  >
+                    <Textarea ref={intentField}
+                      className="agent-intent"
+                      label={t("agents.panel.prompt")}
+                      value={intent}
+                      rows={4}
+                      maxLength={2000}
+                      placeholder={t("agents.intentPlaceholder")}
+                      onChange={(event) => {
+                        setSelectionOnly(false);
+                        setIntent(event.target.value);
+                      }}
+                      disabled={!canEdit}
+                    />
+
+                    <fieldset className="agent-skill-picker">
+                      <legend>{t("agents.panel.result")}</legend>
+                      <div>
+                        {[{slug: AUTO_SKILL, name: t("agents.skill.auto")}, ...skills].map((skill) => {
+                          const nameKey = skillNameKey(skill.slug);
+                          return (
+                          <Radio key={skill.slug} label={nameKey ? t(nameKey) : skill.name} name="agent-skill" value={skill.slug}
+                              checked={skillSlug === skill.slug} disabled={!canEdit}
+                              onChange={() => {
+                                setSkillSlug(skill.slug);
+                                if (skill.slug === "cards" && sourceIds.length > maxActions) {
+                                  setMaxActions(Math.min(500, Math.max(20, sourceIds.length)));
+                                }
+                              }} />
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <div className="agent-card-options">
                       {isCards && (
                         <>
                           <Select
@@ -461,18 +537,24 @@ export function AgentDialog({
                         </>
                       )}
                     </div>
-                    <Textarea
-                      className="agent-intent"
-                      label={t("agents.intent")}
-                      value={intent}
-                      rows={3}
-                      maxLength={2000}
-                      placeholder={t("agents.intentPlaceholder")}
-                      onChange={(event) => {
+                    <details className="agent-input-disclosure">
+                      <summary>{t("agents.modelInput")}</summary>
+                      <section className="agent-payload" aria-label={t("agents.modelInput")}>
+                        <p className="muted">{selectedDescriptionKey ? t(selectedDescriptionKey) : selectedSkill?.description ?? t("agents.skill.autoHint")}</p>
+                    <AgentSelectionSource
+                      preview={context.selection}
+                      hasSelection={hasSelection}
+                      selectionOnly={selectionOnly}
+                      onRemove={() => {
+                        setSourceIds([]);
                         setSelectionOnly(false);
-                        setIntent(event.target.value);
                       }}
-                      disabled={!canEdit}
+                      onOnly={() => {
+                        setIntent(t("agents.source.onlyIntent"));
+                        setFile(null);
+                        setFileError(null);
+                        setSelectionOnly(true);
+                      }}
                     />
 
                     {isBrief && (
@@ -488,72 +570,39 @@ export function AgentDialog({
                       </section>
                     )}
 
-                    <section className="agent-payload" aria-label={t("agents.modelInput")}>
-                      <strong>
-                        {t("agents.modelInput")} <HelpLink topicId="agents.task" />
-                      </strong>
-                      <p className="muted">
-                        {t("agents.modelIntent")}: {intent.trim() || "—"}
-                      </p>
-                      {hasSelection && (
-                        <>
-                          <p className="muted">
-                            {t("agents.modelSelection", {
-                              objects: preview.ids.length,
-                              chars: preview.chars,
-                            })}
-                          </p>
-                          {preview.texts.length > 0 ? (
-                            <>
-                              <ul>
-                                {preview.objects
-                                  .filter((item) => item.text)
-                                  .slice(0, 5)
-                                  .map((item) => (
-                                    <li key={item.id}>
-                                      <span className="muted">{item.type}</span> {item.text}
-                                    </li>
-                                  ))}
-                              </ul>
-                              <p className="muted">
-                                {t("agents.modelSelectionTexts", { n: preview.texts.length })}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="muted">{t("agents.modelSelectionEmpty")}</p>
-                          )}
-                          <p className="muted">{t("agents.source.untrusted")}</p>
-                        </>
+                      {modelSkill !== "cards" && modelSkill !== "tidy-selection" && (
+                        <p className="muted">{t("agents.modelIntent")}: {intent.trim() || "—"}</p>
                       )}
-                      {isCards ? (
+                      {modelSkill !== "cards" && hasSelection && (
+                        <details>
+                          <summary>{t("agents.modelFragments", { n: modelObjects.length })}</summary>
+                          <ul>{modelObjects.map((item) => (
+                            <li key={item.id}><span className="muted">{item.type}</span> {item.text}</li>
+                          ))}</ul>
+                        </details>
+                      )}
+                      {modelSkill === "cards" ? (
                         <p className="muted">{t("agents.modelCards")}</p>
-                      ) : isBrief ? (
+                      ) : modelSkill === "brief-to-board" ? (
                         <>
                           {file ? (
-                            <p className="muted">
-                              {t("agents.modelFile", {
-                                name: file.name,
-                                kind: file.kind,
-                                bytes: file.bytes,
-                              })}
-                            </p>
-                          ) : (
-                            <p className="muted">{t("agents.modelNoFile")}</p>
-                          )}
-                          <p className="muted">
+                            <details>
+                              <summary>{t("agents.modelFile", {name: file.name, kind: file.kind, bytes: file.bytes})}</summary>
+                              <pre>{file.modelText}</pre>
+                            </details>
+                          ) : <p className="muted">{t("agents.modelNoFile")}</p>}
+                          <details><summary>
                             {snapshotTotal > snapshotSent
-                              ? t("agents.modelSnapshotTruncated", {
-                                  sent: snapshotSent,
-                                  total: snapshotTotal,
-                                })
+                              ? t("agents.modelSnapshotTruncated", { sent: snapshotSent, total: snapshotTotal })
                               : t("agents.modelSnapshot", { n: snapshotSent })}
-                          </p>
+                          </summary><pre>{JSON.stringify(context.snapshot, null, 2)}</pre></details>
                           <p className="muted">{t("agents.modelFileUntrusted")}</p>
                         </>
                       ) : !hasSelection ? (
                         <p className="muted">{t("agents.modelEmpty")}</p>
                       ) : null}
                     </section>
+                    </details>
 
                     <div className="agent-budget">
                       <Input
@@ -575,24 +624,11 @@ export function AgentDialog({
                         onChange={(event) => setMaxCostUsd(Number(event.target.value) || 0)}
                         disabled={!canEdit}
                       />
-                      <Select
-                        label={t("agents.repeat")}
-                        options={[
-                          { value: "once", label: t("agents.once") },
-                          { value: "hourly", label: t("agents.hourly") },
-                          { value: "daily", label: t("agents.daily") },
-                          { value: "weekly", label: t("agents.weekly") },
-                        ]}
-                        value={repeat}
-                        onChange={(event) => setRepeat(event.target.value as typeof repeat)}
-                        disabled={!canEdit}
-                      />
                     </div>
                     {cardsBlocked && <p className="muted">{t("agents.selectForCards")}</p>}
                     {!canEdit && <p className="muted">{t("agents.readOnly")}</p>}
                     {!budgetReady && <p className="auth-error">{t("agents.budgetRequired")}</p>}
                     <div className="agent-actions">
-                      <span className="muted">{t("agents.placeHint")}</span>
                       <Button variant="primary"
                         type="submit"
                         disabled={
@@ -610,57 +646,16 @@ export function AgentDialog({
                             ? jobPreview
                               ? t("agents.runJob")
                               : t("agents.preview")
-                            : t("agents.run")}
+                            : modelSkill === "brief-to-board" ? t("agents.panel.create") : t("agents.run")}
                       </Button>
                     </div>
+                    <p className="muted agent-task-guidance">{modelSkill === "brief-to-board" ? t("agents.panel.reviewFirst") : t("agents.placeHint")}</p>
                   </form>
                 )}
 
                 {notice && <p className="muted agent-notice">{notice}</p>}
 
-                {tasks.length > 0 && (
-                  <section className="agent-history">
-                    <strong>{t("agents.history")}</strong>
-                    <ul>
-                      {tasks.slice(0, 6).map((task) => (
-                        <li key={task.id}>
-                          <div>
-                            <span className={`agent-status ${task.status}`}>{t(`agents.status.${task.status}` as "agents.status.queued")}</span>
-                            <span className="agent-task-intent">{task.intent}</span>
-                          </div>
-                          <div className="muted">
-                            {task.agent_name} · {formatMoment(task.created_at, lang)}
-                            {task.error ? ` · ${taskFailureText(task.error, t)}` : ""}
-                            {task.status === "running" && task.progress?.total
-                              ? ` · ${t("agents.progress", {
-                                  done: task.progress.done ?? 0,
-                                  total: task.progress.total,
-                                })}`
-                              : ""}
-                            {task.status === "applied" && task.usage?.actions
-                              ? ` · ${t("agents.changes", { n: task.usage.actions })}`
-                              : ""}
-                          </div>
-                          {(task.skill_slug === "brief-to-board" ||
-                            task.skill_slug === "tidy-selection") &&
-                            (task.status === "awaiting_approval" || task.status === "applied") && (
-                              <Button variant="ghost" size="compact"
-                                onClick={() => setPlanTaskId(task.id)}>
-                                {t("agents.plan.open")}
-                              </Button>
-                            )}
-                          {(task.status === "queued" || task.status === "running") && (
-                            <Button variant="ghost" size="compact"
-                              disabled={busy}
-                              onClick={() => void run(() => api.cancelAgentTask(task.id))}>
-                              {t("agents.cancel")}
-                            </Button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
+                {history}
 
                 {changeSets.length > 0 && (
                   <section className="agent-history">

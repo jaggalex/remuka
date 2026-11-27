@@ -158,8 +158,10 @@ function author(locale) {
   const note = (content, x, y, width, height, parentId, fillColor) =>
     widget("sticky_note", { x, y, width, height, parentId }, { content, fillColor });
 
+  // A card carries no colour of its own (ADR-267 §2.1): its column paints it, so the
+  // template does not freeze the white of the old paper cards into the document.
   const card = (title, x, y, width, height, parentId) =>
-    widget("card", { x, y, width, height, parentId }, { title, fillColor: token("neutral-0") });
+    widget("card", { x, y, width, height, parentId }, { title });
 
   function template(title, widgets) {
     const types = {};

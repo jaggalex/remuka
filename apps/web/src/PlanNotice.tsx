@@ -1,4 +1,6 @@
-import { Button } from "@remo/ui";
+import { useEffect, useState } from "react";
+import { api } from "./api";
+import { Button, Dialog } from "@remo/ui";
 import type { PlanLimitNotice } from "./apiBilling";
 import { SupportEntryButton } from "./SupportPanel";
 import { useI18n, type TranslationKey } from "./i18n";
@@ -32,16 +34,31 @@ const FEATURE_LABEL: Record<string, TranslationKey> = {
 
 export function PlanNotice({
   notice,
+  orgId,
   onSeePlans,
   onDismiss,
 }: {
   notice: PlanLimitNotice;
+  orgId?: string | null;
   /** Absent when billing is switched off on this installation: no dead button. */
   onSeePlans?: () => void;
-  onDismiss?: () => void;
+  onDismiss: () => void;
 }) {
   const { t } = useI18n();
 
+  const [access, setAccess] = useState<{ id: string; admin: boolean; contact?: string }>();
+  useEffect(() => {
+    if (!orgId) return;
+    let live = true;
+    void api.org(orgId).then(async detail => {
+      const admin = detail.roles.includes("org_admin");
+      const directory = !admin && detail.membership.relation === "member" ? await api.members(orgId).catch(() => null) : null;
+      const contact = directory?.members.find(person => person.roles.includes("org_admin") && person.state === "active")?.name;
+      if (live) setAccess({ id: orgId, admin, contact });
+    }).catch(() => { if (live) setAccess({ id: orgId, admin: false }); });
+    return () => { live = false; };
+  }, [orgId]);
+  const actor = access && access.id === orgId ? access : undefined;
   let what: string;
   if (notice.kind === "limit") {
     const labels = notice.limit ? LIMIT_LABEL[notice.limit] : undefined;
@@ -59,10 +76,13 @@ export function PlanNotice({
   }
 
   return (
+    <Dialog title={t("billing.limit.title")} onClose={onDismiss} size="sm">
     <div className="plan-notice" role="status">
-      <span>{t("billing.planLimit", { what })}</span>
+      <strong>{t("billing.planLimit", { what })}</strong>
+      <p>{t("billing.limit.kept")}</p>
+      {actor && !actor.admin && <p>{actor.contact ? t("billing.limit.askPerson", { name: actor.contact }) : t("billing.limit.askAdmin")}</p>}
       <div className="plan-notice-actions">
-        {onSeePlans && (
+        {onSeePlans && actor?.admin && (
           <Button size="compact" variant="primary" onClick={onSeePlans}>
             {t("billing.seePlans")}
           </Button>
@@ -72,12 +92,10 @@ export function PlanNotice({
         <SupportEntryButton requireSession variant="ghost">
           {t("support.planQuestion")}
         </SupportEntryButton>
-        {onDismiss && (
-          <Button size="compact" variant="ghost" onClick={onDismiss}>
-            {t("billing.dismiss")}
-          </Button>
-        )}
+        <Button size="compact" variant="ghost" onClick={onDismiss}>
+          {t("billing.dismiss")}
+        </Button>
       </div>
-    </div>
+    </div></Dialog>
   );
 }

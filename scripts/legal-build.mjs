@@ -33,12 +33,14 @@ import {
   legalDocuments,
   legalIndexPath,
   legalPagePath,
+  legalTextSha256,
   placeholderFindings,
   readLegalIndex,
   readLegalRevisions,
   recordedHash,
   validateLegalIndex,
 } from "../packages/legal/src/index.mjs";
+import { APPLE_TOUCH, readMark } from "./brand-source.mjs";
 import { markdown } from "./docs-core.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -61,6 +63,7 @@ const PAGE = {
     draft: "Черновик",
     draftNote: "Не опубликован: текст согласуется с юристом.",
     versions: "Версии",
+    changes: "Что изменилось",
     home: "На главную",
   },
   en: {
@@ -70,6 +73,7 @@ const PAGE = {
     draft: "Draft",
     draftNote: "Not published: the text is under legal review.",
     versions: "Versions",
+    changes: "What changed",
     home: "Home",
   },
 };
@@ -96,6 +100,12 @@ function label(entry, locale) {
   return entry.title?.[locale] || Object.values(entry.title ?? {})[0] || entry.doc;
 }
 
+// The acceptance journal keeps the exact document hash. The separate seal binds its
+// published wording in both languages to those same bytes without changing any receipt.
+function summaryDigest(textHash, summary) {
+  return legalTextSha256(JSON.stringify([textHash, summary.ru ?? null, summary.en ?? null]));
+}
+
 /** The index with the missing hashes of published revisions filled in; never overwritten. */
 export function recordHashes(index, documents) {
   const next = structuredClone(index);
@@ -104,6 +114,13 @@ export function recordHashes(index, documents) {
     if (entry.status !== "published") continue;
     const revisions = byKey.get(`${entry.zone}/${entry.doc}`);
     if (!revisions) continue;
+    if (entry.changes && !recordedHash(entry, entry.current) && (!entry.changesHistory || typeof entry.changesHistory === "object") && !entry.changesHistory?.[entry.current]) {
+      const file = revisions.get(entry.current)?.get(entry.lang?.[0]);
+      if (file) {
+        entry.changesHistory ??= {};
+        entry.changesHistory[entry.current] = { ...entry.changes, sha256: summaryDigest(file.sha256, entry.changes) };
+      }
+    }
     entry.sha256 = entry.sha256 && typeof entry.sha256 === "object" ? entry.sha256 : {};
     for (let version = 1; version <= entry.current; version += 1) {
       const file = revisions.get(version)?.get(entry.lang?.[0]);
@@ -122,6 +139,8 @@ function renderPage({ entry, revisions, version, current, siblings }) {
   const origin = ZONE_ORIGIN[entry.zone] ?? ZONE_ORIGIN.eu;
   const canonical = `${origin}${legalPagePath(entry.doc, version === entry.current ? null : version)}`;
   const isDraft = entry.status === "draft";
+
+  const summary = (version === current ? entry.changes : entry.changesHistory?.[version])?.[locale];
 
   const nav = siblings.map((document) => {
     const active = document.doc === entry.doc ? ' aria-current="page"' : "";
@@ -154,7 +173,9 @@ function renderPage({ entry, revisions, version, current, siblings }) {
 <title>${escapeHtml(title)} — ${escapeHtml(BRAND.name[locale] ?? BRAND.name.en)}</title>
 <meta name="description" content="${escapeHtml(title)}">
 <link rel="canonical" href="${escapeHtml(canonical)}">
-${isDraft ? '<meta name="robots" content="noindex">\n' : ""}<link rel="icon" href="/legal/assets/remo-logo.svg" type="image/svg+xml">
+${isDraft ? '<meta name="robots" content="noindex">\n' : ""}<link rel="icon" href="/legal/assets/remuka-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/legal/assets/remuka-mark-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/legal/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/legal/assets/tokens.css">
 <link rel="stylesheet" href="/legal/assets/legal.css">
 </head>
@@ -166,7 +187,7 @@ ${nav.join("\n")}
   </nav>
 </header>
 <main class="legal-main" id="main" tabindex="-1">
-  ${meta}
+  ${meta}${summary ? `\n  <p><strong>${text.changes}</strong> ${escapeHtml(summary)}</p>` : ""}
   ${versions}
   <article>${renderMarkdown(revision?.text ?? "")}</article>
 </main>
@@ -213,6 +234,24 @@ export function scanLegal(root = ROOT) {
     }
     const where = `${entry.zone}/${entry.doc}`;
     const { revisions, unexpected } = readLegalRevisions(root, entry);
+    for (let version = 1; version <= entry.current; version++) {
+      const sealed = entry.changesHistory?.[version];
+      const file = revisions.get(version)?.get(entry.lang[0]);
+      if (!sealed) {
+        if ((version > 1 && version < entry.current) ||
+            (version === entry.current && recordedHash(entry, version) && (version > 1 || entry.changes))) {
+          add("changes", `${where}/v${version}: missing published changes history`);
+        }
+        continue;
+      }
+      if (!file || sealed.sha256 !== summaryDigest(file.sha256, sealed)) {
+        add("changed", `${where}/v${version}: the published summary or its document changed`);
+      }
+      if (version === entry.current && (entry.status !== "published" ||
+          !entry.changes || summaryDigest(file?.sha256, entry.changes) !== sealed.sha256)) {
+        add("changed", `${where}/v${version}: publish a new revision to change its summary`);
+      }
+    }
     for (const name of unexpected) {
       add(
         "unindexed-file",
@@ -338,11 +377,16 @@ export function scanLegal(root = ROOT) {
     .map((name) => readFileSync(join(ROOT, "packages/ui/src/tokens", name), "utf8"))
     .join("\n");
   const stylesheet = readFileSync(join(ROOT, "guide/theme/legal.css"), "utf8");
-  const logo = readFileSync(join(ROOT, "remo-logo.svg"));
+  const markLight = readMark();
+  const markDark = readMark("dark");
   for (const zone of new Set(documents.map(({ entry }) => entry.zone))) {
     files.set(`${zone}/assets/tokens.css`, tokens);
     files.set(`${zone}/assets/legal.css`, stylesheet);
-    files.set(`${zone}/assets/remo-logo.svg`, logo);
+    // The old cached path keeps working and serves the same new mark (ADR-272).
+    files.set(`${zone}/assets/remo-logo.svg`, markLight);
+    files.set(`${zone}/assets/remuka-mark.svg`, markLight);
+    files.set(`${zone}/assets/remuka-mark-dark.svg`, markDark);
+    files.set(`${zone}/assets/apple-touch-icon.png`, readFileSync(APPLE_TOUCH));
   }
 
   return result;

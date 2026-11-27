@@ -87,6 +87,16 @@ export function useBoardChrome({
     });
   }, []);
 
+  /** Close without a second path: the bar's «⋯», Esc and another panel all use it. */
+  const closeInspector = useCallback(() => {
+    setInspectorOpen(false);
+    try {
+      window.localStorage.setItem("remo.inspector", "closed");
+    } catch {
+      // Same as above: the panel still closes for this visit.
+    }
+  }, []);
+
   return {
     titleDraft,
     setTitleDraft,
@@ -98,6 +108,8 @@ export function useBoardChrome({
     closeShareFallback: () => setShareFallback(null),
     inspectorOpen,
     openInspector,
+    closeInspector,
+    setInspectorOpen,
     toggleInspector,
   };
 }

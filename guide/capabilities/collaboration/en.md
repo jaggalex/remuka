@@ -16,7 +16,7 @@ Every participant holds a connection to the room; edits go to the server and arr
 
 **Discussion** is a server thread on an object or a point. A pin on the canvas marks the place, a reply reopens a resolved thread, unread threads are visible in the panel. The **Commenter** role may read and discuss without changing objects; a link visitor does not see threads.
 
-**Live reactions** are six emoji, a burst near the cursor. They are an attention signal, not a record: no counter, history or badge on the object.
+**Live reactions.** Choose one of six emoji in the Run menu. Everyone in the room sees it. Select an object to react beside it, or clear the selection to send a reaction up from the bottom of the screen. With reduced motion, the emoji briefly appears in place.
 
 **A lock** protects an object from edits and deletion. It records its author; the author or a room manager releases it. A copy and a duplicate appear unlocked. This is coordination, not an ACL.
 

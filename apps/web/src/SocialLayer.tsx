@@ -1,4 +1,4 @@
-import type { BoardConnection, Presence } from "@remo/doc";
+import type { BoardDocument, BoardConnection, Presence } from "@remo/doc";
 import type { Camera, KanbanLayout } from "@remo/canvas";
 import type { Widget } from "@remo/model";
 import { CommentsPanel } from "./CommentsPanel";
@@ -12,6 +12,7 @@ import { ReactionsLayer } from "./ReactionsLayer";
  * picked in the facilitation menu.
  */
 export function SocialLayer({
+  board,
   connection,
   presence,
   camera,
@@ -29,6 +30,7 @@ export function SocialLayer({
   onCommentsUnread,
   reactionRequest,
 }: {
+  board: BoardDocument;
   connection: BoardConnection | null;
   presence: Presence[];
   camera: Camera;
@@ -59,6 +61,7 @@ export function SocialLayer({
         request={reactionRequest}
       />
       <CommentsPanel
+        board={board}
         connection={connection}
         presence={presence}
         widgets={widgets}

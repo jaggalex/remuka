@@ -44,6 +44,30 @@ function nextVersion(current, what) {
   fail("usage: node scripts/release.mjs <patch|minor|major|x.y.z> [--notes TEXT] [--commit]");
 }
 
+/**
+ * The changelog for a release. Whatever is under «[Unreleased]» belongs to this version, so
+ * the version heading goes right under it, followed by the notes; «[Unreleased]» stays on top
+ * and empty. Without unreleased entries the heading is added before the closing line, as before.
+ * The «is at» line names the new version whatever the product is called (ADR-254).
+ */
+export function releaseChangelog(text, version, date, notes = "") {
+  let changelog = text.replace(/ is at \*\*[^*]+\*\*\./, ` is at **${version}**.`);
+  const heading = `## [${version}] - ${date}`;
+  if (changelog.includes(heading)) return changelog;
+  const body = notes.trim();
+  const unreleased = /^## \[Unreleased\]\n+(?=\S)(?!## )/m;
+  if (unreleased.test(changelog)) {
+    return changelog.replace(/^## \[Unreleased\]\n+/m, `## [Unreleased]\n\n${heading}\n\n${body ? `${body}\n\n` : ""}`);
+  }
+  const marker = "Release notes for a version are written from that page; the ADR records the reasons.";
+  const fallback = body || "See the product guide changelog for the user-facing history.";
+  return changelog.replace(marker, `${heading}\n\n${fallback}\n\n${marker}`);
+}
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (!isMain) {
+  // Imported by the test: only the pure helpers above are wanted.
+} else {
 const packagePath = join(ROOT, "package.json");
 const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
 const previous = pkg.version;
@@ -66,16 +90,7 @@ writeFileSync(
 
 const changelogPath = join(ROOT, "CHANGELOG.md");
 let changelog = readFileSync(changelogPath, "utf8");
-changelog = changelog.replace(/remo is at \*\*.*?\*\*\./, `remo is at **${version}**.`);
-const heading = `## [${version}] - ${date}`;
-if (!changelog.includes(heading)) {
-  const body = notes.trim() || "See the product guide changelog for the user-facing history.";
-  const marker = "Release notes for a version are written from that page; the ADR records the reasons.";
-  changelog = changelog.replace(
-    marker,
-    `${heading}\n\n${body}\n\n${marker}`,
-  );
-}
+changelog = releaseChangelog(changelog, version, date, notes);
 writeFileSync(changelogPath, changelog);
 
 console.log(`release: ${previous} → ${version} (${date})`);
@@ -93,3 +108,4 @@ run("git", ["add", "package.json", "README.md", "CHANGELOG.md"]);
 run("git", ["commit", "-m", `release: v${version}`]);
 run("git", ["tag", "-a", `v${version}`, "-m", `remo ${version}`]);
 console.log(`release: committed and tagged v${version} (not pushed)`);
+}

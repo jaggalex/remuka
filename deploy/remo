@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# Server entry point. Install as <root>/remo (default /srv/remo); never source the
-# environment as shell. The root comes from REMO_ROOT, the compose project and edge alias
-# from <root>/shared/instance.env written by the first deploy (ADR-261).
+# Server entry point. Install as <root>/remo; the instance is the directory the controller
+# lives in (REMO_ROOT overrides it for an unusual layout). The compose project and edge
+# alias come from <root>/shared/instance.env written by the first deploy (ADR-261). Never
+# source the environment as shell.
 set -Eeuo pipefail
 umask 077
-ROOT=${REMO_ROOT:-/srv/remo}
+# The controller is installed as <root>/remo, so its own directory is the instance. Deriving
+# the root is what keeps /srv/stage-ru/remo from reading /srv/remo/current and opening the
+# production database by accident. REMO_ROOT stays as an explicit override for a controller
+# installed elsewhere.
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+ROOT=${REMO_ROOT:-$script_dir}
 export REMO_PRODUCTION_ENV="$ROOT/shared/production.env"
 mkdir -p "$ROOT/backups"
 exec 9>"$ROOT/.operation.lock"
@@ -170,5 +176,25 @@ case ${1:-status} in
   backup) current; backup ;;
   status) current; compose ps ;;
   logs) current; compose logs --tail=100 sync web ;;
-  *) echo 'Usage: remo {deploy COMMIT|rollback --schema-compatible|backup|status|logs}' >&2; exit 1 ;;
+  # Operator commands from the release image: the host has no `pnpm` and no checkout.
+  # `shared/` is mounted read-only so `--secret-file /shared/…` works without putting a
+  # key in the image; stdin stays attached because `secret` reads the key from a prompt.
+  cli)
+    script=${2:-}
+    [[ -n $script ]] || { echo 'Usage: remo cli SCRIPT [ARGS...]' >&2; exit 1; }
+    # The scripts are `.mjs`; requiring the extension turned a documented command into
+    # "Cannot find module /app/scripts/billing-prices". A name from `scripts/` is enough.
+    [[ $script =~ ^[A-Za-z0-9._-]+$ ]] || {
+      echo "SCRIPT must be a file in scripts/, not a path: $script" >&2
+      exit 1
+    }
+    case $script in
+      *.*) ;;
+      *) script="$script.mjs" ;;
+    esac
+    shift 2
+    current
+    compose run --rm --no-deps -T -w /app -v "$ROOT/shared:/shared:ro" sync node "/app/scripts/$script" "$@"
+    ;;
+  *) echo 'Usage: remo {deploy COMMIT|rollback --schema-compatible|backup|status|logs|cli SCRIPT [ARGS...]}  (SCRIPT may omit .mjs)' >&2; exit 1 ;;
 esac

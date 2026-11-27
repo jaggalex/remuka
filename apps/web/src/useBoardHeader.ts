@@ -1,3 +1,4 @@
+import { homeAction } from "./homeAction";
 import { useCallback, useEffect, useState } from "react";
 import type { TimerPhase, Widget } from "@remo/model";
 import { formatRemaining } from "@remo/model";
@@ -9,6 +10,7 @@ import { currentRoom } from "./identity";
 import { roleSourceLine } from "./roleSource";
 import { useNow } from "./useNow";
 import { useTheme } from "./useTheme";
+import { useCalmMotion } from "./useMotion";
 import { useAccountPreferences } from "./useAccountPreferences";
 import type { Lang, TranslationKey } from "./i18n";
 import type { VoteController } from "./useVoteSessions";
@@ -54,10 +56,11 @@ export function useBoardHeader({
   setLang: (value: Lang) => void;
 }) {
   const { theme, setTheme } = useTheme();
-  // Theme and language are the two display preferences that follow the account (ADR-150).
-  useAccountPreferences({ me, theme, setTheme, lang, setLang });
-  const [presentOpen, setPresentOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const { calm, setCalm } = useCalmMotion();
+  // Theme, language and calm motion are the display preferences that follow the account
+  // (ADR-150, ADR-266 §8).
+  useAccountPreferences({ me, theme, setTheme, lang, setLang, calm, setCalm });
+  const [commentsOpen, setCommentsOpen] = useState(() => Boolean(homeAction("mention")));
   const [commentsUnread, setCommentsUnread] = useState(0);
   const [reactionRequest, setReactionRequest] = useState<{ emoji: string; at: number } | null>(
     null,
@@ -155,8 +158,8 @@ export function useBoardHeader({
   return {
     theme,
     setTheme,
-    presentOpen,
-    setPresentOpen,
+    calm,
+    setCalm,
     commentsOpen,
     setCommentsOpen,
     commentsUnread,

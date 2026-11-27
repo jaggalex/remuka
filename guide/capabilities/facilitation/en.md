@@ -14,9 +14,11 @@ The **timer** lives in the room, not in your tab: everyone sees it, and it keeps
 
 **Voting** opens a session on the selected objects. Each person has a quota of votes (3 by default, 100 maximum); sessions of one account share one quota, a second browser adds no votes. By default votes are anonymous: only the aggregate is visible. After the session ends the results can be published to the room as plain text: a title, places and votes (up to 10), and the number of participants.
 
+During voting, select **Voting is on** above the canvas. The panel shows how many votes you have left. Select **Show session objects in the room** to bring all the choices into view, even if they are far apart.
+
 In an open session the results name who voted for what after it ends; in an anonymous session only sums are visible, and nobody — including the facilitator — sees the names. Guests by link are shown as a number.
 
-**Bring everyone to me** is an invitation. When automatic following (**Follow automatically**) is on, participants' view moves at once; otherwise each person gets a "Follow / Stay" question and decides. The invitation lives in **Facilitation ▾ → Shared viewing → Bring everyone to me**.
+**Bring everyone to me** is an invitation. When automatic following (**Follow automatically**) is on, participants' view moves at once; otherwise each person gets a "Follow / Stay" question and decides. The invitation lives in **Run ▾ → Shared viewing → Bring everyone to me**.
 
 ## Example
 

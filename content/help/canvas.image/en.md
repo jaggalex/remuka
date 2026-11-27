@@ -20,6 +20,8 @@ PNG, JPEG, WebP, GIF and AVIF are accepted. SVG and HEIC are not supported in th
 
 ## View and download
 
+The viewer shows the name given to the image on the board. For an unnamed image, you see the filename if you can download the original. Otherwise the heading shows the description, or “Image” if the description is empty.
+
 - Double-click an image to open the lightbox. The wheel zooms, dragging moves the picture, a double click fits it again and `Esc` closes it.
 - **Download original** in the **More** menu, or the button in the lightbox, returns the untouched file. It needs the export grant (`board.export`).
 - The canvas shows a smaller copy sized for the screen; the original is stored separately.

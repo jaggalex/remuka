@@ -1,6 +1,6 @@
 import type { AlignmentGuide, Camera, KanbanLayout } from "@remo/canvas";
 import type { ConnectorPatch, NoteDirection, WidgetPosition, WidgetRect } from "@remo/doc";
-import type { ConnectorSide, Rect, Widget } from "@remo/model";
+import type { ConnectorSide, Rect, ShapeKind, Vec2, TurnOptions, Widget } from "@remo/model";
 import type { BoardSettings } from "./settings";
 
 /**
@@ -28,8 +28,14 @@ export interface GestureDeps {
   onMoveMany: (positions: WidgetPosition[]) => void;
   /** Commit a resize gesture: one object or a block, one transaction, one undo. */
   onResizeMany: (rects: WidgetRect[], scale?: { from: Rect; kx: number; ky: number }) => void;
+  /**
+   * Commit a turn: one transaction for the whole gesture (ADR-271, T18). The geometry
+   * is the model's `turnedPlacements`, so the preview and the write agree.
+   */
+  onRotateMany: (ids: readonly string[], delta: number, options?: TurnOptions) => void;
   /** Move a kanban column or lane to an index among the others (ADR-244). */
   onMoveKanbanAxis: (kanbanId: string, kind: "column" | "lane", id: string, index: number) => void;
+  onColumnTitleClick: (target: Extract<import("./canvasTargets").ContextTarget, {kind: "column"}>, world: Vec2, screen: Vec2) => void;
   /** Drop a card in a cell, before `beforeCardId` or at the end (null). */
   onMoveCard: (
     kanbanId: string,
@@ -46,6 +52,7 @@ export interface GestureDeps {
     ids: string[],
     offset: { x: number; y: number },
   ) => void;
+  onCreateFirstSticker: (at: Vec2) => void;
   onAddCard: (kanbanId: string, columnId: string, swimlaneId: string) => void;
   onConnect: (
     fromId: string,
@@ -76,6 +83,11 @@ export interface GestureDeps {
   onCreateConnected: (id: string, direction: NoteDirection) => void;
   onCursor: (cursor: { x: number; y: number } | null) => void;
   /**
+   * The armed shape tool (ADR-271): a drag on the canvas draws it at size, a click
+   * without a drag creates the default shape at the centre.
+   */
+  creationTool?: CreationTool | null;
+  /**
    * The viewer may read but not write (viewer role or a public link).
    *
    * Selection, pan and the marquee still work — reading a board means being able to
@@ -94,6 +106,12 @@ export interface ConnectDraft {
   targetPoint?: { x: number; y: number };
 }
 
+/** The armed shape tool and the one call that turns a gesture into a document command. */
+export type CreationTool = (
+  | { tool: "shape"; kind: ShapeKind; onDraw: (kind: ShapeKind, box: Rect | null, at: Vec2) => void }
+  | { tool: "sticky" | "text"; onPlace: (at: Vec2) => void }
+) & { series: boolean; cancel: () => void };
+
 export interface Gestures {
   cursor: { x: number; y: number } | null;
   dragPreview: { cardId: string; x: number; y: number } | null;
@@ -104,6 +122,12 @@ export interface Gestures {
   /** The pointer is over a header, which never takes objects. */
   tableRefused: boolean;
   marquee: Rect | null;
+  /** The shape being drawn, in board units: the overlay draws its dashed outline and size. */
+  shapeDraft: { rect: Rect; kind: ShapeKind } | null;
+  /** The angle plate during a turn: the angle and the world point it points at. */
+  rotationDraft: { angle: number; x: number; y: number } | null;
+  /** The pointer is over the round handle: the overlay asks for the rotation cursor. */
+  rotationHover: boolean;
   preview: ReadonlyMap<string, Partial<Widget>>;
   dragIds: string[];
   dragGhostIds: string[];
@@ -118,10 +142,11 @@ export interface Gestures {
   resolve: (id: string) => Widget | undefined;
   /** Drop the hover ring and the highlighted anchor (the pointer left the canvas). */
   clearHover: () => void;
-  onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
-  onPointerMove: (event: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerDown: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: () => void;
-  onDoubleClick: (event: React.MouseEvent<HTMLCanvasElement>) => void;
+  onPointerCancel: (event: React.PointerEvent<HTMLElement>) => void;
+  onDoubleClick: (event: React.MouseEvent<HTMLElement>) => void;
   /**
    * Begin a line from a side of an object, as a press on its port would (ADR-201: the
    * edge "+" and the port are one handle). The caller forwards the rest of the drag.

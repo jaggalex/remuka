@@ -99,9 +99,9 @@ export function OperatorCustomers({ onNeedCode }: { onNeedCode: NeedCode }) {
                 }
                 onClick={() => void open(match.kind === "invoice" ? "org" : match.kind, match.id)}
               >
-                <span>{t(`operator.customers.kind.${match.kind}`)}</span>
+                <span>{t(`operator.customers.kind.${match.kind}`)}</span>{" "}
                 <strong>{match.label}</strong>
-                {match.detail && <small>{match.detail}</small>}
+                {match.detail && <>{" "}<small>{match.detail}</small></>}
               </Button>
             </li>
           ))}

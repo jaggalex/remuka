@@ -12,3 +12,7 @@ test-results
 playwright-report
 e2e-report
 *.pdf
+
+# Never include private workspace configuration
+.config
+__pycache__

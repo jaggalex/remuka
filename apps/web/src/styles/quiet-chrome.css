@@ -1,0 +1,38 @@
+/*
+ * Chrome steps back while a canvas gesture runs (ADR-266 §7, ADR-289).
+ *
+ * The header, rail and bottom HUD fade to 35 % and stop taking the pointer after a
+ * gesture has lasted 150 ms; they return 200 ms after it ends. Layout does not move:
+ * only opacity and pointer-events change. Keyboard work never sets the class, and calm
+ * animations or reduced motion make the change instant.
+ */
+.topbar,
+.tool-rail,
+.canvas-hud {
+  transition: opacity var(--dur-quiet-back) ease;
+}
+
+.topbar.is-quiet,
+.tool-rail.is-quiet,
+.canvas-hud.is-quiet {
+  opacity: 0.35;
+  pointer-events: none;
+  transition-duration: var(--dur-quiet);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar,
+  .tool-rail,
+  .canvas-hud,
+  .topbar.is-quiet,
+  .tool-rail.is-quiet,
+  .canvas-hud.is-quiet {
+    transition: none;
+  }
+}
+
+:root[data-motion="calm"] .topbar,
+:root[data-motion="calm"] .tool-rail,
+:root[data-motion="calm"] .canvas-hud {
+  transition: none;
+}

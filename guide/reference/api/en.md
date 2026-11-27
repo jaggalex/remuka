@@ -43,8 +43,8 @@ The prose says “room”. Paths, commands and capabilities keep the historical 
 
 | Command | `input` |
 |---|---|
-| `board.item.create` | `{type: "sticky_note"\|"text"\|"shape"\|"frame", x, y, width?, height?, content?, name?, style?}` |
-| `board.item.update` | `{id, patch: {x?, y?, width?, height?, title?, content?, name?, style?, locked?}}` |
+| `board.item.create` | `{type: "sticky_note"\|"text"\|"shape"\|"frame", x, y, width?, height?, content?, name?, style?, rotation?}` |
+| `board.item.update` | `{id, patch: {x?, y?, width?, height?, title?, content?, name?, style?, locked?, rotation?}}` |
 | `board.item.delete` | `{id}` |
 | `board.text.set` | `{id, text}` |
 | `board.connector.create` | `{from, to, routing?, arrow?, waypoints?, style?, id?}` |
@@ -52,7 +52,7 @@ The prose says “room”. Paths, commands and capabilities keep the historical 
 | `board.image.create` | `{fileId, x, y, width, height, naturalWidth, naturalHeight, dominantColor?, alt?, parentId?}` |
 | `board.image.replace` | `{widgetId, fileId}` — a new file behind the same object; the width is kept and the height follows the new proportion |
 
-`name` is an optional label of up to 120 characters; an empty string clears it and uniqueness is not checked. Every command above requires the `board.edit` capability. `ifVersion` is compared with the current document
+`rotation` is an angle in degrees, clockwise, normalised into (−180, 180]; a shape, sticky note, free text, image and frame honour it, every other object ignores it. `GET /boards/:id/widgets` returns each object's `rotation`. `name` is an optional label of up to 120 characters; an empty string clears it and uniqueness is not checked. Every command above requires the `board.edit` capability. `ifVersion` is compared with the current document
 version: a mismatch gives `409 STALE`. Updating or deleting a locked object is refused with
 `OBJECT_LOCKED`; only the author or a `board.manage` holder may send `locked: false`, and a
 foreign attempt gets `LOCKED_BY_OTHER`.

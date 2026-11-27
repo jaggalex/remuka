@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { Button, Menu, type MenuItem } from "@remo/ui";
-import { useI18n, type TranslationKey } from "../i18n";
-import { useMenuFocus } from "../useMenuFocus";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Badge, Button, Menu, type MenuItem } from "@remo/ui";
+import { useI18n } from "../i18n";
+import type { RoomMenuRows } from "./registryItems";
 
 /**
  * The board's name, and everything that acts on the board as a document (ADR-119).
@@ -12,9 +12,10 @@ import { useMenuFocus } from "../useMenuFocus";
  * (ADR-119, Ш1).
  */
 export function BoardTitleMenu({
-  title,
+  title, icon, unreadCount, unreadLabel,
+  path,
+  pathHref,
   renaming,
-  onRenaming,
   draft,
   onDraft,
   onCommit,
@@ -25,19 +26,72 @@ export function BoardTitleMenu({
   readOnly,
 }: {
   title: string;
+  icon?: string;
+  unreadCount?: number;
+  unreadLabel?: string;
+  pathHref?: string;
+  path?: string | null;
   renaming: boolean;
-  onRenaming: (value: boolean) => void;
   draft: string;
   onDraft: (value: string) => void;
   onCommit: (value: string) => void;
   onCancel: () => void;
   open: boolean;
   onOpen: (value: boolean) => void;
-  items: MenuItem[];
+  items: RoomMenuRows;
   readOnly: boolean;
 }) {
   const { t } = useI18n();
-  const anchor = useMenuFocus(open, true);
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [level, setLevel] = useState<"main" | "more" | "propertiesAccess">("main");
+  const returnTo = useRef<string | null>(null);
+  const wasOpen = useRef(false);
+  const back = () => {
+    returnTo.current = "room." + level;
+    setLevel("main");
+  };
+
+  useLayoutEffect(() => {
+    if (open) {
+      const selector = returnTo.current ? '[data-command="' + returnTo.current + '"]' :
+        '[role^="menuitem"]:not([aria-disabled="true"]):not([data-command="room.menuBack"])';
+      const target = anchor.current?.querySelector<HTMLElement>(selector);
+      (target ?? anchor.current?.querySelector<HTMLElement>('[role^="menuitem"]'))?.focus();
+      returnTo.current = null;
+    } else if (wasOpen.current) {
+      setLevel("main");
+      anchor.current?.querySelector<HTMLButtonElement>(".board-title-button")?.focus();
+    }
+    wasOpen.current = open;
+  }, [open, level]);
+
+  const navigate = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (!open || !(event.target instanceof HTMLElement) || !event.target.closest('[role="menu"]')) return;
+    const id = event.target.closest<HTMLElement>("[data-command]")?.dataset.command;
+    if (level !== "main" && (event.key === "ArrowLeft" || event.key === "Escape")) {
+      event.preventDefault();
+      event.stopPropagation();
+      back();
+    } else if (event.key === "ArrowRight" && (id === "room.more" || id === "room.propertiesAccess")) {
+      event.preventDefault();
+      event.stopPropagation();
+      setLevel(id === "room.more" ? "more" : "propertiesAccess");
+    }
+  };
+  const branch = (entry: "more" | "propertiesAccess", label: string): MenuItem => ({
+    label, commandId: "room." + entry, submenu: true, onSelect: () => setLevel(entry),
+  });
+  const menuItems: MenuItem[] = level === "main" ? [
+    ...items.rename,
+    branch("propertiesAccess", t("board.propertiesAccess")),
+    ...items.document,
+    ...(items.more.length ? [branch("more", t("more.menu"))] : []),
+    ...(items.trash.length ? [{ separator: true } as const, ...items.trash] : []),
+  ] : [
+    { label: t("board.menuBack"), commandId: "room.menuBack", onSelect: back },
+    { separator: true },
+    ...items[level],
+  ];
   const shown = title || t("board.untitled");
   const input = useRef<HTMLInputElement | null>(null);
 
@@ -70,82 +124,29 @@ export function BoardTitleMenu({
   }
 
   return (
-    <span className="topbar-anchor topbar-anchor-start" ref={anchor}>
+    <span className="topbar-anchor topbar-anchor-start room-menu-anchor" ref={anchor} onKeyDownCapture={navigate}>
+      {path && pathHref && (
+        <span className="topbar-path"><a href={pathHref}>{path}</a> <span aria-hidden="true">›</span></span>
+      )}
       <Button
         variant="ghost"
         iconEnd="chevron-down"
         className="board-title-button"
-        aria-label={`${t("board.menu")}: ${shown}`}
+        aria-label={[`${t("board.menu")}: ${shown}`, unreadLabel].filter(Boolean).join(" · ")}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => onOpen(!open)}
       >
-        {shown}
+        {unreadLabel && <Badge tone="info" icon="comment" count={unreadCount} />}
+        {icon && <span aria-hidden="true">{icon} </span>}{shown}
       </Button>
       {open && (
         <Menu
-          label={t("board.menu")}
-          width={248}
+          label={t(level === "more" ? "more.menu" : level === "propertiesAccess" ? "board.propertiesAccess" : "board.menu")}
           onClose={() => onOpen(false)}
-          items={items}
+          items={menuItems}
         />
       )}
     </span>
   );
-}
-
-/** The items of the board menu, in the order the mockup fixes (Home-Menus). */
-export function boardMenuItems({
-  canDuplicate,
-  canDelete,
-  canExport,
-  canBackup,
-  canImport,
-  writeBlocked,
-  t,
-  onRename,
-  onSettings,
-  onExport,
-  onRestore,
-  onDuplicate,
-  onTrash,
-  onReplace,
-}: {
-  canDuplicate: boolean;
-  canDelete: boolean;
-  canExport: boolean;
-  canBackup: boolean;
-  canImport: boolean;
-  writeBlocked: boolean;
-  t: (key: TranslationKey) => string;
-  onRename: () => void;
-  onSettings: () => void;
-  onExport: () => void;
-  onRestore: () => void;
-  onDuplicate: () => void;
-  onTrash: () => void;
-  /** Opens the confirmation for replacing the room with its template (ADR-236). */
-  onReplace: () => void;
-}): MenuItem[] {
-  const items: MenuItem[] = [
-    {
-      label: t("board.rename"),
-      disabled: writeBlocked,
-      onSelect: onRename,
-    },
-    // Settings are a personal, browser-local preference (ADR-123): never blocked.
-    { label: t("board.boardSettings"), onSelect: onSettings },
-  ];
-  if (canExport || canBackup || canImport) items.push({ separator: true });
-  if (canExport || canBackup) items.push({ label: t("board.exportAction"), onSelect: onExport });
-  if (canImport) items.push({ label: t("board.restoreAction"), onSelect: onRestore });
-  if (canDuplicate) items.push({ label: t("board.duplicateAction"), onSelect: onDuplicate });
-  // Destructive actions last, behind one separator: replacing wipes the room for everyone,
-  // so it lives here rather than one click from the room's counts (ADR-236).
-  items.push(
-    { separator: true },
-    { label: t("board.replaceMenu"), danger: true, disabled: writeBlocked, onSelect: onReplace },
-  );
-  if (canDelete) items.push({ label: t("board.trashAction"), danger: true, onSelect: onTrash });
-  return items;
 }

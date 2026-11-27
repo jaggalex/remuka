@@ -7,6 +7,7 @@ import { MfaEnrollment } from "../mfa/MfaEnrollment";
 import { MfaStepUp } from "../mfa/MfaStepUp";
 import { SecurityDialog } from "../mfa/SecurityDialog";
 import { operatorApi, type OperatorSession } from "./operatorApi";
+import { OperatorWords } from "./OperatorWords";
 import { OperatorPulse } from "./OperatorPulse";
 import { OperatorCustomers } from "./OperatorCustomers";
 import { OperatorJournal } from "./OperatorJournal";
@@ -22,7 +23,7 @@ import { OperatorMeasures } from "./OperatorMeasures";
  * challenge, and this screen either asks for the code or, for an operator who has not
  * enrolled yet, sends them through enrolment in place.
  */
-type Tab = "pulse" | "customers" | "money" | "measures" | "journal";
+type Tab = "pulse" | "customers" | "money" | "measures" | "journal" | "words";
 
 interface Gate {
   challenge?: string;
@@ -41,7 +42,7 @@ export function OperatorConsole() {
   const [clock, setClock] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>(() => {
     const value = new URLSearchParams(window.location.search).get("tab");
-    return value === "customers" || value === "money" || value === "measures" || value === "journal"
+    return value === "customers" || value === "money" || value === "measures" || value === "journal" || value === "words"
       ? value
       : "pulse";
   });
@@ -203,6 +204,7 @@ export function OperatorConsole() {
           { id: "money", label: t("operator.tabs.money") },
           { id: "measures", label: t("operator.tabs.measures") },
           { id: "journal", label: t("operator.tabs.journal") },
+          { id: "words", label: t("words.title") },
         ]}
       />
 
@@ -216,6 +218,7 @@ export function OperatorConsole() {
       {tab === "money" && <OperatorMoney />}
       {tab === "measures" && <OperatorMeasures onNeedCode={requireCode} />}
       {tab === "journal" && <OperatorJournal />}
+      {tab === "words" && <OperatorWords onNeedCode={requireCode} />}
 
       <footer className="operator-footer operator-note">{t("operator.session.actions")}</footer>
 

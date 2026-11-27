@@ -1,31 +1,40 @@
 /**
- * Repaint a room document from the previous tonal rows to the paper tones (ADR-183).
+ * Repaint a room document from a previous tonal row to the current one (ADR-183, ADR-267).
  *
- * Pure: takes a `Y.Doc`, changes only values that are one of the fourteen previous fills,
- * and reports what it changed. `scripts/repaint-paper.mjs` loads and saves the rooms; this
+ * Pure: takes a `Y.Doc`, changes only values that are one of the previous fills, and
+ * reports what it changed. `scripts/repaint-paper.mjs` loads and saves the rooms; this
  * module never touches the database, so it is tested without one.
  *
- * The table copies `PREVIOUS_FILL_LEVELS` → `TONE_LEVELS` from `@remo/model`
- * (`packages/model/src/colorLevels.ts`); `paper-repaint.test.mjs` compares the two.
+ * The table is both previous sets of `@remo/model` (`PREVIOUS_FILL_LEVELS_182` and
+ * `PREVIOUS_FILL_LEVELS`) mapped straight to the current `TONE_LEVELS`, so one run takes a
+ * room of any age to the palette of ADR-267. A value that is current again (the landing
+ * page's 300 row) has no entry: there is nothing to repaint.
+ * `paper-repaint.test.mjs` compares the table with the model.
  */
 import { Y } from "./y.mjs";
 
-/** Previous value → its paper successor, same tone and level (ADR-182). */
+/** Previous value → the current value of the same tone and level (ADR-267). */
 export const PAPER_REPAINT = Object.freeze({
   "#efece8": "#f3f1ec",
   "#bfb9b1": "#cdc8c0",
-  "#ffe07a": "#ece2c8",
-  "#f2b94a": "#d8c79e",
-  "#ffcd9e": "#e2d2c4",
-  "#ff8a57": "#bca996",
-  "#ffc6d9": "#e8d6d3",
-  "#ff8fbd": "#cdb0ab",
-  "#d9c9ff": "#dcd8e2",
-  "#c69bff": "#b9b1c9",
-  "#b5dcff": "#d8dde3",
-  "#78b4ff": "#aab7c5",
-  "#b9ecac": "#dedfd4",
-  "#85d965": "#bcbfa9",
+  "#ffe07a": "#f4e0a8",
+  "#ece2c8": "#f4e0a8",
+  "#d8c79e": "#f2b94a",
+  "#ffcd9e": "#ffdcc6",
+  "#e2d2c4": "#ffdcc6",
+  "#bca996": "#ff8a57",
+  "#ffc6d9": "#f9d3cd",
+  "#e8d6d3": "#f9d3cd",
+  "#cdb0ab": "#ff8fbd",
+  "#d9c9ff": "#f3e8ff",
+  "#dcd8e2": "#f3e8ff",
+  "#b9b1c9": "#c69bff",
+  "#b5dcff": "#cddff8",
+  "#d8dde3": "#cddff8",
+  "#aab7c5": "#78b4ff",
+  "#b9ecac": "#c8e8d4",
+  "#dedfd4": "#c8e8d4",
+  "#bcbfa9": "#85d965",
 });
 
 /** The style fields that hold a colour; a widget without one is left alone. */

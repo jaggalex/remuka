@@ -37,8 +37,9 @@ A sticky note has no transparency: its sheet is the object, and an invisible sti
 
 ## Where to change a colour
 
-- **Rail.** The caret beside the **Sticky note** tool opens the palette for a new sticky note: 14 fills (100 and 300) plus White and Black. Yellow is marked as the default.
+- **A new sticky note.** Open the arrow beside the Sticky note tool and choose one of seven light colours. Your first note is yellow. The tool remembers your choice for the next note.
 - **Object bar.** Click the colour sample: a sticky note offers **Sheet colour** and **Text**, a shape offers presets, **Fill**, **Border** and **Text**, text offers the **Text** role, and a connector offers **Line** and **Text** (the connector label).
+- **Context menu.** Right-click a sticky note, a shape or a connector: **Colour ▸** opens the same grid with a ring on the current value. The title of the menu names the object: "Sticky note", "3 objects", "Canvas".
 - **Selection bar.** With several objects selected, the sample shows their shared fill or line. Mixed colours means the objects disagree: pick a colour to set one for all.
 - **Colour window.** Every role lives in one window: the grid, named values, Custom colour and keys 1–7.
 
@@ -54,13 +55,21 @@ A key works when only objects with that role are selected: sticky notes and shap
 
 Named colours have no number: White, Black and Transparent are chosen with a button, not a key.
 
+## Auto: ink knows its paper
+
+**Auto** is the absence of a colour on the object. That is how a new text, label and line start: no colour is stored, and it is worked out from the surface under the object — the object's fill, the kanban or desk ground, the body of a section. On a light surface it is ink, on a dark one paper. So one document reads in both the light and the dark theme: an object's fills do not follow the theme, while text, counters, grid lines and icons adapt to them.
+
+Old objects carrying the former default colour — grey or near-black — read as **Auto**: the document is not rewritten, and nothing disappears on a dark background. If you chose that grey yourself, the window shows **Auto**; that is the accepted price for text that never vanishes.
+
+A colour a person chose stays theirs. If it almost disappears on its surface, the object gets a thin outline in the paper's ink, and the window says **"Hard to read on this background"** and offers **Auto** — one press and the colour is derived again.
+
 ## Custom colour
 
 When an object stores a value outside the palette — an old room's colour, for example — the window labels it **Custom colour** and shows the value below the grid. That is a label for the value, not a swatch to pick: only palette values can be chosen. The current colour is kept until you choose another: there is no migration, and the room is not repainted after the fact.
 
 ## Check the result
 
-- The rail and the sticky note window show the same 14 fills in the same order, with White and Black in a separate column.
+- To use a stronger shade, white or black, select the note and open Sheet colour in its properties.
 - The name on the sample matches the name of the chosen swatch in the window.
 - After pressing 4, a sticky note becomes pink on its previous level instead of jumping to another row.
 - An object with Custom colour stays that way until you pick a colour from the palette.

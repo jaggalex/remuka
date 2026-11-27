@@ -8,6 +8,7 @@
  * editing honest — but anything acting for a person *outside* their open tab goes
  * through here.
  */
+import { insertNewWidget } from "@remo/model/stacking";
 import { createHash, randomUUID } from "node:crypto";
 import { displayTextOf } from "@remo/text";
 import {
@@ -96,6 +97,25 @@ export function commandObjectId({ boardId, actorId, key, prefix }) {
     .digest("hex")
     .slice(0, 16);
   return `${prefix}_${digest}`;
+}
+
+/** Kinds whose angle the product paints (ADR-271); a table is a frame but stays straight. */
+const ROTATABLE_TYPES = new Set(["shape", "sticky_note", "text", "image", "frame"]);
+
+/** Degrees, normalised into (−180, 180] like the model's reader. */
+function normalizeRotation(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw new CommandError("BAD_INPUT", "rotation must be a finite number of degrees");
+  }
+  let angle = number % 360;
+  if (angle > 180) angle -= 360;
+  else if (angle <= -180) angle += 360;
+  return Object.is(angle, -0) ? 0 : angle;
+}
+
+function turns(widget) {
+  return Boolean(widget && ROTATABLE_TYPES.has(widget.type) && widget.layout?.kind !== "table");
 }
 
 function sanitizeStyle(style) {
@@ -202,7 +222,7 @@ export const COMMANDS = {
         createdAt: Date.now(),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(widget.id, widget);
+        insertNewWidget(widgets(ydoc), widget);
       });
       return { id: widget.id, type: widget.type, fileId: widget.fileId };
     },
@@ -295,6 +315,7 @@ export const COMMANDS = {
       if (data.title !== undefined) text(data.title, "title", 2_000);
       if (data.name !== undefined) text(data.name, "name", MAX_NAME);
       if (data.style !== undefined) sanitizeStyle(data.style);
+      if (data.rotation !== undefined) normalizeRotation(data.rotation);
       // An explicit container is for a template or a script that already knows where
       // the object belongs; a person's drop goes through the centre rule (ADR-110).
       if (data.parentId !== undefined) text(data.parentId, "parentId", 200);
@@ -329,11 +350,14 @@ export const COMMANDS = {
         ...(content ? { content } : {}),
         ...(input.name?.trim() ? { name: input.name.trim() } : {}),
         ...(input.style ? { style: sanitizeStyle(input.style) } : {}),
+        ...(input.rotation !== undefined && ROTATABLE_TYPES.has(input.type)
+          ? { rotation: normalizeRotation(input.rotation) }
+          : {}),
         createdBy: actor.name ?? actor.id,
         createdAt: Date.now(),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(widget.id, widget);
+        insertNewWidget(widgets(ydoc), widget);
         if (delta) seedTextDelta(ydoc, widget, delta);
         else seedText(ydoc, widget, input.content ?? input.title);
       });
@@ -370,6 +394,7 @@ export const COMMANDS = {
         "name",
         "style",
         "locked",
+        "rotation",
       ];
       for (const key of Object.keys(patch)) {
         if (!allowed.includes(key)) throw new CommandError("BAD_INPUT", `patch.${key} is not allowed`);
@@ -391,6 +416,7 @@ export const COMMANDS = {
         patch.name = patch.name.trim();
       }
       if (patch.style !== undefined) sanitizeStyle(patch.style);
+      if (patch.rotation !== undefined) normalizeRotation(patch.rotation);
       if (patch.locked !== undefined && typeof patch.locked !== "boolean") {
         throw new CommandError("BAD_INPUT", "locked must be a boolean");
       }
@@ -432,8 +458,12 @@ export const COMMANDS = {
         delete patch.lockedAt;
       }
       if (patch.style) patch.style = { ...(current.style ?? {}), ...sanitizeStyle(patch.style) };
+      // The field is meaningful only on a kind that turns; a value sent to a card or a
+      // table is ignored rather than stored and later dropped by every reader.
+      if (patch.rotation !== undefined) patch.rotation = normalizeRotation(patch.rotation);
       ydoc.transact(() => {
         const next = { ...current, ...patch };
+        if (patch.rotation !== undefined && !turns(current)) delete next.rotation;
         if (patch.locked === false) {
           delete next.locked;
           delete next.lockedBy;
@@ -577,7 +607,7 @@ export const COMMANDS = {
         ...(agent ? { agent } : {}),
       };
       ydoc.transact(() => {
-        widgets(ydoc).set(connector.id, connector);
+        insertNewWidget(widgets(ydoc), connector);
       });
       return { id: connector.id, from: from.id, to: to.id };
     },

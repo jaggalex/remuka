@@ -56,6 +56,71 @@ Run these with `REMO_MIGRATION_DATABASE_URL`; the owner must be a superuser or h
 database on the test server (`pnpm test:db:up`) because `FORCE` takes an exclusive lock. The
 inventory is not part of `pnpm verify`: run it after a schema change.
 
+## Branches, stage and the release train
+
+One trunk, short-lived task branches, and deployments by commit rather than by branch.
+The canonical remote is `remuka`; `origin` (the old `remo.git`) is the mirror of the old name
+and is never deployed from. `main` is the only long-lived branch and always passes the gate.
+
+| Branch | For | Lives |
+|---|---|---|
+| `main` | the trunk; only green work reaches it | always |
+| `t/<n>-<slug>` | one task from a plan (`t3-canvas-objects`, `t4-cardboard`) | days |
+| `fix/<slug>` | a bug without a task | days |
+| `release/<x.y>` | only fixes after the release is cut | until the next minor |
+| `hotfix/<slug>` | an urgent fix from a tag | hours |
+
+1. Branch from `main`, keep one reason to change per branch, run `pnpm verify --e2e`.
+2. Open a pull request. CI runs the full gate and `audit:prod`; the merge is a **squash**,
+   so one task is one commit and its ADR and tests travel with it. `build` counts commits,
+   so it grows by one per delivered task.
+3. **Stage deploys `main`.** The commit that passed CI is what both zones run:
+   `REMO_DEPLOY_ENV_FILE=.config/remo/stage-ru.env.local bash deploy/release.sh`, then the
+   same for `stage-eu`. The two zones must report the same commit on `/api/health`; the
+   acceptance list is `spec/stage.md` §8.
+4. **Production deploys a tag.** Acceptance on stage is followed by
+   `pnpm release:minor --notes "…" --commit`, which creates the annotated tag on the tested
+   commit; production checks that tag out (a detached HEAD is fine) and runs the same
+   `deploy/release.sh` with the production env file. Build once, promote the same commit.
+5. A hotfix starts from the tag (not from `main`'s tip), gets a patch tag and goes to
+   production; the fix is then merged back into `main` so the trunk does not lag.
+
+### Choosing the target
+
+The environment file **is** the target; `deploy/release.sh` has no `--stage` flag. Keep one
+private file per installation (template: `deploy/deploy.env.example`; mode 600, outside
+Git) and pass it with `REMO_DEPLOY_ENV_FILE`:
+
+| Target | Command |
+|---|---|
+| stage-ru | `REMO_DEPLOY_ENV_FILE=.config/remo/stage-ru.env.local bash deploy/release.sh` |
+| stage-eu | `REMO_DEPLOY_ENV_FILE=.config/remo/stage-eu.env.local bash deploy/release.sh` |
+| production | `git checkout v0.x.0 && bash deploy/release.sh` (reads `.config/remo/deploy.env`) |
+
+Every run refuses a dirty tree and untracked source, runs `pnpm verify --e2e`, uploads the
+exact commit, prepares the schema, switches `current` and checks `/api/health` (commit and
+schema), the app and the guide. A stand file also carries `REMO_DEPLOY_HTTP_AUTH` for the
+basic-auth checks. Deploy the two stage zones one after the other from the same commit, and
+deploy production only from a tag.
+
+Rollback is a server command, not a release: `ssh deploy@<host> /srv/<instance>/remo
+rollback --schema-compatible` returns to the previous release after its own backup; the
+schema check is a person's decision, so the flag is required.
+
+Rules around the train:
+
+- `main` is protected: a pull request, a green CI, linear history, no force-push; tags are
+  protected too. Nobody pushes to `main` directly.
+- `deploy/release.sh` already refuses an unclean tree and runs `pnpm verify --e2e`; a deploy
+  of an uncommitted or untested checkout is not a shortcut, it is a rollback.
+- A schema change bumps `schema` in the same pull request; when a tenant table changes, run
+  `pnpm db:rls --check` before the stage deploy.
+- Commit subjects read `type(scope): summary`; the body names the ADR and the task (`T3`).
+- Agents commit only on a `t/<n>` branch and only when the owner asks; merges, tags and
+  pushes belong to the owner.
+- The old local checkout `initial` (tracking `remuka/main`) becomes `main`; the stale local
+  `main` at 0.4.1 is renamed or removed so the name means one thing.
+
 ## Versioning and releases
 
 Three numbers, never mixed: `version` is the semver release in `package.json`, `build` is

@@ -10816,3 +10816,1452 @@ statement with the full table one link away.
   so the layout does not have to change when analytics or marketing is added.
 - The screen is shorter than one viewport in both languages, which the end-to-end scenario
   checks together with "the register is folded until opened".
+
+## ADR-265: Remuka's character — voice, paper-and-ink chrome, physical motion
+
+Date: 2026-11-23. Spec: `spec/character.md`. Mockups approved by the owner: canvas
+«Ремука — лендинг и продукт» (https://claude.ai/artifact/QzwXA5ViAxFMjiQeZKbxWR).
+
+**Context.** Remuka is for ordinary people, not only for facilitators. "Traces and Fields"
+(ADR-181…188) made the product correct but impersonal: chrome without colour or shadow, an ink
+primary button, initials instead of names, cursors that jump between network updates. The
+landing page, built with warm paper, ink outlines, hard offset shadows, named cursors that move
+like hands and copy that talks like a colleague, is what early users responded to.
+
+**Decision.**
+- The landing page's language becomes the product's. Kept from ADR-181: authorship is visible,
+  circle = person and square = agent, differences by form, consequences before action, content
+  louder than chrome. Replaced: rule E2 (silent chrome) by a volume table — 10 landing, 8 entry
+  screens and dialogs, 6 room chrome, 4 operator/legal/security.
+- Visual tokens: paper `#fbf3df`, ink `#1e2136`, 1.5 px ink outlines, hard ink shadows without
+  blur, one coral (`#ff8a57`) primary button per screen, a marker stroke under one word of one
+  heading, sticker paper with a deterministic tilt, agent in dashed violet.
+- Voice: ten rules (colleague not system, action first, people and life, outcome not process,
+  consequences in words, cause + way out without blame, agent proposes and people decide,
+  short verbs, living numbers, one smile per screen where nothing hurts), a banned-words list
+  and a glossary for RU and EN.
+- Motion is physical: remote cursors follow a damped spring (k = 125, c = 23, chosen by the
+  owner: just above critical damping, so they ease in and out without overshoot) towards
+  their position 100 ms in the past; idle cursors fade; stickers
+  lift, settle and pop; every motion honours `prefers-reduced-motion` and a "calm animations"
+  setting.
+
+**Consequences.**
+- `@remo/ui` gains a semantic layer of character tokens; existing tokens are remapped, not
+  removed. `docs/design/DESIGN.md` and the REMO 2.0 design system become «Ремука 3.0».
+- Remote cursors show names and colour fills; `@remo/canvas` computes cursor and sticker
+  physics in its frame loop, with a performance budget of 30 cursors and 500 stickers at 60 fps.
+- All UI strings and letters get a voice pass; `brand:check` learns the banned-words list.
+- The dark theme needs its own version of "cardboard" before it adopts the new look.
+- **Amendment (2026-11-23): "a tidy desk".** Character needs room, so noise is hidden by rule:
+  one main task per screen; permanent places only for what most sessions use (decided by
+  Pulse data); buttons grouped by intent (Invite, Run the session, Agent, room menu, account
+  menu); tools in the context of a selection; states only when abnormal; limits — at most 8
+  items in the room header, 7 tools plus "more", 12 chrome controls on the working room
+  screen; one-time hints; chrome fades while drawing; progressive disclosure in dialogs;
+  nothing is lost — every hidden item is in a menu and in the command search (⌘K). Every
+  screen gets a mockup checked against these rules before it is rebuilt (`spec/character.md`
+  §3.6, §6a).
+- **Amendment (2026-11-23): icons are the same ink.** One family (`@remo/ui`), line weight 2.25
+  on the 24 grid and 1.75 on the 16 grid so icons match the 1.5 px outlines; ink by default,
+  colour only for meaning (agent, done, danger, a person); chosen state as a marker chip
+  (`accent-chosen`) with an ink outline instead of a recoloured icon; illustrations built from
+  the logo shapes are a separate tier for empty states and onboarding (`spec/character.md` §3.7).
+
+## ADR-266: A tidy desk — command registry, eight-item room header, quiet chrome
+
+Date: 2026-11-23. Spec: `spec/tidy-desk.md`. Principle: ADR-265 amendment "a tidy desk".
+
+**Context.** The character of ADR-265 needs room, but the room header has 16 controls, the
+save state is always on screen, zero counters are shown, several side panels can be open, and
+there is no way to find an action that is not on screen. Hiding controls without a way to find
+them, and without data on what people use, would trade noise for confusion.
+
+**Decision.**
+- One **command registry** — the existing object command list (`apps/web/src/commands.ts`,
+  ADR-050), extended with chrome commands and a `palette` surface — is the only list of actions; the intent menus (Run the session, Agent, room menu, account menu) are built from it,
+  and a **command search** (⌘K / Ctrl K) searches it by title and RU/EN synonyms, shows
+  unavailable commands with a reason, and offers "ask the agent" as the last line.
+- The room header has **eight** items: logo, room title menu, people, Run, Agent, comments,
+  Invite (the primary button), account. Everything else becomes a registry command in a menu.
+- Status only when abnormal: no save indicator while saved; "Saving…" after 2 s; offline and
+  stopped input at once. Zero counters are hidden; viewers fold into the people group.
+  Once the room has synchronized, an interrupted connection keeps its offline notice through
+  retries until synchronization resumes. The first connection still starts in `connecting`.
+- One side panel at a time; hints until the action is learned (`useOnceHint`); chrome fades to
+  35 % and ignores the pointer during canvas gestures; "calm animations" is an account setting.
+- A `chrome.used` event (first use per organisation per day) and a Pulse section show what is
+  used, so placement is decided on data, quarterly, by the owner.
+
+**Consequences.**
+- Menus and search cannot drift: a menu item without a registry id fails a test.
+- E2e scenarios stop relying on the visible "saved" text and read `data-state`.
+- Dialogs gain `Disclosure` and `DangerZone` from `@remo/ui` when rebuilt from mockups.
+- Moving a control between "visible" and "in a menu" is a recorded decision, not a style edit.
+
+**Amendment (2026-11-24, owner's decision): session chips are states.** The timer and vote live
+in "Facilitate". A running timer shows a "04:12" chip and an open vote a "22 votes" chip next to
+it; each appears on start, disappears on finish, is not one of the eight header items and opens
+"Facilitate" at its section. The layout reference is the play prototype, not the artboard PNG. The
+title menu loses "Version history": the product has no such feature.
+
+## ADR-267: Canvas objects and the context menu get the character
+
+Date: 2026-11-23. Spec: `spec/canvas-character.md`. Extends ADR-265; amends ADR-182, ADR-234 and ADR-245.
+
+**Context.** After ADR-265 the chrome is "cardboard", but the canvas content is still muted:
+ADR-182 paper tones, thin grey frame outlines, an outline-less connector label, and a plain
+context menu. The approved room mockup shows brighter paper, ink outlines and hard shadows.
+
+**Decision.**
+- Fill palette: row 100 becomes the mockups' sticker tones and row 300 the landing page's
+  colours (the pre-ADR-182 bright row); the default sticky is yellow 100 `#f4e0a8`. Stored
+  colours are never rewritten (ADR-127): ADR-182 values join the "previous" sets that the colour
+  window recognises.
+- Objects: shapes with a 2 px ink outline and radius 10; connectors with rounded ink heads and an
+  outlined paper label; frames with an ink title tab that is also their handle; kanban cards,
+  tables, timer, comment pins, vote counters and selection handles in ink-and-paper.
+- A third elevation level, "Cardboard": a hard ink offset shadow without blur.
+- Kanban as on the landing page: a card without a colour of its own is filled with its column's
+  colour (to do — white, doing — yellow 300, done — green 300), computed from `column.accent`
+  at paint time, so moving a card recolours it without writing to it; a chosen card colour
+  wins; the board sits on a coloured ground and column headers read "Doing · 2/2".
+- The context menu is built from the command list (ADR-050) with new `group`, `icon` and
+  `menuTitle` fields: a title, groups (main, clipboard, arrange, danger last), icons, shortcuts,
+  a colour grid submenu and a final "Find an action ⌘K".
+
+**Consequences.**
+- Rooms look different without any data migration; old colours stay recognisable.
+- The elevation enum gains a value; old clients ignore an unknown level (ADR-245 reads unknown
+  as none) — acceptable for one release.
+- Visual baselines are re-recorded with this change.
+
+**Amendment (2026-11-24): the card colour rule is total; it amends ADR-234.**
+- `cardFillFor(accent)` in `@remo/model` maps any column accent to a card fill: look the hex up
+  in every `TONE_LEVELS` row (100/300/600 and the recognised previous sets); grey, `TODO_ACCENT`,
+  the new-column default `#9ca3af` and unknown hex give white paper; any other tone gives its
+  row-300 colour. A row-600 column accent changes only the header colour.
+- ADR-234's "a card is paper without colour" no longer holds for kanban cards; `cardTheme`
+  stays unpainted (it was an outline colour).
+- Cards still move by drag. The mockup's click-to-move is a demonstration only.
+- Selection has no rotation handle: rotation was removed by ADR-209.
+
+**Amendment (2026-11-24): "cardboard" is the third level (T4).**
+- `ELEVATIONS` is `raised`, `cardboard`, `floating`, in ascending lift, and the shadow menu
+  offers None, Raised, Cardboard, Floating. `WidgetStyle.elevation` gains `"cardboard"`;
+  `sanitize` keeps it on a kanban, frame or shape, and `elevationOf` still reads an unknown
+  level as none (ADR-245). No data migration: an object without the field stays flat.
+- The cast is the object's own silhouette moved down and right by six board units, with no
+  blur, in `canvas-object-ink`; it follows zoom like the card's hard shadow (ADR-267 §2.1)
+  and is clipped outside the outline, so a frame's translucent body is not darkened.
+- The screen, the presentation view and PNG/PDF export paint it with the same `castElevation`,
+  so the stored level survives a reload, reaches the other participant over Yjs, and lands in
+  the picture without a second painter.
+- Until the dark theme gets its own cardboard (ADR-265, stage 6), the level is painted as
+  Floating in the dark theme: the token colour would be invisible ink on the dark board. The
+  stored level is not rewritten, so switching back restores the hard shadow.
+- Visual baselines with an elevated object are re-recorded with this change.
+
+## ADR-268: Living words — sticky series, rotating hints, team news
+
+Date: 2026-11-24. Spec: `spec/living-words.md`. Extends ADR-265 (voice) and ADR-266 (hints).
+
+**Context.** The owner wants placing many notes to be fast, hints that do not go stale, and the
+home page to tell what is happening in the team, as the approved mockups do ("Ilya is already
+in the retro, and the agent sorted yesterday's notes").
+
+**Decision.**
+- Sticky series: holding a creation tool's key keeps the tool for every click; a double click
+  on the tool locks it until Esc. Each placed note is in edit mode; a click on empty space ends
+  the edit and places the next. One mechanism for sticky, shape and text.
+- Hints carry 2–3 variants (action, benefit, together) and rotate by visit, stable within a
+  visit; the learned-hint rules of ADR-266 still apply.
+- Team news: the sync service returns up to three items from data it already has — people in a
+  room now, unread mentions and replies, agent proposals awaiting a decision, people who joined —
+  filtered by room access, scored by type, freshness and involvement, at most one per room. The
+  client words them from i18n keys, with the phrasing stable for a day.
+
+**Consequences.**
+- No new tables in version 1; "what changed since your last visit" needs room-visit data and a
+  separate decision.
+- News never quotes room content: titles and names only.
+- A `news.clicked` metric shows which kinds of news people act on.
+
+## ADR-269: The hint catalog — operators edit the words, code keeps the rules
+
+Date: 2026-11-24. Spec: `spec/hint-catalog.md`. Extends ADR-268 and ADR-266; console per ADR-262.
+
+**Context.** The owner wants smart, rotating hints throughout the product, and their wording to
+be changeable by staff without a release. Wording that cannot be improved until the next
+version goes stale; but where and when a hint appears is product behaviour that needs tests.
+
+**Decision.**
+- Hint **slots** live in code (`apps/web/src/hints.ts`): place, trigger, audience, allowed
+  intents, fields, length limits, placeholders, and default texts. No slot exists in money,
+  deletion, security, legal or error surfaces.
+- Hint **texts** live per installation in `hint_texts`, versioned, draft or published; the client
+  loads published texts once per visit and falls back to the slot defaults. Hint texts leave
+  `i18n` for slot defaults, so there is one place for them.
+- Operators edit texts in a "Words" section of the console with server-side validation (length,
+  placeholders, plain text only, banned words and emoji), a live preview, a fresh TOTP code,
+  a reason, audit, and one-click rollback. News templates (ADR-268) use the same catalog.
+- `hint.shown` / `hint.acted` per slot and variant, aggregated per day, show which wording works.
+
+**Consequences.**
+- Staff can fix a confusing hint the same day; behaviour changes still go through code.
+- Button labels, errors, letters and legal texts stay in `i18n` and versions.
+- A new table and a console section; an empty catalog means the product looks as it does today.
+
+## ADR-270: Account screens of wave 2 — system theme, sign out elsewhere, what changed
+
+Date: 2026-11-24. Approved by the owner. Mockups: `#artboard-App-Account`. Task T15.
+
+**Context.** The wave 2 mockups show three small things the product does not have.
+
+**Decision.**
+- **Theme "As in the system".** `users.theme` accepts `system` besides `light` and `dark`; the
+  client follows `prefers-color-scheme` and its changes while the page is open. `null` keeps
+  meaning "not chosen" and behaves as **`light`** — light is the default; the system theme is
+  only what a person chooses (owner's decision, 2026-11-24).
+- **Sign out on other devices.** `DELETE /auth/sessions?others=1` revokes every session of the
+  account except the current one, with one audit row (`auth.sessions_revoked`, count) and the
+  existing "new sign-in / password changed" letters unchanged. The per-session revoke stays.
+- **What changed.** A published legal version may carry `changes: { ru?, en? }` — 1–3 short
+  sentences in `content/legal/index.json` (ADR-256). The re-accept window and the `legal_update`
+  letter show it above the links; `legal:check` requires it for every published version after
+  the first and freezes it with the version's hash.
+
+**Consequences.**
+- No new tables; one new value, one route variant, one registry field.
+- A lawyer writes the "what changed" lines together with the new version.
+
+## ADR-271: Shapes are switched, drawn by dragging and rotated like in common whiteboards
+
+**Status:** accepted (2026-11-24, owner: A — yes, B — yes). Spec: `spec/canvas-character.md` §2.2.
+Amends ADR-119 (creation) and supersedes the rotation part of ADR-209.
+
+**Context.** The model has five shape kinds, but the rail creates three and nothing in the UI
+changes `shapeKind`, so the reference mockup's rounded "Request" box and triangle cannot be made
+by hand. Common whiteboards (Excalidraw, Miro) let you draw a shape to size, switch its kind and
+corners, and rotate it.
+
+**Decision.**
+- The rail flyout shows all five kinds.
+- The shape selection bar gets "Kind ▾" (five silhouettes) and "Sharp / Rounded"; switching keeps
+  text, colours, size and connectors, which re-attach to the new outline. Undo is one step.
+  No new field: rounded is `round_rectangle`.
+- **Draw by dragging.** After choosing a shape tool (rail or key R/O), a drag on the canvas
+  draws the shape to size (Shift — square/circle, Alt — from the centre) and the rail returns
+  to Select; a click without a drag, or a second press of the key, still creates the default
+  shape at once (ADR-119). Esc cancels the armed tool. Double-clicking a tool keeps it armed
+  for a series (the same rule as the sticky series, ADR-268).
+- **Rotation returns** as `Widget.rotation` (degrees, default 0) for shapes, stickies, text,
+  images and frames; not for kanban, tables and connectors in this step. It is honoured by
+  hit-testing, the selection box and a round rotation handle, text (rotates with the object),
+  connector anchors on the rotated outline, presentation and PNG/PDF export. Shift snaps to 15°.
+  The agent projection writes the real value into the existing `widgets.rotation` column.
+  The existing sticky tilt (ADR-265) is decoration and stays separate from `rotation`.
+
+**Consequences.** Two tasks: T17 (kinds, switching, draw-by-drag, M) and T18 (rotation, L).
+Old clients ignore `rotation` and show such objects unrotated — acceptable for one release and
+written in the changelog. Rotated connector labels (ADR-213) stay out of scope.
+
+## ADR-272: One brand mark everywhere — the landing page's coloured mark
+
+**Status:** accepted (2026-11-24, owner). Spec: `spec/character.md` §3.8. Amends ADR-254 §6
+(what the old `/remo-logo.svg` path serves).
+
+**Context.** The landing page shows the mark in colour: a coral circle `#ff8a57`, a blue rounded
+square `#78b4ff` and an ink smile. The product shows a different one: the app header,
+help and favicon use a single-colour `#1E2A44` mark (`apps/web/public/remuka-mark.svg`), the home
+screen still loads the old `/remo-logo.svg`, and the root `remo-logo.svg`, which the guide, the
+documentation and the legal site copy, is an Inkscape edit with yellow, red and grey shapes. Four
+files, three pictures.
+
+**Decision.**
+- One source: `docs/design/brand/remuka-mark.svg` (light: graphite smile `#3f4256`, owner's
+  choice — softer than ink, 8.9:1 on paper) and `remuka-mark-dark.svg` (the smile becomes paper
+  `#fbf3df`; circle and square keep their colours). The landing page takes the graphite smile too. Geometry is the existing 200×200
+  grid; nothing else changes.
+- In the app the mark is one `BrandMark` component in `@remo/ui` that inlines the SVG and takes
+  the smile colour from a token (`brand-mark-ink`: light graphite `#3f4256`, dark paper `#fbf3df`), so no CSS
+  filter inverts it. Every place that shows the mark uses it; the wordmark "Ремука"/"Remuka" next
+  to it is Golos Text 800, letter-spacing −0.02em, as on the landing page.
+- Generated sites (guide, docs, legal) and the favicon read the source file through their build
+  scripts; `apps/web/public/remuka-mark.svg` and `/remo-logo.svg` are copies made by a build step,
+  not hand-kept files. The old `/remo-logo.svg` path stays for twelve months (ADR-254) but serves
+  the new mark.
+- `brand:check` fails when a served or generated mark differs from the source, or when an SVG
+  in the repo carries `#1E2A44` mark geometry or Inkscape metadata.
+- Letters stay text-only (`mail-templates` has no images by design); not changed here.
+
+**Consequences.** One picture of the brand in every surface; baselines with the header, help, home
+and site headers are re-recorded. Task T19 in `spec/dev-plan-character.md`.
+
+## ADR-273: Ink knows its paper — derived colours come from the surface under them
+
+**Status:** accepted (2026-11-24). Spec: `spec/ink-on-ground.md`. Amends ADR-120 (no default
+text colour is stored), ADR-182 and ADR-267 (content fills stay theme-independent; their ink
+does not), ADR-049 (a kind declares its ground and part roles).
+
+**Context.** In the dark theme a free text kept its stored grey-600 and vanished on the dark
+canvas, while kanban headers and lane titles took the theme's light text and vanished on the
+kanban's light-green ground, and grid lines turned heavy and dark. Text and line colours come
+from two unrelated sources — the theme palette (about 43 call sites in `packages/canvas` and
+`painters.ts`) and the document — while the surface under them comes from the document. Only
+stickies and cards use `inkFor(fill)`.
+
+**Decision.**
+- Colours fall into chrome (theme tokens), the canvas ground (theme), content fills (document,
+  theme-independent) and derived ink (text, counters, lines, icons, "+", placeholders, caret).
+- Derived ink is `ink(groundOf(target), role)` in `@remo/model`: `groundOf` resolves own fill →
+  container fill (kanban, table, frame body, mixed by alpha) → canvas ground; `ink` picks from two
+  fixed ladders (ink/graphite on light, paper on dark) by role thresholds: text and muted ≥ 4.5:1,
+  icon ≥ 3:1, line 1.25–1.6:1, strong line ≥ 3:1; dark ink wins a tie.
+- New objects store no text or line colour ("Auto"). Stored text equal to the former default
+  (`GREY[600]`, `#1a1a1a`) reads as Auto, like ADR-186. A person's explicit colour is kept; below
+  2:1 against its ground it gets a 1.5 px halo in the ground's ink, and the colour window warns.
+- DOM layers, export, presentation and thumbnails use the same two functions (`--ink` inline).
+- `CanvasPalette` loses its text and border fields for content, so a painter cannot reach theme
+  ink; a matrix test (every part × every palette fill × both themes × role) and `ui:check` keep it
+  that way, and dark-theme baselines cover kanban, table, frame, text and stickies.
+
+**Consequences.** Switching theme recolours only chrome and the canvas ground; everything else
+follows. The dark-theme wave of mockups (wave 8) starts after this. Task T20.
+
+## ADR-274: Wave 3 screens — a short account menu, new room, facilitation panel, export
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 3 (`App-AccountMenu`,
+`App-NewRoom`, `App-Facilitate`, `App-Export`). Amends ADR-266 §2 (item 8) and ADR-270.
+
+**Decision.**
+- **Account menu** has a person card (link to account settings), "All rooms", "Organisation and
+  people", inline segmented controls for theme (light / dark / as in system) and language, the
+  "Calm animations" switch, help and shortcuts, documentation, "Contact support", "Sign out" and
+  the version line. The name and handle form, active sessions, security, documents, cookies and
+  account deletion move to the account settings sections (wave 2 mockup). No item is removed.
+- **Step-up** (ADR-260): six digit cells accepting a pasted code, a link to the recovery code, an
+  error that says what to do; one shake, none with calm animations.
+- **New room**: name, four existing templates as picture cards, "Empty / With example" only for
+  the roadmap (as now), organisation and team folded under "Where: org · team — change".
+- **Facilitate**: one menu, one side panel with tabs Timer / Vote / Follow / Show; header chips
+  per ADR-266 amendment; follow invitation as a toast; presenter bar at the bottom while showing.
+- **Export**: format first (PNG / PDF / Backup), then scope only for pictures; restore from backup
+  folded under a disclosure in a danger frame.
+- Nothing here adds a capability: every control maps to an existing command or field.
+
+**Consequences.** Task T21. Baselines for these surfaces are re-recorded.
+
+## ADR-275: Wave 4 screens — organisation page, plan and payment, limits, all rooms
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 4 (`App-Org`,
+`App-Billing`, `App-Limits`, `App-AllRooms`). Builds on `spec/billing.md`, ADR-246, ADR-256.
+
+**Decision.**
+- **Organisation** becomes a page with tabs People / Teams / Journal / Plan and payment instead of
+  a dialog. A seat meter sits in the header ("Seats 4 of 5"; guests and viewers take no seat). A
+  person's rights and dangerous actions live in their "⋯" menu; removal keeps today's checks
+  (rooms still owned, last administrator). An invitation shows the one-time 30-day link to copy.
+- **Plan and payment**: current plan card with status chip and usage meters (seats, active rooms,
+  agent tasks), main action, cancel with a plain consequence; chooser with period, currency,
+  three paid plans, promo code under a disclosure, payment method, offer consent and one pay
+  button that names the sum; invoices table. Status banners for past due, over limit and
+  suspended say what happens to data and the one thing to do. Card data never reaches Remuka.
+- **Limits**: a limit dialog names the limit and the count, says nothing is deleted, and gives an
+  administrator "See plans" and a member the name of who to ask; a paid feature stays visible
+  with the plan's badge instead of disappearing; the active-rooms chooser counts "N of max" and
+  blocks saving above the limit; a frozen room carries the server's text and "Make active".
+- **All rooms**: search, sort, pages and a Trash tab; restoring above the room limit explains
+  why it cannot.
+- Prices in mockups are the landing page's preliminary ones; the product shows the server's
+  (`billing:prices`). Nothing here adds a capability.
+
+**Consequences.** Task T22. `OrganisationDialog` becomes a routed page; deep links to its tabs.
+
+## ADR-276: Wave 5 screens — the agent in a room, AI in the organisation, images, storage, apps
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 5 (`App-Agent`,
+`App-AgentsAdmin`, `App-Images`). Builds on ADR-066, ADR-142, ADR-265 (violet belongs to the agent).
+
+**Decision.**
+- **Violet means "the agent's, not accepted yet".** Agent work in a room — a room-agent draft frame
+  or a plan preview — is drawn with a dashed `agent` outline and a translucent violet fill; once
+  accepted it becomes ordinary paper and ink. The two code paths (room-agent draft, agent plan)
+  keep their mechanics; they share this look.
+- **Room agent panel**: one side panel with the request, skill chips, "What goes to the model"
+  under a disclosure, the task limit, one "Create draft" button and a line on what the agent cannot
+  do; running state with "Stop"; plan state with counts, warnings by severity (a critical one
+  blocks Apply), objects under a disclosure, "Apply" / "Reject" and "Clarify"; applied state with
+  "one ⌘Z removes it"; errors say what stopped and what to change. Past requests are listed below.
+- **AI in the organisation** is a tab of the organisation page (ADR-275): the organisation switch,
+  agents with one-time key reveal, the skills library with risk chips; AI keys with the safety
+  note, the key policy, organisation and personal keys (fingerprint only), and the add-key form
+  (Base URL only for a custom gateway); the evidence log with chain status and filters.
+- **Images**: drop overlay that counts what can be added, upload progress and errors with a way
+  out, the image bar (Description, Replace, Open, More), the description window with a counter,
+  the viewer; images on the canvas are unchanged (ADR-267).
+- **Storage**: used of limit, rooms that take the most, the 30-day release note, the quota state.
+- **Apps panel**: schema-driven apps as cards, the empty state names who installs them.
+- Providers, models, skill rights and limits come from the server; mockup values are examples.
+
+**Consequences.** Task T23.
+
+## ADR-277: Wave 6 screens — kanban menus and fields, card filter, sections and tables, tidy, tags
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 6 (`App-Kanban`,
+`App-Table`, `App-Tidy`). Builds on ADR-106, ADR-112, ADR-196, ADR-198, ADR-219, ADR-267.
+
+**Decision.**
+- **Kanban**: the column header is the button to its menu ("Name · N/WIP ▾" with a colour swatch).
+  The column menu holds rename, the colour grid (changes the column and its cards, ADR-267), the
+  WIP limit with "a warning, not a ban", add right, move, delete. The WIP limit moves from the
+  inspector into this menu (one place). Card fields — status chip, assignee, start, due (overdue
+  in danger ink), tags and "Card colour: like the column / own" — open in the side panel.
+- **Card filter** stays a selection (ADR-112): assignee and due, "Select cards", "Found: N"; the
+  board is never hidden.
+- **Sections and tables**: the section bar switches Free / Table and adds axes; an axis header is
+  the button to its menu (rename, insert, move, duplicate, vertical header, delete…). Deleting an
+  axis with objects asks where they go (move left / right / delete with N); the button names the
+  choice. Switching to Table asks "How to lay out the material?" with a dashed preview. A cell
+  range bar offers merge and "Move to cell…".
+- **Tidy** shows a dashed preview of target blocks before applying, the counts, block labels and
+  warnings (locked objects stay); the applied toast offers undo. The agent requirement stays.
+- **Tags**: the room's tags with colour, count, "Select (N)" and "⋯" (rename, colour, delete with
+  the plain consequence).
+- Nothing here adds a capability.
+
+**Consequences.** Task T24. The inspector loses its WIP field.
+
+## ADR-278: Wave 7 screens — cookies, access and connection states, help and documents, mail, operator
+
+**Status:** accepted (2026-11-24). Mockups: canvas page "Продукт", wave 7 (`App-Consent`,
+`App-States`, `App-HelpDocs`, `App-Mail`, `App-Operator`). Builds on `spec/cookies.md`, ADR-246,
+ADR-256, ADR-259, ADR-262, ADR-270.
+
+**Decision.**
+- **Cookies**: RU — a notice with "Got it"; EU — a banner where "Reject all" and "Accept all" have
+  the same look and weight, "Customize" beside them; settings list categories in plain words,
+  "Always on" for necessary, switches for the rest, the GPC note; the policy page shows the
+  storage registry table and edition.
+- **Closed doors** share one template: what happened, why, one main action, an optional secondary
+  link; a face from the logo shapes. Covers no access, sign in to open, link inactive, link
+  expired, password, hidden by the operator (with the operator's reason), unclaimed room.
+- **Connection** has one chip scale in the room header (connecting, saved, saving, offline · N,
+  input paused, read only, moving) and a banner for states that need action (offline, queue full,
+  session ended, access changed, room full, address moved).
+- **Help** has search, four topic types as cards, articles with the translation note and related
+  topics. **Documents** show each document's state, edition, "what changed" and Accept / Withdraw.
+- **Mail**: one template — paper background, white card with a 2 px ink border, the mark built
+  from two coloured blocks and the word (still no images), one coral button, the signature; the
+  text version carries the same words in the same order.
+- **Operator console** keeps the character but denser (14 px); every action asks for a reason and
+  a second-factor code and lands in the journal; no "god mode".
+- A generic app 404 and server-error page do not exist and are not drawn (backlog 7.1).
+
+**Consequences.** Task T25.
+
+## ADR-279: A kanban has a name plate, and its cards stand on a hard shadow
+
+Date: 2026-11-23. Amends ADR-267 (`spec/canvas-character.md` §2.1). Owner's decisions while
+building T2. No new fields, no migration.
+
+**Context.** The approved room mockup shows the kanban as an object with its own identity:
+a dark plate above its left corner reading "Sprint 15 · kanban". ADR-267 gave the board a
+coloured ground and painted cards but said nothing about a plate, and `spec/canvas-character.md`
+§2.1 says a card has "no hard shadow". The owner asked for the card as it is in the mockup:
+a 2 px ink outline, radius 10, a hard shadow, and the column's fill.
+
+**Decision.**
+- A kanban paints a **title plate** above its top-left corner: ink `canvas-object-ink`, white
+  `canvas-object-ink-text`, radius 8, 24 board units tall, overlapping the board's edge by
+  2 units so it never covers a column title and stays inside the export's 24-unit padding.
+  The text is the object's own `title` plus the word for the type (`canvas.kanban`), e.g.
+  "Sprint 15 · Kanban"; without a title the plate says only the type. The plate is painted
+  for the screen and the export by the same painter. It is not a handle in this task: a
+  frame's label becomes one in T3.
+- **A card casts a hard shadow**, not a soft one: the same silhouette offset 3 board units
+  in ink, no blur, in both themes until the dark theme gets its own cardboard (ADR-265
+  stage 6). The card keeps its 2 px ink outline and radius 10; the outline and the shadow
+  are canvas content and are not recoloured by the theme.
+- **§2.1's "no hard shadow" is superseded.** A card being dragged keeps its deeper soft
+  shadow (the overlay) on top of the hard cast.
+
+**Consequences.**
+- Rooms show the board's name without opening a panel. Renaming is not in this task; when a
+  menu command exists it writes the same `title` field the frame's label uses (T3).
+- A nameless board says what it is; nothing invents a "Sprint 15".
+- Cards look the same in light and dark until the dark-cardboard task; their own colour
+  still wins over the column's and is written only when a person chooses one.
+
+## ADR-280: A stand shows its test price list and pays through a test connection
+
+Date: 2026-11-24. Amends ADR-247 (`spec/billing.md` §2.1.1) and ADR-248
+(`spec/payment-providers.md` §2.1, §3.3). Builds on ADR-261 (`spec/stage.md` §5). No new
+flag, no schema change.
+
+**Context.** A test stand repeats a cloud installation, so it must be able to sell the paid
+plans it demonstrates. Two rules made that impossible. The public catalogue asked the store
+for live method groups only, and checkout read `billing_accounts.test_mode`, a column no
+stand paths ever set. Meanwhile `REMO_STAGE=1` refuses live connections, so a stand could
+create only test connections and then show no paid plan at all — the showcase was empty by
+construction. The production rule "a test connection never appears as a way to pay real
+money" is right and stays; what was missing is the one installation where real money is not
+involved.
+
+**Decision.**
+- `REMO_STAGE=1` is the only switch, and `isStage` in `apps/sync/stage.mjs` remains its only
+  reader. There is no billing flag and no `billing_accounts` column for this.
+- On a stand the catalogue adds the test groups to the live ones per currency:
+  `methodGroupsFor({ currency, testMode: true })` after `testMode: false`, duplicates
+  dropped, live order kept. Production still performs only the live read and its answer is
+  unchanged byte for byte.
+- On a stand checkout routes with `testMode: isStage(env) || Boolean(account.test_mode)`, so
+  an organisation whose account was never marked as a test payer still pays into the test
+  connection. `account.test_mode` keeps its meaning on production.
+- A currency served only by live connections is not broken on a stand: the test union is
+  empty and the live groups stay as they are. The existing refusal of a live route at
+  payment time (`STAGE_LIVE_PAYMENT_REFUSED`, audit `billing.live_refused_on_stage`) stays.
+
+**Consequences.**
+- A stand shows paid plans as soon as a complete price list and one active test connection
+  exist, and a checkout there produces a real invoice and a pending payment through that
+  test connection.
+- Production behaviour is untouched: an `active` test connection is still absent from the
+  catalogue and is never selected by a checkout.
+- The operator guide must say that the stand is the exception to "live only"; the sentence
+  is corrected in the page that owns it, not in this record.
+- Tests: `payment-providers.test.mjs` covers the catalogue's two answers, and
+  `billing-checkout.db.test.mjs` covers the chosen connection id on both installations.
+
+## ADR-281: The Black chip is true black, because the old near-black is Auto
+
+**Status:** accepted (2026-11-24). Amends ADR-140 (the named values) and ADR-127's value
+list. Spec: `spec/ink-on-ground.md` §2.3. Found while building T20.
+
+**Context.** ADR-273 makes a stored ink equal to the old automatic default read as Auto:
+`GREY[600]` (#58534e), `#1a1a1a`, `#1e2136`, `#595959`. ADR-140's Black chip stores
+`#1a1a1a` — the value the old `BOARD_COLORS` palette called Black and the value
+`readableInk` wrote as an automatic near-black. The two rules collide: choosing **Black**
+on a text would store a value the painter reads as Auto, so in the dark theme it would
+paint paper instead of black, and the "hard to read" warning could never appear for an
+explicit black — the very case `spec/ink-on-ground.md` §2.3 names.
+
+**Decision.**
+- `NAMED_COLORS.black` is `#000000`. The chip writes a colour Auto never produces, so a
+  person's black is explicit in both themes and gets its halo and its warning.
+- `#1a1a1a` stays in the Auto list; a board already carrying it keeps painting its shade
+  on a light fill (Auto resolves to ink, #1e2136) and reads on a dark one. No value is
+  rewritten (ADR-127).
+- The colour window names `#000000` **Black**; an old `#1a1a1a` is shown and named as
+  Auto, exactly as it paints.
+- `color.000000` is the i18n key; `color.1a1a1a` remains so an old custom value still has
+  a word.
+
+**Consequences.**
+- A new Black fill is two levels darker than before; every existing board is unchanged.
+- ADR-140's sentence "Black is `#1a1a1a`, the old palette's value" is superseded for what
+  the chip writes; the old value is still recognised on read.
+- `namedColors.test.ts` pins both facts: the chip is `#000000`, and that value is not a
+  grid entry.
+- T20's acceptance "an explicit black in the dark theme has a halo and the window warns"
+  is reachable from the interface, not only from a hand-written document.
+
+## ADR-282: The dark theme is a night desk — brand entities keep their colours
+
+**Status:** accepted (2026-11-24). Spec: `spec/dark-theme.md`. Mockups: wave 8 (`App-Dark-Room`,
+`App-Dark-Screens`). Builds on ADR-265, ADR-270, ADR-272, ADR-273 (T20 closed). Amends the dark
+values in `tokens.json`.
+
+**Context.** The dark theme switched the character off: the call to action turned near-white,
+the chosen marker grey, the agent's violet near-white, hard shadows none, and the selected button
+would put light text on a yellow marker once the marker is restored.
+
+**Decision.**
+- Night instead of paper: canvas `#1e2136`, chrome in dark cardboard (`#23263b` / `#2c2f45`,
+  dialogs `#262a40`); what is outlined with ink by day is outlined with muted paper `#d9d2c0` at
+  night; hard shadows become near-black `#06070d` with the same offsets.
+- Brand entities never change colour by theme: coral `#ff8a57` is the main action, yellow
+  `#f2b94a` is the chosen state, violet is the agent (`#c69bff` line, `#dcc2ff` text,
+  16 % fill at night), presence colours stay. The theme changes only ground, text and outlines.
+- Text on a coloured fill is always ink `#1e2136`; a new `text-on-chosen` token fixes the selected
+  button. `ui:check` forbids `text-primary` on `accent-cta`, `accent-chosen` and `agent`.
+- Canvas content is not recoloured; its ink follows its ground (ADR-273). The logo smile is paper.
+- Contrast pairs for both themes are added to `tokens-lib.mjs`; dark baselines cover the main
+  surfaces. Every artboard of waves 0–7 is translated by tokens, without separate mockups.
+
+**Consequences.** Task T26. Dark-theme screenshots in reports become part of every later task.
+
+
+## ADR-283: Rotation lives in one geometry function, and every reader calls it
+
+**Status:** accepted (2026-11-24). Spec: `spec/canvas-character.md` §2, §2.2. Task T18.
+Makes ADR-271's rotation paragraph buildable; keeps ADR-209 retired and ADR-213 (labels stay
+horizontal) in force.
+
+**Context.** ADR-271 brought `Widget.rotation` back and listed the places that must honour it;
+ADR-209 had removed the field precisely because a value nothing reads is a promise the product
+cannot keep. The risk now is the opposite one: painting a turned object while hit-testing,
+selection handles, resize, connectors, culling, export and the projection each do their own
+trigonometry, and a turn looks right until somebody clicks the empty corner of its bounding box.
+
+**Decision.**
+- `Widget.rotation` is degrees, absent = 0, normalised into (−180, 180]. It is honoured by a
+  shape, a sticky note, free text, an image and a frame; a table section is a frame but stays
+  straight, and kanban, cards, connectors and timers ignore the field on read.
+- One geometry module, `@remo/model/src/rotation.ts`: normalisation, corners, the described
+  rectangle, point-in-object, marquee overlap, right-angle magnet, 15° step, the shared centre
+  and `turnedPlacements`. Hit-testing, marquee, the spatial index, culling, camera fit,
+  export bounds, alignment and the rotation gesture read these functions; nothing recomputes a
+  turned corner.
+- **Anchors are local.** A connector resolves its side in the object's own axes
+  (`facingSideOf`) and then puts the anchor on the painted outline (`widgetAnchor`), with the
+  stub leaving along the painted normal. A line to a turned note therefore touches the contour
+  at every angle and rebuilds from the gesture preview.
+- **The selection frame turns with the object.** A single turned object gets its handles in its
+  own axes; a block keeps the axis-aligned frame around its members. Turning a frame carries its
+  contents by the same angle about the same centre, and resetting it puts them back (a frame is a
+  container, ADR-110). The round handle is a 10 px
+  circle with an ink edge on a 14 px stem above the top side. The top quiet "+" (ADR-195) steps
+  24 px further out for a kind that turns, so its 44 px target no longer covers the handle, and
+  the arrange bar leaves the same room above a multi-selection; all four ports remain. A resize of a turned object works
+  in its own axes with the opposite local corner fixed; Shift keeps the proportion exactly as
+  before. The common centre is the centre of the selection's painted boxes.
+- **Modifiers.** Shift rounds the turn to 15°; without it a final angle within 3° of
+  0/90/180/270 lands on it. `⌘⇧←`/`⌘⇧→` turn by 15°, and the command registry gains
+  "Rotate 90°" and "Reset rotation" for the object menu and the future palette. One gesture is
+  one document transaction and one undo step.
+- **Server.** `board.item.create`/`update` accept `rotation`, normalise it and store it only on
+  a kind that turns; `apps/sync/project.mjs` writes the real value into the existing
+  `widgets.rotation` column, and the read API returns it. No schema change.
+- **Compatibility.** The model reader keeps the field (it was the only entry in the removed-field
+  list), and every command merges into the current record, so a patch to another field does not
+  lose the angle. A pre-T18 browser build that rewrites the whole widget record from its own
+  sanitised copy still drops the field; such a client paints the object unrotated, which ADR-271
+  accepts for one release and the changelog states.
+- **No motion.** The handle and the angle plate are painted, not animated; `data-motion="calm"`
+  and reduced motion therefore have nothing to suppress. The plate names the angle with a real
+  minus sign, and the cursor is the served circular-arrow asset.
+- Connector labels stay horizontal (ADR-213): a label is a plate on the line, not a part of the
+  object that turns.
+- The `object.rotated` metric is defined by ADR-266 §9, but the client sender arrives with T11.
+  No catalog row and no dead call is added here; the number can be counted once a sender exists.
+
+**Consequences.** One angle, one answer for every reader. Unit tests pin normalisation, the
+described rectangle, hit/marquee behaviour, connector anchors and the shared centre; the browser
+scenario covers the handle, Shift, the keyboard, the editor, a second participant, export and the
+old-document path; `ScalePerf` carries 500 turned objects in the same frame budget.
+
+## ADR-284: The guide's address comes from the installation, not from the build
+
+**Status:** accepted (2026-11-24). Spec: `spec/cloud-zones.md` §5, `spec/stage.md` §3,
+`spec/rebrand.md` §5. Fixes the stage's «Отказ от ответственности» leading to the
+production guide.
+
+**Context.** The interface links into the product guide from two places — the account menu
+(«Документация») and the checkout's «Оферта» next to the terms checkbox — and the in-app
+help page «О Ремуке: версия и лицензия» does the same from its Markdown. Every one of them
+built the address from `BRAND.domains.docs`, so every installation of one build pointed at
+`docs.remuka.com`: a stand (`app.stage.remuka.ru`), whose own guide lives on
+`docs.stage.remuka.ru`, sent its people to production, and a self-host sent them to
+somebody else's documentation. `REMO_DOCS_ORIGIN` was already in `deploy/*.example` and in
+the stand runbook, but nothing read it: the variable was documentation of an intention.
+
+**Decision.**
+- **One source.** `apps/sync/docs-origin.mjs` reads `REMO_DOCS_ORIGIN` once at start;
+  `GET /api/config` publishes it as `docs: { origin: string | null }`. The field is always
+  present — `null` means this installation has no guide — in the same way `compliance` and
+  `legal` are always present (ADR-255 §3, ADR-256 §4).
+- **Validation.** The value must be an absolute `https` origin with no path, query,
+  fragment, credentials or trailing `/` (the trailing `/` is accepted and normalised). Only
+  an origin is accepted because the client appends a guide path; a path would silently
+  become `/guide/guide/...`. A malformed value **stops the start**, like a mistyped
+  `REMO_COMPLIANCE_ZONE` and unlike an optional link: a silent `null` would also be the
+  legitimate self-host default, so a typo would look exactly like a deliberate choice and
+  remove every guide link without a trace.
+- **Defaults by zone.** Unset `REMO_DOCS_ORIGIN`: `eu` → `https://docs.remuka.com`,
+  `ru` → `https://docs.remuka.ru`, `none` → `null`. The zone names the guide of *our* cloud;
+  a self-host without a zone gets no link rather than another installation's guide. An
+  explicit `REMO_DOCS_ORIGIN` wins over the zone, which is how the stand and a self-host
+  with its own portal set theirs.
+- **The client reads the config.** `readDocsOrigin` (`apps/web/src/docsLinks.ts`) validates
+  the untrusted JSON field with the same rule, and `docsHref(origin, path)` is the only way
+  a guide link is built. `I18nProvider` carries the answer; `AccountMenu`, `BillingPanel`
+  and the help render read it from there. No component names `BRAND.domains.docs`.
+- **No guide, no link.** With `origin: null` the sentence stays and the anchor goes: the
+  checkout shows «Принимаю условия оферты» without «Оферта», and the account menu hides the
+  «Документация» row (a `hideWhenUnavailable` command) instead of offering a dead one.
+- **The in-app help uses a token.** `content/help` writes `{{docs}}/guide/<lang>/…`; the
+  build keeps the token (`scripts/docs-build.mjs` restores it from markdown-it's
+  percent-encoded href), `withDocsOrigin` substitutes the origin at render time and unwraps
+  the anchor when there is none. The token is the only placeholder the help has.
+- **A gate for the future.** `scripts/links-check.mjs` (`pnpm links:check`, a step of
+  `pnpm verify`) fails when `apps/web/src/**` or `content/help/**` names
+  `docs.remuka.com`/`docs.remuka.ru`. It is a separate gate from `brand-check`: that one
+  guards the old name and the old hosts (ADR-254), this one guards an address that must be
+  configuration. `packages/brand` (where the cloud's hosts live and the zone defaults read
+  them), `content/legal/**` (a published revision is never rewritten, ADR-256), tests and
+  generated output are allowed.
+- **No schema change.** `GET /config` gains one field; nothing is stored.
+
+**Consequences.** The stage and any self-host now lead to their own guide or to no link.
+The zone defaults keep the two cloud installations working without a new variable in their
+environments; the stand keeps `REMO_DOCS_ORIGIN=https://docs.stage.remuka.ru` and it is now
+the address the browser uses. The legal texts in `content/legal/**` still name
+`docs.remuka.com` and `docs.remuka.ru` in prose: they are published revisions and bind the
+cloud, so they are deliberately out of scope until a new revision is published.
+
+## ADR-285: Owner's fixes of 24.11 — home from the logo, no raw AI journal, room covers, rising reactions, new objects on top, Tab on cards, movable comment pins
+
+**Status:** accepted (2026-11-24, owner). Research: `spec/fixes-2026-11-24.md`. Amends ADR-039,
+ADR-104, ADR-105, ADR-266 §2 (item 1), ADR-274 and ADR-276.
+
+**Decision.**
+1. **The logo goes home.** A click on the mark opens all rooms (tooltip "All rooms · G R").
+   Next to the room title sits the path "Team › Room ▾": the team part also goes home, filtered
+   by that team; the room part opens the room menu. The account menu opens only from the avatar;
+   its "All rooms" row stays.
+2. **No raw AI journal in the organisation UI.** `AiJournal` leaves the organisation's AI
+   section. In its place: one summary line (calls this month, spend, chain verified) and
+   "Download journal (CSV)" for administrators. The server journal and its hash chain are
+   unchanged. A full viewer is a backlog item.
+3. **Room icon and cover.** The emoji icon stays, gains search over all emoji and a visible
+   "⋯ → Cover and icon" on the home tile and in the room title menu; the agent glyph leaves that
+   button. Every room gets a **live preview** (the PNG export renderer over all content, rebuilt
+   in the background at most every 10 minutes after changes, visible only to people with access).
+   A frame's context menu gets **"Make cover"**: the cover follows that frame. One stored image
+   per room: 640 × 360 WebP, centre crop, about 150 KB. Uploading a custom cover is backlog.
+4. **Reactions work and rise.** Command ids and handlers match (the bug: `run.reaction.${index}`
+   versus `run.reaction.<name>`); the sender sees their own burst at once. With one selected
+   object the burst rises from it (as now); otherwise it starts in the bottom 15 % of the visible
+   area at a random X within the middle 80 %, rises about 60 % of the height in 2.4 s with a
+   ±12 px sway and fades. Calm animations: a short flash in place.
+5. **New objects go on top.** Every creation path (tool, draw, paste, duplicate, series, agent,
+   template) sets `z = topZ(board) + 1` in the same transaction. Exception: a new frame is placed
+   above other frames but below the content it covers at creation.
+6. **Tab on a kanban card does nothing** and does not move focus off the canvas. On the canvas,
+   Tab outside an input either performs the object's action or nothing.
+7. **Comment pins sit where clicked and can be moved.** A widget anchor stores the offset inside
+   the object as fractions: `{kind: "widget", widgetId, fx, fy}`; the pin follows the object
+   through moves, resizes and rotation. "Comment on selection" without a click uses `fx 0.9,
+   fy 0.1`. Dragging a pin changes the offset within the object, re-anchors it to another object,
+   or turns it into a point anchor on empty canvas; one ⌘Z; the author and moderators may drag.
+   Threads without `fx/fy` render as before (middle of the top edge); no migration.
+
+**Consequences.** Task T27. Mockups `App-RoomTidy`, `App-AccountMenu` and `App-AgentsAdmin` are
+corrected. Backlog gains: full AI journal viewer, custom cover upload, Tab to the next card.
+
+## ADR-286: A screen is accepted only side by side with its mockup
+
+**Status:** accepted (2026-11-24, owner). Spec: `spec/acceptance-character.md`. Task T28.
+
+**Context.** Accepted tasks drifted from the mockups: the sign-in became a modal with tabs and two
+titles instead of the "Welcome back" screen, and the tool rail became a pill with a round
+selection and a separate undo pill. Visual baselines compare the product with itself, and reports
+were accepted on checklists without side-by-side images.
+
+**Decision.**
+- Every task with an artboard ships a "mockup | product | difference" page for every artboard
+  state, light and dark, 1440 and 390 px, built by `pnpm accept:shots` from mockup fixtures
+  (the mockup's data) and reference PNGs of the play prototypes in `docs/design/reference/`.
+- Differences are classed: A — structure, texts, brand colours, accessibility (zero allowed);
+  B — shape, sizes beyond ±2 px, type, motion (at most 3 per screen, each a tracked defect);
+  C — polish. Any A returns the task.
+- Deviating from a mockup needs the owner's decision recorded in an ADR.
+- T8 (rail) and T15 (sign-in) are re-taken; all screens of waves 0–8 go through the protocol.
+
+**Consequences.** Definition of Done gains item 11. Claude captures the reference PNGs before a
+task starts and reviews every report against them.
+
+## ADR-287: Mockups live in the repository for agents
+
+**Status:** accepted (2026-11-24). Builds on ADR-281.
+
+**Context.** Developer agents cannot open claude.ai links, so the design canvas, its play
+prototypes and every `#artboard-…` reference in the tasks were out of their reach.
+
+**Decision.**
+- `docs/design/mockups/` holds a read-only copy of every artboard's source (`*.dc.html`: markup,
+  inline styles, texts, state logic), a `README.md` on how to read it, and `index.json` mapping
+  each artboard to its wave, tasks, ADRs, reference folder and canvas link, with the canvas
+  version it was exported from.
+- Reference PNGs (every state in `scripts/mockups/states.json`, 1440 and 390 px) live in
+  `docs/design/reference/<Artboard>/`. They are rendered offline from the sources by
+  `pnpm mockups:shots` (a small renderer, `scripts/mockups/dc-lite.js`, and the product's own
+  Golos font), so any agent can regenerate and inspect them without claude.ai. The PNGs are
+  not committed (`.gitignore`); only the sources, `states.json` and the index are.
+- `#artboard-App-X` in tasks means `docs/design/mockups/App-X.dc.html`. Prompts point to the
+  repository, not to claude.ai. Agents never edit these files; Claude re-exports them after any
+  canvas change and bumps `exportedFromVersion`.
+
+**Consequences.** The mockup is reviewable in code review and diffable over time. A change on the
+canvas is not visible to agents until it is exported.
+
+## ADR-288: Support AI uses versioned knowledge tools, an operator control plane and an accountable usage ledger
+
+**Status:** proposed (2026-11-24). Development specification:
+[spec/support-agent.md](spec/support-agent.md). Extends ADR-250; replaces the external-agent
+requirements in `spec/support.md` §4, §6 and the agent parts of §7–§9. The optional core
+support integration, signed identity and room-access boundary of ADR-250 remain in force.
+This decision specifies future work; it does not assert that the service is implemented.
+
+**Context.** The support widget and Chatwoot need a first-line assistant that can answer
+in Russian and English, cite the documentation of the installed release and hand off to a
+human. Publishing `llms-full.txt` makes documentation accessible but does not implement
+retrieval, updates, access checks or quality control. Operators also need to change the
+prompt and model without editing source or restarting containers, measure customer feedback
+and account for all model spending, including retries and indexing.
+
+**Decision.**
+
+1. **Keep the service outside the product.** `remo-support-agent` is an independent service
+   and repository, connected to Chatwoot through Agent Bot and to Remuka only through its
+   aggregate read-only support-context API. Chatwoot remains the authoritative conversation
+   and final CSAT store. The agent owns configuration revisions, jobs, decision events,
+   customer-resolution feedback and the usage ledger. It cannot read room content or mutate the product.
+2. **Publish language-specific knowledge from one source.** The guide build gains
+   `llms.ru.txt`, `llms.en.txt`, `llms-full.ru.txt` and `llms-full.en.txt`. Existing
+   `llms.txt` and the English `llms-full.txt` keep their compatibility contracts. The build
+   also produces a manifest identifying the release, locales, documents and hashes. The
+   support index uses approved guide/help content; it never indexes internal specifications
+   or customer conversations automatically. Language is independent of the installation's
+   RU/EU data zone. A run pins one compatible immutable index revision.
+3. **Use a bounded harness and knowledge tools.** The runtime owns instructions, identity,
+   tools, context limits, state and authorization. It provides `knowledge.search` and
+   `knowledge.read` over an approved, versioned corpus; the model does not receive arbitrary
+   filesystem, shell, SQL or web access. Hybrid lexical/semantic retrieval runs on the
+   service's PostgreSQL and pgvector, with bounded result sizes and a lexical fallback.
+   Hosted provider file search is not the MVP backend: portability, regional separation
+   and attributable costs take precedence. MCP is not required for an internal tool call.
+4. **Separate product facts from conversation control.** Product instructions need
+   supporting retrieved passages and valid source links. Greetings, clarification and
+   handoff notices do not require artificial citations. A model's self-reported confidence
+   is not an authorization gate. Missing evidence, incompatible versions, sensitive topics
+   and explicit requests for a human cause handoff. Silence and a missing feedback click
+   are not evidence of success or a reason to close a conversation.
+5. **Give operators a versioned control plane.** A separate authenticated `/agent/` UI
+   provides quality, usage, knowledge and settings pages. Prompt, approved provider/model
+   connections, pricing, limits and modes are draft/test/publish/rollback revisions.
+   Changes take effect for new runs without deployment. Immutable safety rules remain in
+   code; changing an editable prompt cannot relax them. Provider secrets are write-only,
+   encrypted with a KEK outside the database. OIDC authenticates operators; server-side
+   roles separate administrator, operator and analyst. Provisioning an IdP is an explicit
+   deployment prerequisite, not an assumed existing integration with Chatwoot.
+6. **Measure the whole support outcome.** The quality dashboard covers all conversations
+   in the configured inboxes, including human-only work and periods when AI is disabled.
+   Ask whether the customer's problem was solved (yes/partially/no); separately import
+   Chatwoot CSAT about the support experience. Closure alone is not customer-confirmed
+   resolution, and missing feedback is unknown. Show coverage, first response, time to
+   resolution, repeat contacts/reopening, backlog and satisfaction with explicit denominators.
+   AI participation is an optional analytical filter, not the definition of support quality.
+   Do not add a per-AI-answer rating in MVP. Feedback enters a durable event stream and the
+   metrics projection regardless of who proposed the solution.
+7. **Account for each provider attempt once.** An append-only usage ledger records provider
+   and requested/actual model, operation, reported token categories, pricing revision,
+   currency, cost status and request identifier. Retries, judging, summarization, embeddings
+   and indexing all count. Cached/reasoning tokens follow each adapter's billing semantics
+   without double counting. Unknown usage/cost is visible and never silently zero.
+   Corrections are additional entries. Different currencies are not added without an
+   explicit versioned conversion. Dashboards are projections of this ledger, not model
+   estimates or sampled telemetry.
+8. **Enforce budgets before dispatch.** Atomic reservations cover concurrent calls against
+   conversation, daily/monthly installation and provider limits. Timeouts retain exposure
+   until reconciled; a retry requires a new reservation. An incomplete tariff or an
+   unbounded provider response prevents monetary-budgeted auto mode. Operator-configured
+   limits, warning thresholds and a kill switch complement provider-side spending limits;
+   local accounting is not a guarantee of the provider's final invoice.
+9. **Make delivery and regional boundaries explicit.** PostgreSQL supplies the durable
+   queue, outbox and locks; no new Redis or vector-server dependency is needed. A shared
+   cluster is acceptable with a separate database and roles, not shared application tables.
+   Webhooks are authenticated, replay-checked and deduplicated; per-conversation work is
+   serialized. An ambiguous Chatwoot send is reconciled before retry, not assumed exactly
+   once. RU/EU and stage/production keep separate histories, stores, credentials and approved
+   model routes. Anonymous fleet totals may be combined through an explicit export;
+   customer transcripts are not pooled.
+
+**Consequences.** The operator gains an auditable support service and four administrative
+screens, with additional migration, backup, IdP and provider-adapter responsibilities.
+The product schema is not changed by this ADR. The service starts paused until identity,
+knowledge, pricing, budgets and compatibility checks pass. A low-risk pilot precedes public
+auto replies. Acceptance includes browser flows, failure/replay tests, regional isolation,
+feedback formulas and exact usage-ledger fixtures; satisfaction targets are hypotheses to
+measure rather than claims that the system already meets them.
+
+**Alternatives considered.** A URL-only prompt cannot pin knowledge or measure retrieval.
+Sending the whole manual on every turn wastes context and obscures version attribution.
+A provider-hosted file store is viable for a single approved provider but is not required
+for a portable first release. n8n may consume events for notifications; it is not a second
+runtime for support decisions. A new ticket system would duplicate Chatwoot.
+
+**Sources checked 2026-11-24.**
+[Chatwoot Agent Bot](https://www.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots),
+[Chatwoot CSAT](https://app.chatwoot.com/hc/user-guide/articles/1677693868-how-to-read-csat-reports),
+[Anthropic context engineering](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents),
+[OpenAI file search](https://developers.openai.com/api/docs/guides/tools-file-search),
+[OWASP prompt injection prevention](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html).
+The numerical limits and service design in the specification are project decisions, not
+universal requirements inferred from these sources.
+
+
+## ADR-289: Calm animations are an account preference, and a hint is learned by doing
+
+**Status:** accepted (2026-11-24). Task T9. Implements ADR-266 §6–§8; extends ADR-150
+(preferences on the account) and ADR-123 (browser settings). Schema 40.
+
+**Context.** ADR-266 decided that hints last until the action is learned, that chrome fades
+while a canvas gesture runs, and that "calm animations" is an account setting, but none of
+the three had a mechanism. `CanvasHint` kept one browser key and disappeared after six
+seconds whether or not anybody had learned the double click; `html[data-motion="calm"]` was
+honoured by the painting code but nothing ever set it; theme and language already followed
+the account, while motion had nowhere to live.
+
+**Decision.**
+- **One hint mechanism.** `apps/web/src/hintRegistry.ts` names every hint slot in code: an
+  id, its i18n text key, `doneAfter` (default 3), `maxSessions` (default 5) and, for the
+  existing slot, the browser key under which the old single-visit promise was kept. The
+  registry has no server side; it is the list T16 later turns into editable slots with
+  server texts. `apps/web/src/hints.ts` keeps the learned state in `localStorage` under
+  `remuka.hints.<id>` as `{"done":n,"visits":n}`; `markHintDone(id)` counts the action,
+  `resetHints()` forgets every slot, and a subscription lets the visible hint disappear at
+  once. A slot is learned when `done >= doneAfter` or `visits >= maxSessions`. The old
+  `remo.canvas.hint = "seen"` reads as a learned hint for the canvas slot, so people who
+  already dismissed it do not see it again. `CanvasHint` is the only renderer; there is no
+  second "one-time plate" path. "Show the hints again" is a registry command in the help
+  group of the account menu (ADR-050), not a separate settings screen.
+- **Quiet chrome is client state, not a document property.** While a canvas gesture
+  (move, resize, rotate, marquee, connector, shape draft) runs longer than 150 ms, the
+  header, the tool rail and the bottom HUD carry `.is-quiet`: `opacity: .35` and
+  `pointer-events: none`, fading back 200 ms after the gesture ends. Keyboard work never
+  sets it; an open menu or dialog cancels it; `prefers-reduced-motion` and calm animations
+  drop the transition. The one publisher lives beside `CanvasHint`'s mechanism, and the
+  three chrome containers read it rather than receiving a prop through `BoardApp`.
+- **Motion lives with theme and language.** `users.motion boolean` (`null` = never chosen)
+  is served as `preferences.motion` by `/auth/me`, `/auth/login` and `/auth/preferences`;
+  the browser mirrors it under `remo.motion` and applies `html[data-motion="calm"]`. The
+  client writes only the fields it sends, so an older client that patches theme and
+  language does not erase the motion choice. A change reaches another browser on sign-in
+  through the same hook that already applies theme and language. `prefers-reduced-motion`
+  keeps working independently and wins nothing: either signal means "no motion".
+
+**Consequences.** Schema 40 adds one nullable column and makes the preferences PATCH
+partial; existing accounts read `motion: null` (off) until they choose. Hints stop being a
+one-off browser flag: they are counted per action and per visit and can be brought back,
+which is what T13 and T16 build on. The account menu gains one row ("Calm animations")
+until T15 rebuilds the account screen's "Look" section around the same field.
+
+**Alternatives considered.** A JSON `preferences` column would rewrite the table for three
+scalars; a separate hints service would put a personal learning record on the server for no
+product reason. Hiding the header with `display: none` would reflow the canvas mid-gesture,
+which is the opposite of calm; `opacity` plus `pointer-events` changes nothing about layout.
+
+## ADR-290: The support-agent UI is specified by wave-9 mockups in the product repository
+
+**Status:** proposed (2026-11-25). UI supplement: [spec/support-agent-ui.md](spec/support-agent-ui.md).
+Extends ADR-288 (§10 UI-01 of `spec/support-agent.md` required approved mockups before
+implementation) and applies ADR-286 and ADR-287 to the external `remo-support-agent` service.
+
+**Context.** ADR-288 defines four operator pages and customer-facing feedback in the Chatwoot
+widget but leaves their look, texts and states open. The service repository does not exist
+yet, and developer agents cannot open the design canvas by URL.
+
+**Decision.**
+
+1. **Six artboards, wave 9 of the canvas.** `Support-Access` (sign-in, missing role, expired
+   session, a page closed to the role), `Support-Widget` (answer with sources, resolution
+   survey, partial/no reasons, resolved with native CSAT, immediate handoff, no source, English),
+   `Support-Quality`, `Support-Usage`, `Support-Knowledge` and `Support-Settings` with their
+   loading, empty, error, stale, dialog and conflict states, light and dark, at 1440 and 390 px.
+2. **The product repository is the interim home.** Sources go to `docs/design/mockups/Support-*.dc.html`,
+   states to `scripts/mockups/states.json`; reference PNGs are generated locally as for all other
+   artboards. When the service repository is created, the files listed in §0 of the supplement
+   are copied there with the product commit they came from; the originals stay here.
+3. **The operator panel has the Remuka character at console density.** Paper and ink, 1.5 px
+   borders, hard shadows on primary cards, 14 px text, the night-board dark theme. Colours and
+   sizes come from a vendored, commit-pinned copy of `@remo/ui` tokens; no new hex values.
+4. **The widget mockup fixes texts and scenarios, not Chatwoot's chrome.** Bubbles, option
+   buttons and CSAT stay native. Greeting, signature, survey, reasons and handoff texts are
+   RU/EN keys in the published agent configuration; handoff hours come from the installation
+   schedule. The customer never sees why a handoff happened; the private note says it.
+5. **Roles are visible in the UI and enforced by the server.** Operators get quality, knowledge
+   (read) and the pause switch; analysts get aggregates and costs without individual
+   conversations or top runs; administrators get everything in their installation.
+6. **Work is split into tasks S-UI1…S-UI6**, one per artboard, mapped to stages S2–S6 of
+   ADR-288. Each task lists its reference PNGs and is accepted side by side with the mockup.
+
+**Consequences.** The service can start S1 with agreed screens and texts. The widget has no
+persistent "talk to a person" button (owner's decision of 2026-11-24): the greeting tells the
+customer to type "human", the resolution survey has a fourth option, and a keyword rule
+hands off without a model call, so it works when the agent is paused or out of budget. The
+native CSAT is configured in the inbox: 1–5 stars, one bilingual message, not sent to
+conversations labelled `spam` or `internal`; S1 confirms the pinned version supports it. Mockup numbers are examples; the formulas of ADR-288 decide
+the values. Only the widget and the quality page have English reference images; other pages
+are checked in English by scenario A30.
+
+**Alternatives considered.** A neutral admin look would have needed a second design language
+for one team; a custom widget replacing Chatwoot's would duplicate the conversation store that
+ADR-288 keeps in Chatwoot. Waiting for the service repository would have left S1 without
+approved mockups, which §10 UI-01 requires before implementation.
+
+## ADR-291: Support-panel staff sign in through Authelia on the support host
+
+**Status:** accepted by the owner (2026-11-24). Specification: [spec/support-idp.md](spec/support-idp.md).
+Resolves the identity-provider prerequisite that ADR-288 left open; the panel side is task
+S-UI1 of [spec/support-agent-ui.md](spec/support-agent-ui.md).
+
+**Context.** The `/agent/` panel requires OIDC with role groups and a second factor
+(ADR-288, `spec/support-agent.md` §2). No identity provider existed. The panel has a handful
+of staff users per installation, the support host has a tight memory budget (OPS-03), and
+staff accounts of the RU and EU zones must not be stored in one foreign service.
+
+**Decision.**
+
+1. **One Authelia per support host**, pinned by image digest, served under the existing
+   host as `https://support.<domain>/auth` (no new subdomain). Users and groups live in a
+   file with argon2id hashes; second-factor devices in an encrypted SQLite volume.
+2. **A second factor for every panel role**, TOTP or WebAuthn; no self-registration and no
+   e-mail password reset. Staff are added, changed and removed by the host administrator
+   following the runbook; removal is completed by revoking panel sessions with an audited
+   agent command.
+3. **Groups are named per installation** (`support-<installation>-admin|operator|analyst`).
+   The group-to-role mapping is installation bootstrap configuration; a valid login without
+   a group of this installation gets 403 `no_role`.
+4. **The panel is a plain OIDC relying party**: authorization code with PKCE S256, state and
+   nonce, issuer/audience/signature/expiry checks, server-side session (30 min idle, 8 h
+   absolute). Nothing in the panel is Authelia-specific.
+5. **Chatwoot keeps its own agent accounts.** Authelia protects only the agent panel; the
+   widget, Chatwoot and the agent's replies keep working when Authelia is down.
+
+**Consequences.** One more small container, a users file and three secrets to back up per
+support host. Authelia's OIDC provider role is an open beta, although the protocol
+implementation is OpenID-certified; upgrades go through stage with the I1–I9 checks and the
+release notes, never blindly. Staff lists of separate hosts are maintained separately.
+
+**Alternatives considered.** Keycloak is mature but does not fit the memory budget; Zitadel
+is lighter than Keycloak but still a second database-backed service for a few users. A cloud
+provider would move RU staff identities abroad. Signing in with Remuka product accounts
+would couple the external service to the product, which ADR-288 avoids. Because the panel
+uses standard OIDC only, any of these can replace Authelia later without code changes.
+
+## ADR-292: One rail, one object bar and one side panel — the T8 character pass
+
+**Status:** accepted (2026-11-24, owner). Task T8. Implements ADR-266 §5 and §10a; applies
+ADR-286 to the room screen; extends ADR-050 (one command list), ADR-119 (the rail) and
+ADR-123 (browser settings).
+
+**Context.** The rail had two pill panels, a yellow round selection and a second history
+pill; the object bars had grown into small toolbars (a note had twelve controls and no
+`⋯`), the inspector and comments could both be open, and the command search could not find
+"edit text". The mockups `App-ToolsBars` and `App-Panels` fix a different screen: seven
+tools plus «More» in one 16 px panel, a bar of no more than seven buttons (a shape eight,
+because its lift is in the bar), `⋯` opening one properties panel, and comments as a panel
+of two tabs.
+
+**Decision.**
+- **Rail.** `ToolRail.tsx` is one paper panel of radius 16 with 44 px tools of radius 10:
+  select, note, shape, text, connector, frame, picture, «More», then undo and redo under a
+  hairline. The chosen tool is `accent-chosen` with an ink outline, not a circle. A tool
+  with variants opens its samples from the corner marker, or by clicking the armed shape;
+  the choice of note fill, shape kind and connector routing is remembered in this browser
+  (`toolDefaults.ts`, keys `remo.tool.sticky|shape|connector`, registered in ADR-255's
+  storage registry).
+- **«More» is the registry.** Card, table, kanban, comment and templates are chrome
+  commands with `intent: "canvas"` in `commandsChrome.ts`; the rail renders those ids and
+  `⌘K` runs the same ids through `chromeSurfaces`. Table creation reuses `setSectionView`;
+  kanban creation goes through one new document command `createKanban`, which writes the
+  widget and its matrix through the existing `writeKanbanState` (ADR-053).
+- **Object bars.** The note bar is colour, text size, bold, checklist, link, connect and
+  `⋯`; the shape bar adds fill, border, width, kind and lift (eight); the connector bar is
+  type, width, dash, ends, colour, label and `⋯`; the text editor's bar is bold, italic,
+  strike, bulleted list, checklist, link and `⋯`; the multi-selection bar is the count,
+  colour, align, tidy, group and `⋯`. Everything rarer lives in the properties panel. The
+  heading, numbered list, code, underline, indent and clear-format controls of the text
+  editor are in that panel and write through the editor's existing DOM events (ADR-252), so
+  the caret is not lost.
+- **One side panel.** `useBoardAppState` owns the coordination: opening properties,
+  comments or the agent closes the other two; `⋯` opens properties; `Esc` closes the open
+  panel unless the editor, a field, a menu or a dialog owns the key.
+- **The properties panel** is a 340 px sheet on the room's edge: the type (or the person's
+  name) as its title, the colour grid, **Text** with Auto/A−/A+ and alignment, a local
+  **More settings** disclosure with the former inspector controls, and a danger zone with
+  Delete and "can be undone with ⌘Z". The local disclosure and danger section are replaced
+  by `Disclosure`/`DangerZone` in T11.
+- **Comments** are two tabs, "Open · N" and "Resolved · N"; a thread is a paper card with
+  the author-coloured avatar, a reply field with `@`, and a green **Resolve**. A pin opens
+  the panel on its thread; the empty state names both ways a new thread can arrive.
+- **`editText`** is a command (menu, panel, palette) with one new field on
+  `CommandContext`; the bars and the context menu dispatch it instead of calling the
+  editor directly. It is the only object command added.
+- **Owner's T9 corrections, done here:** primitive `radius-menu` 16 replaces the menu
+  radius; the room path keeps spaces around «/»; offline is the yellow §3 plate; «Run» is
+  an outlined secondary pill. The menu keeps the full registry (the owner's second
+  decision), with `editText` added to the twenty-two rows.
+
+**Consequences.** The tool rail, the bars and the panel are one screen that matches the
+artboards; the search, the menus and the bars share the same command ids. Old e2e scenarios
+that reached a bar control now find the same label in the properties panel (the text
+format ones) and the card/comment tools under «More». New browsers store three preference
+keys; the consent registry and its counts are updated with them. Visual baselines of the
+rail, the panel, the topbar menus and every room screen change and are re-recorded.
+
+**Alternatives considered.** Keeping two rail panels would preserve the old look the owner
+returned; keeping the long bars would keep every control one click away but repeat the
+"toolbar inside a toolbar" the mockups reject. A second properties dialog for text formats
+would put the caret's controls outside the text; the panel uses the same editor events
+instead. Creating a kanban in the client would duplicate the matrix writer that templates,
+clipboard and loading already share.
+
+## ADR-293: The T10 screens keep one mechanism each; four mockup details wait for the owner
+
+Date: 2026-11-25. Status: **proposed** — the deviations below need the owner's signature
+(ADR-286 §2). Spec: `spec/dev-plan-character.md` T10. Mockups: `App-SignUp`, `App-Home`,
+`App-EmptyRoom`, `App-Invite` (ADR-287).
+
+**Context.** T10 rebuilds four screens against their artboards. Three of them show a product
+that is narrower than the one in the repository: the home shows news, templates and a global
+search; the empty room is drawn without the room chrome; the invite dialog invites a batch of
+people typed before one press. The repository already decided some of these in earlier
+records (ADR-197, ADR-256, ADR-266), and T10 is not allowed to add functions.
+
+**Decision.** The screens are rebuilt with the mockups' structure, texts, tokens, shape and
+motion. Four details keep the existing mechanism and therefore differ from the drawing; each
+is a question to the owner rather than a silent choice:
+
+1. **Home name search sits in the header, always; the directory stays ADR-197.** The mockup's
+   field is always visible, so the name search (the only search the product has) is in the
+   header. Sort, pages, tile menus and the trash view still appear only when there is more
+   than one page or a filter. The placeholder says "Room name", not the mockup's "room,
+   sticker or person", because the product does not search stickers or people.
+2. **The invite dialog is one person at a time.** The product creates a grant or an invitation
+   on the press, so the button says **Invite**, not "Invite 2 people", and there are no draft
+   chips. People who already have access are chips; their roles and removal stay in one list
+   below, as do "Hand over ownership" and the link password/expiry controls the mockup
+   abbreviates. "Close after 7 days" is a preset of the existing expiry, not a second expiry.
+3. **The empty room keeps the room chrome.** The 8-item header (T5) and the rail and bottom
+   panel (T8) are the room's one chrome; the mockup draws a three-item header because it
+   predates them. The empty state itself — logo-shape illustration, "It's quiet in here",
+   three ways in, the invite line — is the mockup's. The hint plate uses the registry text
+   (ADR-266 §6), so its sentence is longer than the mockup's sticker.
+4. **The home offers the four templates the product has.** The mockup's cards are Retro,
+   Kanban, Process and "a plan from a brief". The first two and the process map do not exist
+   as templates, and the fourth is the agent's job; the cards therefore name the real
+   templates (story map, roadmap, roadmap example, kanban). The plan badge says "4 rooms"
+   rather than "Free · 4 of 5 rooms" until T22 brings plan limits.
+
+Two details are settled by records that already exist and are not re-decided here: the
+registration screen keeps empty boxes and a disabled button until the server's documents are
+ticked (ADR-256 §3, `e2e/legal.spec.ts`), so its "errors" state appears when a tick is taken
+back or the server refuses, not before; and the form error shakes its frame only when motion
+is allowed (ADR-265 §4.2).
+
+**Consequences.** Every screenshot pair in the T10 report names these four differences. If
+the owner accepts them, the ADR moves to accepted; if not, the mockups or the product change
+in a separate task. No API, schema or permission changes are involved: registration still
+accepts the same `{doc, version, sha256}` list, the invite still creates one grant, and the
+link still uses the existing expiry.
+
+**Alternatives considered.** A global search over stickers and people would be a new function
+(T7 + a new index) and is out of T10. Batch invitations would change the command and the mail
+model. Hiding the room chrome on an empty room would create a second header and break the
+8-item rule. Inventing Retro and Process templates would add template data and two more
+maintained documents; the four real templates already fill the block.
+
+## ADR-294: Chrome usage is one fact per organisation per day, read as a 28-day share
+
+**Status:** accepted (2026-11-25, owner). Task T11 (server half). Implements ADR-266 §9;
+extends ADR-082 (metrics) and ADR-258 (`spec/pulse.md`). The disclosure components and the
+replacement of the local T8 implementation stay in the UI half of T11.
+
+**Context.** ADR-266 decided that placement is revisited on data, quarterly: an element
+used by fewer than 5 % of active organisations is a candidate to go deeper, a hidden one
+used by more than 40 % is a candidate for a permanent place. The metrics contract has a
+name list and a closed prop vocabulary (ADR-082) but no `chrome.used`; `metrics_daily`
+has no dimension that can name a control; and a count of presses is not a share of
+organisations — one person pressing Export ten times says nothing about adoption.
+
+**Decision.**
+- `chrome.used` joins `METRIC_CATALOG` with one required prop, `control`, from the closed
+  `CHROME_CONTROLS` list in `@remo/metrics`. The list is the registry ids whose placement
+  is in question; reactions are not measured. `metricEvent` refuses an unknown control and
+  any other prop, so a room or a person cannot ride along in this event. The envelope names
+  the organisation — the rule is per organisation per day — and writes no actor or session,
+  so the stream cannot answer "who clicked". The aggregate never leaves the installation
+  and carries no identifier either.
+- The browser sends the control and the organisation slug to `POST /chrome/used`; the
+  service checks the session and an active membership, then emits through the one
+  metrics sink. The registry wraps every chrome command's `run`, so a header menu, the
+  rail's «More», ⌘K and any later surface are measured without a second call site.
+- The first press of a control per organisation per **UTC day** is the fact. A partial
+  unique index on `metrics_events (org_id, props->>'control', UTC day)` implements it in
+  the storage, so concurrent tabs cannot both insert; the sink's `on conflict do nothing`
+  keeps the first row. No new product column and no `SCHEMA_VERSION` change: the metrics
+  database is separate (ADR-082).
+- The share cannot be a sum of daily counts: distinct organisations are not additive.
+  The aggregator writes two trailing-28-day rows on every day — `chrome.orgs28` per
+  `control` and `active.orgs28` for the denominator (organisations with any event) —
+  and the Pulse reads the latest complete day. `control` is a closed dimension of
+  `metrics_daily` (the check is replaced idempotently at start) and a suppressed split on
+  export, because a cell of one organisation describes behaviour.
+- The operator section «Хром» lists every control with organisations, share and the
+  verdict. Comparisons are strict: below 5 %, above 40 % of a control offered in a menu.
+  The console names candidates; it never moves a control.
+
+**Consequences.** One more event and two more daily metrics per zone. Every nightly
+recompute loads 28 days of events instead of one, which is the price of an honest
+distinct count. `pnpm db:metrics` upgrades an existing table by replacing the dimension
+check. The count of controls is a ratchet: a new registry row without a `CHROME_CONTROLS`
+entry fails a test, and a list entry without a row would be a control nobody can press.
+Header buttons that call a handler directly are not measured yet; wiring them belongs to
+the UI half, together with `Disclosure`/`DangerZone`.
+
+**Alternatives considered.** Counting presses instead of organisations would reward one
+enthusiast and miss adoption. A generic `feature` dimension with `chrome:<id>` values
+would give one key two meanings. Writing a metric per control would flood the catalogue
+and lose export suppression. Computing the share on read from daily rows is impossible
+without identifiers, and reading `metrics_events` from the panel is forbidden (§4.6).
+
+## ADR-295: Separate product delivery, internal working context and support service
+
+**Status:** proposed (2026-11-25, repository migration).
+
+**Context.** The product, private design process and external support service need independent
+repositories. The original working directory remains the recovery source during migration.
+
+**Decision.** Public Remuka retains source, technical contracts, test baselines, generators,
+asset sources and self-hosting documentation. Internal plans, mockup sources, review context
+and host-specific runbooks belong to remuka-internal. The separate remuka-support receives
+a versioned handoff of its specification and Support artboards. Secrets and execution artifacts
+are excluded from all three repositories. The support implementation is a subsequent task.
+
+ADR-286/287/290 are amended for repository boundaries: private mockup review remains an
+internal acceptance step; required public CI must run without private checkouts. Public
+contributors use public behavior contracts, tokens and product baselines. Technical ADR
+history remains intact; historical links may refer to documents archived in the internal
+repository. Files are transferred with source commit and SHA-256 inventory. Existing
+production deployments and remote branches are not changed by this migration.
+
+**Acceptance.** Frozen-lockfile install, full verify including browser acceptance, Docker
+builds and an isolated self-host smoke test must pass from a clean public export. Hash
+verification, standalone repository roots, secret/artifact exclusion and absence of private
+filesystem dependencies are separate gates. A prepared tree is not a passed release gate.
+
+**Consequences.** Runtime build inputs may remain under legacy spec/design paths until
+a separately tested relocation; a directory name alone does not decide publication.
+Infrastructure runbooks need sanitization before their public/internal split is accepted.
+
+## ADR-296: publish localized guide exports and a signed knowledge artifact
+
+**Context.** The support service must answer from the installed product release in Russian
+and English. A live URL alone establishes neither provenance nor release compatibility.
+
+**Decision.** The portal builds language-specific indexes and full texts alongside the
+existing addresses. A release job packages the reviewed public guide and help Markdown
+as a bounded gzip JSON file map. An Ed25519 signature binds a canonical manifest to
+each file hash, release, commit and schema. The public key is provisioned independently
+on each support installation. The signing key is available only to the release job.
+
+**Consequences.** Public guide builds remain possible without a signing key. Support
+imports only signed artifacts for the configured product revision. Rebuilding an index
+never requires access to product accounts, rooms, private repositories or a live portal.
+
+## ADR-297 — Customer surveys follow the Remuka interface language
+
+**Context.** A visitor can use Remuka and the browser in different languages. Chatwoot
+stores its native star prompt per inbox, while the resolution survey is sent per conversation.
+
+**Decision.** Pass the active Remuka interface language as the contact attribute `lang`.
+For each new survey prefer that attribute, then the older `remo_lang` if available,
+then the conversation browser language. Use English if neither source supplies Russian
+or English. Pin the resolution survey language for its follow-up messages. In configured
+Remuka Website inboxes localize the native CSAT question when Chatwoot creates it.
+
+**Consequences.** This supersedes the bilingual inbox wording in ADR-290. Existing messages,
+native ratings and survey eligibility retain their original semantics.
+
+## ADR-298 — The embedded support chat follows the Remuka theme
+
+**Context.** The Website widget has its own document and SDK. A person may choose a different
+theme in Remuka from the one used by their operating system.
+
+**Decision.** Pass the active light or dark theme in the widget URL on open. Forward changes
+through the existing origin-checked message channel and Chatwoot's setColorScheme API.
+The Website inbox owns the brand color for message bubbles and controls.
+
+**Consequences.** Changing theme preserves the open conversation and its draft. Operators
+can match the inbox accent to the product without customizing the Chatwoot build.
+
+## ADR-299 — Seven quick sticky colours in the tool rail
+
+**Context.** The full fill grid in the sticky tool diverged from the approved seven-sample design.
+
+**Decision.** The rail offers the 100-level yellow, green, blue, pink, violet, orange and grey fills in that order, four per row. The object properties window retains the full fill grid and its named colours. Both surfaces use the same model values and accessible colour names.
+
+**Consequences.** This supersedes the rail palette choice in ADR-292. Existing objects and remembered fills keep their stored values. The rail marks a remembered fill only when it appears among the seven choices.
+
+## ADR-300 — Keep the room header within eight controls and the shape toolbar within seven
+
+**Context.** In a team room, separate links to the organisation and team directories are both needed. A dedicated discussion button brought the resting desktop header to nine controls and the working screen to thirteen. The written T8 shape checklist also differed from the seven-button App-ToolsBars design.
+
+**Decision.** On 25 November 2026 the owner retained the limits of eight header controls and twelve permanent actions across the working screen. Move discussion to the room menu. The menu entry opens the existing comments panel and identifies unread comments. Keep direct access to both directories. The selected shape has seven toolbar buttons including More. Lift is available from More.
+
+**Consequences.** Opening discussion takes one additional action on desktop. Keyboard users can reach it through the room menu. Opening a comment pin still takes the user directly to its thread. Shape lift keeps the existing permission check, model command and undo behaviour. This decision revises the earlier placement of the two actions in ADR-266.
+
+## ADR-301 — Offer the room’s only frame for export when nothing is selected
+
+**Context.** A person exporting a PNG or PDF from a room with one frame previously had to close the export dialog and select the frame to make its scope available.
+
+**Decision.** With an empty selection, offer the frame scope when the room contains exactly one frame. Whole room remains selected on opening the dialog. The person chooses Frame to export the frame and its contents. With zero or multiple frames and an empty selection, the frame option stays unavailable. An explicit selection keeps its existing meaning: use the selected frame or the enclosing frame of a selected object. Selecting an object outside every frame does not nominate another frame.
+
+**Consequences.** The scope preview and the exported file resolve the same frame. Empty selection stays empty. The whole-room backup and restore keep their existing scope.
+
+## ADR-302 — Dismiss the new sticky note palette from the rail
+
+**Context.** The App-ToolsBars palette offers seven colours for the next note. The product also added a close button in its title and a help link inside the hint.
+
+**Decision.** On 26 November 2026 the owner approved the artboard layout for this palette. Its interactive content consists of the seven colour choices. Escape closes the palette and returns focus to its disclosure button. The same button toggles the palette. Clicking outside dismisses it and lets the clicked control perform its usual action.
+
+**Consequences.** The full colour guide remains available through Help. Other popovers continue to use their existing controls.
+
+## ADR-303 — Summarise team news and give every visible update its own card
+
+**Context.** With three updates the organisation home used one as an actionable greeting and displayed the other two as cards. The approved App-Home design puts a short summary under the greeting and all three actionable updates together.
+
+**Decision.** Use the visible updates returned for this person and organisation, after local dismissals. Show a short, read-only summary and one card per visible update, up to three. Mention live collaboration and a pending agent proposal together when both are present, as in the design. Otherwise summarise up to two of the highest-ranked updates. Each card keeps its action and dismissal. The server's access checks, ranking and limit apply as before.
+
+**Consequences.** Dismissing an update immediately removes it from the summary and the cards. The summary uses only the people, room titles and event types already returned. The event is measured once at its card. When a successful load returns no visible updates, keep the personal hint below the greeting and show “It’s quiet on your team” as the section heading with no cards. A pending or failed request does not confirm that the team is quiet.
+
+## ADR-304 — Clarify a room task once its shared draft is on the canvas
+
+**Context.** The room agent previously accepted follow-ups immediately after a first request. Colleagues could receive a second pending task before they had a shared result to review.
+
+**Decision.** The owner approved clarifications for conversations that have at least one published draft frame still present on the room canvas. The requester and room owner retain their existing permissions. Publication is identified by the agent's stored frame identifiers, including an applied task's result, and by the frame in the board document. This includes frames published before this decision and earlier frames when a later frame was removed.
+
+**Consequences.** Queuing, running, failure or cancellation of the first attempt alone does not open clarifications. A requester can start a new task. Removing the last published frame closes clarifications until a published frame of that conversation is present again. Admission is checked under the existing room-agent lock. Retrying an already accepted request with its idempotency key returns its existing task.
+
+## ADR-305 — Present the selected card's record first in Properties
+
+The App-Kanban card-fields artboard puts the selected card's title, status, assignee, dates, tags and fill together. The previous inspector buried fields below general object actions. Its menu already supported inheriting the column colour or storing a personal fill.
+
+For one selected card, Properties shows the editable status beside the heading, the text of the card, its assignee, paired start and due dates, the room tag editor and its fill. The panel and card context menu use the same fill palette and document operation. The card’s own status stays independent of its column. Rare object actions are available after the card record. A due date before the viewer’s local calendar day gets a localized relative description, following the same due-date rule as the face and filter. No fields or permissions change.
+
+## ADR-306 — Show the next action in room connection notices
+
+The App-States artboard offers sign-in after session expiry and immediate navigation when a retired address provides a destination. Transient canvas messages previously showed only a sentence. The room now offers its existing sign-in dialog in place, keeping the room and its local document mounted. For a move, the button uses the same validated URL as the scheduled navigation in ADR-254. An older server that supplies no destination still shows the explanatory notice. Access decisions and transport retry rules continue to belong to their existing handlers.
+
+## ADR-307 — Keep the password visibility toggle on the reset screen
+
+**Decision (2026-11-26).** The owner approved the existing password visibility toggle on the T15 reset screen as an exception to App-Auth/reset. New passwords are initially masked. The visible labels remain “Показать” and “Скрыть” in Russian and “Show” and “Hide” in English. The toggle changes the display of the entered value. Only the separate save action submits the form.
+
+**Acceptance.** This decision covers the toggle on the reset screen at both design widths and in both themes. The other controls, copy and geometry remain subject to the T15 comparison.
+
+## ADR-308 — Show the original filename in the image viewer to people with download access
+
+**Decision (2026-11-26).** The viewer uses the object's chosen name first. When the object has no name, someone with `board.export` sees the filename that downloading the original would provide. Everyone else sees the image description, falling back to the localised object type. The same fallback applies when the file or its metadata is unavailable. The download action has a visible localised label.
+
+Opening the viewer requests headers from the original-file route. The route checks current board access, export capability, organisation, file status, room usage and the presence of the stored original. The response is private and uncached. Only a download streams the file and records `file.downloaded_original`. The filename stays out of the shared room document and image variants. Within one organisation, deduplicated uploads use the filename of the stored original, matching the attachment a user can download.
+
+## ADR-309 — Keep the main room menu short and put additional commands under More
+
+**Decision (2026-11-26).** The owner approved a second level in the room-title menu for additional commands. The main level follows the App-RoomTidy room actions: Rename, Properties and access, Export, Copy link, and Move to trash. The accepted T5 scope explicitly excludes the prototype’s Change history row. More opens the additional commands available to this role. Properties and access opens the existing properties and access actions with their existing permission checks. The command palette continues to dispatch the same actions directly.
+
+**Consequences.** The two levels occupy the same space on desktop and mobile. Each submenu supports a visible Back control and restores focus to its opener. Existing confirmations still protect replacing and trashing a room. There is currently no room-scoped change-history view. The organisation security audit and local undo stack have different scope and remain separate. The design's illustrative shortcuts do not introduce global keyboard bindings.
+
+## ADR-310 — Let a brief-to-board plan flag an unresolved role
+
+**Context (2026-11-26).** A brief may describe a step without identifying who is responsible. A person reviewing the proposed diagram needs to see that question before applying it.
+
+**Decision.** The skill may return an optional bounded list of uncertainties alongside its creation operations. The first kind, `missing_role`, must identify a proposed object by temporary ID. Optional source IDs must name objects in the task selection actually sent to the model. The server validates references, takes the label from the validated object and supplies the warning code. Unknown fields, unsupported kinds and invalid references refuse the entire reply. Repeated valid findings about one object produce one warning.
+
+**Consequences.** The preview describes the question in the reader's language and allows approval. Existing critical geometry findings still block approval. Old replies containing only operations and previously saved plans retain their meaning. No schema migration, external source lookup or additional model call is needed.
+
+## ADR-311 — Group column movement and open table sizing from Properties
+
+**Decision (2026-11-26).** The owner approved a single row for each pair of movement commands in the table axis and kanban column menus. Each direction has its own button and remains separately reachable with the menu's arrow keys. A direction that is unavailable at the edge retains its disabled state. The table axis menu drops the Size entry. Select an axis and use Size in table Properties to open the size control.
+
+**Consequences.** The moves still invoke their original commands with the same permission checks. Resizing directly on the canvas with a header boundary remains available. The layout and data format stay the same.
+
+## ADR-312 — Expose the table axis delete shortcut in the open menu
+
+**Decision (2026-11-26).** Delete from an open table axis menu invokes that menu's delete action. An occupied axis displays an ellipsis and opens the existing confirmation. An empty axis keeps the immediate action from ADR-201. The shortcut is handled inside the menu, where it cannot also delete canvas objects or reset a divider. The canvas delete command ignores repeated keydown events from a key that is still held after the menu closes.
+
+## ADR-313 — Use the published Figma frame for matching acceptance states
+
+**Decision (2026-11-26).** The owner approved Figma as the visual source for matching screen, state, viewport and theme combinations. Preserve the existing references for combinations without a matching frame and retain evidence from previous runs.
+
+**Consequences.** Pin each imported PNG and its control zones together with the Figma frame identifier. Match the new visuals while preserving access rules and previously approved interactions, including the distinct keyboard commands in ADR-311 and ADR-312.
+
+## ADR-314 — Recover pending room edits after the same editor signs in again
+
+**Context (2026-11-26).** A socket closed after session expiry can leave edits in the current tab that the server has not acknowledged. Reconnecting with a reset sequence permits the client to announce “Saved” while the write is still in flight. The room route also stays open when a person signs in as a different account.
+
+**Decision.** Keep a room document and its unacknowledged sequence in the current tab for the account that made the edits. Resume it only after a fresh server decision confirms the same account and its edit permission for that room. Validate the resumed transport against that session before it can exchange document data. A guest, viewer, different account or denied request cannot receive or transmit that document. The new connection reports outstanding work until the server acknowledges persistence.
+
+**Consequences.** The old document and its undo state are isolated in the tab. They do not become data for a different principal or a tab-local broadcast. A compatible non-browser client can still use the existing socket contract. The guarantee applies to the current tab before it is closed or refreshed. There is no database migration or new persistent browser store.
+
+## ADR-315 — A reaction stays readable for five seconds and floats straight up
+
+**Context (2026-11-26).** The owner reported that a reaction sent on a selected object appears and disappears too quickly. In the owner's words: «При вызове эмоций - эмоции выходят на выделенном объекте и быстро исчезают, а нужно чтобы они были хотя бы секунд 5 и двигались через вертикаль плавно исчезая». The burst lasted 2.4 s with an ease-out curve, so most of its movement and its fade happened in the first second; with calm motion it was a 0.45 s flash.
+
+**Decision.** Scope: live reactions on the canvas, both on a selected object and on the free canvas. A burst lives 5 s (`--dur-reaction`). It moves at a steady pace, stays fully opaque for the first half and fades out over the second half. On a selected object it rises about 240 px straight up with a sideways sway of at most 6 px. With calm motion or reduced motion it does not move: it holds for half of `--dur-reaction-flash` (5 s) and then fades.
+
+**Consequences.** This supersedes the 2.4 s duration of ADR-227 and the 0.45 s flash of ADR-285. Several bursts can be on screen at the same time for longer; they still never take pointer input. `e2e/reactions-motion.spec.ts` measures the duration, the rise and the opacity from the running animation.
+
+## ADR-316 — Three sign-in screens keep their working behaviour over the mockup; agent panel structure moves to 0.10
+
+**Context (2026-11-26).** Before release 0.9 the visual review left class-A differences (composition, order, wording) between the product and the mockups in two areas. The owner was asked, scope named in the question: «Задача 49, вход (T15). Есть три расхождения класса A с макетом, и в каждом продукт отступает от макета намеренно. «Новый пароль»: у поля оставлена кнопка «Показать». «Почта подтверждена»: продукт не пишет «пароль изменён», потому что его не меняли. «Регистрация ЕС»: подсказка длины пароля, документы с сервера, кнопка неактивна до согласия. Как поступить в версии 0.9 только с этими тремя экранами?» — answer: «Оставить продукт (Рекомендую)». And: «Задача 49, панели агента (T23). Функционально всё проходит: 44 из 44. Но в 10 состояниях отличается структура: порядок блоков, заголовки фаз, карточки «ИИ организации» на телефоне идут в одну колонку. Входит ли выравнивание этих 10 состояний по макету в версию 0.9?» — answer: «Перенести в 0.10 (Рекомендую)».
+
+**Decision.** Scope: only the three sign-in states named above (New password, Email confirmed, EU sign-up) and only the ten T23 agent and organisation-AI states listed in `remuka-internal/delivery/character/T23-visual-review.md`. The three sign-in screens keep the product's behaviour and wording; the mockup is the one to change. The ten agent states ship in 0.9 as they work today; matching their structure to App-Agent / App-OrgAI is release 0.10 work. Geometry (class B) and every other screen are not covered by this decision.
+
+**Consequences.** Visual comparison of these three sign-in states treats the listed differences as accepted, not as defects. The agent structure is tracked in the internal tech-debt register with a completion criterion. No baseline is changed by this ADR.
+
+## ADR-317 — Personal and shared organisations use the same paid plans
+
+**Status:** accepted (2026-11-27). Plan change rules supersede any draft that keeps the old renewal date after an upgrade.
+
+**Context.** A schema replay could reclassify the first explicitly shared organisation
+of a user as personal. A paid invoice and an active Pro subscription then appeared
+alongside effective Free access. Personal organisations are now eligible for paid
+plans. The organisation kind still matters for account and organisation lifecycle.
+
+**Decision.** Any organisation administrator can buy and manage the organisation's
+plan through the same checkout. Effective rights come from the live subscription
+and its status for either kind. An organisation without a live paid subscription or
+trial uses Free. Billing summaries compute plan and limits from the same subscription
+row they display. Enforcement reads the tenant's current subscription from PostgreSQL.
+
+An upgrade starts a new period once payment is confirmed. The amount due is the new
+period's price with credit for the unused part of the old period. A downgrade takes
+effect at the end of the current period. The plan-change workflow is a separate
+delivery step.
+
+**Migration.** Infer the first personal organisation only while adding the legacy
+`kind` column. Schema replay preserves existing classifications and money records.
+Investigate any earlier reclassification using installation evidence before
+changing organisation metadata.
+
+**Acceptance.** A personal organisation checks out and gains paid features after
+settlement. Reapplying the schema to an already-paid shared organisation preserves
+its kind, invoice and effective access.
+
+## ADR-318 — Plan changes use a quoted invoice or a scheduled renewal
+
+**Status:** accepted (2026-11-27).
+
+**Context.** Checkout created a full-price invoice independently of the current subscription. A plan change needs an explicit amount, a renewal date and a single application point.
+
+**Decision.** An administrator previews a change against the current subscription and a published price. The quote is recalculated under a per-organisation transaction lock. An upgrade has one outstanding payment. Its invoice records the price, unused service credit and the original period. Settlement records payment and applies the new plan in one transaction. The new period starts when settlement confirms payment. A zero-total upgrade applies in the same way without a provider call.
+
+A downgrade stores a scheduled price snapshot on the subscription. At the old period boundary Free takes effect without payment. A paid target is billed at its pinned price as the next renewal. It starts at the boundary on successful settlement. A failed charge retains the old access during the existing grace period. Payment attempts reuse the same invoice. Changes and renewals share the organisation lock. The same rules apply to personal and shared organisations.
+
+**Consequences.** The billing UI reads the quote, pending payment and scheduled change from the server. It does not derive amounts from displayed prices. An unknown payment outcome blocks another charge until confirmation or a terminal refusal.
+
+## ADR-319 — Billing communications: one letter per operation, fourteen days of grace, an even tone
+
+**Context (2026-11-27).** The owner asked for a thank-you letter after payment, a letter after every plan change, and a letter plus an in-app message when an automatic renewal fails, «а в UI сообщение что оплаты тарифа не удалась и через 14 дней тариф поменяется на Free». The code sent one identical `payment_succeeded` for a purchase, an upgrade and a renewal, nothing on plan changes, and suspended a past-due subscription after 7 days (retries on days 1, 3, 6). Four templates (`trial_ending`, `renewal_upcoming`, `price_change`, `payment_method_expiring`) existed but were never sent. Asked «Срок до перехода на Бесплатный … Я за 14 дней с повторами на 1-й, 3-й, 7-й и 13-й день» and «Оставляем ровный тон, как в черновике выше, или вам важна именно эмоция?», the owner answered: «1. Да - 14 дней с повторами на 1-й, 3-й, 7-й и 13-й день 2. Оставляем ровный тон, как в черновике выше … принято».
+
+**Decision.**
+1. Grace period after a failed renewal — 14 days; retries on days 1, 3, 7 and 13; suspension on day 14 (`spec/billing.md` §3.1, §3.3). The same fourteen days as for seats over the limit (§2.5).
+2. One operation — one letter. A purchase or an upgrade sends `plan_activated` («Спасибо за оплату — {plan} подключён»); a renewal sends `payment_succeeded`. New letters: `plan_activated`, `payment_final_attempt`, `payment_recovered`, `downgrade_scheduled`, `downgrade_applied`, `autopay_disabled`, `seats_over_limit`, and `welcome` after the first email confirmation; the four unsent templates are wired. A failed renewal sends one letter on day 0 and one on the eve of the last retry, not one per retry.
+3. Tone: money is the «ровно» zone of the voice (ADR-265 §2): facts, dates, what is kept; no «грустим», no jokes, no «!». Warmth is the first fact — «до {date} всё работает как прежде».
+4. In the app: administrators see the past-due banner on every page of the space; members see nothing until the switch and then a money-free message. Both are floating messages, not inline banners: the owner, seeing the first version, wrote «сообщение лучше выделить в легкий баннер», then «это должен быть решение для выплывающих сообщений как это делается в лучших домах», and «использовать как класс решений с разными иконками для разных типов сообщений там же потом будем сообщать о других событиях, например, о то что пришел ответ от техподдержки или "Вас Аня ждет в такой-то комнате, перейти?"» (27.11.2026). So `@remo/ui` has one toaster (`ToastProvider`, `useToast`): a stack top right under the top bar, full width on a phone, newest on top, at most three; feedback leaves after 5 s, warnings and errors stay until closed; the timer pauses under the pointer and the focus; an `id` makes a message idempotent. The product names the kinds in `apps/web/src/notices.ts` — info, success, warning, error, billing, support, presence — each with its icon, tone and lifetime; future events (a support reply, «Аня ждёт вас в комнате…») are new uses of the same kinds, not new components. A closed billing message stays closed for the browser session and that state only.
+5. Letters go in the recipient's language with dates and amounts formatted for that language.
+
+**Consequences.** Change `RENEWAL_RETRIES_MS` / `RENEWAL_GRACE_MS` and their tests; add templates to `mail_outbox.template` and `mail-templates*.mjs` with RU and EN texts from `spec/mail.md` §6; fix the locale, the date and amount formatting and the retry date in `billing-notify.mjs`. Mockups: Figma «Ремука — дизайн-система», page «Mail · Письма» (M01–M25); hand-off: `remuka-internal/delivery/communications/TZ.md`. The mockups M01–M25 were approved as version 1 on 2026-11-27: «принято - фиксируем эту версию»; later changes come as a new version.

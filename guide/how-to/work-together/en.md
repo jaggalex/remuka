@@ -4,7 +4,7 @@ Two or more people work on one room at the same time and need to see each other.
 
 ## Before you start
 
-- The colleague has access to the room: a role is granted in **Share** (see [Grant access and share a link](/guide/how-to/share)).
+- The colleague has access to the room: a role is granted in **Invite** (see [Grant access and share a link](/guide/how-to/share)).
 - Both of you have the room open in a browser.
 
 ## Steps

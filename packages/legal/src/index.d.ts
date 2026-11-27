@@ -24,6 +24,8 @@ export interface LegalDocument {
   lang: LegalLang[];
   /** Published revisions only: `<version>` → lowercase SHA-256 of the text. */
   sha256?: Record<string, string>;
+  changes?: LegalTitle;
+  changesHistory?: Record<string, LegalTitle & { sha256: string }>;
 }
 
 export interface LegalIndex {

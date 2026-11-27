@@ -6,17 +6,28 @@
  */
 import { useCallback, useMemo, useRef } from "react";
 import type { BoardDocument } from "@remo/doc";
-import { addCard, addColumn, createShape, createSticky, createWidget } from "@remo/doc";
+import {
+  addCard,
+  addColumn,
+  createKanban,
+  createShape,
+  createSticky,
+  createText,
+  createWidget,
+} from "@remo/doc";
 import {
   canConnect,
-  DEFAULT_TEXT_COLOR,
   newId,
+  reconstructKanban,
   type KanbanState,
   type ShapeKind,
   type Widget,
+  type Vec2,
 } from "@remo/model";
 import { cardTargetFor } from "./cardTarget";
-import { defaultStickerFill } from "./object-panel/palette";
+import { rememberedStickerFill } from "./toolDefaults";
+import { setSectionView } from "./sectionView";
+import type { TranslationKey } from "./i18n";
 import type { BoardSettings } from "./settings";
 import { cameraStore } from "./cameraStore";
 
@@ -32,6 +43,8 @@ export function useBoardCreation({
   settings,
   setSelectedIds,
   startEditing,
+  t,
+  lang,
 }: {
   board: BoardDocument;
   widgets: Widget[];
@@ -41,6 +54,9 @@ export function useBoardCreation({
   setSelectedIds: (ids: string[]) => void;
   /** Open the inline editor for a newly created card (ADR-169). */
   startEditing?: (id: string) => void;
+  /** Words for a new section's title and the table's placeholder axes. */
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+  lang: "en" | "ru";
 }) {
   /** Cascade counter so consecutive additions do not land on one point. */
   const placedCount = useRef(0);
@@ -86,11 +102,11 @@ export function useBoardCreation({
   }, []);
 
   const addSticky = useCallback(
-    (fill?: string): string => {
+    (fill?: string, at?: Vec2): string => {
       const id = newId("sticky");
       // A note created with no choice gets the design system's yellow, so the first chip
       // in its bar is the colour it actually has. Existing notes keep their hex (ADR-120).
-      createSticky(board, id, nextSpot(), fill ?? defaultStickerFill());
+      createSticky(board, id, at ?? nextSpot(), fill ?? rememberedStickerFill());
       setSelectedIds([id]);
       return id;
     },
@@ -110,7 +126,7 @@ export function useBoardCreation({
           board,
           id,
           { x: spot.x + column * 220, y: spot.y + row * 220 },
-          defaultStickerFill(),
+          rememberedStickerFill(),
         );
         ids.push(id);
       }
@@ -120,21 +136,12 @@ export function useBoardCreation({
   );
 
   /** A text object: the rail creates it empty and the editor opens over it. */
-  const addText = useCallback((): string => {
+  const addText = useCallback((at?: Vec2): string => {
     const id = newId("text");
-    const spot = nextSpot();
-    createWidget(board, {
-      id,
-      type: "text",
-      parentId: null,
-      x: spot.x,
-      y: spot.y,
-      width: 360,
-      height: 120,
-      // Greys 600 is a swatch in the text window, so the first open rings it; the old
-      // near-black fallback was outside the palette (ADR-129).
-      style: { color: DEFAULT_TEXT_COLOR },
-    });
+    const spot = at ?? nextSpot();
+    // No colour is written: new text is "Auto" and takes its ink from the surface it
+    // lands on (ADR-273 §2.3). The old grey 600 reads as Auto too.
+    createText(board, id, spot);
     setSelectedIds([id]);
     return id;
   }, [board, nextSpot, setSelectedIds]);
@@ -159,38 +166,75 @@ export function useBoardCreation({
   );
 
   const addFrame = useCallback(
-    (title: string) => {
+    (title: string, view: "free" | "table" = "free") => {
       const id = newId("frame");
       const spot = nextSpot();
-      createWidget(board, {
-        id,
-        type: "frame",
-        parentId: null,
-        x: spot.x,
-        y: spot.y,
-        width: 640,
-        height: 420,
-        title,
+      board.transact(() => {
+        createWidget(board, {
+          id,
+          type: "frame",
+          parentId: null,
+          x: spot.x,
+          y: spot.y,
+          width: 640,
+          height: 420,
+          title,
+          ...(view === "table" && { layout: { kind: "table", rows: [], columns: [] } }),
+        });
+        if (view === "table") setSectionView(board, id, view, t);
       });
       setSelectedIds([id]);
       return id;
     },
-    [board, nextSpot],
+    [board, nextSpot, setSelectedIds, t],
   );
 
   const addShape = useCallback(
-    (kind: ShapeKind) => {
+    (kind: ShapeKind, box?: { x: number; y: number; width: number; height: number }, centre?: Vec2) => {
       const id = newId("shape");
-      createShape(board, id, kind, nextSpot(), {
+      const at = box
+        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        : centre ?? nextSpot();
+      createShape(board, id, kind, at, {
         fillColor: settings.shapes.fill,
         strokeColor: settings.shapes.stroke,
         strokeWidth: settings.shapes.strokeWidth,
-      });
+      }, box ? { width: box.width, height: box.height } : undefined);
       setSelectedIds([id]);
       return id;
     },
-    [board, nextSpot],
+    [board, nextSpot, setSelectedIds, settings.shapes.fill, settings.shapes.stroke, settings.shapes.strokeWidth],
   );
+
+  /**
+   * «More → Table»: a section that is a table from the first click.
+   *
+   * One creation path, the same `setSectionView` the panel uses: the first column also
+   * makes the row axis, and the table is never a second kind of object (ADR-196).
+   */
+  const addTable = useCallback(
+    () => addFrame(t("section.view.table"), "table"),
+    [addFrame, t],
+  );
+
+  /** «More → Kanban»: an empty three-column board, ready for cards. */
+  const addKanban = useCallback((): string => {
+    const id = newId("kanban");
+    const spot = nextSpot();
+    const widget: Widget = {
+      id,
+      type: "kanban",
+      parentId: null,
+      x: spot.x,
+      y: spot.y,
+      width: 1149.2,
+      height: 720,
+    };
+    const state = reconstructKanban("kanban-framework", widget, [], lang);
+    createKanban(board, id, spot, state);
+    setSelectedIds([id]);
+    return id;
+  }, [board, lang, nextSpot, setSelectedIds]);
 
   return {
     onAddCard,
@@ -203,5 +247,7 @@ export function useBoardCreation({
     canJoinSelection,
     addFrame,
     addShape,
+    addTable,
+    addKanban,
   };
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Banner, Button, Input, Select } from "@remo/ui";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Button, Input, Segmented, Select } from "@remo/ui";
 import { api, type AiCredential, type AiPolicy } from "./api";
 import { useI18n } from "./i18n";
 
@@ -13,9 +13,11 @@ import { useI18n } from "./i18n";
 export function AiCredentials({
   orgId,
   isOrgAdmin,
+  journal,
 }: {
   orgId: string;
   isOrgAdmin: boolean;
+  journal: ReactNode;
 }) {
   const { t } = useI18n();
   const [policy, setPolicy] = useState<AiPolicy>({
@@ -28,7 +30,8 @@ export function AiCredentials({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [form, setForm] = useState<"personal" | "org" | null>(null);
+  const [scope, setScope] = useState<"personal" | "org">(isOrgAdmin ? "org" : "personal");
+  const keyFormRef = useRef<HTMLFormElement>(null);
   const [provider, setProvider] = useState("openrouter");
   const [model, setModel] = useState("");
   const [label, setLabel] = useState("");
@@ -58,6 +61,7 @@ export function AiCredentials({
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await action();
       await refresh();
@@ -67,6 +71,20 @@ export function AiCredentials({
       setBusy(false);
     }
   };
+
+  function changePolicy(keyMode: string) {
+    const previous = policy;
+    const next = { ...policy, keyMode: keyMode as AiPolicy["keyMode"] };
+    setPolicy(next);
+    void run(async () => {
+      try {
+        await api.setAiPolicy(orgId, next);
+      } catch (failure) {
+        setPolicy(previous);
+        throw failure;
+      }
+    });
+  }
 
   const submit = (scope: "personal" | "org") => {
     if (!secret.trim()) return;
@@ -84,7 +102,7 @@ export function AiCredentials({
       setLabel("");
       setModel("");
       setBaseUrl("");
-      setForm(null);
+
       setNotice(t("aiKeys.saved"));
     });
   };
@@ -93,10 +111,10 @@ export function AiCredentials({
     list.map((key) => (
       <li key={key.id} className="ai-key">
         <div className="ai-key-main">
-          <strong>{key.provider}</strong>
+          <strong>{[key.label, key.provider, key.model].filter(Boolean).join(" · ")}</strong>
           <span className="muted">
-            {key.model || t("aiKeys.noModel")} · {key.fingerprint}
-            {key.isDefault ? ` · ${t("aiKeys.default")}` : ""}
+            <code>{key.fingerprint}</code>
+            {key.isDefault && <span className="ai-key-default">{t("aiKeys.default")}</span>}
           </span>
         </div>
         <div className="ai-key-actions">
@@ -137,130 +155,105 @@ export function AiCredentials({
       </li>
     ));
 
+  function chooseScope(next: "personal" | "org") {
+    if (scope !== next) {
+      setSecret("");
+      setScope(next);
+    }
+    keyFormRef.current?.querySelector("select")?.focus();
+  }
+
   return (
     <div className="ai-keys">
-      <div className="org-agents-head">
-        <div>
-          <strong>{t("aiKeys.title")}</strong>
-          <p className="muted">{t("aiKeys.body")}</p>
+      {journal}
+      {error && <p role="alert" className="auth-error">{error}</p>}
+      {notice && !error && <p role="status" className="ai-key-feedback">{notice}</p>}
+      <div className="ai-key-controls">
+        <div className="ai-key-brief">
+          <strong>{t("aiKeys.safetyTitle")}</strong>
+          <p>{t("aiKeys.safetyBody")}</p>
         </div>
+        {isOrgAdmin && <div className="ai-key-policy">
+          <strong>{t("aiKeys.paymentSource")}</strong>
+          <Segmented label={t("aiKeys.mode")} value={policy.keyMode}
+            options={[
+              { value: "either", label: t("aiKeys.modeEither"), disabled: busy },
+              { value: "org", label: t("aiKeys.modeOrg"), disabled: busy },
+              { value: "personal", label: t("aiKeys.modePersonal"), disabled: busy },
+            ]}
+            onChange={changePolicy} />
+        </div>}
+        {isOrgAdmin && <section className="ai-key-section">
+          <div className="ai-key-head">
+            <strong>{t("aiKeys.orgTitle")}</strong>
+            <Button size="compact" onClick={() => chooseScope("org")}>{t("aiKeys.add")}</Button>
+          </div>
+          <ul>{rows(orgKeys, "org")}</ul>
+          {!orgKeys.length && <p>{t("aiKeys.emptyOrg")}</p>}
+        </section>}
+        <section className="ai-key-section is-personal">
+          <div className="ai-key-head">
+            <strong>{t("aiKeys.personalTitle")}</strong>
+            <Button size="compact" onClick={() => chooseScope("personal")}>{t("aiKeys.add")}</Button>
+          </div>
+          <ul>{rows(personal, "personal")}</ul>
+          <p>{!personal.length && t("aiKeys.emptyPersonal") + " "}{t("aiKeys.note")}</p>
+        </section>
       </div>
-
-      <Banner tone="warning" title={t("aiKeys.safetyTitle")}>
-        {t("aiKeys.safetyBody")}
-      </Banner>
-
-      {error && <p className="auth-error">{error}</p>}
-      {notice && <p className="muted">{notice}</p>}
-
-      {isOrgAdmin && (
-        <Select
-          label={t("aiKeys.mode")}
-          options={[
-            { value: "either", label: t("aiKeys.modeEither") },
-            { value: "org", label: t("aiKeys.modeOrg") },
-            { value: "personal", label: t("aiKeys.modePersonal") },
-          ]}
-            value={policy.keyMode}
-            disabled={busy}
-            onChange={(event) =>
-              void run(async () => {
-                await api.setAiPolicy(orgId, {
-                  ...policy,
-                  keyMode: event.target.value as AiPolicy["keyMode"],
-                });
-              })
-            }
-          />
-      )}
-
-      <section className="ai-key-section">
-        <div className="ai-key-head">
-          <strong>{t("aiKeys.orgTitle")}</strong>
-          {isOrgAdmin && (
-            <Button
-              onClick={() => setForm(form === "org" ? null : "org")}>
-              {t("aiKeys.add")}
-            </Button>
-          )}
-        </div>
-        {form === "org" && isOrgAdmin && keyForm("org")}
-        <ul>{rows(orgKeys, "org")}</ul>
-        {!orgKeys.length && <p className="muted">{t("aiKeys.emptyOrg")}</p>}
-      </section>
-
-      <section className="ai-key-section">
-        <div className="ai-key-head">
-          <strong>{t("aiKeys.personalTitle")}</strong>
-          <Button
-            onClick={() => setForm(form === "personal" ? null : "personal")}>
-            {t("aiKeys.add")}
-          </Button>
-        </div>
-        {form === "personal" && keyForm("personal")}
-        <ul>{rows(personal, "personal")}</ul>
-        {!personal.length && <p className="muted">{t("aiKeys.emptyPersonal")}</p>}
-      </section>
-
-      <p className="muted ai-key-note">{t("aiKeys.note")}</p>
+      {keyForm(isOrgAdmin ? scope : "personal")}
     </div>
   );
 
   function keyForm(scope: "personal" | "org") {
     return (
       <form
-        className="ai-key-form"
+        className="ai-key-form" ref={keyFormRef} aria-labelledby="provider-key-heading"
         autoComplete="off"
         onSubmit={(event) => {
           event.preventDefault();
           submit(scope);
         }}
       >
-        <div className="agent-budget">
-          <Select
-            label={t("aiKeys.provider")}
-            value={provider}
-            options={[
-              { value: "openrouter", label: "OpenRouter" },
-              { value: "cerebras", label: "Cerebras" },
-              { value: "openai", label: "OpenAI" },
-              { value: "custom", label: t("aiKeys.custom") },
-            ]}
-            onChange={(event) => setProvider(event.target.value)}
-          />
-          <Input
-            label={t("aiKeys.model")}
-              value={model}
-              onChange={(event) => setModel(event.target.value)}
-              placeholder="openai/gpt-4o-mini"
-            />
-        </div>
+        <h3 id="provider-key-heading">{t("aiKeys.add")}</h3>
+        <p className="ai-key-scope">{t(scope === "org" ? "aiKeys.orgTitle" : "aiKeys.personalTitle")}</p>
+        <Select
+          label={t("aiKeys.provider")}
+          value={provider}
+          options={[
+            { value: "openrouter", label: "OpenRouter" },
+            { value: "cerebras", label: "Cerebras" },
+            { value: "openai", label: "OpenAI" },
+            { value: "custom", label: t("aiKeys.custom") },
+          ]}
+          onChange={(event) => setProvider(event.target.value)}
+        />
         {provider === "custom" && (
           <Input
             label={t("aiKeys.baseUrl")}
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder="https://gateway.example.com/v1"
-            />
+            value={baseUrl}
+            onChange={(event) => setBaseUrl(event.target.value)}
+            placeholder="https://gateway.example.com/v1"
+          />
         )}
+        <Input label={t("aiKeys.model")} value={model}
+          onChange={event => setModel(event.target.value)} />
         <Input label={t("aiKeys.label")} value={label} onChange={(event) => setLabel(event.target.value)} />
         <Input
           label={t("aiKeys.secret")}
-            type="password"
-            name="providerSecret"
-            autoComplete="new-password"
-            spellCheck={false}
-            data-lpignore="true"
-            data-1p-ignore="true"
-            value={secret}
-            onChange={(event) => setSecret(event.target.value)}
-            placeholder="sk-…"
-          />
+          type="password"
+          name="providerSecret"
+          autoComplete="new-password"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
+          value={secret}
+          onChange={(event) => setSecret(event.target.value)}
+          placeholder="sk-…"
+        />
         <div className="agent-actions">
           <span className="muted">{t("aiKeys.secretNote")}</span>
-          <Button variant="primary"
-            disabled={busy || !secret.trim()}
-            onClick={() => submit(scope)}>
+          <Button variant="primary" type="submit"
+            disabled={busy || !secret.trim() || (provider === "custom" && !baseUrl.trim())}>
             {t("aiKeys.save")}
           </Button>
         </div>

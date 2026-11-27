@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { freshBoard, selectKanbanCard, openFold, register } from "./helpers";
+import { freshBoard, selectKanbanCard, openFold, register, ensureProperties } from "./helpers";
 
 test("a tag and a safe external link survive a reload", async ({ page }) => {
   await freshBoard(page, "tags-links");
@@ -12,15 +12,20 @@ test("a tag and a safe external link survive a reload", async ({ page }) => {
   await tags.locator(".tag-add input").fill("Priority");
   await tags.locator(".tag-add button").click();
   await expect(tags.locator(".tag-assign .tag-chip")).toHaveText("Priority");
+  const rename = tags.locator(".tag-name-input input, input.tag-name-input").first();
+  await rename.fill("Cancelled");
+  await rename.press("Escape");
+  await expect(rename).toHaveValue("Priority");
+  await expect(tags.locator(".tag-assign .tag-chip")).toHaveText("Priority");
   await tags.locator(".tag-assign input[type=checkbox]").first().check();
   // The folded row says what it holds without opening it.
-  await expect(page.locator(".tags-fold .inspector-fold-value")).toHaveText("Priority");
+  await expect(page.locator(".card-tags > summary .tag-chip")).toHaveText("Priority");
 
   const link = page.locator(".link-panel");
   await link.locator('input[type="url"]').fill("https://example.com");
   await link.locator(".link-row button").first().click();
   await expect(link.locator(".link-current")).toContainText("example.com");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   await page.reload();
   await selectKanbanCard(page, cardId);
@@ -39,7 +44,7 @@ test("an internal link points to another object", async ({ page }) => {
   await link.locator("select").selectOption({ index: 1 });
   await link.locator(".link-row button").nth(1).click();
   await expect(link.locator(".link-current")).toContainText("Object in this room");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   await page.reload();
   await selectKanbanCard(page, cardId);
@@ -51,14 +56,14 @@ test("an internal link points to another object", async ({ page }) => {
 test("the tags block fits the panel in Russian, the longer labels", async ({ page }) => {
   const account = await register(page, "tags-ru");
   await page.goto(`/?room=${account.boardId}&lang=ru&template=kanban-framework`);
-  await expect(page.locator(".save-state")).toHaveText(/Сохранено/, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   // The helpers speak English; here the card is selected by the room's deep link.
   const cardId = await page.waitForFunction(() =>
     (window as unknown as { __remo?: { layouts: Array<{ placements: Array<{ cardId: string }> }> } }).__remo?.layouts
       ?.find((layout) => layout.placements.length > 0)?.placements[0]?.cardId,
   ).then((handle) => handle.jsonValue() as Promise<string>);
   await page.goto(`/?room=${account.boardId}&lang=ru&select=${cardId}`);
-  await page.getByRole("button", { name: "Свойства", exact: true }).click();
+  await ensureProperties(page);
   await openFold(page, "Теги");
   const tags = page.locator(".tags-panel");
   await tags.locator(".tag-add input").fill("Важно");

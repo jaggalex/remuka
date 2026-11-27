@@ -1,19 +1,29 @@
+import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import {
   addSticky,
   agentBoard,
+  createShape,
+  applyDefaultTableLayout,
+  ensureProperties,
   freshBoard,
+  goAllRooms,
   openAccount,
+  openAgentMenu,
   openBoard,
   openBoardMenu,
   openFacilitation,
   openFold,
-  openMore,
+  openPeople,
   register,
+  savedAfterEdit,
   seedConnector,
   seedNote,
   seedObject,
+  seedStableNote,
   selectKanbanCard,
+  setAccountTheme,
+  watchSave,
 } from "./helpers";
 
 /**
@@ -52,22 +62,42 @@ async function capture(
   // An overlay capture turns the mask into a pink rectangle showing through the scrim, so
   // it can opt out; its account has a fixed name and therefore a stable avatar.
   const avatar = page.locator(".account-button");
-  await expect(target).toHaveScreenshot(`${name}.png`, {
+  // The people group shows the same browser-local presence colour as the avatar, so it
+  // is masked with it: a fresh context picks a new colour every run (ADR-078).
+  const people = page.locator(".people-trigger");
+  const peopleFaces = page.locator(".people-list .rm-avatar");
+  // A pixel mismatch still fails the test. Continue to independent checks such as
+  // the exported PNG, dark theme, and editing gestures later in the same scenario.
+  await expect.soft(target).toHaveScreenshot(`${name}.png`, {
     maxDiffPixels: MAX_DIFF_PIXELS,
     threshold: PIXEL_THRESHOLD,
-    mask: [...(maskAvatar ? [avatar] : []), ...mask],
+    mask: [...(maskAvatar ? [avatar, people, peopleFaces] : []), ...mask],
   });
 }
 
 /** A region of the page rather than an element: a row of the canvas, the bottom edge. */
-async function captureClip(
-  page: Page,
+async function captureClip(page: Page,
   name: string,
   clip: { x: number; y: number; width: number; height: number },
   mask: ReturnType<Page["locator"]>[] = [],
 ) {
   if (!linuxBrowser) return;
-  await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixels: MAX_DIFF_PIXELS, threshold: PIXEL_THRESHOLD, clip, mask });
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, { maxDiffPixels: MAX_DIFF_PIXELS, threshold: PIXEL_THRESHOLD, clip, mask });
+}
+
+/** Calm animations: no cursor spring, no breathing over an agent plan (ADR-265 §4.2). */
+async function calmMotion(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.documentElement.dataset.motion = "calm";
+  });
+  // One more frame paints the still picture; until then the overlay holds the old alpha.
+  await page.waitForTimeout(350);
+}
+
+async function loudMotion(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    delete document.documentElement.dataset.motion;
+  });
 }
 
 /** A real PNG, drawn in the page: the upload checks signatures, not extensions. */
@@ -183,7 +213,20 @@ test("three connector routings paint differently", async ({ page }) => {
 
 test("a locked object carries the canvas lock badge", async ({ page }) => {
   await freshBoard(page, "lock-badge", { template: "empty" });
-  await addSticky(page);
+  // A fixed id: the note's tilt is a hash of its id (ADR-265 §3.2) and this picture is
+  // compared byte for byte; the lock badge sits on the note's corner.
+  const id = await seedStableNote(page, { id: "lock-badge-note", x: 0, y: 0, text: "Note" });
+  await zoomInToReadable(page);
+  const view = await canvasView(page);
+  const point = clientPoint(view, { x: 0, y: 0 });
+  await page.mouse.click(point.x, point.y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([id]);
   await page.keyboard.press("Meta+Shift+l");
   await expect(page.locator(".badge-lock")).toHaveCount(1);
   // The selection badge is a DOM plate over the note's corner; clear it so the
@@ -197,6 +240,9 @@ test("a locked object carries the canvas lock badge", async ({ page }) => {
     await page.getByRole("button", { name: "Zoom out" }).click();
   }
   await page.mouse.move(700, 500);
+  // The hand spring settles the note back to its own tilt; the capture must not catch it
+  // mid-settle (ADR-265 §4.2).
+  await page.waitForTimeout(400);
   await capture(page, page.locator("body"), "lock-badge");
 });
 
@@ -227,24 +273,29 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
   await capture(page, page.locator("body"), "board");
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await expect(page.locator(".export-dialog")).toBeVisible();
   expect(await page.locator(".export-dialog .export-choice").count()).toBeGreaterThanOrEqual(5);
   expect(await fits()).toBe(true);
-  const exportDialog = page.getByRole("dialog", { name: "Export" });
+  const exportDialog = page.getByRole("dialog", { name: "Take a copy" });
   await capture(page, exportDialog, "export");
   // The header close of Dialog comes first; the footer has its own "Close".
-  await exportDialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await exportDialog.getByRole("button", { name: "Cancel", exact: true }).first().click();
 
   await openFacilitation(page);
   await page.getByRole("menuitem", { name: /Timer/ }).click();
   await expect(page.locator(".timer-dialog")).toBeVisible();
+  // Capture the running timer at its full preset regardless of browser or CI speed.
+  await page.clock.setFixedTime(new Date());
   await page.getByRole("button", { name: "5 min", exact: true }).click();
+  // The running countdown is a chip beside Run; the menu row stays one word
+  // (ADR-266 amendment: states are not items).
+  await expect(page.locator(".topbar .session-chip").first()).toContainText(/^\d{2}:\d{2}$/);
   await openFacilitation(page);
-  await expect(page.getByRole("menuitem", { name: /Timer/ })).toContainText("05:00");
   await page.getByRole("menuitem", { name: /Timer/ }).click();
   await expect(page.locator(".timer-face")).toBeVisible();
   await capture(page, page.getByRole("dialog", { name: "Shared timer" }), "timer");
+  await page.clock.setSystemTime(new Date());
   await page.getByRole("dialog", { name: "Shared timer" }).getByRole("button", { name: "Close", exact: true }).click();
 
   const created = await page.request.post(`/api/boards/${account.boardId}/vote-sessions`, {
@@ -262,9 +313,15 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
 
 test("a card with fields is readable", async ({ page }) => {
   await freshBoard(page, "visual-card");
-  // ADR-197: the helper opens the inspector, then selects a placed card and waits
-  // for the selection to land, so a resize cannot leave the click on a stale point.
-  await selectKanbanCard(page);
+  // Fix the reader's date so the relative due-date sentence stays reproducible.
+  await page.clock.setFixedTime(new Date("2026-11-26T12:00:00Z"));
+  await ensureProperties(page);
+  await expect.poll(() => page.evaluate(() => (window as unknown as {
+    __remo: { selectedIds: string[] }
+  }).__remo.selectedIds)).toEqual([]);
+  // With nothing selected, the HUD fits both frames to the canvas beside the inspector.
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  const cardId = await selectKanbanCard(page);
 
   const fields = page.locator(".card-fields");
   await fields.locator("select").first().selectOption("in_progress");
@@ -276,7 +333,7 @@ test("a card with fields is readable", async ({ page }) => {
   await tags.locator(".tag-add input").fill("Priority");
   await tags.locator(".tag-add button").click();
   await tags.locator(".tag-assign input[type=checkbox]").first().check();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
   // The date fields fit the panel and show their whole date (E-16): a field neither
   // crosses the panel's content edge nor clips its own text under the calendar button.
@@ -306,6 +363,24 @@ test("a card with fields is readable", async ({ page }) => {
     expect(date.clipped, "a date field shows its whole date").toBeLessThanOrEqual(0);
   }
 
+  await expect(page.locator(".card-record")).toContainText("Define the scope");
+  await expect(page.locator(".card-record")).toContainText("The due date was 26 days ago.");
+  await expect.poll(() => page.evaluate(() => {
+    const { camera, selectedIds, layouts, widgets } = (window as unknown as { __remo: {
+      camera: { x: number; zoom: number }; selectedIds: string[];
+      layouts: { left: number; width: number; lanes: { title: string }[] }[];
+      widgets: { type: string; x: number; width: number }[];
+    } }).__remo;
+    const board = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+    const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+    const projectX = (x: number) => board.left + board.width / 2 + (x - camera.x) * camera.zoom;
+    const spans = [
+      ...layouts.map(layout => [layout.left, layout.left + layout.width]),
+      ...widgets.filter(widget => widget.type === "frame").map(frame => [frame.x - frame.width / 2, frame.x + frame.width / 2]),
+    ];
+    return { selectedIds, lanes: layouts.flatMap(layout => layout.lanes.map(lane => lane.title)),
+      clear: spans.every(([left, right]) => projectX(left) > rail.right && projectX(right) < board.right) };
+  })).toEqual({ selectedIds: [cardId], lanes: ["Product", "Platform"], clear: true });
   await capture(page, page.locator(".layer.board"), "card-fields");
   await fields.locator('input[type="date"]').nth(1).blur();
   await capture(page, fields, "card-fields-panel");
@@ -313,7 +388,7 @@ test("a card with fields is readable", async ({ page }) => {
 
 test("the properties panel describes one subject (ADR-236)", async ({ page }) => {
   await freshBoard(page, "visual-panel");
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
   const panel = page.locator("aside.inspector");
 
   // Nothing selected: the room, its counts and the card filter, and nothing else.
@@ -333,8 +408,9 @@ test("the properties panel describes one subject (ADR-236)", async ({ page }) =>
   );
   url.searchParams.set("select", kanbanId);
   await page.goto(url.toString());
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
-  if (!(await panel.isVisible())) await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
+  if (!(await panel.isVisible())) await ensureProperties(page);
+  await openFold(page, "More settings");
   await expect(panel.locator(".kanban-state")).toBeVisible();
   await expect(panel.locator(".counts, .card-filter")).toHaveCount(0);
   await capture(page, panel, "panel-kanban");
@@ -349,11 +425,22 @@ test("the properties panel describes one subject (ADR-236)", async ({ page }) =>
  */
 test("the rail is one panel and the bottom edge stays clear", async ({ page }) => {
   const account = await freshBoard(page, "visual-rail");
-  const stickyId = await addSticky(page);
-  // The hint is a first-use plate: show it for this frame, whatever ran before.
-  await page.evaluate(() => window.localStorage.removeItem("remo.canvas.hint"));
+  // A fixed id: the note's tilt is a hash of its id (ADR-265 §3.2), and this picture is
+  // compared byte for byte. The note is a subject of the vote counters below; creation
+  // itself has its own scenarios.
+  const origin = await page.evaluate(
+    () => (window as unknown as { __remo: { camera: { x: number; y: number } } }).__remo.camera,
+  );
+  const stickyId = await seedStableNote(page, {
+    id: "visual-rail-note",
+    x: origin.x - 200,
+    y: origin.y - 150,
+    text: "Note",
+  });
+  // ADR-268 rotates this copy by visit. The baseline depicts the first-visit action.
+  await page.evaluate(() => localStorage.setItem("remuka.hints.canvas.doubleClickEdit", JSON.stringify({ done: 0, visits: 0 })));
   await page.reload();
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".canvas-hint")).toContainText("Double-click to edit");
 
   const frame = () =>
     page.evaluate(() => {
@@ -381,6 +468,7 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
         // The resting selection tool is the one pressed control on the rail.
         selected: icon.getAttribute("aria-pressed") === "true",
         colour: getComputedStyle(icon).color,
+        background: getComputedStyle(icon).backgroundColor,
       }));
       const hintElement = document.querySelector<HTMLElement>(".canvas-hint");
       return {
@@ -397,6 +485,12 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
           .filter((entry) => !entry.disabled && !entry.selected)
           .map((entry) => entry.colour),
         selected: colours.filter((entry) => entry.selected).map((entry) => entry.colour),
+        selectedBackground: colours
+          .filter((entry) => entry.selected)
+          .map((entry) => entry.background),
+        toolBackground: colours
+          .filter((entry) => !entry.disabled && !entry.selected)
+          .map((entry) => entry.background),
         stops: colours.filter((entry) => entry.disabled).map((entry) => entry.colour),
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
@@ -418,19 +512,22 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
 
   await page.setViewportSize({ width: 1440, height: 900 });
   const state = await frame();
-  // One panel of tools, one of history; a hairline is not a panel.
-  expect(state.panels).toBe(2);
-  // ADR-181: chrome is outlined, not lifted — the rail carries a hairline instead of a shadow.
+  // One rail panel: history sits under a hairline inside it (T8, ADR-286).
+  expect(state.panels).toBe(1);
+  // The mockup's ink border and 16 px radius, not the old hairline pill. Chromium
+  // reports the snapped used width of the 1.5 px token as 1 px.
   expect(state.railBorder).toBe("1px");
-  expect(state.railRadius).not.toBe("0px");
+  expect(state.railRadius).toBe("16px");
   // Р1: one colour for every tool that works; the muted token only for real stops.
   // Access arrives after the first paint, so a tool can be dimmed for a frame and
   // transition into its colour; the rail settles on one colour for all of them.
   await expect
     .poll(async () => new Set((await frame()).tools).size, { timeout: 10_000 })
     .toBe(1);
-  expect(new Set(state.selected).size, "the pressed tool paints the accent").toBe(1);
-  expect(state.selected[0]).not.toBe(state.tools[0]);
+  expect(new Set(state.selected).size, "one pressed tool").toBe(1);
+  // The marker chip is the accent chosen; the glyph stays ink, so the background is
+  // what tells the pressed tool apart (ADR-265 §3.7, ADR-286).
+  expect(state.selectedBackground[0]).not.toBe(state.toolBackground[0]);
   expect(state.stops.length, "history is the only stop on a fresh board").toBeGreaterThan(0);
   const muted = await page.evaluate(
     () => getComputedStyle(document.querySelector(".tool-rail .rm-btn:disabled")!).color,
@@ -438,7 +535,7 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
   expect(state.stops.every((colour) => colour === muted)).toBe(true);
   // A tool that can explain itself is not dimmed: the connector has no selection here.
   await expect(
-    page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector" }),
+    page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Connector", exact: true }),
   ).toBeEnabled();
 
   await capture(page, page.locator(".tool-rail"), "rail");
@@ -507,6 +604,11 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
   await expect(chips.first()).toHaveClass(/compact/);
   await expect(chips.first().getByRole("button")).toHaveCount(1);
   await expect(chips.first().getByRole("button", { name: /Vote for/ })).toBeVisible();
+  // A resize may refit once more or not, depending on timing; one explicit fit makes the
+  // overview frame the room at this width on every run.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await page.waitForTimeout(250);
   await capture(page, page.locator(".canvas-wrap"), "vote-chips-overview", [voteClock]);
 
   // The counter on the object (§10.3): the same corner on every object, and two of the
@@ -521,7 +623,8 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
 
   // Both themes: the rail is a panel, not a strip of icons on the canvas edge.
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("button", { name: /Theme: light/ }).click();
+  await openAccount(page);
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.keyboard.press("Escape");
   // The same counters in the dark theme: the plate, the accent of my vote and the
@@ -538,11 +641,30 @@ test("the rail is one panel and the bottom edge stays clear", async ({ page }) =
  * the viewport rather than clipped by its right edge.
  */
 test("the header stays on one row and its menus fit the viewport", async ({ page }) => {
-  await freshBoard(page, "visual-header");
+  await freshBoard(page, "visual-header", { user: "Alex Bone" });
+  // The account card prints the real handle. Registration normally derives it from a
+  // unique test email, so set the mockup's handle through the profile API for capture.
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const headers = { "X-CSRF-Token": me.csrfToken };
+  const saved = await page.request.patch("/api/auth/me", { headers, data: { handle: "aka-jag" } });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  try {
+    await captureHeaderMenus(page);
+  } finally {
+    const restored = await page.request.patch("/api/auth/me", { headers, data: { handle: me.user.handle } });
+    expect(restored.ok(), await restored.text()).toBeTruthy();
+  }
+});
+
+async function captureHeaderMenus(page: Page) {
   // The first-use hint hides itself after six seconds, so whether it is in a capture
   // depended on how fast the run got there. This test is about the header: open the
   // room as a returning visitor, who has already seen the hint.
-  await page.evaluate(() => window.localStorage.setItem("remo.canvas.hint", "seen"));
+  await page.evaluate(() => {
+    window.localStorage.setItem("remo.canvas.hint", "seen");
+    const identity = JSON.parse(window.localStorage.getItem("remo.identity")!);
+    window.localStorage.setItem("remo.identity", JSON.stringify({ ...identity, color: "#1a6ad8" }));
+  });
   await page.reload();
   await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.locator(".canvas-hint")).toHaveCount(0);
@@ -573,8 +695,8 @@ test("the header stays on one row and its menus fit the viewport", async ({ page
 
   const menus: [string, () => Promise<void>, string][] = [
     ["board menu", () => openBoardMenu(page), "topbar-board-menu"],
-    ["facilitation", () => openFacilitation(page), "topbar-facilitation"],
-    ["more", () => openMore(page), "topbar-more"],
+    ["run", () => openFacilitation(page), "topbar-facilitation"],
+    ["people", () => openPeople(page), "topbar-people"],
     ["account", () => openAccount(page), "topbar-account"],
   ];
   for (const [name, open, file] of menus) {
@@ -591,10 +713,51 @@ test("the header stays on one row and its menus fit the viewport", async ({ page
   }
 
   // Both themes, with a menu open: the header is one surface, the menu another.
-  await page.getByRole("button", { name: /Theme: light/ }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await openAccount(page);
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await capture(page, page.locator(".app"), "topbar-dark");
+}
+
+/**
+ * The brand sign on every surface a new person meets (ADR-272, spec §3.8).
+ *
+ * The landing's coral circle and blue square are the product's; the smile is graphite on
+ * paper and paper in the dark theme. The captures are the artefact: a second picture or
+ * an inverted one shows here.
+ */
+test("the room header, home, help and sign-in carry the same mark in both themes", async ({
+  page,
+}) => {
+  await page.goto("/?lang=en");
+  await page.locator(".home-empty").getByRole("button", { name: "Sign in", exact: true }).click();
+  await capture(page, page.locator(".auth-page"), "brand-sign-in");
+  await page.keyboard.press("Escape");
+
+  const account = await freshBoard(page, "visual-brand");
+  await goAllRooms(page);
+  await capture(page, page.locator(".home-topbar"), "brand-home");
+
+  await page.goto("/help/en");
+  await capture(page, page.locator(".help-topbar"), "brand-help");
+
+  await openBoard(page, account.boardId, { lang: "en" });
+  await setAccountTheme(page, "dark");
+  await page.goto("/help/en");
+  await capture(page, page.locator(".help-topbar"), "brand-help-dark");
+});
+
+/**
+ * A kanban room and the file its export makes (ADR-267 §2.1).
+ *
+ * The screen and the picture share one painter, so the two baselines are a pair: column
+ * headers with counts, cards in their column's colour, the green ground and the title
+ * plate. The export is shown at a fitted width; the file itself is 2× the board box.
+ */
+test("a kanban room and its export show the same picture", async ({ page }, testInfo) => {
+  await freshBoard(page, "visual-kanban");
+  await capture(page, page.locator(".app"), "board-kanban");
+  await exportRoom(page, testInfo, "board-kanban-export", [5316, 1496], "kanban-export.png");
 });
 
 /**
@@ -605,19 +768,21 @@ test("the header stays on one row and its menus fit the viewport", async ({ page
  */
 test("the agent plan preview is readable and fits the viewport", async ({ page }) => {
   await agentBoard(page, "visual-plan");
-  await openMore(page);
-  await page.getByRole("menuitem", { name: "Ask AI…" }).click();
-  const agents = page.getByRole("dialog", { name: "AI agents in this room" });
+  await openAgentMenu(page);
+  await page.getByRole("menuitem", { name: /Ask the agent/ }).click();
+  const agents = page.getByRole("dialog", { name: "New task" });
   await expect(agents).toBeVisible();
+  await agents.getByRole("button", {name: "Agent settings"}).click();
   await agents.getByRole("combobox", { name: "Agent", exact: true }).selectOption({
     label: "Planner",
   });
-  await agents.getByRole("combobox", { name: "Skill", exact: true }).selectOption("brief-to-board");
+  await agents.getByRole("button", {name: "Agent settings"}).click();
+  await agents.locator('.agent-skill-picker label:has(input[value="brief-to-board"])').click();
 
   await page
-    .getByLabel("What should it draw?")
+    .getByLabel("What should it create?")
     .fill("Соедини две заметки FAKE_PLAN_CONNECTED");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.getByRole("button", { name: "Create draft", exact: true }).click();
 
   const plan = page.getByRole("dialog", { name: "Agent plan" });
   await expect(plan).toBeVisible({ timeout: 20_000 });
@@ -635,8 +800,14 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
 
-  await page.waitForTimeout(300);
+  // The plan's hull breathes in canvas time, which a screenshot cannot freeze; calm
+  // animations hold it at full opacity, so the frame is deterministic.
+  await calmMotion(page);
+  // The mouse still sits where the submit button was; it may hover "Reject" and paint a
+  // hover plate into a picture that is about the plan, not the pointer.
+  await page.mouse.move(4, 400);
   await capture(page, page.locator(".app"), "agent-plan");
+  await loudMotion(page);
 });
 
 /**
@@ -645,7 +816,7 @@ test("the agent plan preview is readable and fits the viewport", async ({ page }
  * note text and the block title are identical on every run.
  */
 test("the tidy preview shows before and after and fits the viewport", async ({ page }) => {
-  const board = await agentBoard(page, "visual-tidy");
+  await agentBoard(page, "visual-tidy");
   const rows = [
     { x: -520, y: 260, text: "US-3: pay" },
     { x: 80, y: -180, text: "US-1: browse" },
@@ -653,15 +824,9 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     { x: 260, y: 60, text: "US-2: cart" },
     { x: -320, y: -420, text: "US-5: ship" },
   ];
-  for (const row of rows) {
-    const response = await page.request.post(`/api/boards/${board.boardId}/commands`, {
-      headers: { "Idempotency-Key": `visual-tidy-${row.text}-${Date.now()}` },
-      data: {
-        command: "board.item.create",
-        input: { type: "sticky_note", x: row.x, y: row.y, width: 160, height: 180, content: row.text },
-      },
-    });
-    expect(response.ok(), await response.text()).toBeTruthy();
+  // The visible paper tilt is keyed by ID, so these five notes need repeatable identities.
+  for (const [index, row] of rows.entries()) {
+    await seedStableNote(page, { id: `visual-tidy-note-${index}`, ...row, width: 160, height: 180 });
   }
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(5);
   // The board fits itself to the seeded content after the sync lands; ask for the whole
@@ -679,18 +844,17 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     x: geometry.rect.left + geometry.rect.width / 2 + (world.x - geometry.camera.x) * geometry.camera.zoom,
     y: geometry.rect.top + geometry.rect.height / 2 + (world.y - geometry.camera.y) * geometry.camera.zoom,
   });
-  const widgets = await page.evaluate(() => window.__remo.widgets);
-  // Bottom-up: the arrange bar opens above the selection, so clicking downwards would
-  // let the bar cover the next note.
-  const ordered = [...widgets].sort((a, b) => b.y - a.y);
-  const first = toClient({ x: ordered[0].x, y: ordered[0].y });
-  await page.mouse.click(first.x, first.y);
-  await page.keyboard.down("Shift");
-  for (const widget of ordered.slice(1)) {
-    const point = toClient({ x: widget.x, y: widget.y });
-    await page.mouse.click(point.x, point.y);
-  }
-  await page.keyboard.up("Shift");
+  // One marquee from the empty margin around the fitted content: no bar exists before
+  // the selection, so nothing can cover the press, and the notes are all inside.
+  const start = { x: geometry.rect.left + 6, y: geometry.rect.top + 6 };
+  const end = {
+    x: geometry.rect.left + geometry.rect.width - 6,
+    y: geometry.rect.top + geometry.rect.height - 6,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.up();
   await expect
     .poll(() => page.evaluate(() => window.__remo.selectedIds.length))
     .toBe(5);
@@ -699,7 +863,7 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
   const tidy = page.getByRole("dialog", { name: "Tidy up selection" });
   await expect(tidy).toBeVisible();
   await tidy.getByRole("button", { name: "Tidy up", exact: true }).click();
-  const plan = page.getByRole("dialog", { name: "Agent plan" });
+  const plan = page.locator(".agent-task-panel[data-tidy]");
   await expect(plan).toBeVisible({ timeout: 20_000 });
   await expect(plan).toContainText("Moves: 5");
   await expect(plan).toContainText("Blocks: US");
@@ -715,8 +879,34 @@ test("the tidy preview shows before and after and fits the viewport", async ({ p
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
 
-  await page.waitForTimeout(300);
+  const clearance = () => page.evaluate(() => {
+    const surface = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+    const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+    const panel = document.querySelector(".agent-task-panel[data-tidy]")!.getBoundingClientRect();
+    const hud = document.querySelector(".canvas-hud")!.getBoundingClientRect();
+    const { camera, proposal } = window.__remo;
+    const bounds = proposal!.bounds!;
+    const x = surface.left + surface.width / 2 + (bounds.x - camera.x) * camera.zoom;
+    const y = surface.top + surface.height / 2 + (bounds.y - camera.y) * camera.zoom;
+    return Math.min(x - rail.right, panel.left - x - bounds.width * camera.zoom,
+      y - surface.top, hud.top - y - bounds.height * camera.zoom);
+  });
+  // The automatic fit and the explicit Fit action keep both the original notes and
+  // the preview clear of the rail, the HUD and the task panel.
+  await expect.poll(clearance).toBeGreaterThan(4);
+  const fitted = await page.evaluate(() => window.__remo.camera);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__remo.camera.zoom)).toBeGreaterThan(fitted.zoom);
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__remo.camera)).toEqual(fitted);
+  await expect.poll(clearance).toBeGreaterThan(4);
+
+  // The pointer last clicked a dialog button where the bar now stands; park it so a
+  // hover state cannot become part of the picture.
+  await page.mouse.move(0, 0);
+  await calmMotion(page);
   await capture(page, page.locator(".app"), "agent-plan-tidy");
+  await loudMotion(page);
 });
 
 test("the section panel shows the table and its axes", async ({ page }) => {
@@ -729,10 +919,20 @@ test("the section panel shows the table and its axes", async ({ page }) => {
     height: 400,
     title: "Section",
   });
-  await seedNote(page, account.boardId, { x: 0, y: 0 }, undefined, "Inside", frameId);
 
   await openBoard(page, account.boardId);
   await page.waitForFunction(() => Boolean((window as unknown as { __remo?: unknown }).__remo));
+  // The note is the table's content, and its tilt is a hash of its id: a fixed id keeps
+  // this picture the same on every run (ADR-265 §3.2).
+  await seedStableNote(page, {
+    id: "visual-section-note",
+    x: 0,
+    y: 0,
+    width: 160,
+    height: 180,
+    text: "Inside",
+    parentId: frameId,
+  });
   await expect
     .poll(() =>
       page.evaluate(
@@ -770,7 +970,8 @@ test("the section panel shows the table and its axes", async ({ page }) => {
     )
     .toEqual([frameId]);
 
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
+  await openFold(page, "More settings");
   const panel = page.locator(".section-panel");
   await expect(panel).toBeVisible();
   await panel.getByRole("radio", { name: "Table", exact: true }).click();
@@ -778,17 +979,40 @@ test("the section panel shows the table and its axes", async ({ page }) => {
   await expect(layoutDialog).toBeVisible();
   await layoutDialog.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(panel.locator(".section-axis-row")).toHaveCount(3);
-  // A selected section fits one screen at 900 px, without scrolling (ADR-236, sketch D4).
-  const inspectorBox = page.locator("aside.inspector");
-  const overflow = await inspectorBox.evaluate((el) => el.scrollHeight - el.clientHeight);
-  expect(overflow, "the section panel needs no scrolling").toBeLessThanOrEqual(0);
   await page.getByRole("button", { name: "Columns: Column 1" }).click();
   await expect(panel.getByLabel("Axis name")).toHaveValue("Column 1");
+  // Under D4 (ADR-237) the selected section, including the open axis editor, fits at 900px.
+  const body = page.locator("aside.inspector .inspector-body");
+  expect(await body.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  const moveRight = panel.getByRole("button", {name: "Move right"});
+  const deleteSection = panel.getByRole("button", {name: "Delete section", exact: true});
+  const tags = body.locator(".tags-fold > summary");
+  for (const control of [moveRight, deleteSection, tags]) {
+    await expect(control).toBeInViewport({ratio: 1});
+    expect(await control.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+  }
   // An empty header size is Auto, named by the field itself rather than a bare unit.
   const headerHeight = panel.getByRole("spinbutton", { name: "Header height" });
   await expect(headerHeight).toHaveAttribute("placeholder", "Auto");
   await expect(panel.locator(".table-header-size .rm-input-affix")).toHaveCount(0);
-  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  const fitSectionClearOfRail = async () => {
+    await page.getByRole("button", { name: "Fit", exact: true }).click();
+    await expect.poll(() => page.evaluate(id => {
+      const { camera, widgets } = (window as unknown as { __remo: {
+        camera: { x: number; zoom: number }; widgets: { id: string; x: number; width: number }[];
+      }}).__remo;
+      const section = widgets.find(widget => widget.id === id)!;
+      const canvas = document.querySelector(".layer.overlay")!.getBoundingClientRect();
+      const rail = document.querySelector(".tool-rail-panel")!.getBoundingClientRect();
+      const left = canvas.left + canvas.width / 2 + (section.x - section.width / 2 - camera.x) * camera.zoom;
+      // The left header holds Row 1. The entire section must clear the rail and the inspector.
+      return left > rail.right && left + section.width * camera.zoom < canvas.right;
+    }, frameId)).toBe(true);
+  };
+  await fitSectionClearOfRail();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
@@ -796,10 +1020,30 @@ test("the section panel shows the table and its axes", async ({ page }) => {
   await page.waitForTimeout(300);
   await capture(page, page.locator(".app"), "section-panel");
 
-  // The header group sits below the fold of the panel: its spacing and Auto need their own picture.
+  // The header fields and Auto labels also have their own picture.
   const headerGroup = panel.locator(".table-header-group");
   await headerGroup.scrollIntoViewIfNeeded();
   await capture(page, headerGroup, "section-panel-header");
+  // A deliberate zoom survives closing and reopening the inspector.
+  await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+  const currentCamera = () => page.evaluate(() => (window as unknown as {
+    __remo: { camera: { x: number; y: number; zoom: number } };
+  }).__remo.camera);
+  const chosenCamera = await currentCamera();
+  await page.getByRole("button", { name: "Hide the panel" }).click();
+  await expect(panel).toBeHidden();
+  await ensureProperties(page);
+  await expect(panel).toBeVisible();
+  expect(await currentCamera()).toEqual(chosenCamera);
+  await page.setViewportSize({width: 1440, height: 600});
+  expect(await body.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
+  await tags.focus();
+  await expect(tags).toBeFocused();
+  await expect(tags).toBeInViewport({ratio: 1});
+  expect(await body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Hide the panel" }).click();
+  await fitSectionClearOfRail();
 });
 
 /** World point → client point for the canvas, the same inverse the handlers use. */
@@ -870,7 +1114,7 @@ test("a block selection shows one box and its composition", async ({ page }) => 
   );
   expect(selected).toBe(3);
   await expect(page.locator(".selection-badge")).toContainText("3 objects");
-  await expect(page.locator(".selection-badge")).toContainText("3 change size");
+  await expect(page.locator(".selection-badge")).toContainText("3 can be resized");
   await capture(page, page.locator(".canvas-wrap"), "selection-block");
 
   const notes = await page.evaluate(() => {
@@ -900,14 +1144,29 @@ test("a block selection shows one box and its composition", async ({ page }) => 
  */
 test("a connector label keeps its lines", async ({ page }) => {
   const account = await register(page, "visual-label");
-  const from = await seedNote(page, account.boardId, { x: -260, y: 0 });
-  const to = await seedNote(page, account.boardId, { x: 260, y: 0 });
-  await seedConnector(page, account.boardId, from, to);
   await openBoard(page, account.boardId);
   await page.waitForFunction(() => {
     const probe = (window as unknown as { __remo?: { camera?: unknown } }).__remo;
     return !!probe?.camera;
   });
+  // Fixed ids: the notes' tilt is a hash of their id (ADR-265 §3.2), and this picture is
+  // compared byte for byte. The save state proves the server has them before the
+  // connector command reads the document.
+  await watchSave(page);
+  const from = await seedStableNote(page, { id: "visual-label-from", x: -260, y: 0, width: 160, height: 180 });
+  const to = await seedStableNote(page, { id: "visual-label-to", x: 260, y: 0, width: 160, height: 180 });
+  await savedAfterEdit(page);
+  await seedConnector(page, account.boardId, from, to);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __remo?: { widgets?: Array<{ type: string }> } }).__remo?.widgets?.filter(
+            (widget) => widget.type === "connector",
+          ).length ?? 0,
+      ),
+    )
+    .toBe(1);
   await page.waitForTimeout(400);
   await zoomInToReadable(page);
 
@@ -922,6 +1181,140 @@ test("a connector label keeps its lines", async ({ page }) => {
   await capture(page, page.locator(".canvas-wrap"), "label-wrap");
 });
 
+/**
+ * The five shape kinds, the kind switch and connectors on the new outlines (ADR-271).
+ *
+ * Drawn through the same pointer path a person uses, so the baseline covers the rounded
+ * rectangle and the triangle as painted objects, and the two connectors show that a line
+ * meets a triangle's slanted edge and a diamond's vertex instead of the box corner.
+ */
+test("shapes: five kinds, the kind switch and connectors on the outline", async ({ page }) => {
+  const account = await freshBoard(page, "visual-shapes", { template: "empty" });
+  await page.waitForFunction(() => {
+    const probe = (window as unknown as { __remo?: { camera?: unknown } }).__remo;
+    return !!probe?.camera;
+  });
+  await page.waitForTimeout(400);
+
+  const draw = async (
+    kind: "rectangle" | "round_rectangle" | "ellipse" | "diamond" | "triangle",
+    at: { x: number; y: number },
+    size: { width: number; height: number },
+  ): Promise<string> => {
+    const view = await canvasView(page);
+    if (kind === "rectangle") await page.keyboard.press("r");
+    else if (kind === "ellipse") await page.keyboard.press("o");
+    else {
+      await page.getByRole("toolbar", { name: "Tools" })
+        .getByRole("button", { name: "Shape variants" })
+        .click();
+      const names = {
+        round_rectangle: "Rounded rectangle",
+        diamond: "Diamond",
+        triangle: "Triangle",
+      } as const;
+      await page.getByRole("button", { name: names[kind], exact: true }).click();
+    }
+    const start = clientPoint(view, at);
+    const end = {
+      x: start.x + size.width * view.camera.zoom,
+      y: start.y + size.height * view.camera.zoom,
+    };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 6 });
+    await page.mouse.up();
+    return page.evaluate(
+      () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds[0]!,
+    );
+  };
+
+  const rounded = await draw("round_rectangle", { x: -620, y: -240 }, { width: 260, height: 140 });
+  const rectangle = await draw("rectangle", { x: -280, y: -240 }, { width: 200, height: 120 });
+  const ellipse = await draw("ellipse", { x: 20, y: -240 }, { width: 200, height: 140 });
+  const diamond = await draw("diamond", { x: 320, y: -240 }, { width: 200, height: 140 });
+  const triangle = await draw("triangle", { x: -620, y: 40 }, { width: 220, height: 160 });
+
+  const labels: Array<[string, string, { x: number; y: number }]> = [
+    [rounded, "Заявка", { x: -620, y: -240 }],
+    [rectangle, "Правило", { x: -280, y: -240 }],
+    [ellipse, "Проверка", { x: 20, y: -240 }],
+    [diamond, "Вопрос", { x: 320, y: -240 }],
+    [triangle, "Риск", { x: -620, y: 40 }],
+  ];
+  for (const [, text, at] of labels) {
+    const point = clientPoint(await canvasView(page), at);
+    await page.mouse.dblclick(point.x, point.y);
+    const editor = page.locator(".inline-editor");
+    await expect(editor).toBeVisible();
+    await editor.fill(text);
+    await page.keyboard.press("Escape");
+  }
+  await seedConnector(page, account.boardId, rounded, triangle);
+  await seedConnector(page, account.boardId, rectangle, ellipse);
+  await seedConnector(page, account.boardId, ellipse, diamond);
+  await expect(page.locator(".inline-editor")).toHaveCount(0);
+
+  // Fit frames the whole board, not the last shape: selection would narrow the frame.
+  await page.keyboard.press("Escape");
+  await zoomInToReadable(page);
+  // The middle rectangle keeps the bar inside the viewport; the five shapes stay visible.
+  const point = clientPoint(await canvasView(page), { x: -180, y: -180 });
+  await page.mouse.click(point.x, point.y);
+  const bar = page.getByRole("toolbar", { name: "Object properties" });
+  await expect(bar.getByRole("button", { name: /Kind: Rectangle/ })).toBeVisible();
+  await calmMotion(page);
+  await capture(page, page.locator(".canvas-wrap"), "shapes");
+});
+
+/** The hard ink shadow of the third level (ADR-267, T4).
+ *
+ * One shape carries "Cardboard": the photo shows the offset silhouette with no blur in
+ * the light theme, and the same object in the dark theme, where the level is painted as
+ * "Floating" until the dark cardboard arrives (ADR-265, stage 6).
+ */
+test("cardboard casts a hard shadow in light and falls back to floating in dark", async ({
+  page,
+}) => {
+  await freshBoard(page, "visual-cardboard", { template: "empty" });
+  await createShape(page, "Ellipse");
+
+  const at = await page.evaluate(() => {
+    const probe = (window as unknown as {
+      __remo?: { widgets: Array<{ type: string; x: number; y: number }> };
+    }).__remo;
+    const one = probe?.widgets.find((widget) => widget.type === "shape");
+    return one ? { x: one.x, y: one.y } : null;
+  });
+  if (!at) throw new Error("the shape was not created");
+  const view = await canvasView(page);
+  const point = clientPoint(view, at);
+  await page.mouse.dblclick(point.x, point.y);
+  const editor = page.locator(".inline-editor");
+  await expect(editor).toBeVisible();
+  await editor.fill("Проверка");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".inline-editor")).toHaveCount(0);
+
+  await ensureProperties(page);
+  await page.getByRole("combobox", { name: "Lift", exact: true }).selectOption("cardboard");
+  await page.keyboard.press("Escape");
+  await zoomInToReadable(page);
+  await page.keyboard.press("Escape");
+  await calmMotion(page);
+  await capture(page, page.locator(".canvas-wrap"), "elevation");
+
+  await openAccount(page);
+  await page.getByRole("radio", { name: "Dark", exact: true }).press("Space");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  // Close the account menu: its handle carries a per-run account suffix, and the
+  // screenshot is about the canvas, not about that random string.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".rm-popover")).toHaveCount(0);
+  await calmMotion(page);
+  await capture(page, page.locator(".canvas-wrap"), "elevation-dark");
+});
+
 /** A shape that grew for its text (ADR-214): width unchanged, height down. */
 test("a shape grows for its text", async ({ page }) => {
   const account = await register(page, "visual-shape-grow");
@@ -933,9 +1326,7 @@ test("a shape grows for its text", async ({ page }) => {
   await page.waitForTimeout(400);
   await zoomInToReadable(page);
 
-  const rail = page.getByRole("toolbar", { name: "Tools" });
-  await rail.getByRole("button", { name: "Shape variants" }).click();
-  await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+  await createShape(page, "Rectangle");
 
   const at = await page.evaluate(() => {
     const probe = (window as unknown as {
@@ -1036,19 +1427,21 @@ test("headings, lists and a checklist read on the canvas in both themes", async 
     content: "",
     style: { fontSize: 16 },
   });
-  const note = await seedObject(page, account.boardId, {
-    type: "sticky_note",
-    x: 320,
-    y: 0,
-    width: 220,
-    height: 200,
-    content: "",
-    style: { fontSize: 16 },
-  });
+  const noteId = "visual-rich-note";
   await openBoard(page, account.boardId);
   await page.waitForFunction(() => {
     const probe = (window as unknown as { __remo?: { camera?: unknown } }).__remo;
     return !!probe?.camera;
+  });
+  // The note's tilt is a hash of its id (ADR-265 §3.2); a fixed id keeps this picture the
+  // same on every run, while the blocks below still come through the editor's delta.
+  await seedStableNote(page, {
+    id: noteId,
+    x: 320,
+    y: 0,
+    width: 220,
+    height: 200,
+    style: { fontSize: 16 },
   });
   await page.waitForTimeout(400);
 
@@ -1092,10 +1485,10 @@ test("headings, lists and a checklist read on the canvas in both themes", async 
         { insert: "\n", attributes: { block: "check" } },
       ]);
     },
-    { body, note },
+    { body, note: noteId },
   );
 
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await zoomInToReadable(page);
   // The document materialized the block lines: the painter is not looking at guesses.
@@ -1127,7 +1520,7 @@ test("headings, lists and a checklist read on the canvas in both themes", async 
     }).__remo;
     const one = probe.widgets.find((widget) => widget.id === id);
     return one ? { x: one.x, y: one.y, width: one.width, height: one.height } : null;
-  }, note);
+  }, noteId);
   if (!box) throw new Error("the note disappeared");
   let target: { x: number; y: number; line: number } | null = null;
   for (let y = box.y - box.height / 2 + 4; y < box.y + box.height / 2 && !target; y += 6) {
@@ -1152,7 +1545,7 @@ test("headings, lists and a checklist read on the canvas in both themes", async 
         (window as unknown as { __remo: { widgets: Array<{ id: string; lines: Array<{ checked: boolean }> | null }> } })
           .__remo.widgets.find((widget) => widget.id === id)?.lines?.[line]?.checked,
       ),
-    { id: note, line: target.line },
+    { id: noteId, line: target.line },
   );
   await page.mouse.click(target.x, target.y);
   await expect(page.locator(".inline-editor")).toHaveCount(0);
@@ -1164,7 +1557,7 @@ test("headings, lists and a checklist read on the canvas in both themes", async 
             (window as unknown as { __remo: { widgets: Array<{ id: string; lines: Array<{ checked: boolean }> | null }> } })
               .__remo.widgets.find((widget) => widget.id === id)?.lines?.[line]?.checked,
           ),
-        { id: note, line: target!.line },
+        { id: noteId, line: target!.line },
       ),
     )
     .toBe(!before);
@@ -1242,11 +1635,11 @@ test("a clipped label is marked and named", async ({ page }) => {
  */
 test("room access reads as one form", async ({ page }) => {
   await freshBoard(page, "visual-share");
-  await page.getByRole("button", { name: "Share", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Room access" });
-  await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
-  await capture(page, dialog, "share", [dialog.getByRole("textbox", { name: "Public link" })]);
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Invite to the room" });
+  await dialog.locator(".share-guest-head .rm-switch").click();
+  await expect(dialog.getByRole("switch", { name: "Guest link" })).toBeChecked();
+  await capture(page, dialog, "share", [dialog.getByRole("textbox", { name: "Guest link" })]);
 });
 
 /**
@@ -1258,11 +1651,14 @@ test("the image states are readable in both themes", async ({ page }) => {
   // Ten captures, two of them with a held upload: the default budget is for one screen.
   test.setTimeout(180_000);
   const account = await register(page, "visual-images");
-  // Two notes at the edges keep the first-use card out of the captures and leave the
-  // centre free for the drop frame and the upload placeholder.
-  await seedNote(page, account.boardId, { x: -700, y: 0 });
-  await seedNote(page, account.boardId, { x: 700, y: 0 });
   await openBoard(page, account.boardId, { template: "empty" });
+  // Two notes at the edges keep the first-use card out of the captures and leave the
+  // centre free for the drop frame and the upload placeholder. Fixed ids: a note's tilt
+  // is a hash of its id (ADR-265 §3.2), so a random one would change every run's picture.
+  await watchSave(page);
+  await seedStableNote(page, { id: "visual-images-left", x: -700, y: 0, width: 160, height: 180 });
+  await seedStableNote(page, { id: "visual-images-right", x: 700, y: 0, width: 160, height: 180 });
+  await savedAfterEdit(page);
   // The first-use hint hides itself after six seconds: whether a capture caught it would
   // depend on how fast the run got there, not on the state being reviewed.
   await page.evaluate(() => window.localStorage.setItem("remo.canvas.hint", "seen"));
@@ -1362,6 +1758,8 @@ test("the image states are readable in both themes", async ({ page }) => {
   await bar.getByRole("button", { name: "Open" }).click();
   const lightbox = page.locator(".rm-lightbox");
   await expect(lightbox).toBeVisible();
+  await expect(lightbox.getByRole("heading", { name: "upload.png", exact: true })).toBeVisible();
+  await expect(lightbox.getByRole("button", { name: "Download", exact: true })).toHaveText("Download");
   const picture = lightbox.locator(".image-lightbox-picture");
   await expect(picture).toBeVisible();
   // A visible `<img>` can still be empty: wait for the decoded w2048 bitmap.
@@ -1370,10 +1768,18 @@ test("the image states are readable in both themes", async ({ page }) => {
     .toBeGreaterThan(0);
   // `onLoad` fits the picture in a second render; a capture between the two is at 100 %.
   await page.waitForTimeout(300);
+  // The viewer covers the page: the control that opened it can keep a focus ring, and the
+  // account avatar's colour is per account, both showing through the scrim. The viewer's
+  // picture is the subject; focus and avatars have their own scenarios.
+  const noRing = await page.addStyleTag({
+    content:
+      "*:focus-visible { outline: none !important; } .account-button, .presence { visibility: hidden !important; }",
+  });
   await capture(page, lightbox, "image-lightbox", [], false);
   await setTheme(page, "dark");
   await capture(page, lightbox, "image-lightbox-dark", [], false);
   await setTheme(page, "light");
+  await noRing.evaluate((node) => node.remove());
   await page.keyboard.press("Escape");
   await expect(lightbox).toHaveCount(0);
 
@@ -1394,9 +1800,31 @@ test("the image states are readable in both themes", async ({ page }) => {
  * quota bar. `pnpm baselines` covers the image states above.
  */
 test("the storage tab shows the organisation's pictures", async ({ page }) => {
-  await freshBoard(page, "visual-storage", { template: "empty" });
+  test.skip(process.env.E2E_BILLING !== "1", "the storage tab needs REMO_BILLING=on");
+  test.setTimeout(75_000);
+  const title = "visual-storage board";
+  const account = await freshBoard(page, "visual-storage", { template: "empty", title });
+  // Publish the initial empty-room cover first. The worker throttles subsequent
+  // renders; uploading before its first pass used to count different cover sizes.
+  const boardPath = `/api/boards/${account.boardId}`;
+  const coverPath = `${boardPath}/cover`;
+  await expect.poll(async () => (await page.request.get(coverPath)).status(), {
+    timeout: 47_000, intervals: [500, 1000, 2000],
+  }).toBe(200);
+  const cover = await page.request.get(coverPath);
+  expect(cover.headers()["content-type"]).toBe("image/webp");
+  const coverBytes = (await cover.body()).length;
+  expect(coverBytes).toBeGreaterThan(0);
   const png = await makePng(page, 600, 400);
+  const uploaded = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `${boardPath}/files` && response.request().method() === "POST");
   await uploadImage(page, png, "stored.png");
+  const receipt = await uploaded;
+  expect(receipt.status()).toBe(201);
+  const { file } = await receipt.json() as {file: {variants: Record<string, {bytes: number}>}};
+  const variants = Object.values(file.variants);
+  expect(variants.length).toBeGreaterThan(0);
+  const expectedBytes = variants.reduce((bytes, variant) => bytes + variant.bytes, png.length + coverBytes);
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -1410,20 +1838,277 @@ test("the storage tab shows the organisation's pictures", async ({ page }) => {
   await page.getByRole("button", { name: /^Account and interface/ }).click();
   await page.getByRole("button", { name: "Organisation and people" }).click();
   await expect(page.locator(".org-dialog")).toBeVisible();
-  // The tab list arrives after the billing catalogue answers; counting too early reads
-  // as "billing is off" and skips a screen that exists.
-  await expect(page.getByRole("tab").first()).toBeVisible();
   const storage = page.getByRole("tab", { name: "Storage" });
-  test.skip((await storage.count()) === 0, "the storage tab needs REMO_BILLING=on");
+  await expect(storage).toBeVisible();
+  const ranking = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `/api/orgs/${account.orgId}/storage` && response.request().method() === "GET");
   await storage.click();
+  const rankingResponse = await ranking;
+  expect(rankingResponse.status()).toBe(200);
+  expect(await rankingResponse.json()).toMatchObject({
+    usedBytes: expectedBytes, rooms: [{boardId: account.boardId, title, bytes: expectedBytes}],
+  });
   const panel = page.locator(".storage-panel");
-  await expect(panel).toBeVisible();
-  // The picture uploaded above is the one this tab counts.
-  await expect(panel).toContainText(/kB/);
+  const row = panel.getByRole("listitem");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByRole("link", {name: title, exact: true})).toHaveAttribute("href", `?room=${account.boardId}`);
+  const displayed = new Intl.NumberFormat("en-GB", {
+    style: "unit", unit: "kilobyte", maximumFractionDigits: 1,
+  }).format(expectedBytes / 1024);
+  await expect(row.locator(".storage-room-bytes")).toHaveText(displayed);
+  await expect(panel.locator(".storage-summary")).toHaveText(`Used ${displayed}, no limit`);
   // The footer names the account, and every scenario registers a fresh one. The whole
   // footer is masked, not just the email: a mask's own width follows its text.
   const foot = page.locator(".org-foot");
-  await capture(page, page.locator(".org-dialog"), "image-storage", [foot]);
+  const dialog = page.locator(".org-dialog");
+  await expect(dialog).toBeInViewport({ratio: 1});
+  const bounds = await dialog.boundingBox();
+  await capture(page, dialog, "image-storage", [foot]);
   await setTheme(page, "dark");
-  await capture(page, page.locator(".org-dialog"), "image-storage-dark", [foot]);
+  expect(await dialog.boundingBox()).toEqual(bounds);
+  await capture(page, dialog, "image-storage-dark", [foot]);
+});
+
+/* ------------------------------------------------------------- ink on paper --- */
+
+/**
+ * The owner's room after ADR-273: a caption saved with the old grey and a kanban with
+ * lanes, in both themes.
+ *
+ * The raster is the same scene on purpose. The pair is what proves the rule: the caption
+ * turns from ink to paper because its surface changed, while the board's light-green
+ * ground keeps ink and its grid stays a hairline.
+ */
+test("ink: the owner's room reads in both themes", async ({ page }) => {
+  const account = await register(page, "visual-ink-room");
+  await openBoard(page, account.boardId, {
+    lang: "ru",
+    template: "product-roadmap-basic-prefilled",
+  });
+  await page.waitForFunction(
+    () =>
+      (window as unknown as { __remo?: { widgets?: Array<{ type: string }> } }).__remo?.widgets?.some(
+        (widget) => widget.type === "text",
+      ) ?? false,
+  );
+  await capture(page, page.locator(".app"), "ink-room-light");
+  await setTheme(page, "dark");
+  await capture(page, page.locator(".app"), "ink-room-dark");
+});
+
+/** Where a widget's centre is on screen, for a click that selects it. */
+async function widgetCentre(page: Page, id: string) {
+  return page.evaluate((wanted) => {
+    const probe = (window as unknown as {
+      __remo: {
+        camera: { x: number; y: number; zoom: number };
+        widgets: Array<{ id: string; x: number; y: number }>;
+      };
+    }).__remo;
+    const widget = probe.widgets.find((entry) => entry.id === wanted)!;
+    const rect = document.querySelector<HTMLCanvasElement>(".layer.overlay")!.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 + (widget.x - probe.camera.x) * probe.camera.zoom,
+      y: rect.top + rect.height / 2 + (widget.y - probe.camera.y) * probe.camera.zoom,
+    };
+  }, id);
+}
+
+/** Decode the downloaded file in a blank page so a fractional last row can only reveal white. */
+async function exportRoom(
+  page: Page,
+  testInfo: { outputPath: (name: string) => string },
+  name: string,
+  dimensions: [number, number],
+  filename = `${name}.png`,
+): Promise<void> {
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  await expect(page.locator(".export-dialog")).toBeVisible();
+  await page.locator(".export-dialog .export-scopes .export-choice", { hasText: "Whole room" }).click();
+  const download = page.waitForEvent("download");
+  await page.locator(".export-dialog").getByRole("button", { name: "Download PNG", exact: true }).click();
+  const png = await download;
+  const file = testInfo.outputPath(filename);
+  await png.saveAs(file);
+  await expect(page.locator(".export-status.done")).toBeVisible({ timeout: 20_000 });
+  const sheet = page.getByRole("dialog").filter({ has: page.locator(".export-dialog") });
+  await sheet.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(sheet).toBeHidden();
+  const bytes = await readFile(file);
+  expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  const preview = await page.context().newPage();
+  try {
+    await preview.setContent('<!doctype html><style>html,body{margin:0;background:white}img{display:block;max-width:1200px;height:auto}</style><img alt="Exported room">');
+    const picture = preview.getByRole("img", { name: "Exported room" });
+    const naturalSize = await picture.evaluate(async (image: HTMLImageElement, data) => {
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      return [image.naturalWidth, image.naturalHeight];
+    }, bytes.toString("base64"));
+    expect(naturalSize).toEqual(dimensions);
+    await capture(preview, picture, name, [], false);
+  } finally {
+    await preview.close();
+  }
+}
+
+/**
+ * Every kind of content ink on one board: a frame with a table, stickies of four fills and
+ * a caption whose stored colour is the old grey. Both themes and both exports.
+ *
+ * The scene is built through the same commands the product uses, so it is also the
+ * document the painters and the export read — no fixture paints its own colours.
+ */
+test("ink: a frame, a table, stickies and a caption are the same in the export", async ({
+  page,
+}, testInfo) => {
+  const account = await register(page, "visual-ink-objects");
+  const frameId = await seedObject(page, account.boardId, {
+    type: "frame",
+    x: -520,
+    y: 40,
+    width: 880,
+    height: 520,
+    title: "Section",
+  });
+  await seedObject(page, account.boardId, {
+    type: "text",
+    x: -60,
+    y: -560,
+    width: 560,
+    height: 96,
+    content: "Roadmap",
+    style: { color: "#58534e", fontSize: 44 },
+  });
+  await openBoard(page, account.boardId, { template: "empty" });
+
+  // Every note gets an id of its choosing: its tilt is a hash of the id (ADR-265 §3.2),
+  // and a created one has a random id, so the same scene would photograph differently
+  // on every run.
+  await seedStableNote(page, { id: "ink-inside", x: -700, y: -90, text: "Inside", parentId: frameId });
+  await seedStableNote(page, { id: "ink-second", x: -380, y: -90, text: "Second", parentId: frameId });
+  const notes: Array<[string, number, number, string]> = [
+    ["ink-yellow", 420, -170, "#f4e0a8"],
+    ["ink-orange", 660, -170, "#ffdcc6"],
+    ["ink-blue", 420, 150, "#cddff8"],
+    ["ink-green", 660, 150, "#c8e8d4"],
+  ];
+  for (const [id, x, y, fillColor] of notes) {
+    await seedStableNote(page, { id, x, y, text: id.replace("ink-", ""), style: { fillColor } });
+  }
+
+  // The frame becomes a table: headers and the grid are content ink too.
+  const centre = await widgetCentre(page, frameId);
+  await page.mouse.click(centre.x, centre.y);
+  await ensureProperties(page);
+  const panel = page.locator(".section-panel");
+  await panel.getByRole("radio", { name: "Table", exact: true }).click();
+  await applyDefaultTableLayout(page);
+  // The panel is not part of the picture: hide it, then fit the whole board.
+  await page.getByRole("button", { name: "Hide the panel", exact: true }).click();
+  await expect(page.locator(".app")).toHaveClass(/no-inspector/);
+  // Nothing selected, so Fit frames the room and not one object. A table cell may own
+  // the first Escape (ADR-204); repeat until the object selection is empty.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(80);
+    const left = await page.evaluate(
+      () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds.length,
+    );
+    if (left === 0) break;
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([]);
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+
+  await capture(page, page.locator(".app"), "ink-objects-light");
+  await exportRoom(page, testInfo, "ink-objects-export-light", [3498, 1797]);
+
+  await setTheme(page, "dark");
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await capture(page, page.locator(".app"), "ink-objects-dark");
+  await exportRoom(page, testInfo, "ink-objects-export-dark", [3498, 1797]);
+});
+
+/**
+ * Rotation: the canvas and its PNG/PDF picture (ADR-271, T18).
+ *
+ * One shape and one sticky, both turned −12°, joined by a line. The export is the same
+ * painter, so the two files must show the same angle; the connector meets the turned
+ * outline rather than the corner of the described box.
+ */
+test("rotation: the canvas and its export draw the same turned objects", async ({
+  page,
+}, testInfo) => {
+  const account = await freshBoard(page, "visual-rotation", { template: "empty" });
+  const shapeId = await seedObject(page, account.boardId, {
+    type: "shape",
+    x: -160,
+    y: 0,
+    width: 200,
+    height: 120,
+    content: "Проверка",
+    rotation: -12,
+  });
+  // A fixed id: the sticky's paper tilt is a hash of it, and this picture is compared
+  // byte for byte (ADR-265 §3.2).
+  const noteId = await seedStableNote(page, {
+    id: "rotation-idea",
+    x: 160,
+    y: 0,
+    width: 160,
+    height: 180,
+    text: "Идея",
+    rotation: -12,
+  });
+  await seedConnector(page, account.boardId, shapeId, noteId);
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  await page.getByRole("button", { name: "Fit", exact: true }).click();
+  await calmMotion(page);
+  // Nothing selected: the reference is the content, not the handles.
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds,
+      ),
+    )
+    .toEqual([]);
+
+  await capture(page, page.locator(".app"), "rotation");
+  await exportRoom(page, testInfo, "rotation-export", [1151, 515]);
+});
+
+/**
+ * The command search (ADR-266 §1.2, T7).
+ *
+ * The `cmdk` state of the room-header artboard: the paper sheet, the ink outline, the
+ * hard shadow, the search row with the Esc chip and the rows of "title / where … key".
+ * A query with several matches photographs the list, not an empty box; the rows come
+ * from the registry, so the picture changes only when a command changes.
+ */
+test("the command search keeps its artboard shape", async ({ page }) => {
+  await freshBoard(page, "visual-command-search");
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.keyboard.press("Meta+k");
+  await expect(page.getByRole("dialog", { name: "Command search" })).toBeVisible();
+  await page.getByRole("combobox").fill("e");
+  await expect(page.getByRole("option").first()).toBeVisible();
+
+  await capture(page, page.locator(".rm-command"), "command-search");
 });

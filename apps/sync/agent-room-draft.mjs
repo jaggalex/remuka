@@ -7,6 +7,7 @@
  * stays the one contract for geometry and kinds, and a small extra rule keeps every
  * object inside the single frame that gives the draft its identity.
  */
+import { insertNewWidget } from "@remo/model/stacking";
 import { PLAN_LIMITS, PlanError, planBounds, validatePlan } from "@remo/agent-plan";
 import { Y } from "./y.mjs";
 import { freeOrigin, makeId } from "./diagram.mjs";
@@ -354,7 +355,7 @@ export function applyRoomDraft(
       if (object === frame) widget.title = title;
       const sourceId = byCitation.get(object.tempId);
       if (sourceId) widget.link = { kind: "widget", widgetId: sourceId };
-      widgets.set(id, widget);
+      insertNewWidget(widgets, widget);
       if (TEXT_TYPES.has(object.type)) {
         const shared = new Y.Text();
         shared.insert(0, object.text ?? object.title ?? "");
@@ -371,7 +372,7 @@ export function applyRoomDraft(
       const source = widgets.get(from);
       const target = widgets.get(to);
       const id = makeId("connector");
-      widgets.set(id, {
+      insertNewWidget(widgets, {
         id,
         type: "connector",
         parentId: null,
@@ -423,7 +424,7 @@ export function applyRoomDraft(
         createdAt: now,
         agent: { ...provenance },
       };
-      widgets.set(id, widget);
+      insertNewWidget(widgets, widget);
       const shared = new Y.Text();
       shared.insert(0, label.text);
       texts.set(id, shared);

@@ -74,12 +74,10 @@ function consentSentence(
       <>
         {t("legal.consent.termsBefore")}
         <DocumentLink document={document} label={t("legal.consent.termsLink")} />
-        {t("legal.consent.termsMiddle")}
-        {privacy ? (
-          <DocumentLink document={privacy} label={t("legal.consent.privacyLink")} />
-        ) : (
-          t("legal.consent.privacyLink")
-        )}
+        {privacy && <>
+          {t("legal.consent.termsMiddle")}
+          <DocumentLink document={privacy} label={t("legal.consent.termsPrivacyLink")} />
+        </>}
         {t("legal.consent.termsAfter")}
       </>
     );
@@ -132,7 +130,6 @@ export function LegalConsentView({
               id={id}
               name={document.doc}
               checked={isChecked}
-              hint={isChecked ? undefined : t("legal.consent.requiredHint")}
               aria-invalid={error ? true : undefined}
               onChange={(event) => onChange(document.doc, event.currentTarget.checked)}
               label={
@@ -147,6 +144,9 @@ export function LegalConsentView({
           </div>
         );
       })}
+      {!error && documents.some((document) => !checked[document.doc]) && (
+        <p className="legal-consent-note">{t("legal.consent.requiredHint")}</p>
+      )}
       {error && <p className="auth-error legal-consent-error">{error}</p>}
     </div>
   );

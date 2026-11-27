@@ -1,7 +1,11 @@
 export * from "./camera";
+export * from "./anchor";
 export * from "./cardSheet";
 export * from "./elevation";
+export * from "./frameLabel";
+export * from "./inkPlate";
 export * from "./connectors";
+export * from "./ground";
 export * from "./guides";
 export * from "./hit";
 export * from "./imagePaint";
@@ -19,3 +23,5 @@ export * from "./tablePaint";
 export * from "./textBlocks";
 export * from "./textLayout";
 export * from "./proposal";
+export * from "./stickyPaint";
+export * from "./stickerMotion";

@@ -33,13 +33,59 @@
   }
 }
 
+@media (max-width: 899px) {
+  /* ADR-266 §2: title, two faces, Run as an icon, Invite and Account. The logo,
+     Agent and Comments move into the account menu, which the same list feeds. */
+  .topbar-wide-only {
+    display: none !important;
+  }
+  .topbar {
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+  }
+  .topbar-left {
+    gap: var(--space-1);
+  }
+  .topbar-path {
+    display: none;
+  }
+  .board-title-button {
+    max-width: 160px;
+  }
+  .topbar-invite-label {
+    display: none;
+  }
+  .save-state.is-blocked .save-state-text {
+    max-width: 150px;
+  }
+  .people-face:nth-child(n + 3) {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   :root {
     --inspector-width: 0px;
   }
+  /* Below 900 the panel is the whole room's width, over the canvas, not a 340 px column.
+     Closing it is the same cross; `.app.no-inspector` still hides it. */
   .inspector {
-    display: none;
+    position: fixed;
+    inset: var(--topbar-height) 0 0;
+    width: 100%;
+    height: auto;
+    z-index: var(--z-popover);
+    border-left: 0;
+  }
+  /* The table preview opens from the full-width inspector and takes pointer focus. */
+  .section-layout-card {
+    z-index: var(--z-dialog);
   }
   /* The inspector is gone, so the board is wider: the hint keeps clear of the zoom bar
      with the same reserve rather than a second rule. */
+  /* Below 900 the bottom bar also carries "Find an action" (T7) and is wider than the
+     reserve: the hint steps above it instead of sitting on top of it. */
+  .canvas-hint {
+    bottom: calc(var(--space-4) + var(--control-default) + var(--space-2));
+  }
 }

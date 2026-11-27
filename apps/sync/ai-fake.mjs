@@ -99,26 +99,45 @@ export function fakeConnectedReply() {
 /** A marker a scenario puts in a note to get named tidy blocks. */
 export const FAKE_TIDY_MARKER = "FAKE_TIDY_LABELS";
 
-/**
- * The tidy reading: the fake parses the selection block and names one or two blocks.
- * It is deliberately dumb — the real engine computes the layout, the fake only labels.
- */
-export function fakeTidyReply(prompt = "") {
-  const text = String(prompt);
+const TIDY_RETRO_GROUPS = [
+  ["Процесс", ["Меньше встреч", "Демо раньше", "Ревью в день 1", "Один канал", "Чек-лист"]],
+  ["Деньги", ["Счёт за сервера", "Скидка первым", "Тариф Team"]],
+  ["Люди", ["Онбординг", "Найм дизайнера", "Отпуск Ильи", "Ментор"]],
+];
+
+function selectedPromptObjects(text) {
   const start = text.indexOf("<selection");
   const open = text.indexOf(">", start);
   const close = text.indexOf("</selection>", open);
-  let objects = [];
-  if (start >= 0 && open > start && close > open) {
-    try {
-      const parsed = JSON.parse(text.slice(open + 1, close));
-      objects = Array.isArray(parsed?.objects) ? parsed.objects : [];
-    } catch {
-      objects = [];
-    }
+  if (start < 0 || open <= start || close <= open) return [];
+  try {
+    const selection = JSON.parse(text.slice(open + 1, close));
+    return Array.isArray(selection?.objects) ? selection.objects : [];
+  } catch {
+    return [];
   }
+}
+
+/**
+ * The fake only supplies labels for the selected ids; the planner computes placements,
+ * excludes locked notes and records warnings using the real room.
+ */
+export function fakeTidyReply(prompt = "") {
+  const text = String(prompt);
+  const objects = selectedPromptObjects(text);
   const ids = objects.map((object) => String(object.id ?? "")).filter(Boolean);
   if (!ids.length) return { strategy: "prefix", blocks: [{ label: "All", ids: [] }] };
+  if (objects.length === 12 && objects.every(object => object.type === "sticky_note")) {
+    const byText = new Map(objects.map(object => [object.text, object.id]));
+    if (TIDY_RETRO_GROUPS.every(([, texts]) => texts.every(note => byText.has(note)))) {
+      return {
+        strategy: "meaning",
+        blocks: TIDY_RETRO_GROUPS.map(([label, texts]) => ({
+          label, ids: texts.map(note => byText.get(note)),
+        })),
+      };
+    }
+  }
   if (text.includes(FAKE_TIDY_MARKER) && ids.length > 1) {
     const half = Math.ceil(ids.length / 2);
     return {
@@ -137,6 +156,26 @@ export function fakeTidyReply(prompt = "") {
 /** The story map every fake reply proposes. Geometry is computed by the real planner. */
 export function fakePlanReply(prompt = "") {
   const brief = String(prompt);
+  if (brief.includes("Собери процесс возврата и отметь, где неясно, кто согласует отказ.")) {
+    const shape = (tempId, text, shapeKind, x, y, width, height, fillColor) => ({
+      tempId, type: "shape", text, shapeKind, x, y, width, height, style: {fillColor},
+    });
+    const link = (from, to) => ({ op: "create_connector", tempId: `${from}_${to}`, from, to, arrow: "end" });
+    const source = selectedPromptObjects(brief).find(object => object.text === "Кто согласует отказ — неясно");
+    return { uncertainties: [
+      { kind: "missing_role", tempId: "approver", ...(source ? { sourceIds: [source.id] } : {}) },
+    ], operations: [
+      { op: "create_widgets", objects: [
+        shape("request", "Заявка на возврат", "round_rectangle", -105, -43, 130, 64, "#fffdf8"),
+        shape("review", "Проверка заказа", "ellipse", 80, -45, 120, 70, "#cddff8"),
+        shape("refuse", "Нужен ли отказ?", "diamond", 80, 100, 120, 70, "#f4e0a8"),
+        shape("refund", "Вернуть деньги", "round_rectangle", 270, -43, 140, 64, "#c8e8d4"),
+        { tempId: "approver", type: "sticky_note", text: "Согласует: ?", x: 260, y: 100,
+          width: 120, height: 70, style: {fillColor: "#f9d3cd"} },
+      ] },
+      link("request", "review"), link("review", "refund"), link("review", "refuse"), link("refuse", "approver"),
+    ] };
+  }
   if (brief.includes(FAKE_OUT_OF_BOUNDS_MARKER)) {
     return fakeOutOfBoundsReply();
   }

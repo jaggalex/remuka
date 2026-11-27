@@ -1,18 +1,24 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { 
+expect, test, type Page } from "@playwright/test";
 import {
+  ensureProperties,
   addSticky,
   applyDefaultTableLayout,
   freshBoard,
+  goAllRooms,
   openAccount,
   openBoard,
   openBoardMenu,
   openFacilitation,
-  openMore,
+  openFold,
+  openPeople,
   register,
   seedNote,
   seedObject,
+  seedStableNote,
   selectKanbanCard,
+  waitForBoardEditor,
   zoomInTo,
 } from "./helpers";
 
@@ -32,7 +38,10 @@ async function expectNoSerious(page: Page, screen: string, include?: string) {
     (violation) => violation.impact === "serious" || violation.impact === "critical",
   );
   expect(
-    serious.map((violation) => `${violation.id}: ${violation.help} (${violation.nodes.length})`),
+    serious.map(
+      (violation) =>
+        `${violation.id}: ${violation.help} (${violation.nodes.length}) — ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
+    ),
     `${screen} has serious accessibility violations`,
   ).toEqual([]);
 }
@@ -79,8 +88,11 @@ test("the four header menus have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "facilitation menu");
   await page.keyboard.press("Escape");
 
-  await openMore(page);
-  await expectNoSerious(page, "more menu");
+  await openPeople(page);
+  await expectNoSerious(page, "people menu");
+  await page.keyboard.press("Escape");
+
+  await openBoardMenu(page, "more");
   await page.getByRole("menuitem", { name: "Templates…" }).click();
   await expectNoSerious(page, "templates popover");
   await page.keyboard.press("Escape");
@@ -89,14 +101,57 @@ test("the four header menus have no serious accessibility violations", async ({ 
   await expectNoSerious(page, "account menu");
 });
 
+test("the command search has no serious accessibility violations", async ({ page }) => {
+  await freshBoard(page, "a11y-command-search");
+
+  await page.keyboard.press("Meta+k");
+  await expect(page.getByRole("dialog", { name: "Command search" })).toBeVisible();
+  await expectNoSerious(page, "command search", ".rm-command");
+
+  await page.getByRole("combobox").fill("export");
+  await expect(page.getByRole("option").first()).toContainText("Export…");
+  await expectNoSerious(page, "command search results", ".rm-command");
+});
+
+test("the canvas context menu has no serious accessibility violations", async ({ page }) => {
+  await freshBoard(page, "a11y-context-menu");
+  await seedStableNote(page, { id: "a11y-menu-note", x: 0, y: 0, text: "Note" });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
+    timeout: 20_000,
+  });
+  // The note is 160 × 180 at the origin: its centre is at (80, 90) in board units.
+  const point = await page.evaluate(() => {
+    const probe = (window as unknown as {
+      __remo: { camera: { x: number; y: number; zoom: number } };
+    }).__remo;
+    const canvas = document.querySelector<HTMLCanvasElement>(".layer.overlay")!;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 + (80 - probe.camera.x) * probe.camera.zoom,
+      y: rect.top + rect.height / 2 + (90 - probe.camera.y) * probe.camera.zoom,
+    };
+  });
+  await page.mouse.click(point.x, point.y, { button: "right" });
+  const menu = page.getByRole("menu", { name: "Sticky note" });
+  await expect(menu).toBeVisible();
+  await expectNoSerious(page, "object context menu");
+  await menu.getByRole("menuitem", { name: "Colour" }).click();
+  const grid = page.getByRole("menu", { name: "Colour" });
+  await expect(grid).toBeVisible();
+  await expectNoSerious(page, "colour grid");
+  await page.keyboard.press("Escape");
+  await expect(grid).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
+
 test("dialogs have no serious accessibility violations", async ({ page }) => {
   await freshBoard(page, "a11y-dialogs");
 
   await openBoardMenu(page);
-  await page.getByRole("menuitem", { name: "Export…" }).click();
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
   await expect(page.locator(".export-dialog")).toBeVisible();
   await expectNoSerious(page, "export dialog");
-  await page.getByRole("dialog", { name: "Export" }).getByRole("button", { name: "Close", exact: true }).first().click();
+  await page.getByRole("dialog", { name: "Take a copy" }).getByRole("button", { name: "Close", exact: true }).first().click();
 
   await openFacilitation(page);
   await page.getByRole("menuitem", { name: /Voting/ }).click();
@@ -154,7 +209,7 @@ test("the named voters of an open session have no serious violations", async ({ 
   await expect(row).toHaveAttribute("aria-expanded", "false");
   await row.click();
   await expect(vote.locator(".vote-voters")).toContainText("Alice");
-  await expectNoSerious(page, "open vote results", ".rm-dialog");
+  await expectNoSerious(page, "open vote results", ".facilitation-panel");
 });
 
 
@@ -193,7 +248,8 @@ test("a section table has no serious accessibility violations", async ({ page })
     };
   }, frameId);
   await page.mouse.click(point.x, point.y);
-  await page.getByRole("button", { name: "Properties", exact: true }).click();
+  await ensureProperties(page);
+  await openFold(page, "More settings");
   await page.locator(".section-panel").getByRole("radio", { name: "Table", exact: true }).click();
   await applyDefaultTableLayout(page);
   await expect(page.locator(".table-mirror table")).toHaveCount(1);
@@ -210,25 +266,25 @@ test("modal dialogs keep the keyboard inside and return focus", async ({ page })
   await freshBoard(page, "a11y-dialog-keys");
   const cases: Array<{ name: string; open: () => Promise<void>; opener: () => ReturnType<Page["locator"]> }> = [
     {
-      name: "Export",
+      name: "Take a copy",
       open: async () => {
         await openBoardMenu(page);
-        await page.getByRole("menuitem", { name: "Export…" }).click();
+        await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
       },
       opener: () => page.getByRole("button", { name: /^Room menu:/ }),
     },
     {
       name: "Room settings",
       open: async () => {
-        await openBoardMenu(page);
+        await openBoardMenu(page, "more");
         await page.getByRole("menuitem", { name: "Room settings" }).click();
       },
       opener: () => page.getByRole("button", { name: /^Room menu:/ }),
     },
     {
-      name: "Room access",
-      open: () => page.getByRole("button", { name: "Share", exact: true }).click(),
-      opener: () => page.getByRole("button", { name: "Share", exact: true }),
+      name: "Invite to the room",
+      open: () => page.getByRole("button", { name: "Invite", exact: true }).click(),
+      opener: () => page.getByRole("button", { name: "Invite", exact: true }),
     },
   ];
   for (const { name, open, opener } of cases) {
@@ -271,43 +327,38 @@ test("the text format bar and the block editor are named for assistive technolog
   await expect(heading).toHaveAttribute("aria-level", "1");
   await expect(heading).toHaveAttribute("aria-current", "true");
 
-  // One row of named toggles with aria-pressed, and the caret's format is the pressed one.
+  // T8: six controls in the bar — marks, two lists, the link — and the rest behind «⋯».
   const bar = page.getByRole("toolbar", { name: "Object properties" });
-  const format = bar.getByRole("group", { name: "Text format" });
-  await expect(format).toBeVisible();
   for (const name of [
-    /^Heading 1/,
-    /^Heading 2/,
+    /^Bold/,
+    /^Italic/,
+    /^Strikethrough/,
     /^Bulleted list/,
-    /^Numbered list/,
     /^Checklist/,
-    /^Inline code/,
     /^Link/,
   ]) {
-    await expect(format.getByRole("button", { name })).toBeVisible();
+    await expect(bar.getByRole("button", { name })).toBeVisible();
   }
-  await expect(format.getByRole("button", { name: /^Heading 1/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
 
   // Both surfaces are scanned while the editor is open; moving focus to the bar
   // closes the editor by design, so the scan comes first.
   await expectNoSerious(page, "text format bar", ".sticky-bar");
   await expectNoSerious(page, "block editor", ".inline-editor");
 
-  // A keyboard user reaches the row, and the visible focus ring is the DS one.
-  const bullet = format.getByRole("button", { name: /^Bulleted list/ });
-  await page.keyboard.press("Shift");
-  await bullet.focus();
-  await expect(bullet).toBeFocused();
-  expect(
-    await bullet.evaluate(
-      (element) =>
-        getComputedStyle(element).outlineStyle !== "none" ||
-        getComputedStyle(element).boxShadow !== "none",
-    ),
-  ).toBe(true);
+  // The rarer formats live in the one properties panel, not in a second toolbar.
+  await bar.getByRole("button", { name: "More actions" }).click();
+  await page.locator("aside.inspector details.properties-more > summary").click();
+  const panel = page.locator("aside.inspector");
+  for (const name of [
+    /^Underline/,
+    /^Heading 1/,
+    /^Heading 2/,
+    /^Numbered list/,
+    /^Inline code/,
+    /^Clear formatting/,
+  ]) {
+    await expect(panel.getByRole("button", { name })).toBeVisible();
+  }
 });
 
 test("a tooltip waits, stays under the pointer and closes on Escape (WCAG 1.4.13)", async ({ page }) => {
@@ -353,37 +404,40 @@ test("a tooltip waits, stays under the pointer and closes on Escape (WCAG 1.4.13
   await expect(tool).toBeFocused();
 });
 
-test("header and zoom icons are named in their tooltips (ADR-232)", async ({ page }) => {
+test("header and zoom icons are named in their tooltips (ADR-232, ADR-266)", async ({ page }) => {
   await freshBoard(page, "a11y-header-icons");
-  await expect(page.locator(".save-state")).toHaveText(/saved/i, { timeout: 20_000 });
+  await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", { timeout: 20_000 });
 
-  // Names stay what they were, so roles find the same controls.
-  const more = page.getByRole("button", { name: "More", exact: true });
-  const share = page.getByRole("button", { name: "Share", exact: true });
+  // Icon-only controls keep a name: the mark, the account face
+  // and the zoom's Fit. Named buttons ("Run", "Invite", "Agent") carry their word.
+  const mark = page.locator(".topbar").getByRole("link", { name: "All rooms", exact: true });
+  const account = page.getByRole("button", { name: /^Account and interface/ });
   const fit = page.getByRole("button", { name: "Fit", exact: true });
-  for (const control of [more, share, fit]) {
+  for (const control of [mark, fit]) {
     await expect(control).toBeVisible();
     await expect(control).not.toContainText(/\w/);
   }
+  await expect(account).toBeVisible();
+  await expect(account).toHaveAttribute("aria-label", /^Account and interface/);
 
   // Hover shows the name; focus shows it at once.
-  await more.hover();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^More$/ })).toBeVisible();
-  await page.keyboard.press("Shift");
-  await share.focus();
-  await expect(page.getByRole("tooltip").filter({ hasText: /^Room access$/ })).toBeVisible({ timeout: 300 });
   await fit.hover();
   await expect(page.getByRole("tooltip").filter({ hasText: /selection/ })).toBeVisible();
+  await page.keyboard.press("Shift");
+  await fit.focus();
+  await expect(
+    page.getByRole("tooltip").filter({ hasText: /selection/ }),
+  ).toBeVisible({ timeout: 300 });
+  await expect(mark).toHaveAttribute("aria-label", "All rooms");
 
-  // A calm save state is an icon: the word is in the live region but not drawn.
-  const word = page.locator(".save-state .rm-sync > span");
-  await expect(word).toHaveText(/saved/i);
-  expect(await word.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
+  // Saved is silence: the protocol attribute is there, the indicator is not.
+  await expect(page.locator(".save-state")).toBeHidden();
 });
 
 test("selection actions are one row of named icons, the rest behind More actions (ADR-237)", async ({ page }) => {
   await freshBoard(page, "a11y-selection-actions");
   await selectKanbanCard(page);
+  await openFold(page, "More settings");
   const inspector = page.locator("aside.inspector");
   const actions = inspector.getByRole("group", { name: "Selection actions" });
   for (const name of ["Copy", "Copy link", "Cut", "Duplicate", "Delete", "More actions"]) {
@@ -417,4 +471,60 @@ test("selection actions are one row of named icons, the rest behind More actions
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __remo: { selectedIds: string[] } }).__remo.selectedIds.length))
     .toBe(0);
+});
+
+/**
+ * The screens of the character wave (T10): registration, the team home, the empty room
+ * and the invite dialog (ADR-265 stage 3, ADR-286).
+ *
+ * The registration page is scanned in the ordinary installation (`none`): it has no
+ * consent boxes here, and a zone with documents adds the same @remo/ui checkboxes the
+ * legal scenarios already cover. The home is scanned after a real sign-in; the empty room
+ * and the invite dialog are the two surfaces a new person meets first.
+ */
+test("the character screens have no serious accessibility violations", async ({ page }) => {
+  await page.goto("/?signup=1&lang=en");
+  await expect(page.locator(".signup-screen")).toBeVisible();
+  await expectNoSerious(page, "sign-up screen");
+
+  const account = await freshBoard(page, "a11y-character", { template: "empty" });
+  await expect(page.locator(".empty-board")).toBeVisible();
+  await expectNoSerious(page, "empty room", ".empty-board");
+
+  await goAllRooms(page);
+  await expect(page.locator(".home-tile").first()).toBeVisible();
+  // The page rises for 450 ms (ADR-265 §4.2); scanning a mid-animation frame would read
+  // the entrance fade as low contrast, not the settled screen a person uses.
+  await expect(page.locator(".home-hero")).toHaveCSS("opacity", "1");
+  await expectNoSerious(page, "team home");
+
+  await openBoard(page, account.boardId);
+  await waitForBoardEditor(page);
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Invite to the room" });
+  await expect(dialog).toBeVisible();
+  await expectNoSerious(page, "invite dialog");
+});
+
+test("Tab wraps at the closed restore disclosure and at its visible button when expanded", async ({ page }) => {
+  await freshBoard(page, "a11y-disclosure-trap");
+  await openBoardMenu(page);
+  await page.getByRole("menuitem", { name: /^(?:Export|Экспорт)/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Take a copy" });
+  const summary = dialog.locator(".export-import summary");
+  const action = dialog.locator(".export-import button").first();
+  const first = dialog.locator(".rm-dialog-head :is(button:not([disabled]), a[href])").first();
+  await expect(action).toBeHidden();
+  await summary.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(action).toBeVisible();
+  await action.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(action).toBeFocused();
 });

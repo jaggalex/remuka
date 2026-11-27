@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as canvas from "@remo/canvas";
 import type { Widget } from "@remo/model";
 import { arrangeBarTarget, commonColour, connectorBarTarget, edgeContinueTargets, noteBarTarget, type Frame } from "./floatingTargets";
 import { BAR_ROOM, COMPACT_BAR_ROOM } from "./canvasGeometry";
@@ -53,7 +54,7 @@ describe("the note bar", () => {
       marks: null,
     })!;
     expect(target.rect).toMatchObject({ left: 670, top: 250, width: 100, height: 100 });
-    expect(target.placement.left).toBe(720 - 332);
+    expect(target.placement.left).toBe(720 - 172);
     expect(target.placement.top).toBe(250 - BAR_ROOM);
   });
 
@@ -76,7 +77,7 @@ describe("the note bar", () => {
       marks: null,
     })!;
     expect(target.placement.left).toBeGreaterThanOrEqual(8);
-    expect(target.placement.left).toBeLessThanOrEqual(narrow.viewport.width - 8);
+    expect(target.placement.left + narrow.viewport.width - 16).toBeLessThanOrEqual(narrow.viewport.width - 8);
   });
 
   it("centres a shape's bar on the shape, not off the right edge", () => {
@@ -84,9 +85,16 @@ describe("the note bar", () => {
     const shape = note("s", 0, 0, { type: "shape", shapeKind: "rectangle" });
     const shapeBar = noteBarTarget({ widget: shape, frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
     const noteBar = noteBarTarget({ widget: note("n", 0, 0), frame: wide, settings: DEFAULT_SETTINGS, marks: null })!;
-    // The shape bar has no S/M/L row, so it is narrower than the note's.
-    expect(shapeBar.placement.left).toBe(720 - 287);
-    expect(noteBar.placement.left).toBe(720 - 332);
+    expect(shapeBar.placement.left).toBe(720 - 153);
+    expect(noteBar.placement.left).toBe(720 - 172);
+  });
+
+  it("leaves the tool rail usable when a phone has room for both bars", () => {
+    const phone = { ...frame, viewport: { width: 390, height: 900 } };
+    const shape = note("s", 0, 0, { type: "shape", shapeKind: "rectangle" });
+    const target = noteBarTarget({ widget: shape, frame: phone, settings: DEFAULT_SETTINGS, marks: null })!;
+    expect(target.placement.left).toBeGreaterThanOrEqual(72);
+    expect(target.placement.left + 296).toBeLessThanOrEqual(phone.viewport.width - 8);
   });
 
   it("gives a free text object its own kind and its own ink", () => {
@@ -136,8 +144,10 @@ describe("the note bar", () => {
       settings: DEFAULT_SETTINGS,
       marks: null,
     })!;
-    expect(light.ink).toBe("#1a1a1a");
-    expect(dark.ink).toBe("#ffffff");
+    // Ink is derived from the sheet, not from the theme: dark ink on yellow paper,
+    // paper on a near-black sheet (ADR-273 §2.2).
+    expect(light.ink).toBe("#1e2136");
+    expect(dark.ink).toBe("#fbf3df");
   });
 });
 
@@ -151,9 +161,21 @@ describe("the arrange bar", () => {
     })!;
     expect(target.units).toBe(2);
     expect(target.canArrange).toBe(true);
-    // Union box centre (400) minus half of the 500 px arrange bar.
-    expect(target.placement.left).toBe(400 - 250);
-    expect(target.placement.top).toBe(250 - COMPACT_BAR_ROOM);
+    // A note selection's bar is 304 px wide; the 800 px frame still centres it.
+    expect(target.placement.left).toBe(400 - 152);
+    // A selection that can turn leaves room for the round handle above its top side.
+    expect(target.placement.top).toBe(250 - BAR_ROOM);
+    // A kind that never turns keeps the compact room.
+    const boards = [
+      { ...note("k", -150, 0), type: "kanban" as const, width: 600, height: 400 },
+      { ...note("k2", 150, 0), type: "kanban" as const, width: 600, height: 400 },
+    ];
+    const compact = arrangeBarTarget({
+      selectedIds: ["k", "k2"],
+      frame,
+      resolve: resolveWith(boards),
+    })!;
+    expect(compact.placement.top).toBe(100 - COMPACT_BAR_ROOM);
   });
 
   it("names the selection by type, the biggest group first", () => {
@@ -218,7 +240,8 @@ describe("the arrange bar", () => {
       resolve: resolveWith(widgets),
     })!;
     expect(target.canArrange).toBe(false);
-    expect(target.colour).toEqual({ role: "line", value: "#1a1a1a", mixed: false });
+    // A line with no stored colour is Auto, and two Auto lines share that answer.
+    expect(target.colour).toEqual({ role: "line", value: "", mixed: false });
   });
 
   it("ignores cards as units of their own", () => {
@@ -267,11 +290,11 @@ describe("the connector bar", () => {
       resolve: resolveWith(widgets),
     })!;
     // Path centre (720 + 200) minus half of the label-less bar.
-    expect(target.placement.left).toBe(920 - 220);
+    expect(target.placement.left).toBe(920 - 151);
     expect(target.placement.top).toBeLessThan(400);
   });
 
-  it("centres the wider bar once the line carries text", () => {
+  it("keeps the toolbar centred when its label controls open in a popover", () => {
     const widgets = [note("a", 0, 0), note("b", 400, 0)];
     const target = connectorBarTarget({
       widget: connector(200, 0, { content: "ok" }),
@@ -279,9 +302,39 @@ describe("the connector bar", () => {
       settings: DEFAULT_SETTINGS,
       resolve: resolveWith(widgets),
     })!;
-    // The label adds its size controls; its colour lives in the same window (ADR-127).
     expect(target.hasLabel).toBe(true);
-    expect(target.placement.left).toBe(920 - 270);
+    expect(target.placement.left).toBe(920 - 151);
+  });
+
+  it.each([
+    { zoom: 1, centre: 450, span: 0, side: "above" },
+    { zoom: 1.91, centre: 424, span: 0, side: "above" },
+    { zoom: 2, centre: 70, span: 0, side: "below" },
+    { zoom: 2, centre: 55, span: 600, side: "below" },
+    { zoom: 3, centre: 940, span: 0, side: "above" },
+  ])("clears the painted label at $zoom×, centre $centre, span $span", ({ zoom, centre, span, side }) => {
+    const content = "First line\nSecond line\nThird line";
+    // Node has no canvas context. Use the painter's layout with deterministic character widths.
+    const metrics = canvas.layoutLabel({ measureText: text => ({ width: text.length * 8 }) }, content, 13);
+    const measurement = vi.spyOn(canvas, "labelMetrics").mockReturnValue(metrics);
+    try {
+      const camera = { x: 0, y: (wide.viewport.height / 2 - centre) / zoom, zoom };
+      const target = connectorBarTarget({
+        widget: connector(200, 0, { content }),
+        frame: { ...wide, camera },
+        settings: DEFAULT_SETTINGS,
+        resolve: resolveWith([note("a", 0, -span), note("b", 400, span)]),
+      })!;
+      const top = target.placement.top;
+      const shadowBottom = top + 51 + 3;
+      expect(top).toBeGreaterThanOrEqual(8);
+      expect(shadowBottom).toBeLessThanOrEqual(wide.viewport.height - 8);
+      const chipHalfHeight = metrics.height * zoom / 2 + 0.75;
+      if (side === "above") expect(centre - chipHalfHeight - shadowBottom).toBeGreaterThanOrEqual(11.99);
+      else expect(top - (centre + chipHalfHeight)).toBeGreaterThanOrEqual(11.99);
+    } finally {
+      measurement.mockRestore();
+    }
   });
 
   it("is absent for a locked line, and for anything that is not a connector", () => {

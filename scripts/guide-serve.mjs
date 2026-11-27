@@ -12,6 +12,7 @@
  * No dependencies and no build step: this is for looking at the documentation, not a
  * second way to publish it.
  */
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
@@ -21,6 +22,7 @@ const ROOT = fileURLToPath(new URL("../docs-site", import.meta.url));
 const PORT = Number(process.env.PORT ?? process.argv.find((arg) => arg.startsWith("--port="))?.slice(7) ?? 8088);
 const TYPES = {
   ".html": "text/html; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
@@ -72,6 +74,7 @@ export function startGuideServer(port = 0) {
       response.writeHead(200, {
         "Content-Type": TYPES[extname(candidate)] ?? "application/octet-stream",
         "Cache-Control": "no-store",
+        ETag: `"${createHash("sha256").update(body).digest("hex")}"`,
       });
       response.end(body);
       return;

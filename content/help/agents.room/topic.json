@@ -19,8 +19,8 @@
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:5f7facf39196154ae65197c918ef56b3309367ee2ee39524b5718d5aa38b43f4",
-      "targetHash": "sha256:6f442fc0109870d866fde2ba80e6700d780253d9752edf08a6f4ac644f33b3a4"
+      "sourceHash": "sha256:b7c2e4e0f099672e789fcdb7d2c12f08eb9b03832a78c56b2e59edda472c29a1",
+      "targetHash": "sha256:62e13c30bb0be59e3e54d9e3a2573fa04b477d4e5f84c1cf3b70d682584646ed"
     }
   }
 }

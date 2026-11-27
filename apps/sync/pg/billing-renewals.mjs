@@ -19,6 +19,8 @@
  * provider secret and is never returned in the clear: `paymentMethod` returns display
  * fields plus the envelope, and `openPaymentMethodRef` unseals it only for `chargeSaved`.
  */
+import { applyPaidChange, billingChangeTransaction, findPendingUpgrade, subscriptionLine } from "./billing-change.mjs";
+import { PLANS } from "../billing-catalog.mjs";
 import { randomUUID } from "node:crypto";
 import { periodEnd as endOfPeriod } from "../billing-money.mjs";
 import { encryptSecret, kekFromEnv } from "../secrets.mjs";
@@ -214,8 +216,11 @@ export const billingRenewalMethods = {
     return this.withOwnerClient(async (client) => {
       const { rows } = await client.query(
         `select *
-           from subscriptions
+           from subscriptions s
           where status in ('active', 'past_due')
+            and not exists (select 1 from invoices i join payments p on p.invoice_id = i.id
+              where i.org_id = s.org_id and i.status = 'open' and p.status = 'pending'
+                and i.lines @> '[{"planChange":{"type":"upgrade"}}]'::jsonb)
             and (status = 'past_due' or current_period_end <= now())
           order by current_period_end asc, created_at asc
           limit $1`,
@@ -236,34 +241,29 @@ export const billingRenewalMethods = {
   async renewalInvoice(subscription) {
     const orgId = subscription?.org_id ?? subscription?.orgId;
     if (!orgId) throw new TypeError("a subscription needs its organisation");
-    const start = subscription.current_period_end ?? subscription.currentPeriodEnd;
-    if (!start) throw new TypeError("a subscription needs the end of its current period");
-    const amount = amountOf(subscription.amount);
-    const next = endOfPeriod(start, subscription.interval);
-
-    return this.withTenant(orgId, async () => {
-      const { invoice } = await this.createInvoice({
-        orgId,
-        subscriptionId: subscription.id,
-        currency: subscription.currency,
-        lines: [
-          {
-            kind: "subscription",
-            plan: subscription.plan,
-            interval: subscription.interval,
-            priceId: subscription.price_id ?? subscription.priceId ?? null,
-            amount,
-            renewal: true,
-          },
-        ],
-        subtotal: amount,
-        discount: 0,
-        creditApplied: 0,
-        total: amount,
-        periodStart: start,
-        periodEnd: next,
-        dueAt: start,
+    return billingChangeTransaction(this, orgId, async client => {
+      const current = await this.liveSubscription(orgId);
+      const expected = subscription.current_period_end ?? subscription.currentPeriodEnd;
+      if (!current || current.id !== subscription.id || +new Date(current.current_period_end) !== +new Date(expected)
+        || current.pending_change?.plan === "free" || await findPendingUpgrade(client, orgId)) return null;
+      const target = current.pending_change;
+      const start = current.current_period_end;
+      if (target && +new Date(start) > Date.now()) return null;
+      const interval = target?.interval ?? current.interval;
+      const amount = amountOf(target?.amount ?? current.amount);
+      const next = endOfPeriod(start, interval);
+      const line = {
+        kind: "subscription", plan: target?.plan ?? current.plan, interval,
+        priceId: target?.priceId ?? current.price_id, amount, renewal: true,
+        ...(target ? { planChange: { type: "downgrade", fromPlan: current.plan, fromPriceId: current.price_id, fromPeriodEnd: start } } : {}),
+      };
+      const { invoice, created } = await this.createInvoice({
+        orgId, subscriptionId: current.id, currency: current.currency, lines: [line],
+        subtotal: amount, total: amount, periodStart: start, periodEnd: next, dueAt: start, transaction: client,
       });
+      if (target && created && amount === 0 && await applyPaidChange(client, invoice, subscriptionLine(invoice))) {
+        await this.reconcileFrozenRooms(orgId, PLANS[target.plan].rooms, { transaction: client });
+      }
       return invoice;
     });
   },
@@ -274,7 +274,7 @@ export const billingRenewalMethods = {
       const { rows } = await client.query(
         `select *
            from invoices
-          where subscription_id = $1 and status = 'open'
+          where subscription_id = $1 and status = 'open' and lines @> '[{"renewal":true}]'::jsonb
           order by period_start asc nulls last, created_at asc
           limit 1`,
         [subscriptionId],
@@ -736,17 +736,62 @@ export const billingRenewalMethods = {
    * recorded at checkout, which is what `savePaymentMethod` must store with the method.
    */
   async paymentChainFor(paymentId) {
+    return this.providerPaymentChain("p.id = $1", [paymentId]);
+  },
+
+  /**
+   * The same chain found by the provider's own id. A notification may omit our
+   * `metadata.paymentId` (or carry a stale one), and the pair
+   * `(connection_id, provider_payment_id)` is unique by schema.
+   */
+  async paymentChainByProviderId({ connectionId, providerPaymentId }) {
+    if (!connectionId || !providerPaymentId) return null;
+    return this.providerPaymentChain("p.connection_id = $1 and p.provider_payment_id = $2", [
+      connectionId,
+      providerPaymentId,
+    ]);
+  },
+
+  async providerPaymentChain(where, params) {
     return this.withOwnerClient(async (client) => {
       const { rows } = await client.query(
         `select p.id as payment_id, p.org_id, p.invoice_id, p.status as payment_status,
                 p.connection_id, p.amount as payment_amount, p.currency as payment_currency,
-                i.subscription_id, i.currency as invoice_currency, i.lines, i.period_end
+                i.status as invoice_status, i.subscription_id,
+                i.currency as invoice_currency, i.lines, i.period_end
            from payments p
            join invoices i on i.id = p.invoice_id
-          where p.id = $1`,
-        [paymentId],
+          where ${where}
+          limit 1`,
+        params,
       );
       return rows[0] ?? null;
+    });
+  },
+
+  /**
+   * Payments a notification may have missed (`spec/payment-providers.md` §5.1): still
+   * pending, already carrying the provider id, and older than the caller's cutoff. Only
+   * rows with a provider id can be asked about, so a manual invoice is never reconciled
+   * against a shop that never saw it.
+   */
+  async pendingPaymentsForReconcile({ olderThan, limit = 50 } = {}) {
+    if (!(olderThan instanceof Date) || Number.isNaN(olderThan.getTime())) {
+      throw new TypeError("pendingPaymentsForReconcile needs a cutoff date");
+    }
+    return this.withOwnerClient(async (client) => {
+      const { rows } = await client.query(
+        `select p.id, p.org_id, p.invoice_id, p.connection_id, p.provider_payment_id,
+                p.amount, p.currency, p.created_at
+           from payments p
+          where p.status = 'pending'
+            and p.provider_payment_id is not null
+            and p.created_at <= $1
+          order by p.created_at asc, p.id asc
+          limit least(greatest($2, 1), 200)`,
+        [olderThan, limit],
+      );
+      return rows;
     });
   },
 };

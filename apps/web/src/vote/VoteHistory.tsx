@@ -1,3 +1,5 @@
+import { HintCopy } from "../HintCopy";
+import { actedOnHint } from "../hintCatalog";
 import { useState } from "react";
 import type { Widget } from "@remo/model";
 import { Badge, Button, EmptyState } from "@remo/ui";
@@ -46,13 +48,13 @@ export function VoteHistory({
         icon="vote"
         title={t("facilitation.vote.historyEmptyTitle")}
         example={t("facilitation.vote.historyEmptyExample")}
-        action={{
+        action={canFacilitate ? {
           label: t("facilitation.vote.newSession"),
           icon: "plus",
-          onClick: onNewSession,
-        }}
+          onClick: () => { actedOnHint("vote.history"); onNewSession(); },
+        } : undefined}
       >
-        {t("facilitation.vote.historyEmptyBody")}
+        <HintCopy slot="vote.history" text="facilitation.vote.historyEmptyBody" />
       </EmptyState>
     );
   }

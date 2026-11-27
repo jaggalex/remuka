@@ -142,16 +142,40 @@ export async function handleBoardRoutes(ctx) {
         // no organisation, no visibility.
         return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "not found"), true;
       }
+      const member = me && board.team_id && !access.sources.every(source => source === "link")
+        ? await store.getOrgMembership(board.org_id, me.id) : null;
+      const team = member?.state === "active" && member.relation === "member"
+        ? await store.getTeam(board.org_id, board.team_id) : null;
+      // This describes the menu; the export route enforces the entitlement again.
+      // An unavailable billing read must not prevent opening an authorised room.
+      const pdfExportAvailable = access.capabilities.includes("board.export")
+        ? await featureLimit(store, board.org_id, "export.pdf").then(limit => !limit).catch(() => undefined)
+        : undefined;
       json(response, 200, {
-        access,
+        access: { ...access, pdfExportAvailable, principalId: me?.id ?? null },
         board: {
+          ...(team ? { team: { id: team.id, name: team.name } } : {}),
           id: board.id,
           title: board.title,
+          icon: board.icon ?? "",
+          coverUpdatedAt: board.cover_source_at ?? null,
           claimed: true,
           orgId: board.org_id,
           visibility: board.visibility,
         },
       });
+      return true;
+    }
+
+    if (parts[2] === "cover" && parts.length === 3 && method === "GET") {
+      response.setHeader("Cache-Control", "private, no-store");
+      if (!access.allowed || !access.capabilities.includes("board.read")) {
+        return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "not found"), true;
+      }
+      const bytes = await store.roomCover(boardId);
+      if (!bytes) return fail(response, 404, "RESOURCE_NOT_AVAILABLE", "not found"), true;
+      response.writeHead(200, { "Content-Type": "image/webp", "Content-Length": bytes.length });
+      response.end(bytes);
       return true;
     }
 

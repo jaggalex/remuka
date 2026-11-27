@@ -65,6 +65,7 @@ export const enConsent = {
   "consent.link": "Cookies",
   "consent.close": "Close",
 
+  "consent.lifetime.hours48": "48 hours",
   "consent.lifetime.days30": "30 days",
   "consent.lifetime.hours12": "12 hours",
   "consent.lifetime.year1": "1 year",

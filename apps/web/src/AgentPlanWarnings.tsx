@@ -10,7 +10,7 @@ import { useI18n } from "./i18n";
  * sentence is ours, because a model's warning wording is untrusted data. Critical
  * rows carry a danger badge and one sentence that says what to do about them.
  */
-export function AgentPlanWarnings({ warnings }: { warnings: PlanWarning[] }) {
+export function AgentPlanWarnings({ warnings, summary = false }: { warnings: PlanWarning[]; summary?: boolean }) {
   const { t } = useI18n();
   if (!warnings.length) return null;
 
@@ -20,18 +20,19 @@ export function AgentPlanWarnings({ warnings }: { warnings: PlanWarning[] }) {
       aria-label={t("agents.plan.warnings", { n: warnings.length })}
     >
       <strong>{t("agents.plan.warnings", { n: warnings.length })}</strong>
-      <ul className="agent-plan-warning-list">
+      <ul className={summary ? "agent-plan-warning-list is-summary" : "agent-plan-warning-list"}>
         {warnings.map((warning, index) => {
           const isCritical = isCriticalWarning(warning);
           return (
             <li
               key={`${warning.code}-${warning.tempId ?? ""}-${index}`}
               className={isCritical ? "is-critical" : undefined}
+              title={warning.code === "MISSING_ROLE" ? warning.code : undefined}
             >
               <Badge tone={isCritical ? "danger" : "warning"}>
                 {isCritical ? t("agents.plan.severity.critical") : t("agents.plan.severity.warning")}
               </Badge>
-              <code className="agent-plan-warning-code">{warning.code}</code>
+              {!summary && warning.code !== "MISSING_ROLE" && <code className="agent-plan-warning-code">{warning.code}</code>}
               <span className="agent-plan-warning-text">{warningText(warning, t)}</span>
             </li>
           );

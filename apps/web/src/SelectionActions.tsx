@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BoardDocument } from "@remo/doc";
 import type { Widget } from "@remo/model";
 import { IconButton, Menu, Tooltip, type IconName, type MenuItem } from "@remo/ui";
-import { commandById, type CommandContext } from "./commands";
-import { isEditable } from "./BoardCanvas";
+import { commandById, runCommand, type CommandContext } from "./commands";
 import { useI18n, type TranslationKey } from "./i18n";
 import { elevationMenuItems } from "./elevationMenu";
 import { useMenuFocus } from "./useMenuFocus";
@@ -27,6 +26,7 @@ const MORE_LAYERS = ["front", "backward", "back"] as const;
  */
 export function SelectionActions({
   commandContext,
+  showElevation = true,
   widgets,
   selectedIds,
   setSelectedIds,
@@ -39,6 +39,7 @@ export function SelectionActions({
   writeBlocked,
 }: {
   commandContext: CommandContext;
+  showElevation?: boolean;
   widgets: Widget[];
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
@@ -76,7 +77,7 @@ export function SelectionActions({
           label={label}
           disabled={!command.enabled(commandContext)}
           selected={extra?.selected}
-          onClick={() => command.run(commandContext)}
+          onClick={() => runCommand(command, commandContext)}
         />
       </Tooltip>
     );
@@ -88,20 +89,14 @@ export function SelectionActions({
       ? {
           label: t(command.label(commandContext) as TranslationKey),
           disabled: !command.enabled(commandContext),
-          onSelect: () => command.run(commandContext),
+          onSelect: () => runCommand(command, commandContext),
         }
       : null;
   };
-  const editable =
-    selectedIds.length === 1 && widgets.some((w) => w.id === selectedIds[0] && isEditable(w));
   const info = run("info");
+  const editText = run("editText");
   const more: MenuItem[] = [
-    {
-      label: t("inspector.editText"),
-      hint: t("inspector.editTextTitle"),
-      disabled: !editable,
-      onSelect: () => setEditingId(selectedIds[0] ?? null),
-    },
+    ...(editText ? [{ ...editText, icon: "pencil" as const }] : []),
     {
       label: t("inspector.connect"),
       hint: canJoinSelection ? t("inspector.connectTitle") : t("inspector.connectHint"),
@@ -110,7 +105,7 @@ export function SelectionActions({
     },
     { separator: true },
     ...MORE_LAYERS.map(run).filter((item): item is NonNullable<typeof item> => item !== null),
-    ...elevationMenuItems(board, widgets, selectedIds, writeBlocked, t),
+    ...(showElevation ? elevationMenuItems(board, widgets, selectedIds, writeBlocked, t) : []),
     { separator: true },
     {
       label: t("inspector.nudge"),

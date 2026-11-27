@@ -148,6 +148,47 @@ describe("a room while the database fails", () => {
     expect(store.onPersisted).not.toHaveBeenCalled();
   });
 
+  it("acknowledges only after the newer log batch finishes writing", async () => {
+    const firstCountStarted = Promise.withResolvers();
+    const firstCount = Promise.withResolvers();
+    const secondInsertStarted = Promise.withResolvers();
+    const secondInsert = Promise.withResolvers();
+    let inserts = 0;
+    let counts = 0;
+    const complete = { rows: [{ pending: 0 }] };
+    const store = storeWith({
+      query: vi.fn(async (sql) => {
+        if (sql.startsWith("insert into board_updates") && ++inserts === 2) {
+          secondInsertStarted.resolve();
+          return secondInsert.promise;
+        }
+        if (sql.startsWith("select count(*)") && ++counts === 1) {
+          firstCountStarted.resolve();
+          return firstCount.promise;
+        }
+        return complete;
+      }),
+    });
+    store.onPersisted = vi.fn();
+    const room = openRoom(store);
+    room.pendingUpdates.push(Buffer.from([1]));
+    const older = store.flushLog(room);
+    await firstCountStarted.promise;
+    room.pendingUpdates.push(Buffer.from([2]));
+    const newer = store.flushLog(room);
+    await secondInsertStarted.promise;
+
+    firstCount.resolve(complete);
+    await older;
+    expect(store.hasPendingWrites(room.docName)).toBe(true);
+    const earlyCallbacks = store.onPersisted.mock.calls.length;
+    secondInsert.resolve(complete);
+    await newer;
+
+    expect(earlyCallbacks).toBe(0);
+    expect(store.onPersisted).toHaveBeenCalledExactlyOnceWith(room.docName);
+  });
+
   it("opens a room whose document holds a value the mirror cannot read", () => {
     const store = storeWith({ connect: noConnection });
     const ydoc = new Y.Doc();

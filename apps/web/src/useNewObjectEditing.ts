@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { deleteWidgets, type BoardDocument } from "@remo/doc";
-import type { ShapeKind } from "@remo/model";
+import type { ShapeKind, Vec2 } from "@remo/model";
 
 /**
  * A sticky or a text object created from the rail opens ready to type, and disappears
@@ -17,27 +17,30 @@ export function useNewObjectEditing({
   setEditingId,
 }: {
   board: BoardDocument;
-  addSticky: (fill?: string) => string;
-  addText: () => string;
+  addSticky: (fill?: string, at?: Vec2) => string;
+  addText: (at?: Vec2) => string;
   addShape: (kind: ShapeKind) => string;
   setEditingId: (id: string | null) => void;
 }) {
   const created = useRef<string | null>(null);
 
+  useEffect(() => () => board.editPlacedText(null), [board]);
+
   const begin = useCallback(
-    (id: string) => {
-      created.current = id;
+    (id: string, keepEmpty = false) => {
+      created.current = keepEmpty ? null : id;
+      board.editPlacedText(keepEmpty ? id : null);
       setEditingId(id);
     },
-    [setEditingId],
+    [board, setEditingId],
   );
 
   const addStickyAndEdit = useCallback(
-    (fill?: string) => begin(addSticky(fill)),
+    (fill?: string, at?: Vec2, placed = false) => begin(addSticky(fill, at), placed),
     [addSticky, begin],
   );
 
-  const addTextAndEdit = useCallback(() => begin(addText()), [addText, begin]);
+  const addTextAndEdit = useCallback((at?: Vec2, placed = false) => begin(addText(at), placed), [addText, begin]);
 
   const addShapeAndEdit = useCallback(
     (kind: ShapeKind) => begin(addShape(kind)),
@@ -45,6 +48,7 @@ export function useNewObjectEditing({
   );
 
   const finishEditing = useCallback(() => {
+    board.editPlacedText(null);
     const id = created.current;
     created.current = null;
     if (id) {

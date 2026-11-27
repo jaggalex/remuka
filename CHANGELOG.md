@@ -1,12 +1,45 @@
 # Changelog
 
-Ремука (Remuka) is at **0.8.0**. The user-facing history, with dates and the decisions
+Ремука (Remuka) is at **0.9.0**. The user-facing history, with dates and the decisions
 behind each step, is maintained in the product guide:
 
 - [Changelog (EN)](guide/support/changelog/en.md)
 - [История изменений (RU)](guide/support/changelog/ru.md)
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-11-27
+
+UI redesign: paper and ink, one rail and side panel, command search, the run panel.
+
+**Objects turn (ADR-271, ADR-283).** A shape, sticky note, free text, image and frame can be
+turned with the round handle above the selection: `Shift` rounds to 15°, without it the angle
+snaps to a right angle within 3°, `⌘⇧←`/`⌘⇧→` turn by 15°, and the object menu has "Rotate 90°"
+and "Reset rotation". Several objects turn about one common centre. Hit-testing, the marquee,
+the selection frame, resizing in the object's own axes, connector anchors, alignment, the text
+editor, presentation, PNG/PDF export and backup all follow the angle; kanban, tables, cards and
+connectors stay straight, and connector labels stay horizontal.
+
+A client built before this change shows such an object unrotated; if it rewrites the whole
+object record, the angle is lost for everyone. An up-to-date client keeps the field when it
+patches another property, and the server's command API merges instead of replacing. Acceptable
+for one release (ADR-271).
+
+**Ink knows its paper (ADR-273, ADR-281).** The colour of anything lying on a surface — text,
+counters, grid lines, icons, "+", placeholders, the caret — is now derived from that surface
+instead of the theme. A room therefore reads in both themes: switching to dark recolours the
+chrome and the canvas ground, and the content follows.
+
+- New text, labels and lines store no colour: they are **Auto**, and the painter picks ink on
+  light paper and paper on dark ink. An old document is not rewritten; a stored colour equal
+  to the former default (grey 600 or the near-black `#1a1a1a`) reads as Auto. A person who
+  chose exactly that grey now gets Auto — the accepted price for text that never vanishes.
+- A person's own colour is kept. Below 2:1 against its surface the object gets a 1.5 px halo
+  in the surface's ink, and the colour window says "hard to read on this background" and
+  offers Auto.
+- **Black** is true `#000000` (ADR-281): the old chip stored `#1a1a1a`, which is now Auto.
+- The canvas palette no longer carries text or border colours for content, so a painter
+  cannot take a theme colour for an object; a matrix test and `pnpm ui:check` hold the rule.
 
 **The product is now Ремука / Remuka (formerly remo), ADR-254.** The name changes wherever
 a person sees it: interface, mail, exports, the in-app help and this guide. The code name

@@ -28,11 +28,9 @@ The format bar above the object teaches the same formats: see “Format bar”.
 
 ## Format bar
 
-Select a sticky note, a text or a shape. The object panel shows a format bar: **H1**, **H2**, a bulleted list, a numbered list, a checklist, inline code and a link.
+Select a sticky note, a text or a shape and a bar appears above it. It has seven elements: colour, text size (**Aa · Auto**) and the most frequent controls, with the rest behind **⋯**. While the editor is open the bar carries only formats: **bold**, *italic*, strikethrough, bulleted list, checklist, link and **⋯**.
 
-While the editor is open, the bar shows the format of the line with the caret or of the selected lines, and a press applies to them. After the editor closes it shows the object's common format, and a press changes all of its lines. When the lines differ, no button is pressed.
-
-The link button works only while editing: for a new link, select the text first. The **More** menu on the object panel holds **Increase indent**, **Decrease indent**, **Open link** (when the object has exactly one link) and **Clear formatting**.
+A press applies to the line with the caret or to the whole selection. **⋯** opens the properties panel on the right: **underline**, **Heading 1/2**, numbered list, inline code and **Clear formatting**. There is one panel: opening comments closes it.
 
 ## Links
 

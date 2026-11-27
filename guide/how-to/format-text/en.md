@@ -46,11 +46,11 @@ A shortcut applies to the line with the caret, or to the whole selection.
 
 ## Format bar
 
-Select a sticky note, a text or a shape. The object panel shows a format bar: **H1**, **H2**, a bulleted and a numbered list, a checklist, inline code and a link.
+Select a sticky note, a text or a shape and a bar appears above it. It has seven elements: colour, text size (**Aa · Auto**) and the most frequent controls, with the rest behind **⋯**. While the editor is open the bar carries only formats: **bold**, *italic*, strikethrough, bulleted list, checklist, link and **⋯**.
 
-While the editor is open, the bar reads the line with the caret or the selection: a press changes only them. After the editor closes it shows the object's common format, and a press changes every line. When the lines differ, no button is pressed.
+A press applies to the line with the caret or to the whole selection. **⋯** opens the properties panel on the right: **underline**, **Heading 1/2**, numbered list, inline code and **Clear formatting**. There is one panel: opening comments closes it.
 
-The link button works only while editing. The **More** menu holds **Increase indent** and **Decrease indent** for lists, **Open link** when the object has exactly one link, and **Clear formatting**.
+**Increase indent**, **Decrease indent** and **Open link** (when the object has exactly one link) stay in **More settings** of the properties panel.
 
 ## Links
 

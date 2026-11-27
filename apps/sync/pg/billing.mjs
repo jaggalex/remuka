@@ -21,7 +21,7 @@ function mapPrice(row) {
 }
 
 export const billingMethods = {
-  /** The kind decides Free-ness: a personal organisation cannot buy a plan (§2.2). */
+  /** The organisation row used by the billing summary. */
   async billingOrg(orgId) {
     const { rows } = await this.pool.query("select id, kind from orgs where id = $1", [orgId]);
     return rows[0] ?? null;
@@ -96,6 +96,14 @@ export const billingMethods = {
     return rows[0]?.rooms ?? 0;
   },
 
+  async frozenRoomCount(orgId) {
+    const { rows } = await this.pool.query(
+      "select count(*)::int as count from boards where org_id = $1 and archived_at is null and frozen_at is not null",
+      [orgId],
+    );
+    return rows[0].count;
+  },
+
   /** Agent tasks created in the current calendar month, for the Free ceiling (§2.4). */
   async agentTasksThisMonth(orgId) {
     const { rows } = await this.pool.query(
@@ -112,10 +120,10 @@ export const billingMethods = {
    * them again (§2.5). Ordering by `updated_at` is what "the last N rooms I worked in"
    * means; the frozen room keeps its content and loses only the right to change it.
    */
-  async reconcileFrozenRooms(orgId, maxRooms) {
-    const client = await this.pool.connect();
+  async reconcileFrozenRooms(orgId, maxRooms, { transaction = null } = {}) {
+    const client = transaction ?? await this.pool.connect();
     try {
-      await client.query("begin");
+      if (!transaction) await client.query("begin");
       if (maxRooms === null || maxRooms === undefined) {
         await client.query(
           "update boards set frozen_at = null where org_id = $1 and frozen_at is not null",
@@ -150,12 +158,12 @@ export const billingMethods = {
           [orgId, maxRooms],
         );
       }
-      await client.query("commit");
+      if (!transaction) await client.query("commit");
     } catch (error) {
-      await client.query("rollback");
+      if (!transaction) await client.query("rollback");
       throw error;
     } finally {
-      client.release();
+      if (!transaction) client.release();
     }
   },
 
@@ -275,34 +283,47 @@ export const billingMethods = {
     }
     const client = await this.pool.connect();
     try {
-      await client.query("begin");
-      let next = version;
-      if (next === undefined || next === null) {
-        const { rows: [row] } = await client.query(
-          `select coalesce(max(version), 0) + 1 as version
-             from prices
-            where plan = $1 and interval = $2 and currency = $3`,
-          [plan, interval, currency],
-        );
-        next = row.version;
+      // Two price books (test files, or an operator and a seed) may read the same next
+      // version at once; the unique key keeps one and this retry reads the version again.
+      // An explicit version keeps its own collision: the caller asked for that number.
+      const implicit = version === undefined || version === null;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await client.query("begin");
+          let next = version;
+          if (next === undefined || next === null) {
+            const { rows: [row] } = await client.query(
+              `select coalesce(max(version), 0) + 1 as version
+                 from prices
+                where plan = $1 and interval = $2 and currency = $3`,
+              [plan, interval, currency],
+            );
+            next = row.version;
+          }
+          const { rows: [row] } = await client.query(
+            `insert into prices
+               (id, plan, interval, currency, amount, version, status, promo_only, created_by)
+             values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8)
+             returning *`,
+            [id, plan, interval, currency, amount, next, promoOnly, createdBy],
+          );
+          await client.query(
+            `insert into price_events (price_id, type, data)
+             values ($1, 'created', $2)`,
+            [id, JSON.stringify({ plan, interval, currency, amount, version: next, promoOnly })],
+          );
+          await client.query("commit");
+          return mapPrice(row);
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          const raced =
+            implicit &&
+            attempt < 4 &&
+            error?.code === "23505" &&
+            error?.constraint === "prices_plan_interval_currency_version_key";
+          if (!raced) throw error;
+        }
       }
-      const { rows: [row] } = await client.query(
-        `insert into prices
-           (id, plan, interval, currency, amount, version, status, promo_only, created_by)
-         values ($1, $2, $3, $4, $5, $6, 'draft', $7, $8)
-         returning *`,
-        [id, plan, interval, currency, amount, next, promoOnly, createdBy],
-      );
-      await client.query(
-        `insert into price_events (price_id, type, data)
-         values ($1, 'created', $2)`,
-        [id, JSON.stringify({ plan, interval, currency, amount, version: next, promoOnly })],
-      );
-      await client.query("commit");
-      return mapPrice(row);
-    } catch (error) {
-      await client.query("rollback");
-      throw error;
     } finally {
       client.release();
     }
@@ -445,19 +466,25 @@ export const billingMethods = {
    * The owner's explicit choice of active rooms (§2.5). Only rooms of this organisation
    * are accepted; the rest are frozen, so the chosen set is exactly the active one.
    */
-  async setFrozenRooms(orgId, boardIds) {
+  async setFrozenRooms(orgId, boardIds, { scope = null, max = null } = {}) {
     if (!Array.isArray(boardIds)) throw new TypeError("boardIds must be an array");
     const client = await this.pool.connect();
     try {
       await client.query("begin");
-      const { rows: owned } = await client.query(
-        "select id from boards where org_id = $1 and id = any($2::text[])",
-        [orgId, boardIds],
+      // Serialise choices for this organisation, including older callers that replace the whole set.
+      await client.query("select id from orgs where id = $1 for update", [orgId]);
+      const { rows } = await client.query(
+        "select id, frozen_at from boards where org_id = $1 and archived_at is null order by id for update",
+        [orgId],
       );
-      if (owned.length !== boardIds.length) {
-        throw Object.assign(new Error("a room does not belong to this organisation"), {
-          code: "BOARD_NOT_FOUND",
-        });
+      const candidates = new Set(scope ?? rows.map(row => row.id));
+      const owned = new Set(rows.map(row => row.id));
+      if ([...candidates].some(id => !owned.has(id)) || boardIds.some(id => !candidates.has(id))) {
+        throw Object.assign(new Error("room no longer available for this choice"), { code: "BOARD_NOT_FOUND" });
+      }
+      const reserved = rows.filter(row => !candidates.has(row.id) && row.frozen_at === null).length;
+      if (max !== null && reserved + boardIds.length > max) {
+        throw Object.assign(new Error("selection exceeds the active room limit"), { code: "ACTIVE_ROOM_LIMIT" });
       }
       await client.query(
         `update boards
@@ -465,8 +492,8 @@ export const billingMethods = {
               when id = any($2::text[]) then null
               else coalesce(frozen_at, now())
             end
-          where org_id = $1 and archived_at is null`,
-        [orgId, boardIds],
+          where org_id = $1 and archived_at is null and ($3::text[] is null or id = any($3::text[]))`,
+        [orgId, boardIds, scope],
       );
       await client.query("commit");
     } catch (error) {

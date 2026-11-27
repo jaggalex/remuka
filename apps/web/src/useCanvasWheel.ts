@@ -75,6 +75,11 @@ export function useCanvasWheel(
     // them back. Over the canvas area it zooms the board; anywhere else it is refused.
     // A plain scroll still scrolls the panel under the pointer.
     const onPinchElsewhere = (event: WheelEvent) => {
+      if (event.target instanceof Element && event.target.closest(".kanban-column-menu") &&
+          canvas.parentElement?.contains(event.target)) {
+        onWheelNative(event);
+        return;
+      }
       if (!event.ctrlKey || event.target === canvas) return;
       const rect = canvas.getBoundingClientRect();
       const over =

@@ -41,7 +41,7 @@ The agent answers from the documentation. Acting in a room needs a normal accoun
 - roles, codes, formats and limits;
 - administration and security.
 
-The main file is built from the English pages: most models read it more easily. The Russian pages remain on the portal. The files are generated from `guide/` during the build; the `llms.txt` header states the latest page update and the schema version. If the documentation disagrees with the interface, trust the interface and report the drift.
+Use the [English index](https://docs.remuka.com/guide/llms.en.txt) or [full English text](https://docs.remuka.com/guide/llms-full.en.txt) for English terminology. For Russian, use the [Russian index](https://docs.remuka.com/guide/llms.ru.txt) or [full Russian text](https://docs.remuka.com/guide/llms-full.ru.txt). The existing `llms-full.txt` link also opens the full English text.
 
 ## Where to go next
 

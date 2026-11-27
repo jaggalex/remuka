@@ -62,7 +62,7 @@ export function emptyKanbanState(overrides: Partial<KanbanState> = {}): KanbanSt
   };
 }
 
-/** Accents from remo's own tonal palette (ADR-127), on its paper 300 row (ADR-182). */
+/** Accents from remo's own tonal palette (ADR-127), on its bright 300 row (ADR-267). */
 export const TODO_ACCENT = "#595959";
 export const DOING_ACCENT = TONE_LEVELS.yellow[300];
 export const DONE_ACCENT = TONE_LEVELS.green[300];

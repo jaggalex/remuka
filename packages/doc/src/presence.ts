@@ -76,11 +76,12 @@ export interface AwarenessLike {
  *
  * They live here because presence is part of the shared document, not of the local
  * stylesheet; the values match `tokens.json`, so a remote cursor and the DOM name
- * plates in @remo/ui are the same six colours (ADR-078).
+ * plates in @remo/ui are the same six colours (ADR-078). Violet is the agent's colour
+ * (ADR-265), so no person gets it: the second colour is the tokens' green-teal.
  */
 export const PRESENCE_COLORS = [
   "#c93e0a",
-  "#8a35d6",
+  "#0f7b6c",
   "#1a6ad8",
   "#cc2470",
   "#2b7f17",
@@ -89,6 +90,26 @@ export const PRESENCE_COLORS = [
 
 export function colorFor(clientId: number): string {
   return PRESENCE_COLORS[clientId % PRESENCE_COLORS.length]!;
+}
+
+/**
+ * A person's colour for something that outlives a tab: a comment pin (ADR-267).
+ *
+ * A cursor and an avatar belong to a browser session, so `colorFor(clientId)` may differ
+ * between two tabs of one person. A pin is anchored to the comment author's account and
+ * must read the same for everyone, including a person who is offline, so it is derived
+ * from the account id instead — same six colours, one stable hash.
+ */
+export function colorForAccount(accountId: string | null | undefined): string {
+  const id = accountId?.trim();
+  // A guest or a deleted account has no id to hash; the first colour is still a person's.
+  if (!id) return PRESENCE_COLORS[0]!;
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i += 1) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return PRESENCE_COLORS[(hash >>> 0) % PRESENCE_COLORS.length]!;
 }
 
 /**

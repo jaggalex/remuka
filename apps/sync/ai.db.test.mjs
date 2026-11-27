@@ -18,6 +18,8 @@ afterAll(async () => {
   if (store) await store.close();
 });
 
+import { journalCsv } from "./ai-journal-export.mjs";
+
 function run(orgId, overrides = {}) {
   const at = new Date().toISOString();
   return {
@@ -67,6 +69,23 @@ suite("ai_runs.gateway_provider", () => {
     const rows = await store.withTenant(orgId, () => store.aiRunsForVerify(orgId));
     expect(rows.map((row) => row.gateway_provider)).toEqual(["openrouter", null]);
     expect(verifyAiChain(rows)).toMatchObject({ ok: true, checked: 2 });
+
+    const otherOrg = randomUUID();
+    const empty = await store.withTenant(otherOrg, () => store.aiJournalSummary(otherOrg));
+    expect(empty).toMatchObject({ calls: 0, through: "0" });
+    const summary = await store.withTenant(orgId, () => store.aiJournalSummary(orgId));
+    expect(summary).toMatchObject({ calls: 2, through: "2" });
+    expect(Number(summary.costUsd)).toBeCloseTo(0.000002, 8);
+    // Keep an upper bound even if new calls arrive while the file is downloaded.
+    const csv = await store.withTenant(orgId, async () => {
+      const lines = [];
+      for await (const line of journalCsv(store, orgId, "1")) lines.push(line);
+      return lines;
+    });
+    expect(csv).toHaveLength(2);
+    expect(csv[0]).toContain("key_fingerprint");
+    expect(csv[1]).toContain(rows[0].hash);
+    expect(csv[1]).not.toContain(rows[1].hash);
 
     const listed = await store.withTenant(orgId, () => store.listAiRuns(orgId, 10));
     expect(listed.map((row) => row.gateway_provider)).toEqual([null, "openrouter"]);

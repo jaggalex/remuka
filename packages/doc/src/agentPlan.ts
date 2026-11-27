@@ -1,3 +1,4 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import { DEFAULT_LINE_PRESET, newId, type Widget } from "@remo/model";
 import {
   PlanError,
@@ -249,8 +250,9 @@ function plannedConnector(
     // Elbow by default, the same choice a hand-drawn line makes (ADR-030).
     routing: connector.routing ?? "elbow",
     style: {
-      // The line Plain preset, so a planned line rings its own sample (ADR-129).
-      strokeColor: connector.style?.strokeColor ?? DEFAULT_LINE_PRESET.color,
+      // A planned line is Auto unless the plan names a colour: a draft still on the canvas
+      // must not store a colour the person never chose (ADR-273 §2.3).
+      ...(connector.style?.strokeColor ? { strokeColor: connector.style.strokeColor } : {}),
       strokeWidth: connector.style?.strokeWidth ?? DEFAULT_LINE_PRESET.width,
       ...(connector.style?.strokeStyle ? { strokeStyle: connector.style.strokeStyle } : {}),
     },
@@ -326,7 +328,7 @@ export function applyAgentPlan(
         createdAt,
         content,
       );
-      board.widgets.set(id, widget);
+      insertNewWidget(board.widgets, widget);
       // The text map is the editable copy; the field stays for readers that do not
       // materialise text (templates and exports do the same, ADR-016).
       if (delta && isRichDelta(delta)) seedTextDelta(board, widget, delta);
@@ -357,8 +359,8 @@ export function applyAgentPlan(
       const toId = idMap.get(connector.to) ?? connector.to;
       const from = board.readWidget(fromId)!;
       const to = board.readWidget(toId)!;
-      board.widgets.set(
-        id,
+      insertNewWidget(
+        board.widgets,
         plannedConnector(connector, id, from, to, author, options.provenance, createdAt),
       );
       createdConnectors.push(id);

@@ -11,6 +11,7 @@
  * state; it is unreachable, not unmounted. A guest gets a 401, which is not an error:
  * there is nothing for a guest to accept.
  */
+import { LegalChanges } from "./LegalChanges";
 import {
   createContext,
   useCallback,
@@ -137,6 +138,7 @@ function ReacceptDialog({
         </>
       }
     >
+      {documents.map(document => <LegalChanges key={document.doc} document={document} />)}
       <LegalConsent
         idPrefix="legal-reaccept"
         documents={documents}

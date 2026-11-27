@@ -39,6 +39,14 @@ REMO_KEK_ID=v1
 
 Without `REMO_KEK` a provider key cannot be added and a webhook cannot be set up: the server answers `WEBHOOK_LOCKED` or `AI_CREDENTIALS_LOCKED`. Secrets already stored are not decrypted if the key is lost.
 
+## Links to the guide
+
+| Variable | What it sets | Without it |
+|---|---|---|
+| `REMO_DOCS_ORIGIN` | address of the public guide behind «Documentation» in the account menu, «Terms» on the payment screen and «About Remuka» in the help: an absolute `https` origin without a path or trailing `/` | by zone: `eu` → `https://docs.remuka.com`, `ru` → `https://docs.remuka.ru`; in the `none` zone (self-host) there are no guide links and the text stays without one |
+
+The variable wins over the zone: that is how a stand and an installation with its own portal lead people to their own guide. The service reads it at start and publishes it in `GET /api/config` (`docs.origin`); a malformed address stops the start, so a typo cannot remove every link silently.
+
 ## Cookies and consent
 
 | Variable | What it sets | Without it |

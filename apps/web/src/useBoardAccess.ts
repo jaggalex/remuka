@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { api, ApiError, type Access, type OrgSummary, type SessionUser } from "./api";
 import { currentRoom } from "./identity";
 import { publishAccess } from "./accessSnapshot";
@@ -10,7 +10,7 @@ import { publishAccess } from "./accessSnapshot";
  * capability in the UI is a read of that answer, not a local guess.
  */
 export function useBoardAccess(room: string | null = currentRoom()) {
-  const [me, setMe] = useState<SessionUser | null>(null);
+  const [me, setUser] = useState<SessionUser | null>(null);
   const [orgs, setOrgs] = useState<OrgSummary[]>([]);
   const [sessionReady, setSessionReady] = useState(false);
   const [access, setAccess] = useState<Access | null>(null);
@@ -18,29 +18,44 @@ export function useBoardAccess(room: string | null = currentRoom()) {
   /** The organisation this board belongs to; a legacy room has none. */
   const [boardOrgId, setBoardOrgId] = useState<string | undefined>(undefined);
   /** The board's server-side name, kept when a template seeds a new board. */
+  const [boardIcon, setBoardIcon] = useState("");
+  const [boardTeam, setBoardTeam] = useState<{ id: string; name: string }>();
   const [boardTitle, setBoardTitle] = useState<string | undefined>(undefined);
+  const currentUser = useRef<SessionUser | null>(null);
+  const identityEpoch = useRef(0);
+  const accessSeq = useRef(0);
+  const setMe = useCallback((next: SetStateAction<SessionUser | null>) => {
+    const user = typeof next === "function" ? next(currentUser.current) : next;
+    identityEpoch.current++;
+    if (currentUser.current?.id !== user?.id) {
+      accessSeq.current++;
+      setAccess(null);
+    }
+    currentUser.current = user;
+    setUser(user);
+    setSessionReady(true);
+  }, []);
 
   // A failure is not an error state: most visitors of a legacy room are anonymous.
   useEffect(() => {
     let alive = true;
+    const epoch = identityEpoch.current;
     api
       .me()
       .then((result) => {
-        if (!alive) return;
+        if (!alive || epoch !== identityEpoch.current) return;
         setMe(result.user);
         setOrgs(result.orgs);
-        setSessionReady(true);
       })
       .catch(() => {
-        if (!alive) return;
+        if (!alive || epoch !== identityEpoch.current) return;
         setMe(null);
         setOrgs([]);
-        setSessionReady(true);
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setMe]);
 
   /** Re-read the organisation list after creating or renaming one (ADR-166). */
   const refreshOrgs = useCallback(async () => {
@@ -53,7 +68,6 @@ export function useBoardAccess(room: string | null = currentRoom()) {
   }, []);
 
   /** Guards against a slow answer overwriting a newer access decision. */
-  const accessSeq = useRef(0);
   const retryAccess = useRef<number | null>(null);
 
   /** What this viewer may do with this board, straight from the server. */
@@ -61,12 +75,23 @@ export function useBoardAccess(room: string | null = currentRoom()) {
     if (!room) {
       setAccess(null);
       setBoardOrgId(undefined);
+      setBoardIcon("");
+      setBoardTeam(undefined);
       return;
     }
     const seq = ++accessSeq.current;
     try {
       const result = await api.access(room);
       if (seq !== accessSeq.current) return;
+      // Another tab can replace the cookie. Refresh the displayed identity as well as
+      // the grant, and reject an older in-flight answer after an explicit sign-in.
+      if (result.access.principalId !== undefined && result.access.principalId !== (currentUser.current?.id ?? null)) {
+        const owner = result.access.principalId;
+        const identity = owner ? await api.me() : null;
+        if (seq !== accessSeq.current || (identity?.user?.id ?? null) !== owner) return;
+        setMe(identity?.user ?? null);
+        setOrgs(identity?.orgs ?? []);
+      }
       if (retryAccess.current) {
         window.clearTimeout(retryAccess.current);
         retryAccess.current = null;
@@ -74,6 +99,8 @@ export function useBoardAccess(room: string | null = currentRoom()) {
       setAccess(result.access);
       setBoardOrgId(result.board?.orgId);
       setBoardTitle(result.board?.title);
+      setBoardTeam(result.board?.team);
+      setBoardIcon(result.board?.icon ?? "");
     } catch (failure) {
       if (seq !== accessSeq.current) return;
       const status = failure instanceof ApiError ? failure.status : 0;
@@ -85,6 +112,8 @@ export function useBoardAccess(room: string | null = currentRoom()) {
         retryAccess.current = window.setTimeout(() => void refreshAccess(), 2_000);
         return;
       }
+      setBoardIcon("");
+      setBoardTeam(undefined);
       setAccess({
         allowed: false,
         role: null,
@@ -100,7 +129,7 @@ export function useBoardAccess(room: string | null = currentRoom()) {
                 : "NOT_FOUND",
       });
     }
-  }, [room]);
+  }, [room, setMe]);
 
   useEffect(
     () => () => {
@@ -110,8 +139,8 @@ export function useBoardAccess(room: string | null = currentRoom()) {
   );
 
   useEffect(() => {
-    void refreshAccess();
-  }, [refreshAccess, me?.id]);
+    if (sessionReady) void refreshAccess();
+  }, [refreshAccess, me?.id, sessionReady]);
 
   /**
    * The canvas leaves need one answer from this hook — the export right behind "Download
@@ -139,7 +168,6 @@ export function useBoardAccess(room: string | null = currentRoom()) {
   const canManage = Boolean(access?.capabilities.includes("board.manage"));
   const canTransfer = Boolean(access?.capabilities.includes("board.transfer"));
   const denied = Boolean(access && !access.allowed);
-  const unclaimed = access?.reason === "UNCLAIMED";
 
   return {
     me,
@@ -150,6 +178,7 @@ export function useBoardAccess(room: string | null = currentRoom()) {
     access,
     refreshAccess,
     boardOrgId,
+    boardTeam, boardIcon,
     boardTitle,
     authOpen,
     setAuthOpen,
@@ -163,6 +192,5 @@ export function useBoardAccess(room: string | null = currentRoom()) {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
   };
 }

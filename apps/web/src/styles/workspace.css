@@ -51,6 +51,61 @@
 }
 
 /*
+ * The way into the command search from the working screen (ADR-266 §1.2, T7): the
+ * bottom panel carries it, as the artboard shows. The zoom panel keeps its own pill;
+ * the two sit side by side.
+ */
+.canvas-search {
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-bar);
+}
+
+.canvas-search-key {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-1);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font: var(--type-kbd);
+}
+
+/*
+ * The shape being drawn (ADR-271): a dashed silhouette and its size. It is chrome over
+ * the canvas, like the marquee, and never takes a click.
+ */
+.shape-draft {
+  position: absolute;
+  z-index: var(--z-bar);
+  pointer-events: none;
+  color: var(--selection-stroke);
+}
+
+.shape-draft-outline {
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+
+.shape-draft-size {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--space-1));
+  transform: translateX(-50%);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
  * System messages (a connector limit, a refused lock, the presentation note): one
  * plate under the header, never inside the canvas gesture area.
  */
@@ -68,6 +123,40 @@
   color: var(--state-warning);
   box-shadow: var(--shadow-bar);
   font: var(--type-caption);
+}
+
+.room-connection-notice {
+  inset: auto var(--space-6) var(--space-6);
+  transform: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  max-width: none;
+  padding: var(--space-3) var(--space-4);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font: var(--type-body);
+}
+.room-connection-notice > span { flex: 1 1 16rem; }
+.room-connection-notice[data-kind="session"] { background: var(--bg-room-notice-session); }
+.room-connection-notice[data-kind="moved"] { background: var(--bg-room-notice-moved); }
+.room-connection-notice[data-kind="full"] { background: var(--bg-room-notice-full); }
+.room-connection-notice:not([data-kind="access"]) { color: var(--canvas-object-ink); }
+
+/* A persistent notice leaves the bottom controls usable while editing offline. */
+.room-connection-notice:is(.offline-notice, .offline-blocked) {
+  bottom: calc(var(--space-6) + var(--control-compact) + var(--space-3));
+  box-sizing: border-box;
+  min-height: 50px;
+  background: var(--bg-offline-notice);
+  color: var(--text-primary);
+}
+.room-connection-notice.offline-blocked {
+  background: var(--bg-room-notice-full);
+  color: var(--canvas-object-ink);
 }
 
 /*

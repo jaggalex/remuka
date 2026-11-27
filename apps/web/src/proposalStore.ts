@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, type RefObject } from "react";
 import {
   fitToBounds,
   proposalLayout,
@@ -20,8 +20,11 @@ export interface ProposalPreview {
   /** Changes when the plan changes (a new task, a relayout): the canvas refits once. */
   key: string;
   plan: ProposalPlan;
+  kind: "tidy" | "agent";
   /** Screen pixels the panel covers at the bottom; the fit keeps the plan above it. */
   bottomInset: number;
+  /** Screen pixels taken by the right-hand review panel on larger viewports. */
+  rightInset: number;
 }
 
 class ProposalStore {
@@ -50,8 +53,43 @@ export function paintedProposal(): ProposalLayout | null {
   return painted;
 }
 
+/** Fit both the starting positions and the Tidy targets inside the exposed canvas. */
+export function fitTidyPreview(canvas: Element | null): boolean {
+  if (!canvas || proposalStore.get()?.kind !== "tidy" || !painted?.bounds) return false;
+  const surface = canvas.getBoundingClientRect();
+  const panel = document.querySelector(".agent-task-panel[data-tidy]")?.getBoundingClientRect();
+  if (!panel || !surface.width || !surface.height) return false;
+  const rail = canvas.parentElement?.querySelector(".tool-rail-panel")?.getBoundingClientRect();
+  const hud = canvas.querySelector(".canvas-hud")?.getBoundingClientRect();
+  const sheet = panel.left <= surface.left + 1 && panel.right >= surface.right - 1;
+  const right = sheet ? surface.right : Math.min(surface.right, panel.left);
+  const bottom = Math.min(surface.bottom, sheet ? panel.top : surface.bottom, hud?.height ? hud.top : surface.bottom);
+  const left = rail?.width && rail.top < bottom && rail.bottom > surface.top
+    ? Math.max(surface.left, rail.right) : surface.left;
+  const width = right - left;
+  const height = bottom - surface.top;
+  if (width <= 0 || height <= 0) return false;
+  const bounds = painted.bounds;
+  const camera = fitToBounds({ ...bounds, width: Math.max(1, bounds.width), height: Math.max(1, bounds.height) },
+    { x: 0, y: 0, width, height }, 0.85);
+  const zoom = Math.min(1, camera.zoom);
+  cameraStore.set({
+    x: camera.x + (surface.left + surface.right - left - right) / (2 * zoom),
+    y: camera.y + (surface.bottom - bottom) / (2 * zoom),
+    zoom,
+  }, "fit");
+  return true;
+}
+
 export function useProposal(): ProposalPreview | null {
   return useSyncExternalStore(proposalStore.subscribe, proposalStore.get, proposalStore.get);
+}
+
+const NO_SELECTION: readonly string[] = [];
+
+/** Tidy owns the preview surface. Preserve the real selection for Cancel and retry. */
+export function useVisibleSelection(selectedIds: readonly string[]): readonly string[] {
+  return useProposal()?.kind === "tidy" ? NO_SELECTION : selectedIds;
 }
 
 /**
@@ -64,10 +102,11 @@ export function useProposal(): ProposalPreview | null {
 export function useProposalLayout(
   resolve: (id: string) => Widget | undefined,
   viewport: { width: number; height: number },
+  overlayRef: RefObject<HTMLCanvasElement | null>,
 ): ProposalLayout | null {
   const proposal = useProposal();
   const layout = useMemo(
-    () => (proposal ? proposalLayout(proposal.plan, resolve) : null),
+    () => (proposal ? proposalLayout(proposal.plan, resolve, proposal.kind === "tidy") : null),
     [proposal, resolve],
   );
   painted = layout;
@@ -79,22 +118,31 @@ export function useProposalLayout(
     }
     if (fitted.current === proposal.key || !layout?.bounds) return;
     if (!viewport.width || !viewport.height) return;
-    const visible = Math.max(viewport.height - proposal.bottomInset, viewport.height * 0.4);
+    if (fitTidyPreview(overlayRef.current?.parentElement ?? null)) {
+      fitted.current = proposal.key;
+      return;
+    }
+    const height = Math.max(1, viewport.height - proposal.bottomInset);
+    const width = Math.max(1, viewport.width - proposal.rightInset);
     const camera = fitToBounds(
       {
         ...layout.bounds,
         width: Math.max(layout.bounds.width, 1),
         height: Math.max(layout.bounds.height, 1),
       },
-      { x: 0, y: 0, width: viewport.width, height: visible },
+      { x: 0, y: 0, width, height },
       0.85,
     );
     // Never zoom in past 100 %: two small notes would fill the screen and lose the room.
     camera.zoom = Math.min(camera.zoom, 1);
-    // Centre the plan in the uncovered part: shift the camera down by half the inset.
-    const shift = (viewport.height - visible) / 2 / camera.zoom;
-    cameraStore.set({ ...camera, y: camera.y + shift }, "fit");
+    // The canvas camera is centred on the full viewport. Move the plan into the
+    // visible part to the left of the rail or above the mobile sheet.
+    cameraStore.set({
+      ...camera,
+      x: camera.x + (viewport.width - width) / (2 * camera.zoom),
+      y: camera.y + (viewport.height - height) / (2 * camera.zoom),
+    }, "fit");
     fitted.current = proposal.key;
-  }, [proposal, layout, viewport.width, viewport.height]);
+  }, [proposal, layout, viewport.width, viewport.height, overlayRef]);
   return layout;
 }

@@ -2,6 +2,8 @@
 
 .sticky-bar {
   position: absolute;
+  left: var(--object-anchor-left);
+  top: var(--object-anchor-top);
   z-index: var(--z-bar);
   display: flex;
   align-items: center;
@@ -13,6 +15,90 @@
   box-shadow: var(--shadow-bar);
 }
 
+.note-selection-bar, .arrange-bar {
+  min-height: calc(var(--space-12) + var(--panel-border-width));
+  padding: var(--space-1);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-lg);
+}
+:is(.note-selection-bar, .arrange-bar) .rm-compact:not(.rm-popover *, .rm-menu *) {
+  --control-h: 38px;
+}
+:is(.note-selection-bar, .arrange-bar) .sb-colour, :is(.note-selection-bar, .arrange-bar) .rm-iconbtn:not(.rm-popover *, .rm-menu *) {
+  width: 38px;
+}
+.note-selection-bar .sb-auto { padding-inline: var(--space-3); }
+.note-selection-bar .sb-note-preview { width: var(--space-6); height: var(--space-6); border-radius: var(--radius-sm); }
+:is(.note-selection-bar, .arrange-bar) .sb-divider { margin-inline: 2px; height: var(--space-6); }
+
+/* Screenshot sizes come from the component in App-ToolsBars, on both viewports. */
+.note-selection-bar, .arrange-bar:not(.arrange-shapes) {
+  justify-content: space-between;
+}
+.note-selection-bar { width: min(344px, calc(100vw - var(--space-4))); }
+.arrange-bar:not(.arrange-shapes) { width: min(304px, calc(100vw - var(--space-4))); }
+.arrange-bar:not(.arrange-shapes) > .sb-anchor:first-child > .rm-btn {
+  padding-inline: calc(var(--space-5) / 2);
+}
+
+/* The selection bars use the same outlined strip. Width follows the controls at each viewport. */
+:is(.shape-selection-bar, .text-selection-bar, .connector-bar) {
+  --bar-button-width: 38px;
+  height: 51px;
+  gap: calc(var(--space-1) / 2);
+  padding: var(--space-1);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-bar);
+  justify-content: space-between;
+}
+.shape-selection-bar { width: min(306px, calc(100vw - var(--space-4))); }
+.connector-bar { width: min(302px, calc(100vw - var(--space-4))); }
+.text-selection-bar { width: min(298px, calc(100vw - var(--space-4))); }
+:is(.shape-selection-bar, .text-selection-bar, .connector-bar) .rm-compact:not(.rm-popover *, .rm-menu *) {
+  --control-h: 38px;
+  padding-inline: 0;
+  min-width: 0;
+  width: var(--bar-button-width);
+  flex-shrink: 0;
+}
+:is(.shape-selection-bar, .text-selection-bar, .connector-bar) .sb-divider {
+  height: var(--space-6);
+  margin-inline: 0;
+  flex-shrink: 0;
+}
+:is(.shape-selection-bar, .connector-bar) .sb-paint-sample {
+  display: block;
+  position: relative;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
+}
+:is(.shape-selection-bar, .connector-bar) .sb-width.rm-compact {
+  --bar-button-width: auto;
+  padding-inline: calc(var(--space-5) / 2);
+}
+/* On a phone the selection stays at the top while the rail opens its palette beside
+   the tool. Object coordinates continue to govern the floating desktop panel. */
+@media (max-width: 640px) {
+  .sticky-bar:is(.note-selection-bar, .shape-selection-bar, .connector-bar, .text-selection-bar, .arrange-bar:not(.arrange-shapes)) {
+    left: calc(var(--toolbar-width) + 6px);
+    top: 14px;
+    width: min(264px, calc(100% - var(--toolbar-width) - var(--space-4)));
+    height: auto;
+    min-height: 90px;
+    padding: calc(var(--space-5) / 4);
+    gap: calc(var(--space-1) / 2);
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: flex-start;
+  }
+  :is(.shape-selection-bar, .connector-bar, .text-selection-bar) .sb-divider {
+    margin-inline: calc(var(--space-1) / 2);
+  }
+}
+
 /* Every control in the bar is a design-system Button/IconButton (ADR-124); these rules
    only size them and draw the diagrams (a preset chip, an alignment cell). */
 .sb-divider {
@@ -22,10 +108,34 @@
   background: var(--border-subtle);
 }
 
+/* --------------------------------------------------------------- shape kind */
+
+/* The five silhouettes in one row: the sample is the shape itself (ADR-271). */
+.shape-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(5, var(--space-9));
+  gap: var(--space-1);
+}
+
+.shape-kind-button {
+  display: grid;
+  place-items: center;
+  width: var(--space-9);
+  height: var(--space-9);
+  padding: 0;
+}
+
+/* "Sharp / Rounded" is two pressed buttons, not a switch: both states are words. */
+.shape-corners {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 /* ------------------------------------------------------------- arrange bar */
 
 .arrange-bar {
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 /* The eight arrangements are diagrams on a grid: two rows of three, then two. */
@@ -92,19 +202,6 @@
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
-.sb-aa-preview {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 22px;
-  box-sizing: border-box;
-  border-style: solid;
-  border-radius: var(--radius-sm);
-  font: var(--type-caption);
-  font-weight: 600;
-  line-height: 1;
-}
-
 .sb-text-preview {
   display: flex;
   flex-direction: column;
@@ -128,17 +225,42 @@
 .sb-multi-swatch {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: var(--space-6);
+  height: var(--space-6);
   box-sizing: border-box;
-  border-radius: var(--radius-xs);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-sm);
   font: var(--type-caption);
   line-height: 1;
   color: var(--text-muted);
 }
 
+/* Auto: no colour is stored, so the sample is the Auto chip's split square (ADR-273). */
+.sb-multi-swatch.is-auto {
+  background: linear-gradient(135deg, var(--bg-panel) 50%, var(--text-primary) 50%);
+}
+
 .sb-multi-swatch.is-mixed {
   border: 1.5px dashed var(--border-strong);
   box-shadow: none;
+}
+
+/* The text-size and outline-width choices: three words in one popover, not a second bar. */
+.sb-size-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sb-size-row .rm-btn {
+  min-width: var(--control-compact);
+}
+
+/* "Sharp / Rounded" lives inside the shape-kind window: one element in the bar (T8). */
+.shape-kind-corners {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
 }

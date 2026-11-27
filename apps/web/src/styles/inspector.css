@@ -15,10 +15,12 @@
 
 /* The subject the panel describes (ADR-236): its kind, then its name; help and close. */
 .inspector-head {
+  flex: none;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-1);
-  margin-bottom: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  background: var(--bg-panel);
 }
 
 .inspector-subject {
@@ -34,8 +36,7 @@
 
 .inspector .inspector-title {
   margin: 0;
-  font: var(--type-subtitle);
-  font-weight: 600;
+  font: var(--type-title);
   letter-spacing: normal;
   text-transform: none;
   color: var(--text-primary);
@@ -73,18 +74,35 @@
 }
 
 
+/* The one side panel, as the mockup draws it: a 340 px sheet attached to the room's
+   right edge with an ink seam, not a floating card (ADR-286, T8). */
 .inspector {
-  /* The token, not a literal: 264 px had drifted from `inspector-width` (300), which
-     also centres the hints, and the one-row actions need its width (ADR-237). */
   width: var(--inspector-width);
-  margin: var(--space-3) var(--space-3) var(--space-3) 0;
-  padding: var(--space-4) var(--space-4) var(--space-9);
+  height: 100%;
+  margin: 0;
+  padding: 0 0 var(--space-4);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-bar);
+  border-left: var(--panel-border-width) solid var(--border-ink);
+  overflow: hidden;
+}
+
+/* The panel's body scrolls; the title and the danger zone stay put (T8, mockup). */
+.inspector-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
+  padding-bottom: var(--space-2);
+}
+
+.inspector-body > .counts,
+.inspector-body > .card-filter,
+.inspector-body > .inspector-tech {
+  margin-left: var(--space-4);
+  margin-right: var(--space-4);
 }
 
 .inspector h2 {
@@ -238,63 +256,85 @@
   outline: 2px solid var(--accent-soft);
 }
 
-/* A rare group folded to one row (ADR-236): name, current value, chevron. One hairline
-   above, no frame of its own; the chevron turns when open. */
-.inspector-fold {
-  margin-top: var(--space-2);
-  border-top: 1px solid var(--border-subtle);
+/* --------------------------------------------------- frequent properties --- */
+
+/* The mockup's top half of the panel: colour grid, then the text row (T8). */
+.properties-frequent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
 }
 
-.inspector-fold > summary {
+.properties-group {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
-  min-height: var(--control-default);
-  list-style: none;
-  cursor: pointer;
+}
+
+.properties-heading {
+  margin: 0;
   font: var(--type-label);
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.inspector-fold > summary::-webkit-details-marker {
-  display: none;
+.prop-swatches {
+  display: grid;
+  grid-template-columns: repeat(7, var(--space-8));
+  gap: var(--space-2);
 }
 
-.inspector-fold > summary:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
+.prop-swatch {
+  width: var(--space-8);
+  height: var(--space-8);
+  padding: 0;
+  border: var(--panel-border-width) solid var(--border-ink);
   border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
-.inspector-fold-label {
-  flex: 1;
-  min-width: 0;
+.prop-swatch.is-selected {
+  box-shadow:
+    0 0 0 2.5px var(--bg-panel),
+    0 0 0 4px var(--border-ink);
 }
 
-.inspector-fold-value {
-  max-width: 50%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.prop-swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.properties-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: nowrap;
+}
+
+.properties-row-wrap {
+  flex-wrap: wrap;
+}
+
+.properties-row-gap {
+  width: var(--space-2);
+}
+
+.properties-note {
   font: var(--type-caption);
   color: var(--text-secondary);
 }
 
-.inspector-fold > summary .rm-icon,
-.inspector-fold > summary svg {
-  flex: none;
-  color: var(--text-secondary);
-  transition: transform var(--dur-1) var(--ease);
-}
-
-.inspector-fold[open] > summary svg {
-  transform: rotate(90deg);
-}
-
-.inspector-fold-body {
+/* The dangerous action at the panel's foot, with the way back (T8). */
+/* The rest of the text formats in «⋯»: one wrapped row, no second toolbar. */
+.properties-text-more {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-bottom: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.properties-format-icon {
+  font: var(--type-caption);
+  font-weight: 600;
 }

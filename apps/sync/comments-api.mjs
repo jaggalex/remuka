@@ -7,6 +7,8 @@
  */
 import { accessForBoard, fail, json, linkUnlockToken, readBody } from "./iam-http.mjs";
 
+import { commentAnchor, rowAnchor } from "./comment-anchor.mjs";
+
 const MAX_BODY = 4000;
 
 function commentDto(row) {
@@ -26,10 +28,7 @@ function threadDto(row) {
   return {
     id: row.id,
     boardId: row.board_id,
-    anchor:
-      row.anchor_kind === "widget"
-        ? { kind: "widget", widgetId: row.widget_id }
-        : { kind: "point", x: row.x, y: row.y },
+    anchor: rowAnchor(row),
     resolvedAt: row.resolved_at,
     resolvedBy: row.resolved_by,
     createdBy: row.created_by,
@@ -45,22 +44,6 @@ function textBody(body) {
   if (typeof body !== "string") return null;
   const value = body.trim();
   return value && value.length <= MAX_BODY ? value : null;
-}
-
-function anchorOf(body) {
-  const anchor = body?.anchor;
-  if (!anchor) return null;
-  if (anchor.kind === "widget" && typeof anchor.widgetId === "string" && anchor.widgetId) {
-    return { kind: "widget", widgetId: anchor.widgetId };
-  }
-  if (
-    anchor.kind === "point" &&
-    Number.isFinite(anchor.x) &&
-    Number.isFinite(anchor.y)
-  ) {
-    return { kind: "point", x: Number(anchor.x), y: Number(anchor.y) };
-  }
-  return null;
 }
 
 export async function handleComments(ctx) {
@@ -136,7 +119,7 @@ export async function handleComments(ctx) {
     if (!canComment) return fail(response, 403, "COMMENT_FORBIDDEN", "you cannot comment"), true;
     const body = await readBody(request);
     const text = textBody(body?.body);
-    const anchor = anchorOf(body);
+    const anchor = commentAnchor(body?.anchor);
     if (!text) return fail(response, 422, "COMMENT_BODY_REQUIRED", "write a comment"), true;
     if (!anchor) return fail(response, 422, "COMMENT_ANCHOR_REQUIRED", "anchor a comment"), true;
     const created = await store.createCommentThread({
@@ -193,6 +176,22 @@ export async function handleComments(ctx) {
     );
     if (!ok) return fail(response, 404, "THREAD_NOT_FOUND", "thread not found"), true;
     json(response, 200, { ok: true });
+    return true;
+  }
+
+  if (method === "PATCH" && threadId && leaf === "anchor" && parts.length === 5) {
+    if (!canComment) return fail(response, 403, "COMMENT_FORBIDDEN", "you cannot move this pin"), true;
+    const body = await readBody(request);
+    const anchor = commentAnchor(body?.anchor);
+    const expected = commentAnchor(body?.expected);
+    if (!anchor || !expected) return fail(response, 422, "COMMENT_ANCHOR_REQUIRED", "give valid previous and new anchors"), true;
+    const result = await store.moveCommentAnchor(boardId, threadId, sessionUser.id, canManage, expected, anchor);
+    if (result === "missing") return fail(response, 404, "THREAD_NOT_FOUND", "thread not found"), true;
+    if (result === "forbidden") return fail(response, 403, "COMMENT_AUTHOR_ONLY", "the author or a board manager can move this pin"), true;
+    if (result === "conflict") return fail(response, 409, "COMMENT_ANCHOR_CHANGED", "the pin has already moved"), true;
+    await auditComment({ actorId: sessionUser.id, boardId, action: "comment.moved", subject: threadId });
+    announce();
+    json(response, 200, { anchor });
     return true;
   }
 

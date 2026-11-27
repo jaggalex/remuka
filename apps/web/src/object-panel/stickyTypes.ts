@@ -1,4 +1,4 @@
-import type { LineFormat, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
+import type { Elevation, LineFormat, ShapeKind, ShapePreset, StickySize, TextLine, TextMarks } from "@remo/model";
 
 /** One line format of the object, ready for the bar (ADR-252 §2.2). */
 export type TextLineBlock = NonNullable<LineFormat["block"]>;
@@ -23,11 +23,15 @@ export interface StickyBarTarget {
   textColor?: string;
   /** The colour the text actually has right now, explicit or automatic. */
   ink: string;
+  /** The surface the text lies on, for the colour window's readability warning (ADR-273). */
+  ground: string;
   /** Shape outline; unused by notes. */
   strokeColor?: string;
   strokeWidth?: number;
   /** Shape outline dash; unused by notes. */
   strokeStyle?: "normal" | "dashed" | "dotted";
+  /** A shape's kind; absent for notes and text. */
+  shapeKind?: ShapeKind;
   size: StickySize;
   /** Explicit text size, or null for Auto. */
   fontSize: number | null;
@@ -52,9 +56,14 @@ export interface StickyBarActions {
   setColor: (name: string) => void;
   /** `null` restores the automatic colour that follows the fill. */
   setInk: (color: string | null) => void;
-  setStroke: (color: string) => void;
+  /** `null` restores the automatic outline that follows the shape's ground. */
+  setStroke: (color: string | null) => void;
   setStrokeWidth: (width: number) => void;
   setStrokeStyle: (style: "normal" | "dashed") => void;
+  /** Switch a shape's kind, keeping its text, size, style and connectors (ADR-271). */
+  setShapeKind: (kind: ShapeKind) => void;
+  /** The shape's lift level (ADR-245, ADR-267); set through the properties opened by More. */
+  setElevation: (level: Elevation | null) => void;
   setSize: (size: StickySize) => void;
   setFont: (size: number | null) => void;
   toggleMark: (mark: keyof TextMarks) => void;
@@ -76,4 +85,12 @@ export interface StickyBarActions {
   applyShapePreset: (preset: ShapePreset) => void;
   /** Delete from "More" — the same path as the Delete key, confirmation included. */
   remove: () => void;
+  /** Join the two selected objects; the same command the header and the keys run. */
+  connect: () => void;
+  /** Two connectable objects are selected right now. */
+  canConnect: boolean;
+  /** Open the inline editor on the selected object. */
+  edit: () => void;
+  /** «⋯»: the one properties panel, not a second menu (ADR-266 §5, §10a). */
+  openProperties: () => void;
 }

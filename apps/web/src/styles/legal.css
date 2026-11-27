@@ -20,6 +20,18 @@
   gap: var(--space-1);
 }
 
+/* The sentence is one paragraph with links inside it: a column would put every text
+   fragment on its own line ("Принимаю" / link / "Черновик"). */
+.legal-consent .rm-check-text {
+  display: block;
+}
+
+.legal-consent-note {
+  margin: 0 0 0 calc(var(--space-4) + 2px);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
 .legal-consent-link {
   color: var(--text-accent);
   text-decoration: underline;

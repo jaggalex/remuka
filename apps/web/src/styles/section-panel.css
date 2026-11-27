@@ -192,6 +192,46 @@
   margin: 2px 0 var(--space-3);
 }
 
+/* A table has two related tasks: choose an axis, then edit it. On a wide screen
+   they share a row, keeping both tasks visible without shortening input controls. */
+@media (min-width: 1080px) {
+  .app:not(.no-inspector):has(.section-panel[data-table]) {
+    --inspector-width: min(44vw, 34rem);
+  }
+  .properties-more:has(.section-panel[data-table]) > .rm-disclosure-body { gap: var(--space-2); }
+  .section-panel[data-table] { margin-top: var(--space-1); }
+  .section-panel[data-table] .section-view {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .section-panel[data-table] .section-view h3 { margin: 0; }
+  .section-panel[data-table] .section-view .rm-segmented { flex: 1; }
+  .section-panel[data-table] .section-axes:has(.section-axis-detail) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-4);
+    align-items: start;
+  }
+  .section-panel[data-table] .section-axes > * { min-width: 0; }
+  .section-panel[data-table] .section-axes > :not(.section-axis-detail) { grid-column: 1; }
+  .section-panel[data-table] .section-axis-detail {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin-top: 0;
+    gap: var(--space-2);
+  }
+  .section-panel[data-table] .section-group-head { flex-wrap: wrap; }
+  .section-panel[data-table] .section-remove {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1) var(--space-4);
+    margin-top: var(--space-2);
+  }
+  .section-panel[data-table] .section-remove .rm-btn { grid-row: 1; justify-self: start; }
+  .section-panel[data-table] .section-caption { margin: 0; }
+}
+
 /* ------------------------------------------------------- table headers --- */
 
 .table-headers {
@@ -242,14 +282,11 @@
   border: 1.5px solid var(--border-focus);
   border-radius: var(--radius-sm);
   background: var(--bg-panel);
-  color: var(--text-primary);
+  /* The band's own ink arrives inline as --ink (ADR-273 §2.4); the fallback is the
+     content ink a kanban title sits on in both themes. */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   outline: none;
-}
-
-.table-axis-menu {
-  position: fixed;
-  z-index: var(--z-popover);
 }
 
 /* A cell the dragged selection would land in. */
@@ -441,23 +478,9 @@
   border-top-width: 1.5px;
 }
 
-/* The delete-axis choices wrap instead of clipping a long neighbour name. */
-.axis-delete-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.axis-delete-actions .rm-btn {
-  max-width: 100%;
-}
-
-.axis-delete-actions .rm-btn-label {
-  overflow: visible;
-  text-overflow: clip;
+.axis-delete-sheet .rm-btn-label {
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------- axis size --- */
@@ -563,12 +586,13 @@
 }
 
 .section-title {
-  pointer-events: auto;
+  pointer-events: none;
   max-width: 320px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-secondary);
+  /* The placeholder lies on the canvas ground, so its ink is the canvas's (ADR-273). */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   text-align: left;
   white-space: nowrap;
@@ -577,8 +601,14 @@
   cursor: text;
 }
 
+/* A named frame's name is painted on the canvas, in the export too (ADR-267); this
+   button is the same rectangle made focusable, so its own text stays invisible. */
+.section-title.is-inked {
+  color: transparent;
+}
+
 .section-title-strip.is-selected .section-title {
-  color: var(--text-primary);
+  color: var(--ink, var(--sticker-ink));
 }
 
 .section-title.is-empty {
@@ -606,17 +636,18 @@
   border: 1.5px solid var(--border-focus);
   border-radius: var(--radius-sm);
   background: var(--bg-panel);
-  color: var(--text-primary);
+  /* The strip above sets --ink to the canvas ground's ink (ADR-273 §2.4). */
+  color: var(--ink, var(--sticker-ink));
   font: var(--type-label);
   outline: none;
 }
 
 .section-view-badge {
   pointer-events: auto;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 22px;
   padding: 0 var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
@@ -702,3 +733,11 @@
   white-space: pre-wrap;
   line-height: 1.25;
 }
+.axis-delete-choices { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+.axis-delete-choices legend { margin-block-end: var(--space-3); font: var(--type-label); }
+.axis-delete-choices .rm-radio {
+  padding: var(--space-3);
+  border: var(--panel-border-width) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.axis-delete-choices .rm-radio:has(input:checked) { border-color: var(--border-ink); background: var(--bg-canvas); }

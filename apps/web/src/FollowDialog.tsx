@@ -1,4 +1,7 @@
-import { Button, Dialog, Switch } from "@remo/ui";
+import { FacilitationBody } from "./FacilitationPanel";
+import { HintCopy } from "./HintCopy";
+import { actedOnHint } from "./hintCatalog";
+import { Button, Switch } from "@remo/ui";
 import { HelpLink } from "./help/HelpLink";
 import { useI18n } from "./i18n";
 
@@ -18,7 +21,6 @@ export function FollowDialog({
   onStopFollowers,
   onBringEveryone,
   onToggleAuto,
-  onClose,
 }: {
   open: boolean;
   /** Names of the people currently mirroring this person. */
@@ -30,18 +32,15 @@ export function FollowDialog({
   onStopFollowers: () => void;
   onBringEveryone: () => void;
   onToggleAuto: (enabled: boolean) => void;
-  onClose: () => void;
 }) {
   const { t, count } = useI18n();
   if (!open) return null;
 
   return (
-    <Dialog
+    <FacilitationBody
       title={t("follow.title")}
       description={t("follow.body")}
       help={<HelpLink topicId="facilitation.follow" />}
-      size="sm"
-      onClose={onClose}
     >
       <div className="follow-dialog">
         <p className="follow-count">{count("followers", followers.length)}</p>
@@ -68,14 +67,14 @@ export function FollowDialog({
           <Switch
             className="follow-auto"
               checked={allowBringEveryone}
-              onChange={(event) => onToggleAuto(event.target.checked)}
+              onChange={(event) => { actedOnHint("follow.explain"); onToggleAuto(event.target.checked); }}
             label={<>
               {t("follow.auto")}
-              <span className="muted"> — {t("follow.autoHint")}</span>
+              <span className="muted"> — <HintCopy slot="follow.explain" text="follow.autoHint" /></span>
             </>}
           />
         )}
       </div>
-    </Dialog>
+    </FacilitationBody>
   );
 }

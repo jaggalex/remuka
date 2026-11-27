@@ -1,5 +1,6 @@
 import {
   NAMED_COLORS,
+  autoInk,
   TONES,
   TONE_LEVELS,
   colorExtras,
@@ -21,6 +22,13 @@ import type { TranslationKey } from "../i18n";
  * only renders these answers; that is what keeps every swatch (note, shape, line, text,
  * multi-selection) behaving the same.
  */
+
+/**
+ * The stored ink as the window should show it: `undefined` for an old default, which
+ * reads as Auto in both the painter and the control (ADR-273 §2.3). Re-exported here so
+ * every window asks the same question.
+ */
+export { autoInk };
 
 /** The explicit inks a filled object offers beside Auto (ADR-127, ADR-140). */
 export const TEXT_INKS = {
@@ -150,6 +158,8 @@ export function isTransparent(value: string | null | undefined): boolean {
 
 /** Which segment of "Auto / Dark / Black / White" an ink is, or `own` for an old hex. */
 export function inkOption(textColor: string | null | undefined): InkOption {
+  // An old default reads as Auto here exactly as it paints (ADR-273 §2.3).
+  if (!autoInk(textColor)) return "auto";
   const hex = normalizeColor(textColor);
   if (!hex) return "auto";
   if (hex === TEXT_INKS.dark) return "dark";

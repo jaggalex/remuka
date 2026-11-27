@@ -16,11 +16,11 @@
     "reference/limits",
     "how-to/export-backup"
   ],
-  "updated": "2026-11-20",
+  "updated": "2026-11-26",
   "translations": {
     "en": {
-      "sourceHash": "sha256:81a5c56c31a089cff579c3a3d2cad8fd69b4b091925e887177d3cba2571fd3c5",
-      "targetHash": "sha256:867b34d4abb9c94c0213a84d7bed599ad3d11b53b8373ccd674100b1944b4aec"
+      "sourceHash": "sha256:904503c6f4e50b058164ddc7f93108109d8798a3cbe9ebb8ac6ecf25cfa0d9fd",
+      "targetHash": "sha256:428cc64cd135d68ae93ba29edcb2a31624d18d0e7d2e4823eddd2bcd20a35378"
     }
   }
 }

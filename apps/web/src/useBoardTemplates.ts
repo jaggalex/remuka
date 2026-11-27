@@ -120,7 +120,7 @@ export function useBoardTemplates({
       const current = board.title;
       const keep = requestedName ||
         (current && !isTemplateTitle(current) ? current : boardTitle);
-      loadBoard(board, model, kanbanStatesFor(key, model, locale), { title: keep });
+      loadBoard(board, model, kanbanStatesFor(key, model, locale), { title: keep, newLayers: true });
       setSelectedIds([]);
       reframe();
     },

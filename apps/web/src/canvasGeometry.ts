@@ -1,15 +1,14 @@
 import {
-  anchorPoint,
-  boxOf,
   cellAt,
   layoutTable,
   pick,
   placementAt,
-  sideNormal,
   simplify,
   stubLength,
   tableCellPlacement,
   tableHitAt,
+  widgetAnchor,
+  widgetSideNormal,
   type ConnectorPath,
   type KanbanLayout,
   type TableGrid,
@@ -25,6 +24,7 @@ import {
   canConnect,
   joinsWithin,
   layerKey,
+  rotatedBounds,
   type ConnectorSide,
   type Rect,
   type Widget,
@@ -149,6 +149,7 @@ export function sideOfDirection(direction: NoteDirection): ConnectorSide {
 export const BAR_ROOM = 84;
 /** A bar with no edge "+" to clear — the arrange and connector bars. */
 export const COMPACT_BAR_ROOM = 52;
+export const BAR_GAP = 12;
 
 /**
  * Vertical placement of a floating bar over a box in screen space.
@@ -161,10 +162,11 @@ export function barTop(
   box: { top: number; height: number },
   viewport: { height: number },
   room = BAR_ROOM,
+  paintedHeight = 40,
 ): number {
   const above = box.top - room;
-  const below = box.top + box.height + 12;
-  const lowest = Math.max(8, viewport.height - 40 - 8);
+  const below = box.top + box.height + BAR_GAP;
+  const lowest = Math.max(8, viewport.height - paintedHeight - 8);
   if (above >= 8) return Math.min(above, lowest);
   if (below <= lowest) return below;
   return Math.min(Math.max(8, above), lowest);
@@ -183,11 +185,12 @@ export function anchorsOf(
   widget: Widget,
   gap = 0,
 ): Array<{ side: ConnectorSide; x: number; y: number }> {
-  const box = boxOf(widget);
   const sides: ConnectorSide[] = ["top", "right", "bottom", "left"];
   return sides.map((side) => {
-    const point = anchorPoint(box, side);
-    const normal = sideNormal(side);
+    // The dot sits on the painted side, outside it along the painted normal: on a
+    // turned object the four dots turn with it (ADR-271, T18).
+    const point = widgetAnchor(widget, side);
+    const normal = widgetSideNormal(widget, side);
     return { side, x: point.x + normal.x * gap, y: point.y + normal.y * gap };
   });
 }
@@ -383,6 +386,26 @@ export function placedWidget(
   };
 }
 
+/**
+ * A resolver that adds the gesture in flight to the document (ADR-051, T18).
+ *
+ * A connector is derived from its ends, so while one of them is being carried or
+ * turned, its line has to read the same preview the object is painted from. One
+ * function, used by the board and the overlay painters, so a line cannot lag behind
+ * the gesture that moves its end.
+ */
+export function previewResolver(
+  resolve: (id: string) => Widget | undefined,
+  preview: ReadonlyMap<string, Partial<Widget>>,
+): (id: string) => Widget | undefined {
+  if (preview.size === 0) return resolve;
+  return (id) => {
+    const widget = resolve(id);
+    const patch = preview.get(id);
+    return widget && patch ? { ...widget, ...patch } : widget;
+  };
+}
+
 /** Resolver for connector paths and picking: cards resolve through the matrix. */
 export function connectorResolver(
   widgets: readonly Widget[],
@@ -440,7 +463,7 @@ export function connectTargetAt(
   let bestDistance = radius;
   for (const widget of widgets) {
     if (!canConnect(widget) || isCardOfKanban(widget)) continue;
-    const box = boxOf(widget);
+    const box = rotatedBounds(widget);
     const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
     const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
     const distance = Math.hypot(dx, dy);
@@ -527,7 +550,7 @@ export function freeConnectedCenter(
       ) {
         return false;
       }
-      return overlaps(rect, boxOf(placedWidget(widget, layouts)));
+      return overlaps(rect, rotatedBounds(placedWidget(widget, layouts)));
     });
     if (!occupied) return { center, rect };
     center = { x: center.x + stepX, y: center.y + stepY };
@@ -595,7 +618,7 @@ export function anchorSlotDecision(
       continue;
     }
     const placed = placedWidget(widget, layouts);
-    if (!overlaps(slot.rect, boxOf(placed))) continue;
+    if (!overlaps(slot.rect, rotatedBounds(placed))) continue;
     candidates.push(placed);
   }
 
@@ -625,7 +648,7 @@ export function anchorSlotDecision(
     }
   }
 
-  const from = anchorPoint(boxOf(source), sideOfDirection(direction));
+  const from = widgetAnchor(source, sideOfDirection(direction));
   return { kind: "connect", target: best, endSide: nearestAnchor(best, from).side };
 }
 

@@ -1,0 +1,68 @@
+name: stage-chatwoot
+
+# Chatwoot Community Edition for the test stand (ADR-250, `spec/support.md` §3).
+#
+# One instance per zone, on a separate network and its own database. The rails container
+# joins `edge` only so the stand's ingress can reach it as `stage-chatwoot`; it never joins
+# the application's backend network. Resource limits are sized for the 4 GB stand and its
+# 8 GB swap: Rails 1.2 GB, Sidekiq 700 MB, PostgreSQL 384 MB, Redis 192 MB.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatwoot
+      POSTGRES_USER: chatwoot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?put it in .env, mode 600}
+    volumes: [pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatwoot -d chatwoot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    deploy: {resources: {limits: {memory: 384M}}}
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [internal]
+    deploy: {resources: {limits: {memory: 192M}}}
+
+  rails:
+    image: chatwoot/chatwoot:v3.16.0
+    restart: unless-stopped
+    command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
+    env_file: [chatwoot.env]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    volumes: [storage:/app/storage]
+    networks:
+      internal:
+      edge:
+        aliases: [stage-chatwoot]
+    deploy: {resources: {limits: {memory: 1200M}}}
+
+  sidekiq:
+    image: chatwoot/chatwoot:v3.16.0
+    restart: unless-stopped
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+    env_file: [chatwoot.env]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    volumes: [storage:/app/storage]
+    networks: [internal]
+    deploy: {resources: {limits: {memory: 700M}}}
+
+volumes:
+  pg:
+  storage:
+
+networks:
+  internal:
+  edge:
+    external: true

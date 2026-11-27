@@ -6,6 +6,7 @@
  * tested. The same module builds the prompt, validates the reply and writes to Yjs, so
  * there is one place to change the contract (spec/AI-agents-v1.md, skill `diagram@1`).
  */
+import { insertNewWidget } from "@remo/model/stacking";
 import { Y } from "./y.mjs";
 
 export const DIAGRAM_LIMITS = { maxNodes: 30, maxEdges: 60, label: 120 };
@@ -236,7 +237,7 @@ export function applyDiagram(
     for (const node of placed) {
       const id = makeId("shape");
       byNode.set(node.id, id);
-      widgets.set(id, {
+      insertNewWidget(widgets, {
         id,
         type: "shape",
         parentId: null,
@@ -270,7 +271,7 @@ export function applyDiagram(
       const source = widgets.get(from);
       const target = widgets.get(to);
       const id = makeId("connector");
-      widgets.set(id, {
+      insertNewWidget(widgets, {
         id,
         type: "connector",
         parentId: null,

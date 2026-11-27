@@ -38,6 +38,18 @@
   color: var(--text-secondary);
 }
 
+.vote-reveal-session {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: var(--space-11);
+  white-space: normal;
+}
+
+.facilitation-body:has(.vote-session) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .vote-hint {
   margin: 0;
   font: var(--type-caption);

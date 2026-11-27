@@ -19,8 +19,9 @@
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:0e87f2b6553e616010a23ed067f798cfffa9edc91b2424f0a96494e35a4ed82b",
-      "targetHash": "sha256:e880137c0a4c9a2b26eba48977cba9b9658dcf4689b09f3f1cd50e48daaece6a"
+      "sourceHash": "sha256:c53897aa603efe3a239d441e94ba718fc4f0ee01185ba491f14c21ca0f839639",
+      "targetHash": "sha256:ecb3010ea5637f3899764960a46256590d5553b84b477a678a06e08e359f40d1"
     }
-  }
+  },
+  "updated": "2026-11-25"
 }

@@ -1,0 +1,311 @@
+/* ------------------------------------------------------------- empty board */
+
+/*
+ * The empty room and its rotating visit headings (mockup App-EmptyRoom).
+ *
+ * The picture is the logo's own shapes — a coral circle, a blue square and the ink smile —
+ * floating 10–14 px over 6 s (spec/character.md §3.7, §4.2). The three cards are the three
+ * existing ways in: a sticker, the template picker and the agent. Nothing is invented here.
+ */
+.empty-board {
+  position: absolute;
+  left: calc(50% + var(--toolbar-width) / 2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-bar);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  width: min(860px, calc(100% - var(--space-8)));
+  padding: var(--space-4);
+  box-sizing: border-box;
+  text-align: center;
+  /* The empty state is a layer over a live canvas: only its own controls take the
+     pointer, so a double click between the cards still drops a sticker. */
+  pointer-events: none;
+}
+
+.empty-board button,
+.empty-board a {
+  pointer-events: auto;
+}
+
+.empty-artwork {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.empty-illustration {
+  grid-area: 1 / 2;
+  position: relative;
+  flex: none;
+  width: 300px;
+  height: 180px;
+}
+
+.empty-shape {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--panel-border-width) solid var(--border-ink);
+}
+
+.empty-shape.is-circle {
+  left: 34px;
+  top: 30px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--brand-mark-circle);
+  animation: empty-float-a var(--dur-float) ease-in-out infinite;
+}
+
+.empty-shape.is-square {
+  left: 160px;
+  top: 10px;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-card);
+  background: var(--brand-mark-square);
+  animation: empty-float-b var(--dur-float) ease-in-out infinite;
+}
+
+.empty-shape.is-smile {
+  left: 70px;
+  top: 104px;
+  width: 170px;
+  height: 70px;
+  border: 0;
+  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
+  background: var(--brand-mark-ink);
+  animation: empty-float-c var(--dur-float) ease-in-out infinite;
+}
+
+@keyframes empty-float-a {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-3deg);
+  }
+}
+
+@keyframes empty-float-b {
+  0%,
+  100% {
+    transform: translateY(0) rotate(8deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(4deg);
+  }
+}
+
+@keyframes empty-float-c {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-shape {
+    animation: none;
+  }
+}
+
+html[data-motion="calm"] .empty-shape {
+  animation: none;
+}
+
+.empty-heading {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.empty-heading h1 {
+  margin: 0;
+  font: var(--type-empty-room-heading);
+  letter-spacing: -0.035em;
+}
+
+.empty-mark {
+  position: relative;
+  display: inline-block;
+}
+
+.empty-mark-text {
+  position: relative;
+}
+
+.empty-mark svg {
+  position: absolute;
+  left: -8%;
+  bottom: -0.04em;
+  width: 116%;
+  height: 0.36em;
+  fill: var(--accent-chosen);
+}
+
+.empty-heading p {
+  margin: 0;
+  max-width: 560px;
+  font: var(--type-empty-room-intro);
+  color: var(--text-secondary);
+}
+
+.empty-cards {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-5);
+  width: 100%;
+  text-align: left;
+}
+
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease);
+}
+
+.empty-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-cta);
+}
+
+.empty-card:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.empty-card.is-agent {
+  border: 2px dashed var(--agent);
+  box-shadow: 3px 3px 0 var(--agent);
+}
+
+.empty-card-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-md);
+}
+
+.empty-card-icon.is-note {
+  background: var(--accent-chosen);
+  color: var(--sticker-ink);
+}
+
+.empty-card-icon.is-template {
+  background: var(--sticker-green);
+  color: var(--sticker-ink);
+}
+
+.empty-card-icon.is-agent {
+  border-color: var(--agent-on-paper);
+  background: var(--sticker-violet);
+  color: var(--agent-on-paper);
+}
+
+.empty-card strong {
+  font: var(--type-empty-room-action);
+}
+
+.empty-card .muted {
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+.empty-together {
+  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--type-body);
+  color: var(--text-secondary);
+}
+
+.empty-legend {
+  grid-area: 1 / 1;
+  justify-self: start;
+  overflow-wrap: anywhere;
+  max-width: 220px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--sticker-pink);
+  color: var(--sticker-ink);
+  font: var(--type-body);
+  font-weight: 600;
+  text-align: left;
+  transform: rotate(-4deg);
+  box-shadow: var(--shadow-sticker);
+}
+
+@media (max-width: 860px) {
+  .empty-board {
+    left: calc(var(--toolbar-width) + var(--space-3));
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 100%;
+    transform: none;
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-4) var(--space-12);
+    overflow-y: auto;
+  }
+
+  .empty-legend {
+    display: none;
+  }
+
+  .empty-artwork {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 380px) and (max-width: 480px) {
+  /* The heading can use the space beside the tools. Keep the cards inside their
+     narrower action column, and keep a two-line heading away from the rail. */
+  .empty-heading {
+    max-width: 100%;
+  }
+
+  .empty-heading h1 {
+    width: max-content;
+    max-width: min(326px, calc(100% + var(--space-10)));
+    margin-inline-start: calc(-1 * var(--space-10));
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 389px) {
+  /* Keep the underline of long marks such as “a blank canvas” clear of the rail. */
+  .empty-mark svg {
+    left: -2%;
+    width: 104%;
+  }
+}

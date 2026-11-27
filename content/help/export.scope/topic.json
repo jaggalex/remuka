@@ -6,20 +6,20 @@
     "en": "What an export includes"
   },
   "summary": {
-    "ru": "Скоуп экспорта: выделение, фрейм или вся комната. Диалог показывает число объектов и не выбирает всю комнату молча.",
-    "en": "Export scope: selection, frame or the whole room. The dialog shows the object count and never picks the whole room silently."
+    "ru": "Как выбрать объекты, один фрейм или всю комнату для экспорта и проверить число объектов в файле.",
+    "en": "Choose which objects, frame or room to export and check the object count before you download the file."
   },
   "related": [
     "export.formats",
     "export.backup"
   ],
-  "verifiedAgainst": "2026-11-02",
+  "verifiedAgainst": "2026-11-25",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:f038c17a08108325fffa18199d88a984707e59fb7c28ea9285ae7c53019bbf8f",
-      "targetHash": "sha256:b71ee1ea8fa6c80f030b71ade260d1e01bc37a6fa0c51922f3bd1382ffeeb8bf"
+      "sourceHash": "sha256:61d87facb95ca22eeaf663068ae66070ee764a76aa035d4224d675cc63941ad4",
+      "targetHash": "sha256:0f864f0fbd6a726ade9d52da62196a17949eab1628da081ca6ba8e258791e3a4"
     }
   }
 }

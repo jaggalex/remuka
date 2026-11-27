@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { BoardDocument, createWidget, type StyleSnapshot } from "@remo/doc";
+import { CHROME_CONTROL_IDS } from "@remo/metrics";
 import { paintOrder, type Widget, type WidgetType } from "@remo/model";
+import { roomMenuRows } from "./topbar/registryItems";
 import {
+  CHROME_COMMANDS,
+  COMMANDS,
+  chromeCommandsFor,
   commandById,
   commandForShortcut,
+  commandGroup,
   commandsFor,
   isGroupable,
+  menuCommands,
+  reactionCommands,
+  registryCommand,
   selectionHasGroup,
+  type ChromeContext,
   type CommandContext,
+  type CommandIntent,
 } from "./commands";
 
 /**
@@ -68,10 +79,12 @@ const key = (k: string, options: { mod?: boolean; shift?: boolean } = {}) => ({
 });
 
 describe("the command list", () => {
-  it("offers the object actions in menu order", () => {
+  it("offers the object actions in registry order", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const ids = commandsFor("menu", contextFor(board)).map((command) => command.id);
     expect(ids).toEqual([
+      "editText",
+      "colour",
       "copy",
       "paste",
       "cut",
@@ -80,6 +93,8 @@ describe("the command list", () => {
       "copyStyle",
       "pasteStyle",
       "clearContent",
+      "rotate90",
+      "resetRotation",
       "info",
       "front",
       "forward",
@@ -118,30 +133,30 @@ describe("the command list", () => {
     const lock = commandById("lock")!;
     expect(lock.label(ctx)).toBe("menu.lock");
 
-    lock.run(ctx);
+    lock.run!(ctx);
     expect(board.widgets.get("w0")!.locked).toBe(true);
 
     const after = contextFor(board);
     expect(lock.label(after)).toBe("menu.unlock");
-    lock.run(after);
+    lock.run!(after);
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
   });
 
   it("records the author and refuses another editor's unlock", () => {
     const board = boardWith(["sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
     expect(board.widgets.get("w0")!.lockedBy).toBe("user-a");
     expect(board.widgets.get("w0")!.lockedByName).toBe("Ann");
 
     const refused = vi.fn();
     const other = { ...contextFor(board), actor: { id: "user-b", name: "Bob" }, refuseUnlock: refused };
-    lock.run(other);
+    lock.run!(other);
     expect(refused).toHaveBeenCalledWith("Ann");
     expect(board.widgets.get("w0")!.locked).toBe(true);
 
     // The author may unlock it; the author fields go with the lock.
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
     expect(board.widgets.get("w0")!.lockedBy).toBeUndefined();
   });
@@ -149,23 +164,23 @@ describe("the command list", () => {
   it("lets a board manager release somebody else's lock", () => {
     const board = boardWith(["sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board));
+    lock.run!(contextFor(board));
 
     const manager = { ...contextFor(board), actor: { id: "user-b", name: "Bob" }, canManage: true };
-    lock.run(manager);
+    lock.run!(manager);
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
   });
 
   it("unlocks every lock the caller may release", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const lock = commandById("lock")!;
-    lock.run(contextFor(board, ["w0"]));
-    lock.run({ ...contextFor(board, ["w1"]), actor: { id: "user-b", name: "Bob" } });
+    lock.run!(contextFor(board, ["w0"]));
+    lock.run!({ ...contextFor(board, ["w1"]), actor: { id: "user-b", name: "Bob" } });
 
     const before = contextFor(board);
     const unlockAll = commandById("unlockAll")!;
     expect(unlockAll.enabled(before)).toBe(true);
-    unlockAll.run(before);
+    unlockAll.run!(before);
     // Only Ann's lock is gone; Bob's still belongs to Bob.
     expect(board.widgets.get("w0")!.locked).toBeUndefined();
     expect(board.widgets.get("w1")!.lockedBy).toBe("user-b");
@@ -175,7 +190,7 @@ describe("the command list", () => {
     const board = boardWith(["sticky_note", "text"]);
     const ctx = contextFor(board);
     const cleared = vi.fn();
-    commandById("delete")!.run({ ...ctx, select: cleared });
+    commandById("delete")!.run!({ ...ctx, select: cleared });
     expect(board.widgets.size).toBe(0);
     expect(cleared).toHaveBeenCalledWith([]);
   });
@@ -186,11 +201,11 @@ describe("the command list", () => {
     const order = () => paintOrder([...board.widgets.values()]).map((widget) => widget.id);
 
     expect(order()).toEqual(["w0", "w1"]);
-    commandById("forward")!.run(ctx);
+    commandById("forward")!.run!(ctx);
     expect(order()).toEqual(["w1", "w0"]);
 
     // Already on top: another step changes nothing.
-    commandById("forward")!.run(contextFor(board, ["w0"]));
+    commandById("forward")!.run!(contextFor(board, ["w0"]));
     expect(order()).toEqual(["w1", "w0"]);
   });
 
@@ -212,16 +227,16 @@ describe("the command list", () => {
       ...board.widgets.get("w0")!,
       style: { fillColor: "#1a1a1a" },
     });
-    commandById("copyStyle")!.run(ctx(["w0"]));
+    commandById("copyStyle")!.run!(ctx(["w0"]));
     expect(commandById("pasteStyle")!.enabled(ctx(["w1"]))).toBe(true);
 
     // A locked target keeps its own fill.
-    commandById("lock")!.run(ctx(["w1"]));
-    commandById("pasteStyle")!.run(ctx(["w1"]));
+    commandById("lock")!.run!(ctx(["w1"]));
+    commandById("pasteStyle")!.run!(ctx(["w1"]));
     expect(board.widgets.get("w1")!.style?.fillColor).toBe("#ffdd33");
 
-    commandById("lock")!.run(ctx(["w1"]));
-    commandById("pasteStyle")!.run(ctx(["w1"]));
+    commandById("lock")!.run!(ctx(["w1"]));
+    commandById("pasteStyle")!.run!(ctx(["w1"]));
     expect(board.widgets.get("w1")!.style?.fillColor).toBe("#1a1a1a");
   });
 });
@@ -256,16 +271,224 @@ describe("shortcuts", () => {
   });
 });
 
+/**
+ * The chrome half of the registry (ADR-266 §1.1, T5 acceptance).
+ *
+ * Every row of every header menu has to be a command here: that is what keeps the
+ * menu and the future ⌘K search from drifting. The checks run over the registry, not
+ * over a component, so adding a menu row by hand fails before a browser opens.
+ */
+describe("the chrome registry", () => {
+  const allOn: ChromeContext = {
+    can: {
+      rename: true,
+      export: true,
+      import: true,
+      duplicate: true,
+      delete: true,
+      access: true,
+      facilitate: true,
+      agents: true,
+      askAgents: true,
+      apps: true,
+      signedIn: true,
+      support: true,
+      templates: true,
+      docs: true,
+    },
+    run: vi.fn(),
+  };
+
+  it("has one id per command, a title and RU/EN synonyms", () => {
+    const ids = CHROME_COMMANDS.map((command) => command.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const command of CHROME_COMMANDS) {
+      expect(command.title, command.id).toBeTruthy();
+      expect(command.synonyms.ru.length, `${command.id} ru`).toBeGreaterThan(0);
+      expect(command.synonyms.en.length, `${command.id} en`).toBeGreaterThan(0);
+      // Canvas creation rows live in the rail and the search, not in a header menu.
+      if (command.intent === "canvas") {
+        expect(command.surfaces, command.id).toEqual(["palette"]);
+      } else if (command.id === "account.allRooms") {
+        // The palette exposes the same destination once via home.open.
+        expect(command.surfaces).toEqual(["header"]);
+      } else {
+        expect(command.surfaces, command.id).toContain("header");
+        expect(command.surfaces, command.id).toContain("palette");
+      }
+    }
+  });
+
+  it("measures exactly the closed control list", () => {
+    // The registry, the sender and the Pulse aggregate read one list (ADR-294). A new
+    // menu row that is not in `CHROME_CONTROLS` would be invisible to the rule; a list
+    // entry without a row would be a control that cannot be pressed.
+    const registered = CHROME_COMMANDS
+      .filter((command) => !command.id.startsWith("run.reaction."))
+      .map((command) => command.id)
+      .sort();
+    expect([...CHROME_CONTROL_IDS].sort()).toEqual(registered);
+  });
+
+  it("builds each intent menu from registry entries only", () => {
+    const intents: CommandIntent[] = ["room", "run", "agent", "account", "help"];
+    for (const intent of intents) {
+      const menu = menuCommands([intent], allOn);
+      expect(menu.length, intent).toBeGreaterThan(0);
+      for (const command of menu) {
+        expect(registryCommand(command.id), `${intent}: ${command.id}`).toBe(command);
+        expect(command.intent, command.id).toBe(intent);
+      }
+    }
+  });
+
+  it("keeps a menu group at seven rows and puts danger last", () => {
+    const menu = menuCommands(["room"], allOn);
+    const groups = new Map<string, number>();
+    for (const command of menu) {
+      const group = commandGroup(command);
+      groups.set(group, (groups.get(group) ?? 0) + 1);
+    }
+    for (const [group, count] of groups) expect(count, group).toBeLessThanOrEqual(7);
+    expect(commandGroup(menu[menu.length - 1]!)).toBe("danger");
+    expect(menu[menu.length - 1]!.danger).toBe(true);
+  });
+
+  it("offers every chrome command the account menu needs, and the reactions", () => {
+    const account = menuCommands(["account", "help"], allOn);
+    const ids = account.map((command) => command.id);
+    expect(ids.indexOf("account.org")).toBeGreaterThan(-1);
+    expect(ids.indexOf("account.org")).toBeLessThan(ids.indexOf("account.theme.light"));
+    expect(ids.indexOf("account.lang.en")).toBeLessThan(ids.indexOf("account.motion.calm"));
+    expect(account.find((command) => command.id === "account.help")?.title).toBe("account.helpShortcuts");
+    for (const id of [
+      "account.allRooms",
+      "account.theme.light",
+      "account.theme.dark",
+      "account.theme.system",
+      "account.motion.calm",
+      "account.lang.ru",
+      "account.lang.en",
+      "account.help",
+      "help.resetHints",
+      "account.delete",
+      "account.signOut",
+    ]) {
+      expect(ids, id).toContain(id);
+    }
+    expect(reactionCommands().map((command) => command.id)).toContain("run.reaction.clap");
+    expect(chromeCommandsFor("account").every((command) => command.surfaces.includes("header"))).toBe(
+      true,
+    );
+  });
+
+  it("hides an unavailable row only when the command asks for it", () => {
+    const nothing: ChromeContext = { can: {}, run: vi.fn() };
+    const account = menuCommands(["account"], nothing);
+    expect(account.map((command) => command.id)).not.toContain("account.sessions");
+    // A row that stays is disabled and says why.
+    const room = menuCommands(["room"], nothing);
+    const trash = room.find((command) => command.id === "room.trash");
+    expect(trash).toBeUndefined();
+    const app = room.find((command) => command.id === "room.apps");
+    expect(app).toBeUndefined();
+  });
+
+  it("partitions each room command once and keeps its permission policy at either level", () => {
+    const can: ChromeContext["can"] = { rename: true, access: true, export: true, import: true,
+      duplicate: true, delete: true, templates: true, apps: true };
+    for (const abilities of [can, {}]) {
+      const ctx = { can: abilities, run: vi.fn() };
+      const rows = roomMenuRows(ctx, key => key, "Comments: 3 new", true,
+        { png: !!abilities.export, pdf: !!abilities.export, backup: !!abilities.import });
+      const ids = (group: typeof rows.more) => group.flatMap(item => "commandId" in item ? [item.commandId] : []);
+      expect(Object.values(rows).flatMap(ids).sort()).toEqual(menuCommands(["room"], ctx).map(c => c.id).sort());
+      expect(ids(rows.propertiesAccess)).toEqual(["room.properties", "room.access"]);
+      const access = rows.propertiesAccess.find(item => "commandId" in item && item.commandId === "room.access");
+      expect(access).toMatchObject({ disabled: !("access" in abilities) });
+      expect(ids(rows.document)).toEqual("export" in abilities ? ["room.export", "room.copyLink"] : ["room.copyLink"]);
+      expect(ids(rows.trash)).toEqual("delete" in abilities ? ["room.trash"] : []);
+      expect(rows.more).toContainEqual(expect.objectContaining({ commandId: "room.replace", disabled: !("rename" in abilities), danger: true }));
+      expect(rows.more).toContainEqual(expect.objectContaining({ commandId: "header.comments", label: "Comments: 3 new", checked: true }));
+    }
+  });
+
+  it.each([
+    [{ png: true, pdf: true, backup: true }, "PNG · PDF · backup"],
+    [{ png: true, pdf: false, backup: false }, "PNG"],
+    [{ png: true, pdf: false, backup: true }, "PNG · backup"],
+    [{ png: false, pdf: false, backup: true }, "backup"],
+  ] as const)("advertises only the room's available download formats", (formats, expected) => {
+    const rows = roomMenuRows({ can: { export: true }, run: vi.fn() },
+      (key, vars) => key === "board.menuExport" ? String(vars?.formats) : key === "board.menuBackup" ? "backup" : key,
+      undefined, false, formats);
+    expect(rows.document).toContainEqual(expect.objectContaining({ commandId: "room.export", label: expected }));
+  });
+
+  it("offers the guide's row only when the installation has a guide (ADR-284)", () => {
+    const ids = (can: ChromeContext["can"]) =>
+      menuCommands(["account"], { can, run: vi.fn() }).map((command) => command.id);
+    expect(ids({ docs: true })).toContain("account.docs");
+    // `docs.origin: null` is a self-host without documentation: no row, not a dead one.
+    expect(ids({})).not.toContain("account.docs");
+  });
+});
+
 describe("grouping", () => {
   it("selects every member after the group is made", () => {
     const board = boardWith(["sticky_note", "sticky_note"]);
     const ctx = contextFor(board);
     const selected = vi.fn();
-    commandById("group")!.run({ ...ctx, select: selected });
+    commandById("group")!.run!({ ...ctx, select: selected });
 
     const groupId = board.widgets.get("w0")!.groupId;
     expect(groupId).toBeTruthy();
     expect(selected).toHaveBeenCalledWith(["w0", "w1"]);
     expect(selectionHasGroup(contextFor(board))).toBe(true);
+  });
+});
+
+describe("edit text is a registry command (T8)", () => {
+  it("is offered for one editable object, in the menu, the panel and the search", () => {
+    const board = boardWith(["sticky_note"]);
+    const edit = vi.fn();
+    const ctx = { ...contextFor(board, ["w0"]), editText: edit };
+    const command = commandById("editText")!;
+    expect(command.surfaces).toEqual(expect.arrayContaining(["menu", "panel", "palette"]));
+    expect(command.enabled(ctx)).toBe(true);
+    command.run?.(ctx);
+    expect(edit).toHaveBeenCalledWith("w0");
+  });
+
+  it("is not offered for a multi-selection or a locked object", () => {
+    const board = boardWith(["sticky_note", "sticky_note"]);
+    const command = commandById("editText")!;
+    expect(command.enabled(contextFor(board))).toBe(false);
+    const locked = boardWith(["sticky_note"]);
+    createWidget(locked, {
+      id: "locked",
+      type: "sticky_note",
+      parentId: null,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      locked: true,
+    });
+    locked.widgets.delete("w0");
+    expect(command.enabled(contextFor(locked, ["locked"]))).toBe(false);
+  });
+
+  it("keeps every menu-surface command in the canvas menu", () => {
+    const board = boardWith(["sticky_note", "shape"]);
+    const ctx = contextFor(board);
+    const menuIds = commandsFor("menu", ctx).map((command) => command.id);
+    // The owner's rule: the menu is the full registry, not a shortened list (T8).
+    expect(menuIds).toEqual(
+      COMMANDS.filter((command) => command.surfaces.includes("menu")).map(
+        (command) => command.id,
+      ),
+    );
+    expect(menuIds).toContain("editText");
   });
 });

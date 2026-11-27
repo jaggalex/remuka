@@ -4,11 +4,14 @@ A discussion is anchored to an object or a point on the room. A thread survives 
 
 ## Steps
 
-1. Click the discussion icon in the header (it carries the unread count) or a pin on the canvas. Result: a panel with the thread list.
-2. Click **New comment**. If an object is selected, the thread is anchored to it; otherwise to the centre of the view.
+1. Click the room name and choose **More → Comments**. The number beside the room name shows how many comments are unread. To open a particular thread, click its pin on the canvas.
+2. Click **New comment**. With one object selected, the pin starts near its top-right corner. With nothing selected, click the spot you want on an object or the canvas.
 3. Enter the text and send it.
-4. Open a thread to read replies. **Resolve** closes it; a reply opens it again.
-5. The author may delete their own comment; a room manager may delete any.
+4. Open a thread to read replies; the **Reply… @ to mention** field answers in it.
+5. **Resolve** (the green button) closes the thread and moves it to the resolved tab; a reply opens it again.
+6. The author may delete their own comment; a room manager may delete any.
+
+The thread author and a room manager can drag the pin. Drop it on an object to keep it attached when the object moves, rotates or changes size. Drop it on the empty canvas to leave it at that point. Press **Ctrl+Z** or **⌘Z** to undo.
 
 ## Check
 
@@ -16,6 +19,8 @@ A discussion is anchored to an object or a point on the room. A thread survives 
 - Deleting an object does not delete the thread: it is marked "object deleted".
 - A `commenter` writes comments but cannot change the document.
 - A link visitor does not see the discussion.
+- With every question closed the panel says: “Every question is closed. New ones appear here — and as a pin on the canvas.”
+- Opening comments closes the properties panel: there is one panel.
 
 ## Limits
 

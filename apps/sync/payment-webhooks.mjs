@@ -9,9 +9,9 @@
  * The body is read as raw bytes and never re-serialized before verification: a signature
  * over `JSON.stringify(JSON.parse(body))` is a signature over different bytes.
  *
- * One consequence is applied inline: a succeeded payment that carries a reusable method
- * stores it for autopay (`applyProviderEvent`), because that is what the first payment of
- * a subscription is for. Everything else waits for the drain.
+ * One consequence is applied by the drain, not by this route: the inbox row is written
+ * here and `billing-inbox.mjs` owns the money, the saved method and the letter. The answer
+ * says "recorded", so a provider repeats nothing while the consequences wait a second.
  *
  * Store contract: `connectionById(id)` returns the connection including the sealed
  * envelope and `webhookToken`; `recordProviderEvent({ connectionId, providerEventKey,
@@ -30,7 +30,8 @@ const MAX_BODY = 64 * 1024;
 /**
  * Where each provider's published notification addresses come from. The list changes
  * without a release and an empty list must mean "refuse", so it is operator-provided
- * configuration rather than a constant that silently rots.
+ * configuration rather than a constant that silently rots. Entries are exact addresses
+ * or CIDR blocks; the adapter decides how to match them.
  */
 const WEBHOOK_IPS_ENV = Object.freeze({ yookassa: "REMO_YOOKASSA_WEBHOOK_IPS" });
 
@@ -84,11 +85,8 @@ function allowedIpsFor(provider, env) {
 }
 
 /**
- * Apply one verified provider event after it reached the inbox.
- *
- * The only consequence implemented here is the saved method of §4: a provider that can
- * store a card returns a reusable reference on the first successful payment, and autopay
- * needs it. The reference is sealed by `savePaymentMethod`; this function never logs it.
+ * Store the saved method of a succeeded payment (§4), called by the inbox drain in the
+ * same pass as the money.
  *
  * The consent version comes from the invoice lines, because the callback has no session
  * and no checkout body: the invoice is the durable record of what the payer agreed to.
@@ -96,7 +94,7 @@ function allowedIpsFor(provider, env) {
  * already in the inbox and a throw would make the provider repeat a delivery that can
  * never succeed.
  */
-export async function applyProviderEvent({ store, connection, event, log = console }) {
+export async function applyProviderEvent({ store, connection, event, log = console, kek = null }) {
   // `savedMethod` belongs to the normalized payment, not to the event envelope.
   const saved = event?.payment?.savedMethod;
   if (event?.type !== "payment.updated") return false;
@@ -134,6 +132,7 @@ export async function applyProviderEvent({ store, connection, event, log = conso
       display: saved.display,
       consentVersion,
       createdBy: null,
+      ...(kek ? { kek } : {}),
     });
   } catch (error) {
     // Names the failure, never the reference: the envelope may be unreadable or the row
@@ -245,23 +244,15 @@ export async function handlePaymentWebhook({
   }
 
   for (const event of result.events ?? []) {
-    const recorded = await store.recordProviderEvent({
+    await store.recordProviderEvent({
       connectionId: connection.id,
       providerEventKey: event.key,
       type: event.type,
       payload: event,
     });
-    // A duplicate delivery is acknowledged again but must not apply its consequence
-    // twice. The drain owns everything beyond the saved method for now.
-    if (recorded === true) {
-      try {
-        await applyProviderEvent({ store, connection, event, log });
-      } catch (error) {
-        log.error?.(
-          `[billing] webhook ${connection.id}: the event was not applied (${error?.code ?? "ERROR"})`,
-        );
-      }
-    }
+    // A duplicate delivery is acknowledged again and inserts no second row. Every
+    // consequence beyond the row belongs to `billing-inbox.mjs`, so the route stays a
+    // recorder even when the drain is slow or stopped.
   }
 
   const answer = result.respond ?? { status: 200, body: "OK" };

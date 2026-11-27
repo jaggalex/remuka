@@ -17,7 +17,7 @@ import { join } from "node:path";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFilesApi } from "./files-api.mjs";
-import { createFileStore } from "./files-store.mjs";
+import { createFileStore, fileKey } from "./files-store.mjs";
 import { Metrics } from "./metrics.mjs";
 import { handleBilling } from "./billing-catalog-api.mjs";
 import { handleCommands } from "./commands-api.mjs";
@@ -145,7 +145,7 @@ function client() {
     const setCookie = response.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";")[0];
     const type = response.headers.get("content-type") ?? "";
-    const body = type.includes("application/json")
+    const body = method !== "HEAD" && type.includes("application/json")
       ? await response.json()
       : Buffer.from(await response.arrayBuffer());
     return { status: response.status, headers: response.headers, body };
@@ -271,16 +271,53 @@ suite("files API (ADR-249)", () => {
     const boardId = await boardOf(api, orgId, "Dedup");
 
     const first = await upload(api, boardId);
-    const second = await upload(api, boardId);
+    const second = await upload(api, boardId, { name: "other.png" });
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
     expect(second.body.file.id).toBe(first.body.file.id);
+    const head = await api("HEAD", `/files/${second.body.file.id}/original?board=${boardId}`);
+    expect(head.headers.get("content-disposition")).toContain("filename*=UTF-8''shot.png");
 
     const { rows } = await store.pool.query(
       "select count(*)::int as count from files where org_id = $1 and sha256 = $2 and status = 'ready'",
       [orgId, (await fileRow(first.body.file.id)).sha256],
     );
     expect(rows[0].count).toBe(1);
+  });
+
+  it("exposes the original name only under current download rights and audits only downloads", async () => {
+    const { api, orgId, userId } = await account("viewer-name");
+    const boardId = await boardOf(api, orgId, "Viewer name");
+    const { body: { file } } = await upload(api, boardId, { name: "схема.png" });
+    const path = `/files/${file.id}/original?board=${boardId}`;
+    const head = await api("HEAD", path);
+    expect(head.status).toBe(200);
+    expect(head.body).toHaveLength(0);
+    expect(head.headers.get("content-disposition")).toContain(encodeURIComponent("схема.png"));
+    expect(head.headers.get("cache-control")).toContain("no-store");
+    const downloads = async () => (await store.pool.query(
+      "select count(*)::int as count from audit_events where board_id = $1 and action = 'file.downloaded_original'",
+      [boardId],
+    )).rows[0].count;
+    expect(await downloads()).toBe(0);
+
+    await store.withTenant(orgId, () => store.enableBoardLink({ boardId, createdBy: userId }));
+    const publicReader = client();
+    const variant = await publicReader("GET", `/files/${file.id}/w256?board=${boardId}`);
+    expect(variant.status).toBe(200);
+    expect(variant.headers.get("content-disposition")).toBeNull();
+    const denied = await publicReader("HEAD", path);
+    expect(denied.status).toBe(404);
+    expect(denied.headers.get("content-disposition")).toBeNull();
+    const original = await api("GET", path);
+    expect(original.headers.get("content-disposition")).toBe(head.headers.get("content-disposition"));
+    expect(await downloads()).toBe(1);
+
+    await files.delete(fileKey(orgId, file.id, "original"));
+    const missing = await api("HEAD", path);
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("content-disposition")).toBeNull();
+    expect(await downloads()).toBe(1);
   });
 
   it("answers 404 for a room that does not use the file, and for a stranger", async () => {
@@ -332,6 +369,9 @@ suite("files API (ADR-249)", () => {
     expect(await withoutTenant(() => store.fileOrgId(randomUUID()))).toBeNull();
     await store.pool.query("update files set status = 'deleted' where id = $1", [fileId]);
     expect(await withoutTenant(() => store.fileOrgId(fileId))).toBeNull();
+    const deleted = await api("HEAD", `/files/${fileId}/original?board=${boardId}`);
+    expect(deleted.status).toBe(404);
+    expect(deleted.headers.get("content-disposition")).toBeNull();
   });
 
   it("serves the nearest smaller variant when one is missing", async () => {

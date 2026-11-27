@@ -13,13 +13,13 @@
     "connectors.create",
     "cards.fields"
   ],
-  "verifiedAgainst": "2026-11-07",
+  "verifiedAgainst": "2026-11-25",
   "audience": "public",
   "sourceLocale": "ru",
   "translations": {
     "en": {
-      "sourceHash": "sha256:c2d55c429eaed9efb2f1c0af0512396b4673b3aad2e9974519027d9c40f7225e",
-      "targetHash": "sha256:9759c762fe5aa5358f3ed30c194455ff9a7c60571a87f0939e559ba120f7ac74"
+      "sourceHash": "sha256:c8906226359f4173c762eee37791e8aea23c6813162bb17976646e0e0d3102d0",
+      "targetHash": "sha256:925c6319013c9607822d59d2152bc075c163eb47f24f8be34d94469b9e102af2"
     }
   }
 }

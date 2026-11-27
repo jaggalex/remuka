@@ -17,11 +17,11 @@
     "concepts/sync",
     "how-to/share"
   ],
-  "updated": "2026-11-04",
+  "updated": "2026-11-25",
   "translations": {
     "en": {
-      "sourceHash": "sha256:137de69913303a760d83507953ea5b9f87b5bb9ee30ac80e26349fce4d4b115b",
-      "targetHash": "sha256:b0edc4b0caabbde745243a91680cb6f1e9af26a432f6df93fccbc1228b6d3e89"
+      "sourceHash": "sha256:7c376933f2b2305bce94f22ca5390adb283e8fd1fb1444670aaf8c1d3ff97317",
+      "targetHash": "sha256:d0649b38811d62293a388913b633783315392dccbc1056c0d90e5504202fbe8a"
     }
   }
 }

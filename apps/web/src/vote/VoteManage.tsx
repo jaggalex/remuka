@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatRemaining, type Widget } from "@remo/model";
 import { Badge, Banner, Button, ConfirmDialog, IconButton } from "@remo/ui";
 import type { VoteSession } from "./voteTypes";
 import { useI18n } from "../i18n";
+import { boardObjectBounds } from "../boardObjectBounds";
 import { objectLabel } from "./voteLabels";
 import { barWidth, maxVotes, totalVotes, voteRows } from "./voteModel";
 
@@ -28,6 +29,7 @@ export function VoteManage({
   onExtend,
   onEnd,
   onReveal,
+  onRevealSession,
 }: {
   session: VoteSession;
   widgets: Widget[];
@@ -38,10 +40,16 @@ export function VoteManage({
   onExtend: () => void;
   onEnd: () => void;
   onReveal: (objectId: string) => void;
+  onRevealSession: (ids: readonly string[]) => void;
 }) {
   const { t, count, typeName } = useI18n();
   const [confirmEnd, setConfirmEnd] = useState(false);
-  const byId = new Map(widgets.map((widget) => [widget.id, widget]));
+  const byId = useMemo(() => new Map(widgets.map(widget => [widget.id, widget])), [widgets]);
+  const revealable = useMemo(() => {
+    // Placement and line routing affect the final bounds. A missing endpoint means
+    // there are no bounds even when the connector record still exists in the room.
+    return new Set(session.objectIds.filter(id => boardObjectBounds([id], key => byId.get(key), {})));
+  }, [byId, session.objectIds]);
   const rows = voteRows(session);
   const peak = maxVotes(rows);
   const label = (id: string) =>
@@ -55,7 +63,8 @@ export function VoteManage({
     session.anonymous
       ? t("facilitation.vote.anonymousShort")
       : t("facilitation.vote.openWord"),
-    ...(pinnedToTimer ? [t("facilitation.vote.withTimer")] : []),
+    ...(session.createdByName ? [t("facilitation.vote.leadBy", { name: session.createdByName })] : []),
+    ...(pinnedToTimer ? [t("facilitation.vote.endsWithTimer")] : []),
   ].join(" · ");
 
   return (
@@ -90,6 +99,14 @@ export function VoteManage({
         </div>
       </div>
 
+      <Banner tone="info" icon="vote">
+        {t("facilitation.vote.myBudget", { left: session.remaining, total: session.votesPerSubject })}
+      </Banner>
+      <Button className="vote-reveal-session" variant="secondary" disabled={revealable.size === 0}
+        onClick={() => onRevealSession(session.objectIds)}>
+        {t("facilitation.vote.showSession")}
+      </Button>
+
       <h4 className="vote-subheading">
         {t("facilitation.vote.objects")}
         <Badge tone="neutral" count={session.objectIds.length} />
@@ -106,7 +123,7 @@ export function VoteManage({
               icon="eye"
               label={`${t("facilitation.vote.showOnBoard")}: ${label(row.objectId)}`}
               size="compact"
-              disabled={busy}
+              disabled={busy || !revealable.has(row.objectId)}
               onClick={() => onReveal(row.objectId)}
             />
           </li>

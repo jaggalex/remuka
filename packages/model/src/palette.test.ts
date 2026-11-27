@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOARD_COLORS, inkFor, readableInk, resolveColor, shade, stickyFill } from "./palette";
+import { BOARD_COLORS, resolveColor, shade, stickyFill } from "./palette";
 import { TONE_LEVELS } from "./colorLevels";
 
 describe("the shared colour palette", () => {
@@ -26,19 +26,5 @@ describe("the shared colour palette", () => {
     expect(parseInt(edge.slice(1, 3), 16)).toBeLessThan(0xff);
     // Dark colours get darker but never negative.
     expect(shade("#1a1a1a", -0.16)).toMatch(/^#[0-9a-f]{6}$/);
-  });
-
-  it("puts dark ink on a pale fill and white ink on a deep one", () => {
-    expect(readableInk("#ffdd33")).toBe("#1a1a1a");
-    expect(readableInk("#1a1a1a")).toBe("#ffffff");
-    // Short hex reaches us from hand-written settings and means the same colour.
-    expect(readableInk("#fff")).toBe("#1a1a1a");
-    expect(readableInk("nonsense")).toBe("#1a1a1a");
-  });
-
-  it("keeps a text colour that was chosen", () => {
-    expect(inkFor("#1a1a1a", "#ff0000")).toBe("#ff0000");
-    expect(inkFor("#1a1a1a")).toBe("#ffffff");
-    expect(inkFor(undefined)).toBe("#1a1a1a");
   });
 });

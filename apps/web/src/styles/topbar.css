@@ -34,39 +34,35 @@
 .topbar-mark {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar-mark:hover,
+.topbar-mark:focus-visible {
+  background: var(--bg-hover);
 }
 
 /* The logo itself, not a badge around it (ADR-181): same mark as the home page. */
-.topbar-mark img {
-  width: 26px;
-  height: 26px;
-}
-
+/* The breadcrumb returns to the team directory. The room name opens its menu. */
 .topbar-path {
   min-width: 0;
-  max-width: 220px;
+  max-width: 180px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  padding-left: var(--space-1);
-  /* The path reads as the page title, as on reference 1: organisation muted, room in ink. */
   font: var(--type-path);
   color: var(--text-muted);
 }
 
-.topbar-path-button {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.topbar-path-button:hover {
-  color: var(--text-primary);
-}
+.topbar-path a { color: inherit; text-decoration: none; }
+.topbar-path a:hover, .topbar-path a:focus-visible { text-decoration: underline; }
 
 .board-title {
   border: 1px solid transparent;
@@ -92,7 +88,8 @@
 }
 
 .board-title-button {
-  max-width: 260px;
+  /* Path and name share one button now; the old header had two controls with 220 + 260. */
+  max-width: 380px;
   font: var(--type-path);
   font-weight: 500;
 }
@@ -115,23 +112,170 @@
   min-width: 0;
 }
 
-.topbar-sync {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-1);
-}
-
-.save-state {
+/* People: one control made of faces, up to four and a “+N”. */
+.people-trigger {
   display: inline-flex;
   align-items: center;
+  gap: 0;
+  height: var(--control-default);
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.people-trigger:hover,
+.people-trigger:focus-visible,
+.people-trigger[aria-expanded="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+
+.people-face {
+  display: inline-flex;
+  margin-left: -6px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 2px var(--bg-canvas);
+}
+
+.people-face:first-child {
+  margin-left: 0;
+}
+
+.people-more {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  margin-left: -6px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-ink);
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.people-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.topbar-presence {
+.people-main {
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.people-name {
+  font: var(--type-label);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-you,
+.people-handle {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.people-role {
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.people-watching {
+  margin: var(--space-2) 0 0;
+  font: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+/* Session states: a chip only while the session runs (ADR-266 amendment). */
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.session-chip:hover,
+.session-chip:focus-visible {
+  background: var(--bg-hover);
+}
+
+.session-chip.is-danger {
+  color: var(--text-danger);
+  border-color: var(--danger);
+}
+
+.agent-trigger {
+  border: 2px dashed var(--agent);
+  background: var(--agent-soft);
+  color: var(--text-agent);
+}
+
+.agent-trigger:hover,
+.agent-trigger:focus-visible,
+.agent-trigger[aria-expanded="true"] {
+  background: var(--agent-soft);
+  color: var(--text-agent);
+}
+
+.agent-trigger-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--agent);
+}
+
+.agent-trigger-dot.ready {
+  background: var(--state-success);
+}
+
+.topbar-invite .rm-btn-label {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+.topbar-templates-anchor {
+  position: absolute;
+  top: calc(var(--topbar-height) + var(--space-2));
+  left: 56px;
+  z-index: var(--z-popover);
+}
+
+.account-commands {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-command-wrap {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Every top-bar menu hangs under its own trigger; the app owns the position. */
@@ -154,6 +298,41 @@
   left: 0;
 }
 
+/* On a phone a header popover is pinned to the window, not to its button: a button near
+   the left edge would otherwise push a 320 px popover off the screen. */
+.topbar.is-narrow .topbar-anchor > .rm-popover {
+  position: fixed;
+  top: calc(var(--topbar-height) + var(--space-1));
+  right: var(--space-2);
+  left: auto;
+}
+
+.room-menu-anchor > .rm-menu {
+  width: var(--panel-room-menu-width);
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--topbar-height) - var(--space-3));
+  overflow-y: auto;
+}
+
+.room-menu-anchor .rm-menu-item {
+  height: auto;
+  min-height: var(--control-large);
+  border-radius: var(--radius-md);
+  font: var(--type-note);
+}
+
+.room-menu-anchor .rm-menu-item:not([aria-checked="true"]) > .rm-menu-icon {
+  display: none;
+}
+
+.room-menu-anchor .rm-menu-item[aria-checked="true"] > .rm-menu-icon {
+  order: 1;
+}
+
+.room-menu-anchor .rm-menu-sep {
+  margin-inline: 0;
+}
+
 .topbar-dot {
   width: 7px;
   height: 7px;
@@ -162,7 +341,19 @@
   background: var(--accent);
 }
 
-.facilitation-trigger.is-live {
+/* «Run» is a secondary outline pill, as the mockup draws the header's one menu action. */
+.run-trigger {
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-bar);
+}
+
+.run-trigger:hover {
+  background: var(--bg-hover);
+}
+
+.run-trigger.is-live {
   background: var(--accent-soft);
   color: var(--text-accent);
 }
@@ -291,11 +482,12 @@
 }
 
 /*
- * Creation rail (ADR-119): the only place a new object starts.
+ * Creation rail (ADR-119, ADR-286): one paper panel, radius 16, padding 8.
  *
- * Two floating panels — tools, then history — 12 px off the canvas edge, like the
- * mockup. The rail overlays the canvas instead of taking a strip of it: a bordered
- * column of icons on the edge read as part of the frame, not as a control surface.
+ * Seven tools and «More», then undo and redo under a hairline. The selected tool is a
+ * 44 px square with a 10 px radius on the marker-yellow `accent-chosen` and an ink
+ * outline — the mockup's chosen state, not a pill. The panel overlays the canvas instead
+ * of taking a strip of it.
  */
 .tool-rail {
   position: absolute;
@@ -303,14 +495,12 @@
      floating panel is never painted under an object's counter or a comment pin. */
   z-index: var(--z-bar);
   left: var(--space-3);
-  top: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
   width: var(--toolbar-width);
-  /* No `overflow`: the flyout is a child and must be able to leave the panel. The two
-     panels take 482 px, which fits every height the brief names (700–900). */
 }
 
 .tool-rail-panel {
@@ -318,26 +508,53 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  padding: var(--space-2);
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-menu);
   background: var(--bg-panel);
   box-shadow: var(--shadow-bar);
 }
 
 /* The design-system IconButton paints hover, active, focus and disabled; the rail only
-   gives it the 40 px square the mockup uses. */
+   gives it the 44 px square with the mockup's 10 px radius. */
 .tool-rail .tool-rail-button {
-  width: var(--space-10);
-  height: var(--space-10);
-  border-radius: var(--radius-pill);
+  width: var(--space-11);
+  height: var(--space-11);
+  border-radius: var(--radius-md);
 }
 
-/* Hairline between the groups the mockup separates: selection │ creation │ discussion. */
+/* Hairline between tools and history: one panel, not a second pill. */
+.tool-rail .tool-history-button {
+  height: var(--space-10);
+}
 .tool-rail-panel .rm-sep {
   width: var(--space-9);
   margin: var(--space-1) 0;
   background: var(--border-subtle);
+}
+
+.tool-series-lock {
+  position: absolute;
+  /* The badge sits 4px outside the button's inner border in the artboard. */
+  inset-block-end: -3px;
+  inset-inline-end: -3px;
+  width: var(--space-4);
+  height: var(--space-4);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--text-inverse);
+  background: var(--text-primary);
+  border-radius: var(--radius-sm);
+}
+
+/* The same disclosure hit target remains available through the lock badge. */
+.tool-series-lock + .tool-rail-caret {
+  right: -3px;
+  bottom: -3px;
+}
+.tool-series-lock + .tool-rail-caret::before {
+  display: none;
 }
 
 .tool-rail-item {
@@ -347,7 +564,7 @@
 
 /*
  * The corner marker of a tool with variants (Р2): a 6 px wedge in the bottom-right of
- * the 40 px button. It owns a 20 px hit area in the corner and never covers the glyph,
+ * the 44 px button. It owns a 20 px hit area in the corner and never covers the glyph,
  * so clicking the icon still creates at once.
  */
 .tool-rail-caret {
@@ -396,6 +613,11 @@
 }
 
 /* The flyout is a DS Popover; the rail only says where it opens (ADR-124, журнал №2). */
+.tool-rail:has(.tool-rail-item > .rm-popover) {
+  /* The transformed rail owns its stacking context, including its open popover. */
+  z-index: var(--z-popover);
+}
+
 .tool-rail-item > .rm-popover {
   position: absolute;
   left: calc(100% + var(--space-3));
@@ -403,44 +625,48 @@
   z-index: var(--z-popover);
 }
 
-/* The rail's flyout is the window's fill grid: named swatches in a column, then seven
-   tonal columns × the 100/300 rows (ADR-127, ADR-140). The popover is as wide as the
-   colour window, so both draw the same 34 px square. */
-.tool-flyout-palette {
+/* The connector flyout: three silhouettes in one row, like the shape row (T8). */
+.tool-flyout-connector {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-1);
 }
 
-.tool-flyout-extras {
+/* «More»: the five creation commands of the registry, with 16 px icons. */
+.tool-more-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding-top: 2px;
+  gap: 2px;
 }
 
-.tool-flyout-swatches {
-  display: grid;
-  grid-template-columns: repeat(7, 34px);
-  gap: var(--space-1);
-  padding: 2px;
-}
-
-.tool-flyout-note {
-  margin: 0;
-  font: var(--type-caption);
-  color: var(--text-muted);
-}
-
-/* The colour a click on the tool itself uses, marked the way the mockup marks it. */
-.tool-swatch.is-default {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.tool-flyout-shapes {
+.tool-more-item {
   display: flex;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-default);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-more-item:hover:not(:disabled),
+.tool-more-item:focus-visible {
+  background: var(--bg-hover);
+}
+
+.tool-more-item:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.tool-more-item svg {
+  flex: none;
+  color: var(--text-secondary);
 }
 
 /* A DS Button with a silhouette instead of a label; the sample is the shape itself. */
@@ -456,23 +682,95 @@
   place-items: center;
 }
 
-.tool-shape-rect {
-  width: 20px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
+/* The shape flyout lists all five kinds: silhouette, name and key (ADR-271). */
+.shape-kind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shape-kind-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--space-9);
+  padding: 0 var(--space-2);
+  text-align: left;
+}
+
+.shape-kind-row-icon {
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+}
+
+.shape-kind-row-name {
+  flex: 1;
+}
+
+.shape-kind-row-key {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font: var(--type-caption);
 }
 
-.tool-shape-ellipse {
-  width: 20px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
-  border-radius: var(--radius-pill);
+button.account-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: none;
+  height: auto;
+  padding: var(--space-2);
+  white-space: normal;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: start;
+  cursor: pointer;
 }
-
-.tool-shape-diamond {
-  width: 14px;
-  height: 14px;
-  border: 1.75px solid var(--text-primary);
-  transform: rotate(45deg);
+.account-who > .rm-btn-label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.account-who .rm-avatar { width: var(--space-11); height: var(--space-11); }
+.account-who-details { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.account-settings-label { color: var(--text-secondary); font: var(--type-caption); }
+.account-options {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) + var(--space-4)) minmax(0, 1fr);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font: var(--type-label);
+}
+.account-options .rm-segmented {
+  border: var(--panel-border-width) solid var(--border-ink);
+  border-radius: var(--radius-control);
+}
+.account-options .rm-segment {
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-md);
+}
+.account-options .rm-segment.is-selected,
+.account-options .rm-segment input:checked ~ .rm-segment-label {
+  background: var(--accent-chosen);
+  color: var(--text-on-chosen);
+}
+.account-motion {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: var(--space-2);
 }

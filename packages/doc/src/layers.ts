@@ -1,5 +1,6 @@
 import { kindOf, layerKey, paintOrder, type Widget } from "@remo/model";
 import type { BoardDocument } from "./board";
+export { topZ } from "@remo/model/stacking";
 
 /**
  * Lock and stacking order.

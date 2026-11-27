@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildCss, contrastReport, lintTokens, loadTokens } from "../scripts/tokens-lib.mjs";
+import { buildCss, contrastReport, lintTokens, loadTokens, resolver } from "../scripts/tokens-lib.mjs";
 
 const SRC = fileURLToPath(new URL(".", import.meta.url));
 const tokens = loadTokens();
@@ -15,6 +15,24 @@ function files(dir: string): string[] {
 }
 
 describe("tokens", () => {
+  it("retains the night palette and visible hard shadows on its raised surfaces", () => {
+    const value = resolver(tokens);
+    for (const [role, color] of Object.entries({
+      "bg-canvas": "#1e2136", "bg-dialog": "#262a40", "bg-dot": "#3a3d55", "border-ink": "#d9d2c0",
+      "accent-cta": "#ff8a57", "accent-chosen": "#f2b94a", "text-on-chosen": "#1e2136",
+      "agent": "#c69bff", "text-agent": "#dcc2ff", "text-on-agent": "#1e2136",
+    })) expect(value(role, "dark"), role).toBe(color);
+    expect(value("text-on-chosen", "light")).toBe("#1e2136");
+    const shadows = new Map(tokens.shadow.tokens.map((entry: { name: string; value: string | {dark: string} }) =>
+      [entry.name, entry.value] as const));
+    for (const [role, offset] of Object.entries({
+      "shadow-hard-s": 2, "shadow-bar": 3, "shadow-card": 3, "shadow-pop": 3,
+      "shadow-cta": 5, "shadow-dialog": 8,
+    })) {
+      const token = shadows.get(role) as {dark: string};
+      expect(shadows.get(token.dark.slice(1, -1)), role).toBe(offset + "px " + offset + "px 0 #06070d");
+    }
+  });
   it("follow naming, layering and alias rules (приёмка 9)", () => {
     expect(lintTokens(tokens)).toEqual([]);
   });

@@ -1,9 +1,12 @@
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
-import { Popover, Segmented, Tooltip } from "@remo/ui";
+import { Button, Popover, Segmented, Tooltip } from "@remo/ui";
 import {
+  INK_HALO_FLOOR,
   NAMED_COLORS,
+  autoInk,
   colorExtras,
   colorsForLevels,
+  contrastRatio,
   TONES,
   type ColorLevel,
   type NamedColorRole,
@@ -288,6 +291,36 @@ export function ColorGridSection({
 }
 
 /**
+ * "На этом фоне плохо видно" and the way out (ADR-273 §2.3).
+ *
+ * A person's colour is never replaced: the painter keeps it and adds a halo. The window
+ * says the colour is hard to read on this surface and offers Auto, which does not need
+ * the halo because it is derived from the same surface.
+ */
+export function InkWarning({
+  value,
+  ground,
+  onAuto,
+}: {
+  value: string | null | undefined;
+  /** The surface the ink lies on; absent means the caller has no ground to judge. */
+  ground?: string;
+  onAuto: () => void;
+}) {
+  const { t } = useI18n();
+  const stored = autoInk(value);
+  if (!stored || !ground || contrastRatio(stored, ground) >= INK_HALO_FLOOR) return null;
+  return (
+    <p className="cw-warning" role="status">
+      <span>{t("color.inkUnreadable")}</span>
+      <Button variant="ghost" size="compact" onClick={onAuto}>
+        {t("sticky.auto")}
+      </Button>
+    </p>
+  );
+}
+
+/**
  * The ink of a filled object: Auto, Dark, Black or White, in words (ADR-127, ADR-140).
  *
  * Auto is the absence of `textColor`, so it is a value of this control rather than a
@@ -300,11 +333,14 @@ export function InkSection({
   value,
   onChange,
   hint,
+  ground,
 }: {
   label: string;
   value: string | null | undefined;
   onChange: (color: string | null) => void;
   hint?: string;
+  /** The surface the ink lies on, so an unreadable choice is named (ADR-273). */
+  ground?: string;
 }) {
   const { t } = useI18n();
   const option = inkOption(value);
@@ -402,6 +438,7 @@ export function InkSection({
           {normalizeColor(value) ? ` ${normalizeColor(value)}` : ""} · {t("color.ownHint")}
         </p>
       )}
+      <InkWarning value={value} ground={ground} onAuto={() => onChange(null)} />
     </section>
   );
 }

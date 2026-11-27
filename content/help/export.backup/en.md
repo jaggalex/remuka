@@ -16,7 +16,7 @@ It is plain JSON: you can read, verify and keep it without Remuka.
 
 ## Download a backup
 
-1. Open the room menu (the room’s name) and choose Export….
+1. Click the room name and choose **Export**. The menu entry lists the formats available to you.
 2. Choose the Room backup format.
 3. Click Export.
 
@@ -26,7 +26,7 @@ You need the `board.backup` grant; editors, co-owners and owners have it. Every 
 
 ## Restore a room
 
-1. Open the room menu → Restore from backup…: the dialog opens on the restore section, with the file picker.
+1. Open the room menu → **More → Restore from backup…**: the dialog opens on the restore section, with the file picker.
 2. Choose a file. Remuka checks the format, version and checksum.
 3. Check the file name and object count, then confirm the replacement.
 

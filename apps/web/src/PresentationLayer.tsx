@@ -1,3 +1,4 @@
+import { FacilitationBody } from "./FacilitationPanel";
 import { useEffect, useMemo, useState } from "react";
 import {
   addAllFrames,
@@ -11,10 +12,24 @@ import {
 import type { BoardConnection, Presence } from "@remo/doc";
 import { cellRect, layoutTable, type Camera } from "@remo/canvas";
 import type { Widget } from "@remo/model";
-import { Button, Dialog, IconButton, Input } from "@remo/ui";
-import { useI18n } from "./i18n";
+import { Button, IconButton, Input } from "@remo/ui";
+import { useI18n, type TranslationKey } from "./i18n";
 import { HelpLink } from "./help/HelpLink";
 import { usePresentation } from "./usePresentation";
+
+/** Kinds that can be a slide: a line between objects is not something to show by itself. */
+const SLIDE_KINDS = new Set<Widget["type"]>(["frame", "sticky_note", "text", "card", "kanban", "shape", "image", "stamp", "timer", "group"]);
+
+/** How an object with no name, title or text is called in the slide lists. */
+const TYPE_NAMES: Partial<Record<Widget["type"], TranslationKey>> = {
+  frame: "tool.frame",
+  sticky_note: "tool.sticky",
+  text: "tool.text",
+  card: "tool.card",
+  kanban: "tool.kanban",
+  shape: "tool.shape",
+  image: "tool.image",
+};
 
 /**
  * Presentation controls (ADR-108, ADR-165).
@@ -89,12 +104,29 @@ export function PresentationLayer({
 
   const slides = presentation.slides;
   const byId = useMemo(() => new Map(widgets.map((widget) => [widget.id, widget])), [widgets]);
+  // People read names, never ids: an object with no name, title or text is named by its
+  // kind. Names are not unique (ADR-165), so a repeated one gets its order on the canvas.
+  const nameOf = (widget: Widget) => {
+    const label = slideLabel(widget);
+    if (label !== widget.id) return label;
+    return t("presentation.untitled", { type: t(TYPE_NAMES[widget.type] ?? "presentation.object") });
+  };
   const labelOf = (id: string) => {
     const widget = byId.get(id);
-    return widget ? slideLabel(widget) : id;
+    return widget ? nameOf(widget) : t("presentation.missing");
   };
-  // Names are not unique (ADR-165), so a short id keeps two same-named objects apart.
-  const shortId = (id: string) => id.slice(0, 8);
+  const repeats = { seen: new Map<string, number>(), order: new Map<string, number>() };
+  for (const widget of [...widgets].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const name = nameOf(widget);
+    const count = (repeats.seen.get(name) ?? 0) + 1;
+    repeats.seen.set(name, count);
+    repeats.order.set(widget.id, count);
+  }
+  const ordinal = (id: string) => {
+    const widget = byId.get(id);
+    if (!widget || (repeats.seen.get(nameOf(widget)) ?? 0) < 2) return null;
+    return <span className="presentation-id">· {repeats.order.get(id)}</span>;
+  };
 
   const focusStep =
     presentation.localStep ?? (presentation.watching ? presentation.remoteStep : null);
@@ -128,9 +160,9 @@ export function PresentationLayer({
   const chosen = new Set(slides);
   const needle = filter.trim().toLowerCase();
   const available = widgets
-    .filter((widget) => !chosen.has(widget.id))
-    .filter((widget) => !needle || slideLabel(widget).toLowerCase().includes(needle))
-    .sort((a, b) => slideLabel(a).localeCompare(slideLabel(b)));
+    .filter((widget) => !chosen.has(widget.id) && SLIDE_KINDS.has(widget.type))
+    .filter((widget) => !needle || nameOf(widget).toLowerCase().includes(needle))
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
   const selectedOnBoard = selectedIds.filter((id) => byId.has(id) && !chosen.has(id));
 
   return (
@@ -201,21 +233,18 @@ export function PresentationLayer({
       {presentation.notice && <div className="canvas-notice">{presentation.notice}</div>}
 
       {presentation.panelOpen && (
-        <Dialog
+        <FacilitationBody
           title={t("presentation.title")}
           description={t("presentation.hint")}
           help={<HelpLink topicId="presentation.mode" />}
-          size="md"
-          onClose={() => presentation.setPanelOpen(false)}
         >
           <div className="presentation-panel">
             {slides.length === 0 && <p className="muted">{t("presentation.noSlides")}</p>}
             <ol className="presentation-list">
               {slides.map((id, index) => (
                 <li key={id}>
-                  <span>
-                    {index + 1}. {labelOf(id)}{" "}
-                    <span className="presentation-id">{shortId(id)}</span>
+                  <span title={labelOf(id)}>
+                    {index + 1}. {labelOf(id)} {ordinal(id)}
                   </span>
                   <button
                     type="button"
@@ -250,9 +279,8 @@ export function PresentationLayer({
               <ul className="presentation-available">
                 {available.map((widget) => (
                   <li key={widget.id}>
-                    <span>
-                      {slideLabel(widget)}{" "}
-                      <span className="presentation-id">{shortId(widget.id)}</span>
+                    <span title={nameOf(widget)}>
+                      {nameOf(widget)} {ordinal(widget.id)}
                     </span>
                     <Button
                       size="compact"
@@ -290,7 +318,7 @@ export function PresentationLayer({
             </div>
             {!canFacilitate && <p className="muted">{t("presentation.forbidden")}</p>}
           </div>
-        </Dialog>
+        </FacilitationBody>
       )}
     </>
   );

@@ -11,12 +11,6 @@
  */
 import { ALL_PAID, PLANS } from "./billing-catalog.mjs";
 
-/** Short enough that an operator grant or a failed renewal is visible, long enough for `/auth/me`. */
-const CACHE_TTL_MS = 60_000;
-
-/** orgId → { expiresAt, value }. Cleared by any billing event of that organisation. */
-const cache = new Map();
-
 const NO_LIMIT = Object.freeze({
   seats: null,
   rooms: null,
@@ -64,74 +58,27 @@ function forPlan(planName, status, reason) {
   };
 }
 
-/** Free whatever the subscription says: the plan is not a thing a personal org can have. */
 function free(reason = "plan", status = "active") {
   return forPlan("free", status, reason);
 }
 
-/**
- * Resolve the plan from the live subscription.
- *
- * `orgs` and `subscriptions` are tenant tables, so the reads happen inside
- * `withTenant(orgId, …)`. When the request already runs in that tenant the call is a
- * no-op — the same function serves a route and `/auth/me`'s per-organisation loop.
- */
-async function resolve(store, orgId) {
-  return store.withTenant(orgId, async () => {
-    const org = await store.billingOrg(orgId);
-    // A personal organisation is always Free: to work as a team you create a shared one.
-    if (!org || org.kind === "personal") return free();
+/** The summary and access checks derive rights from a live subscription in the same way. */
+export function entitlementsFromSubscription(subscription) {
+  if (!subscription) return free();
 
-    const subscription = await store.liveSubscription(orgId);
-    if (!subscription) return free();
+  // Suspension preserves the rooms and their data. A confirmed payment restores the paid rights.
+  if (subscription.status === "suspended") return free("suspended", "suspended");
+  const planName = Object.hasOwn(PLANS, subscription.plan) ? subscription.plan : "free";
+  if (planName === "free") return free();
 
-    // Suspension keeps the data and the room access, but the plan's limits and features
-    // are gone until a payment arrives (§3.1).
-    if (subscription.status === "suspended") return free("suspended", "suspended");
-
-    // An unknown name is a data bug, not a paid plan; free is the safe answer.
-    const planName = Object.hasOwn(PLANS, subscription.plan) ? subscription.plan : "free";
-    if (planName === "free") return free();
-
-    // A failed renewal keeps the plan for the grace period, and the client says why.
-    if (subscription.status === "past_due") {
-      return forPlan(planName, "past_due", "past_due_grace");
-    }
-    return forPlan(planName, subscription.status, "plan");
-  });
+  const reason = subscription.status === "past_due" ? "past_due_grace" : "plan";
+  return forPlan(planName, subscription.status, reason);
 }
 
-/**
- * The entitlements of an organisation. `store` is the Postgres store (or a double with
- * `withTenant`, `billingOrg` and `liveSubscription`); `now` exists so a test can cross
- * the cache window without waiting a minute.
- *
- * The returned object is shared for the cache window: treat it as read-only.
- */
-export async function entitlementsFor(
-  store,
-  orgId,
-  { env = process.env, now = Date.now() } = {},
-) {
+/** A committed subscription change is visible to the next access check on any sync process. */
+export async function entitlementsFor(store, orgId, { env = process.env } = {}) {
   if (!billingEnabled(env)) return unlimited();
 
-  const hit = cache.get(orgId);
-  if (hit && hit.expiresAt > now) return hit.value;
-
-  const value = await resolve(store, orgId);
-  cache.set(orgId, { expiresAt: now + CACHE_TTL_MS, value });
-  return value;
-}
-
-/** Any billing event of this organisation makes the next read ask the database again. */
-export function invalidateEntitlements(orgId) {
-  cache.delete(orgId);
-}
-
-/**
- * Drop every cached answer. Tests use it when they switch `REMO_BILLING` on or off in
- * one process; production never needs it because the setting is fixed at start.
- */
-export function resetEntitlementCache() {
-  cache.clear();
+  const subscription = await store.withTenant(orgId, () => store.liveSubscription(orgId));
+  return entitlementsFromSubscription(subscription);
 }

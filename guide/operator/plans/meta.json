@@ -1,0 +1,26 @@
+{
+  "id": "operator/plans",
+  "type": "how-to",
+  "status": "available",
+  "order": 82,
+  "title": {
+    "ru": "Тарифы и прайс-лист",
+    "en": "Plans and the price list"
+  },
+  "summary": {
+    "ru": "Что даёт каждый тариф, чем тариф отличается от цены, как вести прайс-лист, почему витрина пуста и как выдать или снять тариф вручную.",
+    "en": "What each plan allows, how a plan differs from a price, how to keep the price list, why the showcase can be empty and how to grant or end a plan by hand."
+  },
+  "related": [
+    "operator/money",
+    "operator/payments",
+    "operator/customers"
+  ],
+  "updated": "2026-11-24",
+  "translations": {
+    "en": {
+      "sourceHash": "sha256:2c0aff6a57fdeda0b1b5dadd308630b27b8bf0cf1d4f05f3a761e4360cf76f78",
+      "targetHash": "sha256:1f98cb1fa0bf415a7ac4e7759a21257d6bef749e6fbaea38ca6246379723d1e3"
+    }
+  }
+}

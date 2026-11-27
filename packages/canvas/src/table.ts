@@ -5,7 +5,7 @@ import {
   tableCellFill,
   type TableGrid,
 } from "@remo/model";
-import { boxOf } from "./connectors";
+import { boxOf } from "./anchor";
 
 /**
  * Table hit-testing and placement for a section (ADR-196, ADR-199, ADR-201).

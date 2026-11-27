@@ -7,7 +7,7 @@ import { createContext, useContext, type ReactNode } from "react";
  * (AGENTS.md §2.1, §2.4). The app passes an adapter to <UiStringsProvider>.
  */
 export type UiKey =
-  | "close" | "closeToast" | "hide" | "cancel" | "delete" | "deleteCount" | "actions" | "remove"
+  | "close" | "closeToast" | "notifications" | "hide" | "cancel" | "delete" | "deleteCount" | "actions" | "remove"
   | "saved" | "saving" | "offline" | "offlineShort" | "readOnly"
   | "share" | "tools" | "selectionActions" | "moreActions" | "onBoard"
   | "you" | "role" | "role.owner" | "role.coowner" | "role.editor" | "role.commenter" | "role.viewer" | "role.none"

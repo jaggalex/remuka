@@ -72,6 +72,8 @@ export interface EditorTarget {
   ink?: string;
   /** Radius, so the editor's corners match the object it covers. */
   radius?: number;
+  /** The object's angle: the editor turns with what it edits (ADR-271, T18). */
+  rotation?: number;
 }
 
 /** One line the person asked to change; the caller applies them as one undo step. */
@@ -214,7 +216,7 @@ export function InlineEditor({
 
   if (!target) return null;
 
-  const { rect, fontSize, padding, align, vAlign, richBlocks, fontWeight, fill, ink, radius } = target;
+  const { rect, fontSize, padding, align, vAlign, richBlocks, fontWeight, fill, ink, radius, rotation } = target;
 
   const commit = () => {
     const node = ref.current;
@@ -469,8 +471,11 @@ export function InlineEditor({
         padding,
         justifyContent: vAlign === "top" ? "flex-start" : vAlign === "bottom" ? "flex-end" : "center",
         background: fill ?? DEFAULT_EDITOR_SURFACE,
-        color: ink ?? DEFAULT_INK,
+        // The ink of the surface under the object, not the theme's text colour
+        // (ADR-273 §2.4); the stylesheet reads it as `color: var(--ink)`.
+        ["--ink" as string]: ink ?? DEFAULT_INK,
         borderRadius: radius ?? 3,
+        ...(rotation ? { transform: `rotate(${rotation}deg)`, transformOrigin: "center" } : {}),
       }}
       onInput={() => {
         const node = ref.current;

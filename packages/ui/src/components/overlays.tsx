@@ -6,10 +6,30 @@ import { cx, forced, type Forced } from "./util";
 
 // ---------- Menu ----------
 
+type MenuAction = { label: string; visibleLabel?: string; icon?: IconName; shortcut?: string[]; keyShortcuts?: string; hint?: string; checked?: boolean; disabled?: boolean; danger?: boolean; submenu?: boolean; force?: Forced; /** The registry id the row runs (ADR-050): a row without one is a defect. */ commandId?: string; onSelect?: () => void };
+
 export type MenuItem =
   | { separator: true }
   | { heading: string }
-  | { label: string; icon?: IconName; shortcut?: string[]; hint?: string; checked?: boolean; disabled?: boolean; danger?: boolean; submenu?: boolean; force?: Forced; onSelect?: () => void };
+  | { pair: [MenuAction, MenuAction] }
+  | MenuAction;
+
+function menuButton(it: MenuAction, key: number) {
+  return (
+    <button key={key} type="button" role={it.checked != null ? "menuitemcheckbox" : "menuitem"} tabIndex={-1}
+      data-command={it.commandId}
+      className={cx("rm-menu-item", it.danger && "is-danger", forced(it.force))}
+      aria-label={it.visibleLabel ? it.label : undefined}
+      aria-keyshortcuts={it.keyShortcuts}
+      aria-checked={it.checked != null ? !!it.checked : undefined} aria-disabled={it.disabled || undefined}
+      aria-haspopup={it.submenu ? "menu" : undefined}
+      onClick={it.disabled ? undefined : it.onSelect}>
+      <span className="rm-menu-icon">{it.checked ? <Icon name="check" /> : it.icon ? <Icon name={it.icon} /> : null}</span>
+      <span className="rm-menu-label">{it.visibleLabel ?? it.label}{it.hint && <span className="rm-menu-hint">{it.hint}</span>}</span>
+      {it.shortcut ? <Kbd keys={it.shortcut} /> : it.submenu ? <Icon name="chevron-right" /> : null}
+    </button>
+  );
+}
 
 /**
  * Menu and context menu are one component (right click and Shift+F10 open the same).
@@ -26,23 +46,23 @@ export function Menu({ items, label, width, onClose, children }: { items: MenuIt
     const i = list.indexOf(document.activeElement as HTMLElement);
     if (e.key === "ArrowDown") { e.preventDefault(); (list[i + 1] ?? list[0])?.focus(); }
     if (e.key === "ArrowUp") { e.preventDefault(); (list[i - 1] ?? list[list.length - 1])?.focus(); }
-    if (e.key === "Escape") onClose?.();
+    if (e.key === "Escape" && onClose) {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    }
   };
   return (
     <div className="rm-menu" role="menu" aria-label={label} ref={ref} onKeyDown={onKey} style={width ? { width } : undefined}>
       {items.map((it, i) => {
         if ("separator" in it) return <div key={i} className="rm-menu-sep" role="separator" />;
         if ("heading" in it) return <div key={i} className="rm-menu-heading">{it.heading}</div>;
-        return (
-          <button key={i} type="button" role={it.checked != null ? "menuitemcheckbox" : "menuitem"} tabIndex={-1}
-            className={cx("rm-menu-item", it.danger && "is-danger", forced(it.force))}
-            aria-checked={it.checked != null ? !!it.checked : undefined} aria-disabled={it.disabled || undefined}
-            onClick={it.disabled ? undefined : it.onSelect}>
-            <span className="rm-menu-icon">{it.checked ? <Icon name="check" /> : it.icon ? <Icon name={it.icon} /> : null}</span>
-            <span className="rm-menu-label">{it.label}{it.hint && <span className="rm-menu-hint">{it.hint}</span>}</span>
-            {it.shortcut ? <Kbd keys={it.shortcut} /> : it.submenu ? <Icon name="chevron-right" /> : null}
-          </button>
-        );
+        if ("pair" in it) return <div key={i} className="rm-menu-pair" role="presentation">
+          {menuButton(it.pair[0], 0)}
+          <span aria-hidden="true">·</span>
+          {menuButton(it.pair[1], 1)}
+        </div>;
+        return menuButton(it, i);
       })}
       {children}
     </div>
@@ -51,7 +71,20 @@ export function Menu({ items, label, width, onClose, children }: { items: MenuIt
 
 // ---------- Dialog ----------
 
-const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'button,[href],input,select,textarea,summary,[tabindex]';
+
+function tabStops(surface: HTMLElement) {
+  return Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(element => {
+    if (element.tabIndex < 0 || element.matches(":disabled") || element.closest("[inert],[hidden]")) return false;
+    // Only the first summary of a closed disclosure participates in keyboard navigation.
+    for (let parent = element.parentElement; parent && parent !== surface; parent = parent.parentElement) {
+      if (parent instanceof HTMLDetailsElement && !parent.open &&
+        !parent.querySelector(":scope > summary")?.contains(element)) return false;
+    }
+    return element.getClientRects().length > 0 && getComputedStyle(element).visibility === "visible";
+  });
+}
+
 
 /** Counts primary/danger buttons in a footer: П2 allows exactly one. */
 export function countPrimary(node: ReactNode): number {
@@ -70,6 +103,8 @@ export interface DialogProps {
   /** One help link for the whole dialog, beside the title (a `?` icon that opens help). */
   help?: ReactNode;
   size?: "sm" | "md" | "lg";
+  /** An extra class on the sheet, for a dialog whose form is defined by its mockup. */
+  className?: string;
   footer?: ReactNode;
   onClose?: () => void;
   dismissable?: boolean;
@@ -79,7 +114,7 @@ export interface DialogProps {
   children?: ReactNode;
 }
 
-export function Dialog({ title, description, help, size = "md", footer, onClose, dismissable = true, inline, alert, children }: DialogProps) {
+export function Dialog({ title, description, help, size = "md", className, footer, onClose, dismissable = true, inline, alert, children }: DialogProps) {
   const { t } = useUiStrings();
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -94,20 +129,20 @@ export function Dialog({ title, description, help, size = "md", footer, onClose,
     // the opener is what held focus when the dialog first rendered.
     const tookFocus = Boolean(ref.current?.contains(active));
     const opener = tookFocus ? atRender : active;
-    if (!tookFocus) ref.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    if (!tookFocus && ref.current) tabStops(ref.current)[0]?.focus();
     return () => opener?.focus?.();
   }, [inline, atRender]);
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape" && onClose && dismissable) { e.stopPropagation(); onClose(); }
     if (e.key === "Tab" && !inline && ref.current) {
-      const list = ref.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+      const list = tabStops(ref.current);
       const first = list[0], last = list[list.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     }
   };
   const box = (
-    <div ref={ref} className={cx("rm-dialog", `rm-dialog-${size}`)} role={alert ? "alertdialog" : "dialog"} aria-modal={inline ? undefined : true} aria-labelledby={titleId} onKeyDown={onKey}>
+    <div ref={ref} className={cx("rm-dialog", `rm-dialog-${size}`, className)} role={alert ? "alertdialog" : "dialog"} aria-modal={inline ? undefined : true} aria-labelledby={titleId} onKeyDown={onKey}>
       <div className="rm-dialog-head">
         <div className="rm-dialog-heading">
           <h2 id={titleId} className="rm-dialog-title">{title}</h2>
@@ -265,6 +300,7 @@ export function Lightbox({
   subtitle,
   actions,
   caption,
+  hint,
   onClose,
   children,
 }: {
@@ -275,6 +311,8 @@ export function Lightbox({
   actions?: ReactNode;
   /** Shown under the picture; the picture's description, when it has one. */
   caption?: string;
+  /** Visible instructions for interacting with the picture. */
+  hint?: string;
   onClose?: () => void;
   children?: ReactNode;
 }) {
@@ -288,7 +326,7 @@ export function Lightbox({
     const active = document.activeElement as HTMLElement | null;
     const tookFocus = Boolean(ref.current?.contains(active));
     const opener = tookFocus ? atRender : active;
-    if (!tookFocus) ref.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    if (!tookFocus && ref.current) tabStops(ref.current)[0]?.focus();
     return () => opener?.focus?.();
   }, [atRender]);
   const onKey = (event: KeyboardEvent) => {
@@ -297,7 +335,7 @@ export function Lightbox({
       onClose();
     }
     if (event.key === "Tab" && ref.current) {
-      const list = ref.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+      const list = tabStops(ref.current);
       const first = list[0];
       const last = list[list.length - 1];
       if (event.shiftKey && document.activeElement === first) {
@@ -335,7 +373,85 @@ export function Lightbox({
           </div>
         </div>
         <div className="rm-lightbox-body">{children}</div>
-        {caption && <p className="rm-lightbox-caption">{caption}</p>}
+        {(caption || hint) && <div className="rm-lightbox-footer">
+          {caption && <p className="rm-lightbox-caption">{caption}</p>}
+          {hint && <p className="rm-lightbox-hint">{hint}</p>}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Command palette ----------
+
+/**
+ * The modal layer of a command palette: a scrim, a paper sheet near the top, the focus
+ * trap, Tab and Escape (ADR-266 §1.2).
+ *
+ * It is not a `Dialog`: a dialog is a form with a title bar, while a palette's search
+ * field is its title. Like `Lightbox`, the shell owns what every modal needs — the
+ * scrim, the trap and giving focus back to whatever opened it — and the screen owns
+ * what is inside (the field, the rows, the actions).
+ */
+export function CommandPalette({
+  label,
+  onClose,
+  returnFocusTo,
+  children,
+}: {
+  /** The accessible name of the dialog; the field itself usually reads as the title. */
+  label: string;
+  onClose: () => void;
+  /** Overrides "what held focus at open", for a control that no longer exists then. */
+  returnFocusTo?: HTMLElement | null;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [atRender] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
+  useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    const tookFocus = Boolean(ref.current?.contains(active));
+    const opener = tookFocus ? atRender : active;
+    if (!tookFocus && ref.current) tabStops(ref.current)[0]?.focus();
+    return () => (returnFocusTo ?? opener)?.focus?.();
+  }, [atRender, returnFocusTo]);
+  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab" || !ref.current) return;
+    const list = tabStops(ref.current);
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+  return (
+    <div
+      className="rm-command-scrim"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={ref}
+        className="rm-command"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onKeyDown={onKey}
+      >
+        {children}
       </div>
     </div>
   );

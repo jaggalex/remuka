@@ -111,6 +111,10 @@ const DYNAMIC_KEYS_ALLOWED = new Map([
     "apps/web/src/legal/LegalUpcomingBanner.tsx",
     "the key names a document revision (doc@version) and is built by legalUpcomingSessionKey (§5)",
   ],
+  [
+    "apps/web/src/hints.ts",
+    "the key is one per hint slot (`remuka.hints.<id>`) and the legacy alias comes from hintRegistry (ADR-289)",
+  ],
 ]);
 
 /** Cookie names that are really HTML attributes or header words, not cookies. */

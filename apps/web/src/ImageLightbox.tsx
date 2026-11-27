@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Widget } from "@remo/model";
-import { IconButton, Lightbox, Spinner } from "@remo/ui";
+import { Button, Lightbox, Spinner } from "@remo/ui";
 import { useI18n } from "./i18n";
-import { downloadOriginal, imageVariantUrl } from "./apiFiles";
+import { downloadOriginal, imageVariantUrl, originalFileUrl } from "./apiFiles";
+import { attachmentFilename } from "./backupFormat";
 import { currentRoom } from "./identity";
 import { useBoardCapability } from "./accessSnapshot";
 import { closeImageViewer, useImageViewer } from "./imageViewer";
@@ -31,8 +32,30 @@ export function ImageLightbox({ widgets }: { widgets: Widget[] }) {
 
   const image = widget?.type === "image" ? widget : undefined;
   const fileId = image?.fileId;
+  const boardId = currentRoom();
+  const metadataUrl = image && !image.name && !failed && fileId && canExport
+    ? originalFileUrl(fileId, boardId)
+    : null;
+  const [original, setOriginal] = useState<{ url: string; name: string } | null>(null);
   const naturalWidth = image?.naturalWidth ?? 0;
   const naturalHeight = image?.naturalHeight ?? 0;
+
+  useEffect(() => {
+    setOriginal(null);
+    if (!metadataUrl) return;
+    const controller = new AbortController();
+    async function loadName(url: string) {
+      try {
+        const response = await fetch(url, { method: "HEAD", cache: "no-store", signal: controller.signal });
+        const name = response.ok && attachmentFilename(response.headers.get("Content-Disposition") ?? "");
+        if (name && !controller.signal.aborted) setOriginal({ url, name });
+      } catch {
+        // Offline, revoked or closed: the ordinary object title remains available.
+      }
+    }
+    void loadName(metadataUrl);
+    return () => controller.abort();
+  }, [metadataUrl, openId]);
 
   // A different picture starts fitted, not at whatever the previous one was zoomed to.
   useEffect(() => {
@@ -41,7 +64,7 @@ export function ImageLightbox({ widgets }: { widgets: Widget[] }) {
     setOffset({ x: 0, y: 0 });
     setLoaded(false);
     setFailed(false);
-  }, [openId]);
+  }, [openId, fileId]);
 
   // The object may disappear while the viewer is open (deleted elsewhere or by undo).
   useEffect(() => {
@@ -50,8 +73,8 @@ export function ImageLightbox({ widgets }: { widgets: Widget[] }) {
   }, [openId, widgets]);
 
   const url = useMemo(
-    () => (fileId ? imageVariantUrl(fileId, "w2048", currentRoom()) : ""),
-    [fileId],
+    () => (fileId ? imageVariantUrl(fileId, "w2048", boardId) : ""),
+    [fileId, boardId],
   );
 
   if (!openId) return null;
@@ -79,30 +102,34 @@ export function ImageLightbox({ widgets }: { widgets: Widget[] }) {
     setOffset({ x: 0, y: 0 });
   };
 
+  const filename = original && original.url === metadataUrl ? original.name : null;
   return (
     <Lightbox
-      title={image.name || image.alt || typeName("image")}
+      title={image.name || filename || image.alt || typeName("image")}
       subtitle={
         naturalWidth && naturalHeight
           ? `${naturalWidth} × ${naturalHeight}`
           : undefined
       }
       caption={image.alt ? t("image.lightbox.caption", { text: image.alt }) : undefined}
+      hint={failed ? undefined : t("image.lightbox.hint")}
       onClose={closeImageViewer}
       actions={
         canExport && fileId ? (
-          <IconButton
-            icon="download"
-            label={t("image.lightbox.download")}
-            onClick={() => downloadOriginal(fileId)}
-          />
+          <Button
+            variant="ghost"
+            size="compact"
+            className="image-lightbox-download"
+            onClick={() => downloadOriginal(fileId, boardId)}
+          >
+            {t("image.lightbox.download")}
+          </Button>
         ) : undefined
       }
     >
       <div
         ref={bodyRef}
         className="image-lightbox-stage"
-        title={t("image.lightbox.hint")}
         onDoubleClick={toggleFit}
         onWheel={(event) => {
           setScale((current) =>

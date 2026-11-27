@@ -1,6 +1,15 @@
+import { insertNewWidget } from "@remo/model/stacking";
 import * as Y from "yjs";
-import { kanbanContentHeight, laneStripWidth, newId, orderBetween, type Widget } from "@remo/model";
+import {
+  kanbanContentHeight,
+  laneStripWidth,
+  newId,
+  orderBetween,
+  type KanbanState,
+  type Widget,
+} from "@remo/model";
 import type { BoardDocument } from "./board";
+import { createWidget } from "./widgets";
 import {
   cardsOf,
   cellOrders,
@@ -9,6 +18,7 @@ import {
   placementOf,
   readKanban,
   swimlanesOf,
+  writeKanbanState,
 } from "./kanbanState";
 import { seedTextField } from "./text";
 import { growFramesAround } from "./frameGrowth";
@@ -90,7 +100,7 @@ export function addCard(
     if (board.readWidget(kanbanId)?.locked) return;
     const kanban = kanbanOf(board, kanbanId);
     if (!kanban) return;
-    board.widgets.set(cardId, widget);
+    insertNewWidget(board.widgets, widget);
     seedTextField(board, widget, widget.title ?? widget.content ?? "");
 
     const cell = cellOrders(kanban, columnId, swimlaneId, cardId);
@@ -102,6 +112,35 @@ export function addCard(
     cardsOf(kanban).set(cardId, entry);
     growKanbanToFit(board, kanbanId);
   });
+}
+
+/**
+ * A new empty kanban: the widget, its columns and its lane in one undo step.
+ *
+ * `More → Kanban` creates a board the same way a template's kanban is loaded — the
+ * matrix is written through the one `writeKanbanState`, so a hand-made kanban and a
+ * template's kanban are the same data (ADR-266 §10a, ADR-053).
+ */
+export function createKanban(
+  board: BoardDocument,
+  id: string,
+  at: { x: number; y: number },
+  state: KanbanState,
+  box: { width: number; height: number } = { width: 1149.2, height: 720 },
+): string {
+  board.transact(() => {
+    createWidget(board, {
+      id,
+      type: "kanban",
+      parentId: null,
+      x: at.x,
+      y: at.y,
+      width: box.width,
+      height: box.height,
+    });
+    writeKanbanState(board, id, state);
+  });
+  return id;
 }
 
 /* ----------------------------------------------------------- column ops ----- */

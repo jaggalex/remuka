@@ -1,6 +1,7 @@
+import type { FacilitationTab } from "./FacilitationPanel";
+import { homeAction } from "./homeAction";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BoardDocument,
   useBoard,
   type BoardFragment,
   type ConnectorOptions,
@@ -8,6 +9,7 @@ import {
 } from "@remo/doc";
 import { rigidWaypoints } from "@remo/model";
 import { useBoardContextMenu } from "./useBoardContextMenu";
+import { recordChromeUse } from "./chromeUse";
 import { useBoardHeader } from "./useBoardHeader";
 import { currentRoom, loadIdentity, type Identity } from "./identity";
 import { useCursorIdentity } from "./useCursorIdentity";
@@ -22,12 +24,13 @@ import { useBoardVote } from "./useBoardVote";
 import { useFollowAttention } from "./useFollowAttention";
 import { useBoardAccess } from "./useBoardAccess";
 import { useBoardKeyboard } from "./useBoardKeyboard";
-import { useBoardSession } from "./useBoardSession";
+import { useBoardSession, useRoomDocument } from "./useBoardSession";
 import { useBoardTemplates } from "./useBoardTemplates";
 import { useBoardNavigation } from "./useBoardNavigation";
 import { useNewObjectEditing } from "./useNewObjectEditing";
 import { useBoardHistory } from "./useBoardHistory";
 import { useBoardTools } from "./useBoardTools";
+import { rememberedRouting } from "./toolDefaults";
 import { useBoardChrome } from "./useBoardChrome";
 import { useSharedTimer } from "./useSharedTimer";
 import { cameraStore } from "./cameraStore";
@@ -47,9 +50,7 @@ import { DEFAULT_SETTINGS, loadSettings, type BoardSettings } from "./settings";
  * hooks, in the same order, called once per mounted board.
  */
 export function useBoardAppState() {
-  const board = useMemo(() => new BoardDocument(), []);
-  const { widgets, kanbanStates, title, groupNames, tags, allowBringEveryone } = useBoard(board);
-  const { t, typeName, lang, setLang } = useI18n();
+  const { t, count, typeName, lang, setLang } = useI18n();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [focusedWaypoint, setFocusedWaypoint] = useState<{
     connectorId: string;
@@ -67,7 +68,7 @@ export function useBoardAppState() {
   const [settings, setSettings] = useState<BoardSettings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [templateRequest, setTemplateRequest] = useState(0);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(() => Boolean(homeAction("invite")));
   const [exportOpen, setExportOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountTab, setAccountTab] = useState<"people" | "audit" | "agents">("people");
@@ -75,21 +76,30 @@ export function useBoardAppState() {
     setAccountTab(tab);
     setAccountOpen(true);
   }, []);
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(() => Boolean(homeAction("agent")));
   const roomId = currentRoom();
   const tidy = useTidyCommand({ openAgents: () => setAgentOpen(true) });
-  const [timerOpen, setTimerOpen] = useState(false);
-  const [followOpen, setFollowOpen] = useState(false);
+  const [facilitationTab, setFacilitationTab] = useState<FacilitationTab | null>(null);
+  const toggleFacilitation = useCallback((tab: FacilitationTab, open: boolean) => {
+    setFacilitationTab(current => open ? tab : current === tab ? null : current);
+  }, []);
+  const timerOpen = facilitationTab === "timer", followOpen = facilitationTab === "follow";
+  const voteOpen = facilitationTab === "vote", presentOpen = facilitationTab === "show";
+  const setTimerOpen = useCallback((open: boolean) => toggleFacilitation("timer", open), [toggleFacilitation]);
+  const setFollowOpen = useCallback((open: boolean) => toggleFacilitation("follow", open), [toggleFacilitation]);
+  const setVoteOpen = useCallback((open: boolean) => toggleFacilitation("vote", open), [toggleFacilitation]);
+  const setPresentOpen = useCallback((open: boolean) => toggleFacilitation("show", open), [toggleFacilitation]);
   const [appsOpen, setAppsOpen] = useState(false);
   /** A counter, not a boolean: the rail asks the comments panel to start placement. */
   const [commentRequest, setCommentRequest] = useState(0);
   const {
-    me, setMe, sessionReady,
+    me, setMe, sessionReady, linkOnly,
     orgs,
     refreshOrgs,
     access,
     refreshAccess,
     boardOrgId,
+    boardTeam, boardIcon,
     boardTitle,
     authOpen,
     setAuthOpen,
@@ -102,8 +112,9 @@ export function useBoardAppState() {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
   } = useBoardAccess();
+  const board = useRoomDocument(roomId, access, me?.id ?? null);
+  const { widgets, kanbanStates, title, groupNames, tags, allowBringEveryone } = useBoard(board);
   const { renameSelf, forgetAccountName } = useCursorIdentity({ accountName: me?.name, setIdentity });
   const { openBoard, copyObjectLink, revealWidget } = useBoardNavigation({
     widgets,
@@ -113,22 +124,24 @@ export function useBoardAppState() {
     t,
   });
   /** Leave the board for the organisation home: the board unmounts with the address. */
-  const openHome = useCallback(() => {
-    const slug = orgs.find((org) => org.id === boardOrgId)?.slug;
-    window.location.assign(slug ? `${window.location.pathname}?org=${encodeURIComponent(slug)}` : window.location.pathname);
-  }, [boardOrgId, orgs]);
+  const orgSlug = orgs.find(org => org.id === boardOrgId)?.slug;
+  const homeParams = new URLSearchParams();
+  if (orgSlug) homeParams.set("org", orgSlug);
+  const homeHref = location.pathname + (homeParams.size ? "?" + homeParams.toString() : "");
+  if (orgSlug && boardTeam) homeParams.set("team", boardTeam.id);
+  const teamHref = location.pathname + (homeParams.size ? "?" + homeParams.toString() : "");
+  const openHome = useCallback(() => window.location.assign(homeHref), [homeHref]);
 
-  const readOnly = !(access?.allowed === true && access.capabilities.includes("board.edit"));
   const {
     connection,
     status,
     synced,
     saveState,
     visiblePresence,
-    saveLabel,
-    saveTitle,
+    authorised,
   } = useBoardSession({ board, identity, accountId: me?.id ?? null, accountHandle: me?.handle ?? null, access, refreshAccess,
-    setNotice: showNotice, t });
+    setNotice: showNotice, setAuthOpen, t });
+  const readOnly = !authorised || !access?.capabilities.includes("board.edit");
   // Two different reasons stop writes: access, and the offline queue limit.
   const writeBlocked = readOnly || saveState.blocked;
   const roomAgent = useRoomAgent({
@@ -139,7 +152,7 @@ export function useBoardAppState() {
     openSettings: () => openAccount("agents"),
   });
   /** One voting session, shared by the panel and the chips on the board (ADR-115). */
-  const { vote, open: voteOpen, setOpen: setVoteOpen, cast, withdraw } = useBoardVote({
+  const { vote, cast, withdraw } = useBoardVote({
     boardId: currentRoom(),
     connection,
     t,
@@ -183,6 +196,7 @@ export function useBoardAppState() {
    */
   const lastConnector = useRef<ConnectorOptions>({
     shape: DEFAULT_SETTINGS.connectors.shape,
+    routing: rememberedRouting() ?? undefined,
     arrow: DEFAULT_SETTINGS.connectors.arrow,
     strokeColor: DEFAULT_SETTINGS.connectors.colour,
     strokeStyle: DEFAULT_SETTINGS.connectors.dash,
@@ -194,7 +208,9 @@ export function useBoardAppState() {
    */
   useEffect(() => {
     lastConnector.current = {
+      ...lastConnector.current,
       shape: settings.connectors.shape,
+      routing: rememberedRouting() ?? lastConnector.current.routing,
       arrow: settings.connectors.arrow,
       strokeColor: settings.connectors.colour,
       strokeStyle: settings.connectors.dash,
@@ -202,6 +218,8 @@ export function useBoardAppState() {
     };
   }, [settings.connectors]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Set once `useBoardChrome` is read: bars can ask for the properties panel earlier. */
+  const openPropertiesRef = useRef<() => void>(() => {});
 
   const {
     follow,
@@ -255,8 +273,6 @@ export function useBoardAppState() {
   });
 
   const {
-    presentOpen,
-    setPresentOpen,
     commentsOpen,
     setCommentsOpen,
     setCommentsUnread,
@@ -290,8 +306,42 @@ export function useBoardAppState() {
     shareFallback,
     closeShareFallback,
     inspectorOpen,
-    toggleInspector, openInspector,
+    toggleInspector, openInspector, closeInspector,
   } = useBoardChrome({ board, t });
+
+  /**
+   * One side panel at a time (ADR-266 §5, T8): properties and comments share the right
+   * edge; the agent panel is the third. Opening one closes the other two. The functions
+   * live here because the header, the bars and the canvas all ask the same question.
+   */
+  const openProperties = useCallback(() => {
+    setCommentsOpen(false);
+    roomAgent.panelProps.onClose();
+    openInspector();
+  }, [openInspector, roomAgent.panelProps, setCommentsOpen]);
+  openPropertiesRef.current = openProperties;
+  const closeProperties = useCallback(() => {
+    closeInspector();
+  }, [closeInspector]);
+  const toggleProperties = useCallback(() => {
+    if (inspectorOpen) closeInspector();
+    else openProperties();
+  }, [closeInspector, inspectorOpen, openProperties]);
+  const setCommentsPanel = useCallback(
+    (value: boolean) => {
+      if (value) {
+        closeInspector();
+        roomAgent.panelProps.onClose();
+      }
+      setCommentsOpen(value);
+    },
+    [closeInspector, roomAgent.panelProps, setCommentsOpen],
+  );
+  const openAgentPanel = useCallback(() => {
+    closeInspector();
+    setCommentsOpen(false);
+    roomAgent.openPanel();
+  }, [closeInspector, roomAgent.openPanel, setCommentsOpen]);
 
   const { active, addTemplate, replaceBoard } = useBoardTemplates({
     board,
@@ -317,7 +367,7 @@ export function useBoardAppState() {
     [connection],
   );
 
-  const { undo, redo, forceRender } = useBoardHistory(board);
+  const { undo, redo, forceRender, pinUndo, pinRedo } = useBoardHistory(board);
   const { info, openInfo, closeInfo } = useInfoCard(typeName, t);
 
   const gatherSelection = useGatherSelection({
@@ -348,7 +398,10 @@ export function useBoardAppState() {
     canManage,
     refuseUnlock: (authorName) =>
       showNotice(t("lock.refused", { name: authorName || t("lock.authorUnknown") })),
-    onTidy: tidy.start, onGather: gatherSelection,
+    onTidy: tidy.start,
+    t,
+    lang,
+    openProperties: () => openPropertiesRef.current(),
   });
 
   const {
@@ -359,6 +412,7 @@ export function useBoardAppState() {
     patchConnector,
     selectionLocked,
     resizeSelection,
+    rotateSelection,
     onMoveCard,
     onAddCard,
     onAddColumn,
@@ -369,6 +423,8 @@ export function useBoardAppState() {
     canJoinSelection,
     addShape,
     addFrame,
+    addTable,
+    addKanban,
     connectSelection,
     onConnect,
     copyIds,
@@ -402,15 +458,15 @@ export function useBoardAppState() {
     setEditingId,
   });
 
-  const { rail, run: runTool } = useBoardTools({
+  const { rail, run: runTool, cancelArmed, creationTool, suggestSeries } = useBoardTools({
     widgets,
     selectedIds,
     kanbanStates,
     writeBlocked,
     blockedHint,
     canComment: Boolean(access?.capabilities.includes("board.comment")),
-    canUndo: board.canUndo,
-    canRedo: board.canRedo,
+    canUndo: (!writeBlocked && board.canUndo) || pinUndo,
+    canRedo: (!writeBlocked && board.canRedo) || pinRedo,
     undo,
     redo,
     canConnect: canJoinSelection,
@@ -424,6 +480,9 @@ export function useBoardAppState() {
     openComment: () => setCommentRequest((value) => value + 1),
     notify: showNotice,
     setSelectedIds,
+    setConnectorRouting: (routing) => {
+      lastConnector.current = { ...lastConnector.current, routing };
+    },
   });
 
   /** A double-click opens; closing goes through the empty-sticky rule. */
@@ -483,6 +542,9 @@ export function useBoardAppState() {
     board,
     writeBlocked,
     onTool: runTool,
+    onHome: () => { recordChromeUse("home.open"); openHome(); },
+    toolArmed: rail.activeTool !== null,
+    onCancelTool: cancelArmed,
     onTone: applyTone,
     onLineBlock: applyLineBlock,
     onAgentUndo: roomAgent.undoAgentDraft,
@@ -497,10 +559,12 @@ export function useBoardAppState() {
     addConnectedNote,
     setEditingId: editWidget,
     setSelectedIds,
-    onOpenHome: openHome,
     forceRender,
     pasteSelection,
   });
+
+  /** The armed shape tool as the canvas sees it (ADR-271). */
+
 
   /** Take an unprotected room: the first signed-in visitor becomes its owner. */
   const claimBoard = useCallback(async () => {
@@ -524,6 +588,7 @@ export function useBoardAppState() {
     setSelectedIds,
     menuPoint,
     t,
+    count,
     onNotice: showNotice,
   });
 
@@ -579,6 +644,7 @@ export function useBoardAppState() {
     access,
     refreshAccess,
     boardOrgId,
+    boardTeam, boardIcon,
     boardTitle,
     authOpen,
     setAuthOpen,
@@ -591,19 +657,17 @@ export function useBoardAppState() {
     canManage,
     canTransfer,
     denied,
-    unclaimed,
+    anonymousLink: Boolean(sessionReady && !me && access?.allowed && linkOnly),
     renameSelf,
     openBoard,
     revealWidget,
-    openHome,
+    openHome, homeHref, teamHref,
     readOnly,
     connection,
     status,
     synced,
     saveState,
     visiblePresence,
-    saveLabel,
-    saveTitle,
     writeBlocked,
     roomAgent,
     vote,
@@ -634,6 +698,7 @@ export function useBoardAppState() {
     extend,
     reset,
     header,
+    facilitationTab, setFacilitationTab,
     presentOpen,
     setPresentOpen,
     commentsOpen,
@@ -659,6 +724,11 @@ export function useBoardAppState() {
     closeShareFallback,
     inspectorOpen,
     toggleInspector,
+    openProperties,
+    closeProperties,
+    toggleProperties,
+    setCommentsPanel,
+    openAgentPanel,
     active,
     addTemplate,
     replaceBoard,
@@ -670,7 +740,10 @@ export function useBoardAppState() {
     addStickyAndEdit,
     addTextAndEdit,
     addShapeAndEdit,
+    addTable,
+    addKanban,
     rail,
+    creationTool, suggestSeries,
     editWidget,
     claimBoard,
     menu,
@@ -685,6 +758,7 @@ export function useBoardAppState() {
     patchConnector,
     selectionLocked,
     resizeSelection,
+    rotateSelection,
     onMoveCard,
     onAddCard,
     onAddColumn,
@@ -697,6 +771,7 @@ export function useBoardAppState() {
     noteMarks,
     connectorActions,
     arrangeActions,
+    gatherSelection,
     onAddWaypoint,
     onMoveWaypoint,
     onDeleteWaypoint,

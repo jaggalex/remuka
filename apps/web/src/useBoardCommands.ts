@@ -6,7 +6,7 @@ import {
   textCapFor,
   textClipped,
 } from "@remo/canvas";
-import type { Rect } from "@remo/model";
+import type { Rect, ShapeKind } from "@remo/model";
 import type { MutableRefObject } from "react";
 import {
   addConnectorWaypoint,
@@ -27,6 +27,7 @@ import {
   noteMarksOf,
   pasteFragment,
   reattachConnectorEnd,
+  rotateWidgets,
   setConnectorProps,
   setConnectorRouting,
   setFillColor,
@@ -34,6 +35,8 @@ import {
   setNoteTextAlign,
   setNoteTextVAlign,
   setShapeStyle,
+  setShapeKind,
+  setElevation,
   setStickySize,
   setTextColor,
   clearTextFormatting,
@@ -60,6 +63,7 @@ import {
   linePresetStyle,
   shapePresetStyle,
   stickyFill,
+  type Elevation,
   type KanbanState,
   type LinePreset,
   type ShapePreset,
@@ -67,6 +71,7 @@ import {
   type TextDeltaOp,
   type ConnectorSide,
   type TextMarks,
+  type TurnOptions,
   type Widget,
 } from "@remo/model";
 import type { ArrangeBarActions } from "./ArrangeBar";
@@ -84,6 +89,7 @@ import { hoveredPoint, startImageUploads } from "./imageIntake";
 import { canEditNow } from "./accessSnapshot";
 import { isGroupable, selectionHasGroup, type CommandContext } from "./commands";
 import { useBoardCreation } from "./useBoardCreation";
+import { rememberRouting } from "./toolDefaults";
 import type { BoardSettings } from "./settings";
 import { DEFAULT_FILL } from "./objectDefaults";
 import { useTextFormatCommands } from "./useTextFormatCommands";
@@ -127,8 +133,11 @@ export interface BoardCommandDeps {
   refuseUnlock: (authorName: string) => void;
   /** Open the tidy dialog; the app owns the dialog, the preview and the plan. */
   onTidy: (ids: readonly string[]) => void;
-  /** Gather a compatible selection into one section (ADR-198). */
-  onGather: (ids: readonly string[]) => void;
+  /** Words a new section needs (its title, the table's placeholder axes). */
+  t: (key: import("./i18n").TranslationKey, vars?: Record<string, string | number>) => string;
+  lang: "en" | "ru";
+  /** Open the one side panel on the selection's properties (T8). */
+  openProperties: () => void;
 }
 
 export function useBoardCommands(deps: BoardCommandDeps) {
@@ -151,7 +160,6 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canManage,
     refuseUnlock,
     onTidy,
-    onGather,
   } = deps;
 
   const {
@@ -165,6 +173,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canJoinSelection,
     addFrame,
     addShape,
+    addTable,
+    addKanban,
   } = useBoardCreation({
     board,
     widgets,
@@ -173,6 +183,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     settings,
     setSelectedIds,
     startEditing: setEditingId,
+    t: deps.t,
+    lang: deps.lang,
   });
 
   const textOf = useCallback((id: string) => board.textOf(id), [board]);
@@ -307,6 +319,15 @@ export function useBoardCommands(deps: BoardCommandDeps) {
   const resizeSelection = useCallback(
     (rects: WidgetRect[], scale?: { from: Rect; kx: number; ky: number }) =>
       transformSelection(board, rects, scale),
+    [board],
+  );
+
+  /**
+   * Commit a turn: the model's placements, one transaction in the document (ADR-271).
+   */
+  const rotateSelection = useCallback(
+    (ids: readonly string[], delta: number, options?: TurnOptions) =>
+      rotateWidgets(board, ids, delta, options),
     [board],
   );
 
@@ -467,6 +488,10 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       canManage,
       refuseUnlock,
       tidy: onTidy,
+      editText: (id) => {
+        setSelectedIds([id]);
+        setEditingId(id);
+      },
     }),
     [
       actor,
@@ -481,6 +506,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       refuseUnlock,
       requestDelete,
       selectedIds,
+      setEditingId,
       widgets,
     ],
   );
@@ -511,10 +537,12 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     () => ({
       setColor: (name: string) => setFillColor(board, selectedIds, name),
       setInk: (color: string | null) => setTextColor(board, selectedIds, color),
-      setStroke: (color: string) => setShapeStyle(board, selectedIds, { strokeColor: color }),
+      setStroke: (color: string | null) => setShapeStyle(board, selectedIds, { strokeColor: color }),
       setStrokeWidth: (width: number) => setShapeStyle(board, selectedIds, { strokeWidth: width }),
       setStrokeStyle: (strokeStyle: "normal" | "dashed") =>
         setShapeStyle(board, selectedIds, { strokeStyle }),
+      setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
+      setElevation: (level: Elevation | null) => setElevation(board, selectedIds, level),
       setSize: (size: StickySize) => setStickySize(board, selectedIds, size),
       setFont: (size: number | null) => setNoteFontSize(board, selectedIds, size),
       toggleMark: (mark: keyof TextMarks) => toggleNoteMark(board, selectedIds, mark),
@@ -533,8 +561,25 @@ export function useBoardCommands(deps: BoardCommandDeps) {
           strokeStyle: "normal",
         }),
       remove: () => requestDelete(selectedIds),
+      edit: () => {
+        const id = selectedIds[0];
+        if (id) setEditingId(id);
+      },
+      connect: connectSelection,
+      canConnect: canJoinSelection,
+      openProperties: deps.openProperties,
     }),
-    [applyLineBlock, applyLineIndent, board, requestDelete, selectedIds],
+    [
+      applyLineBlock,
+      applyLineIndent,
+      board,
+      canJoinSelection,
+      connectSelection,
+      deps.openProperties,
+      requestDelete,
+      selectedIds,
+      setEditingId,
+    ],
   );
 
   const noteMarks = useCallback((id: string) => noteMarksOf(board, id), [board]);
@@ -544,6 +589,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     () => ({
       setRouting: (routing) => {
         lastConnector.current = { ...lastConnector.current, routing };
+        rememberRouting(routing);
         setConnectorRouting(board, selectedIds, routing);
       },
       setWidth: (strokeWidth) => {
@@ -554,8 +600,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
         lastConnector.current = { ...lastConnector.current, strokeStyle };
         setConnectorProps(board, selectedIds, { strokeStyle });
       },
-      setColor: (strokeColor) => {
-        lastConnector.current = { ...lastConnector.current, strokeColor };
+      setColor: (strokeColor: string | null) => {
+        lastConnector.current = { ...lastConnector.current, strokeColor: strokeColor ?? undefined };
         setConnectorProps(board, selectedIds, { strokeColor });
       },
       setArrow: (arrow) => {
@@ -579,8 +625,9 @@ export function useBoardCommands(deps: BoardCommandDeps) {
         setConnectorProps(board, selectedIds, { ...linePresetStyle(preset), arrow: preset.arrow });
       },
       remove: () => requestDelete(selectedIds),
+      openProperties: deps.openProperties,
     }),
-    [board, selectedIds],
+    [board, deps.openProperties, selectedIds],
   );
 
   /**
@@ -621,10 +668,11 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       ungroup: () => ungroupWidgets(board, [...selectedIds]),
       remove: () => requestDelete(selectedIds),
       tidy: () => onTidy(selectedIds),
-      gather: () => onGather(selectedIds),
       canGroup: isGroupable(commandContext),
       canUngroup: selectionHasGroup(commandContext),
       selectType,
+      setShapeKind: (kind: ShapeKind) => setShapeKind(board, selectedIds, kind),
+      openProperties: deps.openProperties,
       setColour: (color) => {
         const allConnectors =
           selectedIds.length > 0 &&
@@ -641,8 +689,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
       commandContext,
       distributeSelection,
       groupIds,
-      onGather,
-      onTidy,
+        onTidy,
       requestDelete,
       selectType,
       selectedIds,
@@ -701,6 +748,7 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     patchConnector,
     selectionLocked,
     resizeSelection,
+    rotateSelection,
     onMoveCard,
     onAddCard,
     onAddColumn,
@@ -712,6 +760,8 @@ export function useBoardCommands(deps: BoardCommandDeps) {
     canJoinSelection,
     addShape,
     addFrame,
+    addTable,
+    addKanban,
     connectSelection,
     onConnect,
     copyIds,

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { handleBilling } from "./billing-catalog-api.mjs";
 import { openConnectionSecret, sealedConnectionRow } from "./payment-connections.mjs";
 import { encryptSecret } from "./secrets.mjs";
-import { handlePaymentWebhook } from "./payment-webhooks.mjs";
+import { handlePaymentWebhook, applyProviderEvent } from "./payment-webhooks.mjs";
 
 const KEK = { key: randomBytes(32), id: "test-kek" };
 const SENDER = "185.71.76.10";
@@ -368,6 +368,18 @@ describe("saved method after the first payment (§4)", () => {
     const { out } = await deliver({ store, fetchImpl: savedFetch() });
 
     expect(out.status).toBe(200);
+    // The route only records; the drain applies. Nothing is saved by the HTTP path.
+    expect(store.events).toHaveLength(1);
+    expect(store.chainRequests).toHaveLength(0);
+    expect(store.saved).toHaveLength(0);
+
+    const applied = await applyProviderEvent({
+      store,
+      connection: connectionFor(),
+      event: store.events[0].payload,
+      log: silent,
+    });
+    expect(applied).toBe(true);
     expect(store.chainRequests).toEqual(["our-payment-1"]);
     expect(store.saved).toEqual([
       {
@@ -387,6 +399,12 @@ describe("saved method after the first payment (§4)", () => {
     await deliver({ store, fetchImpl: savedFetch() });
 
     expect(store.events).toHaveLength(1);
+    await applyProviderEvent({
+      store,
+      connection: connectionFor(),
+      event: store.events[0].payload,
+      log: silent,
+    });
     expect(store.saved).toHaveLength(1);
   });
 
@@ -398,6 +416,13 @@ describe("saved method after the first payment (§4)", () => {
     const { out } = await deliver({ store, fetchImpl: savedFetch() });
 
     expect(out.status).toBe(200);
+    const applied = await applyProviderEvent({
+      store,
+      connection: connectionFor(),
+      event: store.events[0].payload,
+      log: silent,
+    });
+    expect(applied).toBe(false);
     expect(store.saved).toHaveLength(0);
   });
 
@@ -406,6 +431,12 @@ describe("saved method after the first payment (§4)", () => {
     const { out } = await deliver({ store, fetchImpl: savedFetch({ metadata: {} }) });
 
     expect(out.status).toBe(200);
+    await applyProviderEvent({
+      store,
+      connection: connectionFor(),
+      event: store.events[0].payload,
+      log: silent,
+    });
     expect(store.chainRequests).toHaveLength(0);
     expect(store.saved).toHaveLength(0);
   });
@@ -415,6 +446,13 @@ describe("saved method after the first payment (§4)", () => {
     const { out } = await deliver({ store, fetchImpl: savedFetch() });
 
     expect(out.status).toBe(200);
+    const applied = await applyProviderEvent({
+      store,
+      connection: connectionFor(),
+      event: store.events[0].payload,
+      log: silent,
+    });
+    expect(applied).toBe(false);
     expect(store.chainRequests).toEqual(["our-payment-1"]);
     expect(store.saved).toHaveLength(0);
   });

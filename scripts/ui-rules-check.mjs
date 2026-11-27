@@ -114,7 +114,92 @@ for (const file of walk(SCAN)) {
   });
 }
 
+/**
+ * Canvas content takes its ink from its ground, never from the theme (ADR-273 §3.3).
+ *
+ * A painter or a DOM field over the canvas that reads `--text-*` or `--border-*` is the
+ * exact defect ADR-273 removes: in the dark theme it turns light text onto a light
+ * document fill and a heavy dark grid onto pale paper. Exceptions must be named here with
+ * a reason, as everywhere else in this file.
+ */
+const CANVAS_LAYER_EXCEPTIONS = new Map([
+  // None: every layer over the canvas derives its ink from `groundOf` + `ink`.
+]);
+
+/** The DOM layers that paint directly over the canvas (ADR-273 §2.4). */
+/** A colour literal that is data: the default palette for tests and token-less paints. */
+const CANVAS_LITERAL_FILES = new Set(["packages/canvas/src/palette.ts"]);
+
+const CANVAS_LAYER_FILES = new Set([
+  "apps/web/src/InlineEditor.tsx",
+  "apps/web/src/TableHeaderLayer.tsx",
+  "apps/web/src/SectionTitleLayer.tsx",
+  "apps/web/src/CanvasTableLayer.tsx",
+  "apps/web/src/KanbanTitleEditor.tsx",
+]);
+
+/** The stylesheet selectors those layers use; other blocks in the same file are chrome. */
+const CANVAS_SELECTORS = [".inline-editor", ".table-header-editor", ".kanban-title-editor", ".section-title"];
+
+/**
+ * A focus ring is chrome, not content: it is the one border a canvas layer may name, and
+ * it is the same ring as on every control around the canvas (ADR-229).
+ */
+const THEME_INK = /var\(--(?:text|border)-(?!focus\b)[a-z-]+\)/;
+
+function canvasInkProblems() {
+  const found = [];
+  const canvas = join(ROOT, "packages/canvas/src");
+  for (const file of walk(canvas)) {
+    const path = relative(ROOT, file);
+    if (path.includes(".test.")) continue;
+    readFileSync(file, "utf8").split("\n").forEach((line, index) => {
+      if (THEME_INK.test(line) && !CANVAS_LAYER_EXCEPTIONS.has(path)) {
+        found.push(`${path}:${index + 1}: theme ink in a canvas painter — use ink(ground, role)`);
+      }
+      const code = line.replace(/\/\/.*$/, "");
+      if (LITERAL.test(code) && !CANVAS_LITERAL_FILES.has(path)) {
+        found.push(`${path}:${index + 1}: colour literal in a canvas painter — derive it from the ground`);
+      }
+      LITERAL.lastIndex = 0;
+    });
+  }
+  for (const file of walk(SCAN)) {
+    const path = relative(ROOT, file);
+    if (!CANVAS_LAYER_FILES.has(path)) continue;
+    readFileSync(file, "utf8").split("\n").forEach((line, index) => {
+      if (THEME_INK.test(line) && !CANVAS_LAYER_EXCEPTIONS.has(path)) {
+        found.push(`${path}:${index + 1}: theme ink in a canvas DOM layer — use groundOf + ink`);
+      }
+    });
+  }
+  for (const file of readdirSync(STYLES).filter((name) => name.endsWith(".css"))) {
+    const path = `apps/web/src/styles/${file}`;
+    const lines = readFileSync(join(STYLES, file), "utf8").split("\n");
+    let selector = "";
+    let depth = 0;
+    lines.forEach((line, index) => {
+      // Only a block that *is* the layer counts: `:not(.inline-editor)` is the focus
+      // ring around it, which is chrome.
+      const canvasBlock = CANVAS_SELECTORS.some((name) => selector.startsWith(name));
+      if (canvasBlock && THEME_INK.test(line) && !CANVAS_LAYER_EXCEPTIONS.has(path)) {
+        found.push(`${path}:${index + 1}: theme ink in a canvas layer — use the object's --ink`);
+      }
+      if (line.includes("{")) {
+        if (depth === 0) selector = line.slice(0, line.indexOf("{")).trim();
+        depth += 1;
+      }
+      if (line.includes("}")) {
+        depth = Math.max(0, depth - 1);
+        if (depth === 0) selector = "";
+      }
+    });
+  }
+  return found;
+}
+
 problems.push(...layerProblems());
+problems.push(...canvasInkProblems());
 
 // Design rules: a strict gate; exceptions are named in ui-design-rules.mjs (ADR-229).
 const findings = scanDesignRules(ROOT);

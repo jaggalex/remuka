@@ -7,6 +7,7 @@
  * are a change set, not a loop inside one transaction
  * (spec/skills/cards.md).
  */
+import { insertNewWidget } from "@remo/model/stacking";
 import { Y } from "./y.mjs";
 import { growKanbanToFit } from "./kanban-size.mjs";
 
@@ -216,7 +217,7 @@ export function convertToCards(
               x: origin.x + (index % COLUMNS) * (CARD_WIDTH + GAP_X),
               y: origin.y + Math.floor(index / COLUMNS) * (CARD_HEIGHT + GAP_Y),
             };
-      ydoc.getMap("widgets").set(id, {
+      insertNewWidget(ydoc.getMap("widgets"), {
         id,
         type: "card",
         parentId: targetInfo.kind === "kanban" ? targetInfo.kanbanId : null,

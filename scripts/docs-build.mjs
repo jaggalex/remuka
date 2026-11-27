@@ -22,6 +22,20 @@ const accept = process.argv.includes("--accept-translations");
 
 const md = markdown();
 
+/**
+ * `content/help` names the guide with `{{docs}}`, because the host belongs to the
+ * installation and only `/config` knows it (ADR-284). markdown-it percent-encodes the
+ * braces of an href, so the rendered token is put back into its source spelling; the
+ * browser replaces it with `docs.origin`.
+ */
+const DOCS_TOKEN = "{{docs}}";
+const DOCS_TOKEN_ENCODED = "%7B%7Bdocs%7D%7D";
+
+/** The help HTML with the guide token readable again (never a second placeholder). */
+function helpHtml(render) {
+  return render.replaceAll(DOCS_TOKEN_ENCODED, DOCS_TOKEN);
+}
+
 function fail(message) {
   console.error(`docs: ${message}`);
   process.exitCode = 1;
@@ -92,7 +106,7 @@ for (const name of readdirSync(CONTENT).sort()) {
   const html = {};
   for (const locale of LOCALES) {
     if (!bodies[locale]) continue;
-    html[locale] = md.render(bodies[locale]);
+    html[locale] = helpHtml(md.render(bodies[locale]));
     for (const match of bodies[locale].matchAll(/\]\(\/help\/(?:ru|en)\/([^)#]+)[^)]*\)/g)) {
       const target = match[1];
       if (!ids.has(target) && !dirs.has(target)) {

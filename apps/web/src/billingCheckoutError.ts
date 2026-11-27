@@ -8,8 +8,12 @@ import type { TranslationKey } from "./i18n";
  */
 const CHECKOUT_ERROR: Record<string, TranslationKey> = {
   FORBIDDEN: "billing.checkout.forbidden",
+  CHANGE_REQUIRED: "billing.change.unavailable",
+  CHANGE_UNAVAILABLE: "billing.change.unavailable",
+  OPERATION_IN_PROGRESS: "billing.change.pending",
+  PAYMENT_UNCERTAIN: "billing.change.pending",
   CURRENCY_LOCKED: "billing.checkout.currencyLocked",
-  PERSONAL_ORG: "billing.personal",
+  PERSONAL_ORG: "billing.checkout.unavailable",
   CONSENT_REQUIRED: "billing.checkout.consent",
   NO_PAYMENT_ROUTE: "billing.checkout.noRoute",
   RESOURCE_NOT_AVAILABLE: "billing.checkout.unavailable",

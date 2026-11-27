@@ -9,7 +9,7 @@ are in DNS), passwords and keys stay in `/srv/remo/shared/production.env`.
 
 | | EU installation | Russian installation |
 |---|---|---|
-| Server | `87.106.94.6` | `185.171.83.153` (temporary; moving the server keeps the addresses) |
+| Server | `192.0.2.10` | `192.0.2.20` (temporary; moving the server keeps the addresses) |
 | Application | `app.remuka.com` | `app.remuka.ru` |
 | Site (apex) | `remuka.com` | `remuka.ru` |
 | Guide | `docs.remuka.com` | `docs.remuka.ru` |
@@ -61,9 +61,9 @@ carries `$request_uri` until a landing page actually replaces the application th
 
 | Name | Type | Value |
 |---|---|---|
-| `remuka.com`, `www`, `app`, `docs` | A | `87.106.94.6` |
-| `remuka.ru`, `www`, `app`, `docs` | A | `185.171.83.153` |
-| Old application and documentation hosts | A | `87.106.94.6` (EU server, unchanged) |
+| `remuka.com`, `www`, `app`, `docs` | A | `192.0.2.10` |
+| `remuka.ru`, `www`, `app`, `docs` | A | `192.0.2.20` |
+| Old application and documentation hosts | A | `192.0.2.10` (EU server, unchanged) |
 | `api.remuka.com`, `api.remuka.ru` | — | delete: a reserved address without a certificate looks broken |
 | `remuka.com`, `remuka.ru` | CAA | `0 issue "letsencrypt.org"` |
 | `mail.remuka.com` | TXT, CNAME, MX | per the mail provider: SPF, DKIM, return-path |
@@ -133,6 +133,12 @@ they are. These keys differ:
 | `REMO_PULSE_PEERS` | `https://app.remuka.ru` | unset — the Russian installation never initiates |
 | `REMO_PRODUCT_NAME` | unset | unset |
 
+`REMO_DOCS_ORIGIN` is read by the sync service (`apps/sync/docs-origin.mjs`) and published
+in `GET /api/config` as `docs.origin`; the interface and the in-app help build every guide
+link from that answer (ADR-284). Unset, the zone picks the guide — `eu` the `.com`, `ru` the
+`.ru`; an installation with no zone gets no guide link at all. A malformed address stops
+the service instead of silently removing the links.
+
 While the EU application still answers on the apex, `REMO_APP_ORIGIN_ALIASES` also holds
 `https://remuka.com`: open tabs and bookmarks there must work until the move. The canonical
 address in mail and new links is always `REMO_APP_ORIGIN`.
@@ -146,11 +152,12 @@ The operator role is per installation and is granted only from that server's she
 installation has no operator until this step:
 
 1. Register in the application as a normal account and confirm the address from the letter.
-2. On the server, in the release directory, with `production.env` loaded:
+2. On the server, run the operator script from the release image (the bridge is described
+   under "Operator commands on the server" below):
 
    ```sh
-   pnpm operator:grant --email <address> --as <address> --reason "bootstrap"
-   pnpm operator:list
+   /srv/remo/remo cli operator-role grant --email <address> --as <address> --reason "bootstrap"
+   /srv/remo/remo cli operator-role list
    ```
 
 `--as` names the author of the act (ADR-259 amendment). The first operator names the account
@@ -166,6 +173,45 @@ The console at `/operator` is never indexed and never reachable without an opera
 session: the response carries `X-Robots-Tag: noindex, nofollow`, `robots.txt` disallows the
 path, and every `/api/operator/*` request without the role answers `404` (ADR-259 §5,
 ADR-260).
+
+## Operator commands on the server
+
+The server has no `pnpm` and no checkout. The scripts live in the release image at
+`/app/scripts`, and `remo cli` runs one of them in a throw-away container of the current
+release, with the installation's own `production.env` and a read-only mount of `shared/`.
+The controller takes the instance from its own directory — `/srv/stage-ru/remo` always
+means the stage, never whatever `REMO_ROOT` happens to be in the shell. A controller
+installed outside an instance directory can still set `REMO_ROOT` explicitly; do not use
+that as a habit, because running one instance's controller against another opens the wrong
+database.
+
+```sh
+# The payment connections, their health and their keys.
+/srv/remo/remo cli billing-providers list
+/srv/remo/remo cli billing-providers verify <connection-id>
+/srv/remo/remo cli billing-providers secret <connection-id> \
+  --secret-file /shared/yookassa-test.json --reason "quarterly rotation" --as ops@example.com
+
+# Any other script in scripts/, for example a test letter or the database check.
+/srv/remo/remo cli mail-test --to you@example.com
+/srv/remo/remo cli db-check
+```
+
+A file written on the host as `/srv/<instance>/shared/yookassa-test.json` is read inside
+the container as `/shared/yookassa-test.json`: a key never goes into the image or into the
+release directory. The terminal stays attached, so a command that prompts for a secret can
+be answered; a script receives everything after its name as arguments. `pnpm billing:providers`
+in a development tree is the same script as `remo cli billing-providers`; `pnpm operator:grant`
+is `remo cli operator-role grant`, because one script serves the whole `operator:` group.
+On a stand the controller is `/srv/stage-ru/remo` or `/srv/stage-eu/remo` instead.
+
+A payment notification is recorded by the webhook and applied by the `billing-inbox` drain
+in the same process: every 2 s, a batch of 10, eight attempts with the shared backoff, then
+`dead_at` and a row on the console's **Money** tab. A dead event is not retried by itself
+and the invoice stays open; if the money arrived, confirm the invoice with
+`billing-mark-paid`, and if it did not, fix the connection before the next payment. A
+payment in `pending` for more than 15 minutes is re-queried at the provider once an hour,
+so a lost notification does not by itself leave a paid invoice open.
 
 ## Resetting an operator's second factor
 
@@ -283,8 +329,9 @@ means. The defaults are the behaviour of an installation that sets nothing new.
 | `REMO_PULSE_BREAKEVEN` | optional | optional | `43` paid teams in the operator panel |
 | `REMO_OPERATOR_CLI_MFA` | unset | unset | production ignores it; `0` is honoured only together with `REMO_STAGE=1` |
 
-Billing providers are not environment keys: an operator creates a connection in the app
-(`billing:providers`), and its keys are sealed with `REMO_KEK`. YooKassa is the first
+Billing providers are not environment keys: an operator creates a connection with the
+operator command (`billing:providers` on the server as `remo cli billing-providers`),
+checks it with `verify`, and its keys are sealed with `REMO_KEK`. YooKassa is the first
 adapter (`spec/payment-providers.md`); `REMO_YOOKASSA_WEBHOOK_IPS` is the only
 provider-specific environment value.
 
@@ -469,10 +516,10 @@ docker compose ls
 # remo   running  /srv/remo/releases/<commit>/deploy/compose.production.yml
 ```
 
-`pnpm mail:test` and `pnpm db:check` need a tree with `pnpm` and dependencies plus the
-installation's environment (`DATABASE_URL`, `REMO_MIGRATION_DATABASE_URL`, the mail keys);
-they are not part of the deployed container image. `docker compose ls` on a stand shows
-`stage-ru` and `stage-eu` instead of `remo`.
+`pnpm mail:test` and `pnpm db:check` need a tree with `pnpm` and dependencies; on the
+server the same scripts run through `remo cli mail-test` and `remo cli db-check`, with the
+installation's environment (`DATABASE_URL`, `REMO_MIGRATION_DATABASE_URL`, the mail keys).
+`docker compose ls` on a stand shows `stage-ru` and `stage-eu` instead of `remo`.
 
 ### Rollback
 
@@ -513,3 +560,5 @@ first release:
 4. Generate a new `REMO_KEK` for the Russian installation before its first registration if
    the current one was copied. A copied KEK with a copied database would decrypt the EU
    provider keys there.
+
+For editing product hints in the operator console and transferring approved text between installations, see the [wording catalogue guide](hint-catalog.md).

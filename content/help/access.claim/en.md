@@ -17,7 +17,7 @@ The room opens again. It gets an owner, joins an organisation and team, and the 
 ## Check
 
 - The room opens from the link and shows its content.
-- In **Share** your role is **Owner**; roles and the link are available.
+- In **Invite** your role is **Owner**; roles and the link are available.
 - The room appears in the organisation catalogue.
 - The public link turns on and off like any other room's.
 

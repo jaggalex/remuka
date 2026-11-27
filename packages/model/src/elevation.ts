@@ -8,7 +8,11 @@ import type { Widget, WidgetStyle } from "./types";
  */
 export type Elevation = NonNullable<WidgetStyle["elevation"]>;
 
-export const ELEVATIONS: readonly Elevation[] = ["raised", "floating"];
+/**
+ * In ascending order of lift, which is also the order of the shadow menu (ADR-245,
+ * ADR-267). "cardboard" is a hard ink offset without blur; the others are soft.
+ */
+export const ELEVATIONS: readonly Elevation[] = ["raised", "cardboard", "floating"];
 
 /**
  * The types that have a ground of their own to lift. Notes and cards are left out on
@@ -21,9 +25,9 @@ export function canElevate(widget: Pick<Widget, "type">): boolean {
   return ELEVATING_TYPES.has(widget.type);
 }
 
-/** The level an object is painted with; anything unreadable is flat. */
+/** The level an object is painted with; anything unreadable is flat (ADR-245). */
 export function elevationOf(widget: Pick<Widget, "type" | "style">): Elevation | null {
   if (!canElevate(widget)) return null;
   const level = widget.style?.elevation;
-  return level === "raised" || level === "floating" ? level : null;
+  return ELEVATIONS.includes(level as Elevation) ? (level as Elevation) : null;
 }

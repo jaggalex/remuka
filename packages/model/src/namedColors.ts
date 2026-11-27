@@ -16,13 +16,15 @@ export type NamedColorRole = "note" | "fill" | "stroke" | "text";
 /**
  * The named values and what a widget stores for them.
  *
- * Black is `#1a1a1a`, the value the old `BOARD_COLORS` palette called "Black": a board
- * that already carries it keeps painting the same shade, and a role that offers the black
- * chip names it instead of answering "Custom colour" (ADR-127 forbids a migration).
+ * Black is true black (ADR-281). The old palette called `#1a1a1a` "Black", and that value
+ * was also the near-black `readableInk` wrote as an *automatic* default; ADR-273 makes it
+ * read as Auto, so a board that carries it keeps its look, while the Black chip must stay
+ * a colour the person chose. White is unchanged; a board already storing `#1a1a1a` is
+ * never rewritten (ADR-127 forbids a migration).
  */
 export const NAMED_COLORS = {
   white: "#ffffff",
-  black: "#1a1a1a",
+  black: "#000000",
   none: "transparent",
 } as const;
 

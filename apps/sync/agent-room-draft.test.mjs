@@ -338,6 +338,11 @@ describe("room draft write", () => {
     const frame = widgets.get(applied.frameId);
     expect(frame.type).toBe("frame");
     expect(frame.title).toBe("Черновик · Мира — Возврат");
+    // The unlayered source sticky has a legacy paint key of 5000.
+    expect(frame.z).toBe(5001);
+    for (const id of applied.createdIds.filter((id) => id !== frame.id)) {
+      expect(widgets.get(id).z).toBeGreaterThan(frame.z);
+    }
     expect(frame.agent).toEqual({
       id: "agent-1",
       name: "Мира",

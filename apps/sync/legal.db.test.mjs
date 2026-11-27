@@ -6,6 +6,7 @@
  * account and its acceptances really share one transaction, and the retention pass clears
  * only the address digest.
  */
+import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { testDatabaseStore } from "./test-db.mjs";
@@ -59,7 +60,7 @@ suite("db:legal acceptances (ADR-256 §4)", () => {
     const { rows: meta } = await store.pool.query(
       "select version from schema_meta where id = 1",
     );
-    expect(meta[0].version).toBe(39);
+    expect(meta[0].version).toBe(SCHEMA_VERSION);
 
     const { rows: columns } = await store.pool.query(
       `select column_name, is_nullable
