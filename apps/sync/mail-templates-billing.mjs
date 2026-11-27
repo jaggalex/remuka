@@ -220,7 +220,7 @@ function subscriptionSuspended(lang, values) {
   if (lang === "ru") {
     return letter({
       lang,
-      subject: `«${space}» перешла на Бесплатный`,
+      subject: `«${space}» теперь на Бесплатном`,
       body: [
         `Оплата за ${plan} так и не прошла, поэтому с ${date} в «${space}» действует Бесплатный.`,
         `Активными остались ${freeRooms} комнат из ${rooms}, остальные — только для чтения, экспорт работает.`,

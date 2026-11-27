@@ -479,7 +479,7 @@ export const MAIL_MAX_ATTEMPTS = 6;
 - EN текст: `On {date} we'll try once more to charge {amount} to card •••• {last4}. If it fails, on {graceEnd} “{space}” moves to Free: {freeRooms} of {rooms} rooms stay active, data stays. Update card: {link}`
 
 **subscription_suspended**
-- RU тема: `«{space}» перешла на Бесплатный`
+- RU тема: `«{space}» теперь на Бесплатном` (решение владельца 27.11.2026: прежняя «перешла на Бесплатный» не согласовывалась с «пространство» и «Личное»)
 - RU текст: `Оплата за {plan} так и не прошла, поэтому с {date} в «{space}» действует Бесплатный. Активными остались {freeRooms} комнат из {rooms}, остальные — только для чтения, экспорт работает. Участники на месте, новые приглашения закрыты. Ничего не удалено: оплата вернёт {plan} сразу. Оплатить {plan}: {link}`
 - EN тема: `“{space}” has moved to Free`
 - EN текст: `The {plan} payment never went through, so from {date} “{space}” is on Free. {freeRooms} of {rooms} rooms stay active, the rest are read-only and export still works. People stay; new invitations are paused. Nothing is deleted: paying brings {plan} back at once. Pay for {plan}: {link}`
