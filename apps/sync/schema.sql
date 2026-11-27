@@ -1095,7 +1095,10 @@ alter table mail_outbox add constraint mail_outbox_template_check
     'price_change', 'payment_method_migrate', 'account_deletion', 'legal_update',
     'payment_refunded', 'operator_action',
     -- The second factor's letters (ADR-262 §6, `spec/totp.md` §7).
-    'mfa_enabled', 'mfa_disabled', 'mfa_reset', 'mfa_recovery_regenerated', 'mfa_recovery_used'
+    'mfa_enabled', 'mfa_disabled', 'mfa_reset', 'mfa_recovery_regenerated', 'mfa_recovery_used',
+    -- Payment and plan letters and the welcome letter (ADR-319).
+    'plan_activated', 'payment_final_attempt', 'payment_recovered', 'downgrade_scheduled',
+    'downgrade_applied', 'autopay_disabled', 'seats_over_limit', 'welcome'
   ));
 create index if not exists mail_outbox_pending_idx
   on mail_outbox (created_at) where sent_at is null and dead_at is null;
@@ -1986,5 +1989,5 @@ create index if not exists boards_cover_due_idx on boards (cover_next_at, id)
   where owner_id is not null and archived_at is null
     and (cover_source_at is null or cover_source_at < cover_dirty_at);
 
-insert into schema_meta (id, version) values (1, 43)
+insert into schema_meta (id, version) values (1, 44)
 on conflict (id) do update set version = excluded.version, updated_at = now();

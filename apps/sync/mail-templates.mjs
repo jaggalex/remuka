@@ -33,6 +33,9 @@ export const MAIL_TEMPLATES = [
   "mfa_reset",
   "mfa_recovery_regenerated",
   "mfa_recovery_used",
+  // Payment and plan (ADR-319) and the welcome letter.
+  ...BILLING_TEMPLATES,
+  "welcome",
 ];
 
 import {
@@ -47,6 +50,7 @@ import {
   ruNoun,
   templateError,
 } from "./mail-template-kit.mjs";
+import { BILLING_RENDERERS, BILLING_TEMPLATES } from "./mail-templates-billing.mjs";
 import { renderInvitation } from "./mail-templates-invitation.mjs";
 import { MFA_RENDERERS } from "./mail-templates-mfa.mjs";
 import { stageSubject } from "./stage.mjs";
@@ -164,60 +168,6 @@ function passwordChanged(lang, values) {
   };
 }
 
-function paymentSucceeded(lang, values) {
-  const amount = money(values);
-  const period = param(values, "period");
-  const invoiceUrl = param(values, "invoiceUrl");
-  const product = values.product;
-
-  if (lang === "ru") {
-    return notification(lang, {
-      subject: `Платёж в ${ruNoun(lang, values, "prepositional")} получен`,
-      body: [`Платёж на ${amount} за ${period} прошёл.`],
-      notice: "Это письмо подтверждает оплату, отдельного действия не требуется.",
-      link: invoiceUrl,
-      label: BUTTON_LABELS[lang].payment_succeeded,
-    });
-  }
-
-  return notification(lang, {
-    subject: `Payment to ${product} received`,
-    body: [`We received ${amount} for ${period}.`],
-    notice: "This email confirms the payment; no action is needed.",
-    link: invoiceUrl,
-    label: BUTTON_LABELS[lang].payment_succeeded,
-  });
-}
-
-function paymentFailed(lang, values) {
-  const amount = money(values);
-  const retryAt = param(values, "retryAt");
-  const billingUrl = param(values, "billingUrl");
-  const product = values.product;
-
-  if (lang === "ru") {
-    return notification(lang, {
-      subject: `Не удалось списать оплату в ${ruNoun(lang, values, "prepositional")}`,
-      body: [`Платёж на ${amount} не прошёл. Повторим попытку ${retryAt}.`],
-      notice:
-        "Если повтор не пройдёт, платные функции станут недоступны, данные останутся на месте.",
-      link: billingUrl,
-      label: BUTTON_LABELS[lang].payment_failed,
-      emphasizeNotice: true,
-    });
-  }
-
-  return notification(lang, {
-    subject: `We couldn't charge your payment method for ${product}`,
-    body: [`The ${amount} payment didn't go through. We'll retry on ${retryAt}.`],
-    notice:
-      "If the retry fails, paid features become unavailable; your data stays where it is.",
-    link: billingUrl,
-    label: BUTTON_LABELS[lang].payment_failed,
-    emphasizeNotice: true,
-  });
-}
-
 function trialEnding(lang, values) {
   const date = param(values, "date");
   const billingUrl = param(values, "billingUrl");
@@ -227,7 +177,7 @@ function trialEnding(lang, values) {
     return notification(lang, {
       subject: `Пробный период в ${ruNoun(lang, values, "prepositional")} заканчивается ${date}`,
       body: [`Пробный период в ${ruNoun(lang, values, "prepositional")} заканчивается ${date}.`],
-      notice: "Если тариф не выбрать, организация перейдёт на Free. Данные останутся на месте.",
+      notice: "Если тариф не выбрать, пространство перейдёт на Бесплатный. Данные останутся на месте.",
       link: billingUrl,
       label: BUTTON_LABELS[lang].trial_ending,
     });
@@ -236,7 +186,7 @@ function trialEnding(lang, values) {
   return notification(lang, {
     subject: `Your ${product} trial ends on ${date}`,
     body: [`Your trial ends on ${date}.`],
-    notice: "Without a plan the organisation moves to Free. Your data stays where it is.",
+    notice: "Without a plan the workspace moves to Free. Your data stays where it is.",
     link: billingUrl,
     label: BUTTON_LABELS[lang].trial_ending,
   });
@@ -269,36 +219,6 @@ function renewalUpcoming(lang, values) {
   });
 }
 
-function subscriptionSuspended(lang, values) {
-  const billingUrl = param(values, "billingUrl");
-  const product = values.product;
-
-  if (lang === "ru") {
-    return notification(lang, {
-      subject: `Подписка ${ruNoun(lang, values, "genitive")} приостановлена`,
-      body: [
-        "Оплата не прошла, поэтому права организации понижены до Free.",
-        "Данные, комнаты и участники на месте — доступ вернётся сразу после оплаты.",
-      ],
-      notice:
-        "Лишние комнаты и участники стали доступны только для чтения, ничего не удалено.",
-      link: billingUrl,
-      label: BUTTON_LABELS[lang].subscription_suspended,
-    });
-  }
-
-  return notification(lang, {
-    subject: `Your ${product} subscription is suspended`,
-    body: [
-      "The payment didn't go through, so the organisation's rights are now Free.",
-      "Your data, rooms and members are still here — access returns as soon as you pay.",
-    ],
-    notice: "Rooms and members above the Free limits are read-only; nothing was deleted.",
-    link: billingUrl,
-    label: BUTTON_LABELS[lang].subscription_suspended,
-  });
-}
-
 function subscriptionCanceled(lang, values) {
   const date = param(values, "date");
   const billingUrl = param(values, "billingUrl");
@@ -309,7 +229,7 @@ function subscriptionCanceled(lang, values) {
       subject: `Подписка ${ruNoun(lang, values, "genitive")} закончилась`,
       body: [
         `Подписка закончилась ${date}.`,
-        "Права организации теперь как у Free. Данные на месте.",
+        "Пространство теперь на Бесплатном. Данные на месте.",
       ],
       notice: "Вы можете возобновить подписку в любой момент.",
       link: billingUrl,
@@ -321,7 +241,7 @@ function subscriptionCanceled(lang, values) {
     subject: `Your ${product} subscription has ended`,
     body: [
       `The subscription ended on ${date}.`,
-      "The organisation now has Free rights. Your data is still here.",
+      "The workspace is now on Free. Your data is still here.",
     ],
     notice: "You can resume the subscription at any time.",
     link: billingUrl,
@@ -564,6 +484,60 @@ function paymentRefunded(lang, values) {
   };
 }
 
+/**
+ * The welcome letter (ADR-319): once, after the first confirmation of an address. It is the
+ * one loud letter; the three steps are the first session, not a tour of the product.
+ */
+function welcome(lang, values) {
+  const link = param(values, "link");
+  const name = param(values, "name", { required: false });
+  const product = values.product;
+  if (lang === "ru") {
+    const greeting = name ? `Здравствуйте, ${name}!` : "Здравствуйте!";
+    const lead = "Почта подтверждена — можно собирать первую комнату и звать коллег.";
+    const steps = [
+      "1. Создайте комнату — пустую или из шаблона ретро.",
+      "2. Позовите коллег: ссылкой или по почте.",
+      "3. Включите таймер в «Провести» — и начинайте.",
+    ];
+    const open = `Открыть ${ruNoun(lang, values, "accusative")}`;
+    const notice = "Появился вопрос — просто ответьте на это письмо, его прочитает человек.";
+    return {
+      subject: `Добро пожаловать в ${ruNoun(lang, values, "accusative")}`,
+      text: `${greeting} ${lead} ${steps.join(" ")} ${open}: ${link} ${notice}`,
+      html: bodyHtml({
+        lang,
+        paragraphs: [escapeHtml(greeting), escapeHtml(lead)],
+        rows: steps.map(escapeHtml),
+        footer: escapeHtml(notice),
+        link,
+        label: escapeHtml(open),
+      }),
+    };
+  }
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const lead = "your email is confirmed — you can start your first room and invite people.";
+  const steps = [
+    "1. Create a room — blank or from the retro template.",
+    "2. Invite people by link or by email.",
+    "3. Turn on the timer in Run — and begin.",
+  ];
+  const open = `Open ${product}`;
+  const notice = "Got a question? Just reply to this email — a person reads it.";
+  return {
+    subject: `Welcome to ${product}`,
+    text: `${greeting} ${lead} ${steps.join(" ")} ${open}: ${link} ${notice}`,
+    html: bodyHtml({
+      lang,
+      paragraphs: [escapeHtml(greeting), escapeHtml(lead)],
+      rows: steps.map(escapeHtml),
+      footer: escapeHtml(notice),
+      link,
+      label: escapeHtml(open),
+    }),
+  };
+}
+
 const OPERATOR_ACTION_LABEL = {
   ru: {
     link_disable: "публичная ссылка на комнату отключена",
@@ -674,11 +648,8 @@ const RENDERERS = {
   password_reset: passwordReset,
   password_changed: passwordChanged,
   invitation: renderInvitation,
-  payment_succeeded: paymentSucceeded,
-  payment_failed: paymentFailed,
   trial_ending: trialEnding,
   renewal_upcoming: renewalUpcoming,
-  subscription_suspended: subscriptionSuspended,
   subscription_canceled: subscriptionCanceled,
   payment_method_expiring: paymentMethodExpiring,
   price_change: priceChange,
@@ -687,7 +658,9 @@ const RENDERERS = {
   legal_update: legalUpdate,
   payment_refunded: paymentRefunded,
   operator_action: operatorAction,
+  welcome,
   ...MFA_RENDERERS,
+  ...BILLING_RENDERERS,
 };
 
 /**

@@ -131,10 +131,16 @@ export function escapeHtml(value) {
 }
 
 /** Paragraphs, label and footer are escaped by the renderers before reaching this layout. */
-export function bodyHtml({ paragraphs, footer, highlight, link, label }) {
+export function bodyHtml({ paragraphs, footer, highlight, link, label, rows = [] }) {
   const href = escapeHtml(link);
+  const summary = rows.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1.5px solid #e6dcc4;border-radius:10px">${rows
+      .map((row) => `<tr><td style="padding:8px 14px;font-size:15px">${row}</td></tr>`)
+      .join("")}</table>`
+    : "";
   return [
     ...paragraphs.filter((paragraph) => paragraph !== highlight).map((paragraph) => `<p style="margin:0 0 16px">${paragraph}</p>`),
+    summary,
     highlight ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr><td style="background:#fff6dc;border:1.5px solid #f2b94a;border-radius:10px;padding:12px 14px">${highlight}</td></tr></table>` : "",
     `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr><td style="background:#ff8a57;border:2px solid #1e2136;border-radius:12px"><a href="${href}" style="display:inline-block;padding:13px 22px;font-weight:700;color:#1e2136;text-decoration:none">${label}</a></td></tr></table>`,
     `<p style="font-size:14px;word-break:break-all"><a href="${href}" style="color:#3f4256">${href}</a></p>`,
