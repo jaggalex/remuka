@@ -71,29 +71,31 @@ export function BillingStatusNotice({ orgId, onOpenBilling }: { orgId: string | 
   const state = !billing || !orgId
     ? null
     : billing.viewerIsAdmin && billing.status === "past_due" && billing.graceEnd
-      ? { key: `past_due:${billing.graceEnd}`, tone: "warning" as const, kind: "billing" as const,
+      ? { key: `past_due:${billing.graceEnd}`, tone: "warning" as const,
           body: t("billing.banner.pastDue", { plan, date: formatDay(billing.graceEnd, lang) }),
-          action: { label: t("billing.banner.updateCard"), onClick: () => openBilling.current() } }
+          action: { label: t("billing.banner.updateCard") } }
       : !billing.viewerIsAdmin && billing.status === "suspended"
-        ? { key: "suspended", tone: "info" as const, kind: "billing" as const, body: t("billing.banner.memberFree"), action: undefined }
+        ? { key: "suspended", tone: "info" as const, body: t("billing.banner.memberFree"), action: undefined }
         : null;
   const id = orgId ? `billing-state:${orgId}` : "billing-state";
   const hiddenKey = state ? `${orgId}.${state.key}` : null;
+  // Primitives only: the message is re-shown when its words change, not on every render.
+  const tone = state?.tone ?? null;
+  const body = state?.body ?? "";
+  const actionLabel = state?.action?.label ?? null;
 
   useEffect(() => {
-    if (!state || !hiddenKey || readHidden(hiddenKey)) return;
-    notify(state.kind, {
+    if (!tone || !hiddenKey || readHidden(hiddenKey)) return;
+    notify("billing", {
       id,
-      tone: state.tone,
-      body: state.body,
-      action: state.action,
+      tone,
+      body,
+      action: actionLabel ? { label: actionLabel, onClick: () => openBilling.current() } : undefined,
       duration: null,
       onClose: () => writeHidden(hiddenKey),
     });
     return () => dismiss(id);
-    // The body is derived from the state key and the language; re-show only when they change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, hiddenKey, lang, notify, dismiss]);
+  }, [id, hiddenKey, tone, body, actionLabel, notify, dismiss]);
 
   return null;
 }
