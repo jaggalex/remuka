@@ -285,6 +285,8 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
   await openFacilitation(page);
   await page.getByRole("menuitem", { name: /Timer/ }).click();
   await expect(page.locator(".timer-dialog")).toBeVisible();
+  // Capture the running timer at its full preset regardless of browser or CI speed.
+  await page.clock.setFixedTime(new Date());
   await page.getByRole("button", { name: "5 min", exact: true }).click();
   // The running countdown is a chip beside Run; the menu row stays one word
   // (ADR-266 amendment: states are not items).
@@ -293,6 +295,7 @@ test("the board, export, timer and vote screens fit the viewport", async ({ page
   await page.getByRole("menuitem", { name: /Timer/ }).click();
   await expect(page.locator(".timer-face")).toBeVisible();
   await capture(page, page.getByRole("dialog", { name: "Shared timer" }), "timer");
+  await page.clock.setSystemTime(new Date());
   await page.getByRole("dialog", { name: "Shared timer" }).getByRole("button", { name: "Close", exact: true }).click();
 
   const created = await page.request.post(`/api/boards/${account.boardId}/vote-sessions`, {

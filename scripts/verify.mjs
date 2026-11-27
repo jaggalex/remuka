@@ -56,6 +56,17 @@ steps.push(
 );
 if (withE2e) {
   steps.push({ name: "e2e", cmd: pnpm, args: ["e2e"] });
+  steps.push({
+    name: "billing e2e",
+    cmd: pnpm,
+    args: ["e2e", "--billing", "e2e/billing.spec.ts"],
+  });
+  steps.push({
+    name: "plan changes e2e",
+    cmd: pnpm,
+    // The change fixture seeds a price book; the other spec needs an empty one.
+    args: ["e2e", "--billing", "e2e/billing-plan-change.spec.ts"],
+  });
   steps.push({ name: "hint publication", cmd: pnpm, args: ["hints:e2e"] });
   // Baselines are compared only in the Linux browser container (ADR-222).
   steps.push({ name: "visual", cmd: pnpm, args: ["e2e:visual"] });

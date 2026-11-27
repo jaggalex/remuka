@@ -147,6 +147,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         REMO_SYNC_TARGET: `http://localhost:${PROXY_PORT}`,
+        // The visual baselines show a fixture version; release identity is checked separately.
+        ...(process.env.REMO_BROWSER_WS ? { REMO_VERSION: "0.8.0", REMO_BUILD: "dev" } : {}),
       },
     },
   ],

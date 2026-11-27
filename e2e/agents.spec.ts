@@ -224,8 +224,8 @@ test("a brief with a file becomes a plan, applies once and undoes in one step", 
 test("a plan applied in one tab is not written again from a second tab", async ({
   page,
   context,
-}) => {
-  const board = await agentBoard(page, "agents-two-tabs");
+}, testInfo) => {
+  const board = await agentBoard(page, `tabs-${testInfo.repeatEachIndex}`);
   await openAgents(page);
   await chooseBrief(page);
   await page
@@ -244,15 +244,23 @@ test("a plan applied in one tab is not written again from a second tab", async (
   // list loads (ADR-142); the list itself may never be on screen long enough to assert.
   await clickAskAi(second);
   const secondPlan = second.getByRole("dialog", { name: "Agent plan" });
-  await expect(secondPlan).toBeVisible({ timeout: 20_000 });
+  const secondApply = secondPlan.getByRole("button", { name: "Apply" });
+  await expect(secondApply).toBeEnabled({ timeout: 20_000 });
 
+  await page.bringToFront();
+  const recorded = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/applied"),
+  );
   await plan.getByRole("button", { name: "Apply" }).click();
-  await expect(plan.getByRole("button", { name: "Show on canvas" })).toBeVisible();
+  expect((await recorded).ok()).toBe(true);
+  const showOnCanvas = plan.getByRole("button", { name: "Show on canvas" });
+  await expect(showOnCanvas).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(10);
 
-  // The first approval is already recorded: this tab must show the result, not write
+  // The first application is already recorded: this tab must show the result, not write
   // the same ten objects a second time.
-  await secondPlan.getByRole("button", { name: "Apply" }).click();
+  await second.bringToFront();
+  await secondApply.click();
   await expect(secondPlan).toContainText("Another tab has already applied this plan");
   await expect(secondPlan.getByRole("button", { name: "Apply" })).toHaveCount(0);
   await expect(secondPlan.getByRole("button", { name: "Show on canvas" })).toBeVisible();
@@ -261,7 +269,8 @@ test("a plan applied in one tab is not written again from a second tab", async (
   await expect.poll(() => second.evaluate(() => window.__remo.widgets.length)).toBe(10);
 
   await second.close();
-  await expect(plan.getByRole("button", { name: "Show on canvas" })).toBeFocused();
+  await page.bringToFront();
+  await expect(showOnCanvas).toBeFocused();
   await page.keyboard.press("ControlOrMeta+z");
   await expect(plan).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__remo.widgets.length)).toBe(0);

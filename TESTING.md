@@ -204,7 +204,10 @@ axe reports no serious/critical on the room and three dialogs; 120 connectors ru
 **Product modes and extra stacks.** Plans are a product mode, not a default:
 `pnpm e2e --billing` starts sync with `REMO_BILLING=on` and runs the billing scenarios, while
 every other run keeps billing off and declares those scenarios as skips
-(`spec/billing.md` §11). The AI gateway has its own acceptance script instead of a
+(`spec/billing.md` §11). The release gate runs the billing and plan-change specs with the
+fake payment provider in separate test databases so the plan-change prices cannot leak into
+the empty-catalogue scenario.
+The AI gateway has its own acceptance script instead of a
 Playwright scenario — `pnpm e2e:gateway`, described in the next section — so an ordinary
 browser run never needs its containers or the generated certificates.
 
