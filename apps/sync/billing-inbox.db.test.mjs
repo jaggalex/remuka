@@ -13,6 +13,7 @@
  */
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { entitlementsFor } from "./billing.mjs";
 import { createBillingInbox } from "./billing-inbox.mjs";
 import { createBillingNotify } from "./billing-notify.mjs";
 import { handlePaymentWebhook } from "./payment-webhooks.mjs";
@@ -34,12 +35,13 @@ const createdConnections = [];
 /** The fake adapter exists only with this flag and outside production (`pay-fake.mjs`). */
 const previousFakeFlag = process.env.REMO_PAY_FAKE;
 
-async function organisation(tag) {
+async function organisation(tag, kind) {
   const id = randomUUID();
-  await store.pool.query("insert into orgs (id, name, slug) values ($1, $2, $3)", [
+  await store.pool.query("insert into orgs (id, name, slug, kind) values ($1, $2, $3, $4)", [
     id,
     `Inbox ${tag}`,
     `inbox-${tag}-${id}`,
+    kind,
   ]);
   createdOrgs.push(id);
   return id;
@@ -71,8 +73,8 @@ async function fakeConnection(orgId) {
  * An open invoice with a pending payment, exactly as checkout leaves it: one attempt row,
  * the provider id attached, a billing address for the letter.
  */
-async function checkout(tag, { autopay = true } = {}) {
-  const orgId = await organisation(tag);
+async function checkout(tag, { autopay = true, kind = "shared" } = {}) {
+  const orgId = await organisation(tag, kind);
   const connection = await fakeConnection(orgId);
   const email = `inbox-${tag}-${randomUUID()}@example.test`;
   const priceId = `inbox-${tag}-${randomUUID()}`;
@@ -266,8 +268,10 @@ describe.skipIf(!store)("db:billing inbox (ADR-248 §5)", () => {
     await store.close();
   });
 
-  it("settles a succeeded delivery exactly once", async () => {
-    const fixture = await checkout("success");
+  it("settles a succeeded delivery exactly once and opens personal paid access", async () => {
+    const fixture = await checkout("success", { kind: "personal" });
+    const env = { REMO_BILLING: "on" };
+    expect((await entitlementsFor(store, fixture.orgId, { env })).plan).toBe("free");
     const out = await deliver(fixture.connection, fixture.payment.id);
     expect(out.status).toBe(200);
 
@@ -285,6 +289,9 @@ describe.skipIf(!store)("db:billing inbox (ADR-248 §5)", () => {
       store.liveSubscription(fixture.orgId),
     );
     expect(subscription).toMatchObject({ plan: "pro", status: "active" });
+    const rights = await entitlementsFor(store, fixture.orgId, { env });
+    expect(rights).toMatchObject({ plan: "pro", limits: { rooms: null } });
+    expect(rights.features.has("export.pdf")).toBe(true);
 
     expect(await billingEventRows(fixture.orgId, "invoice.paid")).toHaveLength(1);
 

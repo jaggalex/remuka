@@ -15,7 +15,7 @@ import { SCHEMA_VERSION } from "./schema-version.mjs";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { entitlementsFor, resetEntitlementCache } from "./billing.mjs";
+import { entitlementsFor } from "./billing.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 
 const opened = await testDatabaseStore("billing");
@@ -216,7 +216,6 @@ async function installBillingPolicies() {
 
 describe.skipIf(!store)("db:billing (ADR-247)", () => {
   beforeAll(async () => {
-    resetEntitlementCache();
     await seed();
     await installBillingPolicies();
   });

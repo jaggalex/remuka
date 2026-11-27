@@ -34,6 +34,7 @@ import { commentMethods } from "./pg/comments.mjs";
 import { roomMergeMethods } from "./pg/room-merge.mjs";
 import { fileMethods } from "./pg/files.mjs";
 import { billingMethods } from "./pg/billing.mjs";
+import { billingChangeMethods } from "./pg/billing-change.mjs";
 import { billingRenewalMethods } from "./pg/billing-renewals.mjs";
 import { paymentProviderMethods } from "./pg/payment-providers.mjs";
 import { operatorMethods } from "./pg/operators.mjs";
@@ -420,6 +421,7 @@ Object.assign(
   fileMethods,
   billingMethods,
   billingRenewalMethods,
+  billingChangeMethods,
   paymentProviderMethods,
   operatorMethods,
   operatorRequestMethods,

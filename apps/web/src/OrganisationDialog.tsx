@@ -758,7 +758,6 @@ export function OrganisationDialog({
             orgSlug={org?.slug ?? null}
             initial={billing.seed}
             isOrgAdmin={isOrgAdmin}
-            orgKind={org?.kind ?? "shared"}
             onUnavailable={billing.unavailable}
           />
         )}

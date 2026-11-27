@@ -102,7 +102,7 @@ In a development tree use `pnpm billing:grant` with the same flags.
 
 The journal gets `billing.plan_granted` with the organisation, plan, price, amount, currency, period and end date. With `--end` it gets `billing.plan_ended`. The row names the author, the `cli` channel and the second factor.
 
-New permissions apply within a minute: the answer is cached for 60 seconds. If the granted plan cannot hold the organisation's rooms, the extra rooms become read-only at once.
+New permissions apply on the next access check. If the granted plan cannot hold the organisation's rooms, the extra rooms become read-only at once.
 
 ## What the owner sees
 
@@ -117,13 +117,13 @@ Under "Organisation settings" → "Plan & payment":
 - "Change plan" — plan and period, a promo code, a payment method, acceptance of the terms and a payment button;
 - "Cancel subscription" — the plan runs to the end of the paid period and does not renew; "Resume subscription" takes the cancellation back before that date.
 
-A member without admin rights sees the plan and limits but not the card, invoices or buttons: the screen asks them to contact the organisation owner. A personal organisation cannot buy a plan; a team creates a shared one.
+A member without admin rights sees the plan and limits but not the card, invoices or buttons: the screen asks them to contact the organisation owner. An administrator can buy a plan for a personal or shared organisation.
 
 ## Check
 
 - `billing-prices list --currency RUB` shows `for_sale` rows for the month and the year of Pro, Team and Business, with amounts and versions.
 - `billing-prices check` prints `RUB: complete` and exits with code 0; a gap prints `incomplete, missing …` and exits with code 1.
-- After a manual grant the customer card shows the plan, amount, end date and status; the limits change there within a minute.
+- After a manual grant, refresh the customer card to see the plan, amount, end date, status and new limits.
 - On a test organisation without a subscription, a sixth room, an invitation beyond five seats or an eleventh agent task in a month is refused with `PLAN_LIMIT` and is not created.
 - After a payment the billing address receives a payment letter with the amount, the period and a link to the invoice, when mail is on and the address is filled in.
 
@@ -133,7 +133,7 @@ A member without admin rights sees the plan and limits but not the card, invoice
 |---|---|---|
 | `check` exits with code 1 and prints `RUB: incomplete, missing pro/month, …` | no published price for that plan and period | find the draft in `list`, publish it, or create one with `add`; an incomplete list sells nothing |
 | The plan was paid for, but the limits are still Free | the subscription has ended or is suspended, or the payment is not confirmed | check the status and the invoice on the customer card; if the money arrived, confirm the payment; wait up to a minute |
-| An organisation was granted a plan but its limits are Free | it is a personal organisation, which is always Free | grant the plan to a shared organisation, or create one |
+| Free limits are shown after payment | the subscription has yet to be applied, or the page shows another organisation | check which organisation the invoice belongs to and verify the subscription status |
 | The currency does not appear in the showcase | it is missing from `REMO_BILLING_CURRENCIES`, the price list is incomplete, or there is no live payment route | `billing-prices check` and `billing-providers list`; complete the price list and activate a live connection |
 | "Change plan" shows a message instead of a table | no complete price list or payment route for the currency; the connection may be test-only | fix the cause named in the message: price list, connection, currency list |
 | `--until must be a date in the form YYYY-MM-DD` | the date has the wrong shape | pass it as `2027-03-01` |

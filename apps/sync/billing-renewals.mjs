@@ -1,3 +1,4 @@
+import { subscriptionLine } from "./pg/billing-change.mjs";
 /**
  * Renewal and the saved payment method (ADR-247 §2.5, §3.3; ADR-248 §4;
  * `spec/billing.md` §3.3, §2.5).
@@ -187,7 +188,7 @@ export function createBillingLoops({
       const start = field(subscription, "currentPeriodEnd", "current_period_end");
       const next =
         invoice.period_end ?? invoice.periodEnd ?? periodEnd(start, subscription.interval);
-      await store.advanceSubscription({ id, periodEnd: next });
+      if (!subscriptionLine(invoice)?.planChange) await store.advanceSubscription({ id, periodEnd: next });
       await safeNotify(
         notify,
         "payment_succeeded",
@@ -240,6 +241,9 @@ export function createBillingLoops({
       log.error?.(`[billing] renewal ${subscription.id}: no invoice was created`);
       return { id: subscription.id, action: "invoice", status: "skipped" };
     }
+    if (invoice.status === "paid" && subscriptionLine(invoice)?.planChange) {
+      return { id: subscription.id, action: "invoice", status: "succeeded" };
+    }
     return attempt(subscription, invoice, { retry: false, attempts: 0 });
   }
 
@@ -286,6 +290,11 @@ export function createBillingLoops({
 
   async function act(subscription) {
     const status = subscription.status;
+    const scheduled = subscription.pending_change;
+    if (scheduled?.plan === "free" && status === "active") {
+      const applied = await store.finishScheduledFree(subscription, clock());
+      return { id: subscription.id, action: applied ? "cancel" : "none" };
+    }
     const attempts =
       status === "past_due" && typeof store.renewalAttempts === "function"
         ? countOf(Number(await store.renewalAttempts(subscription.id)))
@@ -295,7 +304,7 @@ export function createBillingLoops({
       status,
       periodEnd: field(subscription, "currentPeriodEnd", "current_period_end"),
       pastDueSince: field(subscription, "pastDueSince", "past_due_since"),
-      cancelAtPeriodEnd: Boolean(
+      cancelAtPeriodEnd: !scheduled && Boolean(
         field(subscription, "cancelAtPeriodEnd", "cancel_at_period_end"),
       ),
       attempts,

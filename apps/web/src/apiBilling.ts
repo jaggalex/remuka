@@ -57,7 +57,51 @@ export interface BillingPaymentMethod {
   };
 }
 
+export interface ScheduledPlanChange {
+  plan: string;
+  at: string;
+  amount: number;
+  currency: string;
+  interval: "month" | "year";
+}
+
+export interface PlanChangeQuote extends Omit<ScheduledPlanChange, "at"> {
+  key: string;
+  priceId: string;
+  type: "upgrade" | "downgrade";
+  expiresAt: string;
+  fromPlan: string;
+  fromAmount: number;
+  fromInterval: "month" | "year";
+  fromPeriodEnd: string;
+  effectiveAt: string;
+  nextPeriodEnd: string | null;
+  credit: number;
+  total: number;
+  limits: BillingLimits;
+  previousLimits: BillingLimits;
+  autopayMethods: string[];
+}
+
+export interface PlanChangeInvoice {
+  id: string;
+  number: string;
+  amount: number;
+  currency: string;
+}
+
+export interface PlanPaymentStatus {
+  paymentId: string;
+  plan?: string;
+  invoiceNumber?: string;
+  applied?: boolean;
+  status: InvoicePayment["status"];
+}
+
 export interface OrgBilling {
+  scheduledChange?: ScheduledPlanChange | null;
+  pendingPlanPayment?: { paymentId: string; invoiceNumber: string; plan: string } | null;
+  changeInvoice?: PlanChangeInvoice | null;
   plan: "free" | "pro" | "team" | "business" | "unlimited";
   status: "active" | "trialing" | "past_due" | "suspended";
   limits: BillingLimits;
@@ -264,6 +308,24 @@ export const billingApi = {
       method: "POST",
       body,
     }),
+  previewChange: (orgId: string, priceId: string) =>
+    call<PlanChangeQuote>(`/orgs/${encodeURIComponent(orgId)}/billing/change`, {
+      method: "POST", body: { priceId, preview: true },
+    }),
+  confirmChange: (orgId: string, body: {
+    priceId?: string;
+    key?: string;
+    invoiceId?: string;
+    methodGroup?: string;
+    consent?: { autopay: boolean; termsVersion: string };
+    locale: "ru" | "en";
+  }) => call<Partial<CheckoutResult> & { scheduled?: ScheduledPlanChange; applied?: boolean }>(
+    `/orgs/${encodeURIComponent(orgId)}/billing/change`, { method: "POST", body },
+  ),
+  cancelChange: (orgId: string) =>
+    call<{ ok: true }>(`/orgs/${encodeURIComponent(orgId)}/billing/change`, { method: "DELETE" }),
+  checkoutStatus: (orgId: string, paymentId: string) =>
+    call<PlanPaymentStatus>(`/orgs/${encodeURIComponent(orgId)}/billing/checkout/${encodeURIComponent(paymentId)}`),
   invoices: (orgId: string) =>
     call<{ invoices: Invoice[] }>(`/orgs/${encodeURIComponent(orgId)}/billing/invoices`),
   checkPromo: (code: string, priceId: string) =>

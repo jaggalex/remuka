@@ -30,14 +30,6 @@ async function openOrganisation(page: Page): Promise<void> {
   await expect(page.locator(".org-dialog")).toBeVisible();
 }
 
-/** Create a shared organisation the way a person does: the screen, not the API. */
-async function createSharedOrganisation(page: Page, name: string): Promise<void> {
-  await page.getByRole("button", { name: "+ New organisation" }).click();
-  await page.locator(".org-create input").first().fill(name);
-  await page.getByRole("button", { name: "Create organisation" }).click();
-  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-}
-
 /** Rooms created through the same command route the home uses; returns their ids. */
 async function createRooms(
   page: Page,
@@ -57,16 +49,12 @@ async function createRooms(
   return ids;
 }
 
-test("the plan tab shows the free plan and an empty price book", async ({ page }) => {
+test("a personal organisation can open the plan chooser with an empty price book", async ({ page }) => {
   await freshBoard(page, "billing-tab");
   await goAllRooms(page);
   await openOrganisation(page);
 
-  // A personal organisation always has the tab while billing is on; it cannot buy a plan.
-  await expect(page.getByRole("tab", { name: "Plan & payment" })).toBeVisible();
-
-  // A plan belongs to a shared organisation, so create one through the screen first.
-  await createSharedOrganisation(page, "Billing team");
+  await expect(page.locator(".org-badge.personal")).toBeVisible();
   const tab = page.getByRole("tab", { name: "Plan & payment" });
   await expect(tab).toBeVisible();
   await tab.click();
@@ -74,7 +62,7 @@ test("the plan tab shows the free plan and an empty price book", async ({ page }
   const panel = page.locator(".billing-panel");
   await expect(panel).toBeVisible();
   await expect(page.locator(".billing-facts")).toContainText("Free");
-  await expect(page.locator(".billing-usage").first()).toContainText("Rooms 0/5");
+  await expect(page.locator(".billing-usage").first()).toContainText("Rooms 1/5");
 
   // A fresh installation sells nothing yet (§2.1.1: a currency without a complete price
   // list is hidden). The catalogue says so instead of inventing a price.
@@ -264,7 +252,6 @@ test("paying by invoice creates an invoice for a shared organisation", async ({ 
   );
 
   await freshBoard(page, "billing-invoice");
-  // A personal organisation cannot buy a plan; the invoice belongs to a shared one.
   const created = await page.request.post("/api/orgs", { data: { name: "Invoice team" } });
   expect(created.ok(), await created.text()).toBeTruthy();
   const { org } = (await created.json()) as { org: { slug: string } };
@@ -304,7 +291,6 @@ test("the owner replaces the saved card through the provider's page", async ({ p
       "`ru_card` from `pnpm billing:providers` (neither has an HTTP route)",
   );
 
-  // A personal organisation cannot buy a plan; the card belongs to a shared one.
   await freshBoard(page, "billing-card");
   const created = await page.request.post("/api/orgs", { data: { name: "Card team" } });
   expect(created.ok(), await created.text()).toBeTruthy();

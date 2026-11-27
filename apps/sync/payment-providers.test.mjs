@@ -7,7 +7,7 @@
  * the operator grant — is `payment-providers.db.test.mjs`. Everything here is a rule that
  * must hold even when no row exists yet.
  */
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   canTransition,
   mapConnection,
@@ -21,7 +21,6 @@ import {
   hasCompletePriceList,
   mergedMethodGroups,
 } from "./billing-catalog-api.mjs";
-import { resetEntitlementCache } from "./billing.mjs";
 import { handleBilling as handleBillingEntry } from "./billing-api.mjs";
 import { parseProviderArgs, parseSettings } from "../../scripts/billing-providers.mjs";
 
@@ -126,10 +125,6 @@ function orgStore({ member = true, account = { currency: "RUB" } } = {}) {
     },
   };
 }
-
-beforeEach(() => {
-  resetEntitlementCache();
-});
 
 describe("billing entry", () => {
   it("exports the same handler the server wires", () => {

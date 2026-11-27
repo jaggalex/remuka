@@ -11,6 +11,7 @@
  * points start from an id that has no tenant in its URL.
  */
 import { PLANS } from "./billing-catalog.mjs";
+import { applyPaidChange, billingChangeTransaction } from "./pg/billing-change.mjs";
 
 /** `lines` is JSON; checkout wrote the autopay consent into the subscription line. */
 export function consentVersionOf(lines) {
@@ -38,6 +39,21 @@ export async function settleInvoice({
 }) {
   const lines = Array.isArray(invoice.lines) ? invoice.lines : [];
   const subscription = lines.find((line) => line?.kind === "subscription");
+
+  if (subscription?.planChange) {
+    return billingChangeTransaction(store, invoice.org_id, async client => {
+      const stored = await store.invoiceById(invoice.org_id, invoice.id);
+      if (stored?.status === "paid") return { invoice: stored, subscription };
+      const paid = await store.markInvoicePaid({
+        invoiceId: invoice.id, amount: Number(invoice.total), currency: invoice.currency,
+        connectionId, providerPaymentId, paymentId, transaction: client,
+      });
+      if (await applyPaidChange(client, paid.invoice, subscription)) {
+        await store.reconcileFrozenRooms(invoice.org_id, PLANS[subscription.plan].rooms, { transaction: client });
+      }
+      return { ...paid, subscription };
+    });
+  }
 
   return store.withTenant(invoice.org_id, async () => {
     // The credit was promised on the invoice; this is the moment it is spent.

@@ -6,7 +6,15 @@ You know how a personal organisation differs from a shared one, can rename the o
 
 - **Personal** — the organisation every account has. Work alone or with an interest group; the **Personal** badge marks it in the list.
 - **Shared** — an additional organisation for work, a club or a client. Create it with **+ New organisation** under **Organisation and people**.
-- Permissions and rooms work the same way; the kind only changes the badge and the fact that the personal organisation always stays with the account.
+- Permissions and rooms work the same way. When billing is enabled, an administrator can buy a plan for either kind of organisation in **Plan & payment**. The personal organisation stays with the account.
+
+
+## Change your plan
+
+In **Plan & payment**, select **Change plan**, choose a plan, then review the change.
+For an upgrade, the unused value of your old plan reduces the price of the new period. The new period starts when you pay.
+You can schedule a downgrade. Your current plan stays in place until the period ends, and you can cancel the change before then.
+For a paid plan, pay the invoice for the new period. A switch to Free needs no payment.
 
 ## Steps
 

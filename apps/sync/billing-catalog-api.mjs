@@ -10,12 +10,13 @@
  * `REMO_BILLING=off` is the self-host default. Every route in this family is then a
  * `404`, not an empty catalogue: the feature is absent, not "not configured yet".
  */
-import { billingEnabled, entitlementsFor } from "./billing.mjs";
+import { billingEnabled, entitlementsFor, entitlementsFromSubscription } from "./billing.mjs";
 import { handleFakeBilling } from "./billing-fake-api.mjs";
 import { checkPromo, handleCheckoutRoutes } from "./billing-checkout-api.mjs";
 import { handleSubscriptionRoutes } from "./billing-subscription-api.mjs";
 import { FEATURES, PLAN_NAMES, PLANS } from "./billing-catalog.mjs";
 import { isStage } from "./stage.mjs";
+import { subscriptionLine } from "./pg/billing-change.mjs";
 import { handlePaymentWebhook } from "./payment-webhooks.mjs";
 import { PAID_PLANS, billingCurrencies } from "../../scripts/billing-prices.mjs";
 import { fail, json, sessionFromRequest } from "./iam-http.mjs";
@@ -341,8 +342,7 @@ export async function handleBilling({
       fail(response, 405, "METHOD_NOT_ALLOWED", "use PUT /orgs/:id/billing/frozen-rooms");
       return true;
     }
-    const entitlements = await entitlementsFor(store, orgId, { env });
-    // §3.2: a member sees the plan and the limits; the card is the payer's data.
+    // Members see the plan and the limits. Financial details are for the administrator.
     const isAdmin = await store.hasOrgRole(orgId, session.user.id, "org_admin");
     const [seats, rooms, storedBytes, subscription, account, savedMethod, frozenCount] = await Promise.all([
       store.seatUsage(orgId),
@@ -356,12 +356,21 @@ export async function handleBilling({
       // The money module owns `billing_accounts`. The guard keeps this page readable
       // before that module is registered (an earlier stage or a test double): no account
       // means no currency yet, never a guessed one.
-      typeof store.billingAccount === "function" ? store.billingAccount(orgId) : null,
+      isAdmin && typeof store.billingAccount === "function" ? store.billingAccount(orgId) : null,
       // The card is the money module's row too; the same guard keeps an older store
       // readable instead of failing the whole page.
-      typeof store.paymentMethod === "function" ? store.paymentMethod(orgId) : null,
+      isAdmin && typeof store.paymentMethod === "function" ? store.paymentMethod(orgId) : null,
       isAdmin && store.frozenRoomCount ? store.frozenRoomCount(orgId) : 0,
     ]);
+    const entitlements = entitlementsFromSubscription(subscription);
+    const scheduledChange = isAdmin ? subscription?.pending_change : null;
+    const pendingPlanPayment = isAdmin && typeof store.pendingPlanPayment === "function"
+      ? await store.pendingPlanPayment(orgId)
+      : null;
+    const changeInvoice = scheduledChange?.plan !== "free" && scheduledChange && subscription.status === "past_due"
+      ? await store.openInvoiceFor(subscription.id)
+      : null;
+
     // `read_only_at` lives on `orgs`; the billing read includes it once the org read
     // selects the column. A missing column is "not read-only", never an error.
     const org = typeof store.billingOrg === "function" ? await store.billingOrg(orgId) : null;
@@ -385,11 +394,16 @@ export async function handleBilling({
       // `null` is "no limit", the same spelling the catalogue and the upload use; when
       // billing is off the family is a 404 and this body never answers (`spec/images.md` §7).
       storage: { usedBytes: storedBytes, limitBytes: entitlements.limits.storageBytes ?? null },
-      subscription: subscriptionDto(subscription),
+      subscription: isAdmin ? subscriptionDto(subscription) : null,
+      scheduledChange: scheduledChange ?? null,
+      pendingPlanPayment,
+      changeInvoice: subscriptionLine(changeInvoice)?.planChange ? {
+        id: changeInvoice.id, number: changeInvoice.number, amount: changeInvoice.total, currency: changeInvoice.currency,
+      } : null,
       currency: account?.currency ?? null,
       paymentMethod: isAdmin ? paymentMethodDto(savedMethod) : null,
       credit,
-      cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
+      cancelAtPeriodEnd: isAdmin && Boolean(subscription?.cancel_at_period_end),
       trialEnd: subscription?.trial_end ?? null,
       // Per-room freeze state comes from the access-filtered directory.
       frozenRooms: [],

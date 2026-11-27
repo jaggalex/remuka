@@ -180,6 +180,7 @@ export const billingMoneyMethods = {
     dueAt = null,
     region = null,
     now = new Date(),
+    transaction = null,
   }) {
     const code = normalCurrency(currency);
     const amountSubtotal = assertMinorUnits(subtotal, "subtotal");
@@ -195,9 +196,9 @@ export const billingMoneyMethods = {
     const prefix = invoiceRegion(code, region);
     const linesJson = jsonValue(lines ?? []);
 
-    const client = await this.pool.connect();
+    const client = transaction ?? await this.pool.connect();
     try {
-      await client.query("begin");
+      if (!transaction) await client.query("begin");
       await client.query("select pg_advisory_xact_lock(hashtext($1))", [
         `billing_invoice_number:${year}`,
       ]);
@@ -209,7 +210,7 @@ export const billingMoneyMethods = {
           [orgId, subscriptionId, periodStart],
         );
         if (existing[0]) {
-          await client.query("commit");
+          if (!transaction) await client.query("commit");
           return { invoice: mapInvoice(existing[0]), created: false };
         }
       }
@@ -263,7 +264,7 @@ export const billingMoneyMethods = {
               [orgId, subscriptionId, periodStart],
             );
             if (existing[0]) {
-              await client.query("commit");
+              if (!transaction) await client.query("commit");
               return { invoice: mapInvoice(existing[0]), created: false };
             }
           }
@@ -286,15 +287,15 @@ export const billingMoneyMethods = {
             }),
           ],
         );
-        await client.query("commit");
+        if (!transaction) await client.query("commit");
         return { invoice: mapInvoice(inserted[0]), created: true };
       }
       throw new Error(`could not allocate an invoice number for ${year}`);
     } catch (error) {
-      await client.query("rollback").catch(() => {});
+      if (!transaction) await client.query("rollback").catch(() => {});
       throw error;
     } finally {
-      client.release();
+      if (!transaction) client.release();
     }
   },
 
@@ -352,13 +353,14 @@ export const billingMoneyMethods = {
     providerPaymentId = null,
     receiptStatus = null,
     paymentId = null,
+    transaction = null,
   }) {
     const value = assertMinorUnits(amount, "amount");
     const code = normalCurrency(currency);
 
-    const client = await this.pool.connect();
+    const client = transaction ?? await this.pool.connect();
     try {
-      await client.query("begin");
+      if (!transaction) await client.query("begin");
       const { rows: invoices } = await client.query(
         "select * from invoices where id = $1 for update",
         [invoiceId],
@@ -467,13 +469,13 @@ export const billingMoneyMethods = {
         );
       }
 
-      await client.query("commit");
+      if (!transaction) await client.query("commit");
       return { invoice: mapInvoice(paid[0]), payment: mapAmount(payments[0]) };
     } catch (error) {
-      await client.query("rollback").catch(() => {});
+      if (!transaction) await client.query("rollback").catch(() => {});
       throw error;
     } finally {
-      client.release();
+      if (!transaction) client.release();
     }
   },
 

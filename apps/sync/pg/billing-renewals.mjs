@@ -19,6 +19,8 @@
  * provider secret and is never returned in the clear: `paymentMethod` returns display
  * fields plus the envelope, and `openPaymentMethodRef` unseals it only for `chargeSaved`.
  */
+import { applyPaidChange, billingChangeTransaction, findPendingUpgrade, subscriptionLine } from "./billing-change.mjs";
+import { PLANS } from "../billing-catalog.mjs";
 import { randomUUID } from "node:crypto";
 import { periodEnd as endOfPeriod } from "../billing-money.mjs";
 import { encryptSecret, kekFromEnv } from "../secrets.mjs";
@@ -214,8 +216,11 @@ export const billingRenewalMethods = {
     return this.withOwnerClient(async (client) => {
       const { rows } = await client.query(
         `select *
-           from subscriptions
+           from subscriptions s
           where status in ('active', 'past_due')
+            and not exists (select 1 from invoices i join payments p on p.invoice_id = i.id
+              where i.org_id = s.org_id and i.status = 'open' and p.status = 'pending'
+                and i.lines @> '[{"planChange":{"type":"upgrade"}}]'::jsonb)
             and (status = 'past_due' or current_period_end <= now())
           order by current_period_end asc, created_at asc
           limit $1`,
@@ -236,34 +241,29 @@ export const billingRenewalMethods = {
   async renewalInvoice(subscription) {
     const orgId = subscription?.org_id ?? subscription?.orgId;
     if (!orgId) throw new TypeError("a subscription needs its organisation");
-    const start = subscription.current_period_end ?? subscription.currentPeriodEnd;
-    if (!start) throw new TypeError("a subscription needs the end of its current period");
-    const amount = amountOf(subscription.amount);
-    const next = endOfPeriod(start, subscription.interval);
-
-    return this.withTenant(orgId, async () => {
-      const { invoice } = await this.createInvoice({
-        orgId,
-        subscriptionId: subscription.id,
-        currency: subscription.currency,
-        lines: [
-          {
-            kind: "subscription",
-            plan: subscription.plan,
-            interval: subscription.interval,
-            priceId: subscription.price_id ?? subscription.priceId ?? null,
-            amount,
-            renewal: true,
-          },
-        ],
-        subtotal: amount,
-        discount: 0,
-        creditApplied: 0,
-        total: amount,
-        periodStart: start,
-        periodEnd: next,
-        dueAt: start,
+    return billingChangeTransaction(this, orgId, async client => {
+      const current = await this.liveSubscription(orgId);
+      const expected = subscription.current_period_end ?? subscription.currentPeriodEnd;
+      if (!current || current.id !== subscription.id || +new Date(current.current_period_end) !== +new Date(expected)
+        || current.pending_change?.plan === "free" || await findPendingUpgrade(client, orgId)) return null;
+      const target = current.pending_change;
+      const start = current.current_period_end;
+      if (target && +new Date(start) > Date.now()) return null;
+      const interval = target?.interval ?? current.interval;
+      const amount = amountOf(target?.amount ?? current.amount);
+      const next = endOfPeriod(start, interval);
+      const line = {
+        kind: "subscription", plan: target?.plan ?? current.plan, interval,
+        priceId: target?.priceId ?? current.price_id, amount, renewal: true,
+        ...(target ? { planChange: { type: "downgrade", fromPlan: current.plan, fromPriceId: current.price_id, fromPeriodEnd: start } } : {}),
+      };
+      const { invoice, created } = await this.createInvoice({
+        orgId, subscriptionId: current.id, currency: current.currency, lines: [line],
+        subtotal: amount, total: amount, periodStart: start, periodEnd: next, dueAt: start, transaction: client,
       });
+      if (target && created && amount === 0 && await applyPaidChange(client, invoice, subscriptionLine(invoice))) {
+        await this.reconcileFrozenRooms(orgId, PLANS[target.plan].rooms, { transaction: client });
+      }
       return invoice;
     });
   },
@@ -274,7 +274,7 @@ export const billingRenewalMethods = {
       const { rows } = await client.query(
         `select *
            from invoices
-          where subscription_id = $1 and status = 'open'
+          where subscription_id = $1 and status = 'open' and lines @> '[{"renewal":true}]'::jsonb
           order by period_start asc nulls last, created_at asc
           limit 1`,
         [subscriptionId],

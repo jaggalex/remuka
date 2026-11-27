@@ -21,6 +21,7 @@
  * then `dead_at` and a metric. The row is never deleted, so the operator can see it.
  */
 import { backoffMs } from "./backoff.mjs";
+import { subscriptionLine } from "./pg/billing-change.mjs";
 import { settleInvoice } from "./billing-settle.mjs";
 import { paymentAdapters } from "./payment-adapters.mjs";
 import { openConnectionSecret } from "./payment-connections.mjs";
@@ -165,6 +166,12 @@ export async function applyPaymentEvent({
       // settled this payment. Money is a fact; a second letter or ledger row is not.
       return { applied: false, reason: "ALREADY_APPLIED", orgId };
     }
+    if (subscriptionLine(invoice)?.planChange &&
+      (!Number.isSafeInteger(payment.amount) || payment.amount !== Number(invoice.total)
+        || payment.currency !== invoice.currency)) {
+      throw codedError("PAYMENT_MISMATCH", "confirmed payment differs from the plan change invoice");
+    }
+
     // The provider's sum is the fact; the invoice's is the promise. Settling a 1 ₽ payment
     // against a 290 ₽ invoice would grant a period that nobody paid for, so the mismatch
     // is retried (and finally buried) instead of guessed around.

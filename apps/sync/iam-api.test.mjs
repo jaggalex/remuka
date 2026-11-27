@@ -7,7 +7,6 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createServer } from "node:http";
-import { resetEntitlementCache } from "./billing.mjs";
 import { handleIam } from "./iam-api.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 import { discoverableBoards } from "./discovery.mjs";
@@ -1657,13 +1656,11 @@ suite("plan limits", () => {
     const token = new URL(last.body.url).searchParams.get("invite");
 
     process.env.REMO_BILLING = "on";
-    resetEntitlementCache();
     let refused;
     try {
       refused = await sixth("POST", "/invitations/accept", { token });
     } finally {
       delete process.env.REMO_BILLING;
-      resetEntitlementCache();
     }
     expect(refused.status).toBe(402);
     expect(refused.body).toEqual({

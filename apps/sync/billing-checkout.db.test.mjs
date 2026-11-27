@@ -7,9 +7,14 @@
  * store calls `billing:mark-paid` makes.
  */
 import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { handleBilling } from "./billing-api.mjs";
-import { entitlementsFor, resetEntitlementCache } from "./billing.mjs";
+import { settleInvoice } from "./billing-settle.mjs";
+import { applyPaymentEvent } from "./billing-inbox.mjs";
+import { createBillingLoops } from "./billing-renewals.mjs";
+import { periodEnd } from "./billing-money.mjs";
+import { entitlementsFor } from "./billing.mjs";
 import { hashToken } from "./iam.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 
@@ -61,7 +66,7 @@ afterAll(async () => {
   if (store) await store.close();
 });
 
-async function organisation(tag) {
+async function organisation(tag, kind = "shared") {
   const user = await store.createUser({
     email: `checkout-${tag}-${stamp}@example.test`,
     passwordHash: PASSWORD_HASH,
@@ -72,7 +77,7 @@ async function organisation(tag) {
     name: `Checkout ${tag}`,
     slug: `checkout-${tag}-${stamp}`,
     userId: user.id,
-    kind: "shared",
+    kind,
   });
   const token = `test-session-${tag}-${stamp}-${Math.random()}`;
   await store.createSession({
@@ -213,20 +218,15 @@ suite("checkout by invoice (ADR-247 stage 2)", () => {
       });
     });
 
-    resetEntitlementCache();
     const rights = await entitlementsFor(store, org.id, { env: { REMO_BILLING: "on" } });
     expect(rights.plan).toBe("pro");
     const paid = await call(`/orgs/${org.id}/billing/invoices`, { cookie });
     expect(paid.body.invoices[0].status).toBe("paid");
   });
 
-  it("refuses checkout without consent and for a personal organisation", async () => {
-    const personal = await organisation("personal");
-    await store.withTenant(personal.org.id, async () => {
-      await store.pool.query("update orgs set kind = 'personal' where id = $1", [
-        personal.org.id,
-      ]);
-    });
+  it("activates a paid personal plan and keeps financial details private", async () => {
+    const personal = await organisation("personal", "personal");
+    const connection = await manualConnection(personal.user.id);
     const priceId = `pro-tst-month-personal-${stamp}`;
     await store.addPrice({
       id: priceId,
@@ -254,8 +254,69 @@ suite("checkout by invoice (ADR-247 stage 2)", () => {
         consent: { autopay: false, termsVersion: "terms-2026-11" },
       },
     });
-    expect(personalOrg.status).toBe(409);
-    expect(personalOrg.body.error).toBe("PERSONAL_ORG");
+    expect(personalOrg.status).toBe(201);
+
+    const basePath = `/orgs/${personal.org.id}/billing`;
+    const before = await call(basePath, { cookie: personal.cookie });
+    expect(before.body).toMatchObject({ plan: "free", limits: { rooms: 5 }, subscription: null });
+
+    const invoice = await store.billingInvoiceGlobal(personalOrg.body.invoiceId);
+    await settleInvoice({ store, invoice, connectionId: connection.id, paymentId: personalOrg.body.paymentId });
+
+    const after = await call(basePath, { cookie: personal.cookie });
+    expect(after.body).toMatchObject({
+      plan: "pro",
+      limits: { rooms: null },
+      subscription: { plan: "pro", status: "active", amount: 29_000 },
+    });
+    expect((await entitlementsFor(store, personal.org.id, { env: BILLING_ENV })).plan).toBe("pro");
+    expect((await call(`${basePath}/invoices`, { cookie: personal.cookie })).body.invoices[0].status).toBe("paid");
+
+    const member = await organisation("personal-member");
+    await store.withTenant(personal.org.id, () => store.pool.query(
+      "insert into org_memberships (org_id, user_id, relation, state) values ($1, $2, 'member', 'active')",
+      [personal.org.id, member.user.id],
+    ));
+    const overview = await call(basePath, { cookie: member.cookie });
+    expect(overview.body).toMatchObject({ plan: "pro", limits: { rooms: null }, subscription: null });
+    expect((await call(`${basePath}/invoices`, { cookie: member.cookie })).status).toBe(403);
+    expect((await call(`${basePath}/checkout/${personalOrg.body.paymentId}`, { cookie: member.cookie })).status).toBe(403);
+  });
+
+  it("keeps the paying organisation shared when the schema is reapplied", async () => {
+    const { org } = await organisation("paid-after-schema");
+    const now = new Date();
+    const end = new Date(now.getTime() + 30 * 86_400_000);
+    const { invoice } = await store.withTenant(org.id, async () => {
+      await store.upsertBillingAccount({ orgId: org.id, email: `billing-${stamp}@example.test`, currency: "RUB" });
+      return store.createInvoice({
+        orgId: org.id,
+        currency: "RUB",
+        lines: [{ kind: "subscription", plan: "pro", interval: "month", priceId: "migration-pro", amount: 29_000 }],
+        subtotal: 29_000,
+        total: 29_000,
+        periodStart: now,
+        periodEnd: end,
+      });
+    });
+    await settleInvoice({ store, invoice });
+    expect((await entitlementsFor(store, org.id, { env: BILLING_ENV })).plan).toBe("pro");
+
+    const schema = await readFile(new URL("./schema.sql", import.meta.url), "utf8");
+    await store.withTenant(org.id, async () => {
+      const client = await store.pool.connect();
+      try {
+        await client.query("begin");
+        await client.query(schema);
+        expect((await store.billingInvoiceGlobal(invoice.id)).status).toBe("paid");
+        expect(await store.liveSubscription(org.id)).toMatchObject({ plan: "pro", status: "active" });
+        expect((await entitlementsFor(store, org.id, { env: BILLING_ENV })).plan).toBe("pro");
+        expect((await store.billingOrg(org.id)).kind).toBe("shared");
+      } finally {
+        await client.query("rollback");
+        client.release();
+      }
+    });
   });
 
   it("answers 404 for every billing route when billing is off", async () => {
@@ -277,6 +338,108 @@ suite("checkout by invoice (ADR-247 stage 2)", () => {
     );
     expect(handled).toBe(true);
     expect(status).toBe(404);
+  });
+
+  it.each(["personal", "shared"])("changes a paid %s plan through checkout and renewal", async kind => {
+    const { user, org, cookie } = await organisation(`change-${kind}`, kind);
+    const currency = kind === "personal" ? "PCH" : "SCH";
+    const connection = await manualConnection(user.id, { currency });
+    const prices = await priceBook(currency, user.id);
+    const basePath = `/orgs/${org.id}/billing`;
+    const change = (body, method = "POST") => call(`${basePath}/change`, { method, cookie, body });
+    const overview = () => call(basePath, { cookie });
+    const fiveMinutes = 300_000;
+    const middle = Math.floor(Date.now() / fiveMinutes) * fiveMinutes;
+    const halfPeriod = 15 * 86_400_000;
+    const start = new Date(middle - halfPeriod);
+    const end = new Date(middle + halfPeriod);
+    const { invoice: first } = await store.withTenant(org.id, async () => {
+      await store.upsertBillingAccount({ orgId: org.id, email: user.email, currency });
+      return store.createInvoice({
+        orgId: org.id, currency, subtotal: 29_000, total: 29_000, periodStart: start, periodEnd: end,
+        lines: [{ kind: "subscription", plan: "pro", priceId: prices["pro/month"], interval: "month", amount: 29_000 }],
+      });
+    });
+    await settleInvoice({ store, invoice: first });
+    await store.withTenant(org.id, () => store.pool.query(
+      "update subscriptions set current_period_start = $2 where org_id = $1", [org.id, start],
+    ));
+    const actor = { log() {}, warn() {}, error() {} };
+    const confirm = (paymentId, amount, status = "succeeded") =>
+      applyPaymentEvent({
+        store, connectionId: connection.id, log: actor,
+        event: { type: "payment.updated", paymentId, payment: { status, amount, currency } },
+      });
+    const upgrade = await change({ priceId: prices["team/month"], preview: true });
+    expect(upgrade.status).toBe(200);
+    expect(upgrade.body).toMatchObject({ type: "upgrade", credit: 14_500, total: 44_500, amount: 59_000 });
+    expect((await change({ ...checkoutBody(prices["team/month"]), key: "obsolete" })).body.error).toBe("QUOTE_EXPIRED");
+    const payload = { ...checkoutBody(prices["team/month"]), key: upgrade.body.key };
+    const [a, b] = await Promise.all([change(payload), change(payload)]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+    const firstAttempt = a.status === 201 ? a : b;
+    expect((await overview()).body).toMatchObject({ plan: "pro", pendingPlanPayment: { paymentId: firstAttempt.body.paymentId } });
+    await confirm(firstAttempt.body.paymentId, 44_500, "canceled");
+    expect((await overview()).body).toMatchObject({ plan: "pro", pendingPlanPayment: null });
+
+    const approved = await change(payload);
+    expect(approved.status).toBe(201);
+    await expect(confirm(approved.body.paymentId, 44_499)).rejects.toMatchObject({ code: "PAYMENT_MISMATCH" });
+    expect((await overview()).body.plan).toBe("pro");
+    await confirm(approved.body.paymentId, 44_500);
+    const repeated = await confirm(approved.body.paymentId, 44_500);
+    expect(repeated.reason).toBe("ALREADY_APPLIED");
+    const paid = await store.withTenant(org.id, () => store.invoiceById(org.id, approved.body.invoiceId));
+    const paidSummary = (await overview()).body;
+    expect(paidSummary).toMatchObject({
+      plan: "team", limits: { seats: 20 }, pendingPlanPayment: null,
+      subscription: { plan: "team", amount: 59_000, currentPeriodStart: paid.paid_at.toISOString() },
+    });
+    expect(paidSummary.subscription.currentPeriodEnd).toBe(periodEnd(paid.paid_at, "month").toISOString());
+
+    const planDowngrade = async () => {
+      const preview = await change({ priceId: prices["pro/month"], preview: true });
+      expect(preview.body).toMatchObject({ type: "downgrade", total: 0, amount: 29_000 });
+      expect((await change({ priceId: prices["pro/month"], key: preview.body.key })).status).toBe(200);
+    };
+    await planDowngrade();
+    expect((await overview()).body).toMatchObject({
+      plan: "team", scheduledChange: { plan: "pro", at: paidSummary.subscription.currentPeriodEnd },
+    });
+    expect((await call(`${basePath}/invoices`, { cookie })).body.invoices).toHaveLength(3);
+    expect((await change(undefined, "DELETE")).status).toBe(200);
+    expect((await overview()).body.scheduledChange).toBeNull();
+    await planDowngrade();
+
+    const makeDue = async () => {
+      const boundary = new Date(Date.now() - 1000);
+      await store.withTenant(org.id, () => store.pool.query(
+        "update subscriptions set current_period_start = $2, current_period_end = $3 where org_id = $1",
+        [org.id, new Date(+boundary - halfPeriod), boundary],
+      ));
+      return boundary;
+    };
+    const boundary = await makeDue();
+    const renewal = createBillingLoops({
+      store, log: actor, charge: async () => ({ status: "failed", failureCode: "manual_payment_required" }),
+    });
+    await renewal.tick();
+    const overdue = (await overview()).body;
+    expect(overdue).toMatchObject({ plan: "team", status: "past_due", changeInvoice: { amount: 29_000 } });
+    const payment = await change({ ...checkoutBody(prices["pro/month"]), invoiceId: overdue.changeInvoice.id });
+    expect(payment.status).toBe(201);
+    await confirm(payment.body.paymentId, 29_000);
+    expect((await overview()).body).toMatchObject({
+      plan: "pro", limits: { seats: 5 }, scheduledChange: null,
+      subscription: { plan: "pro", amount: 29_000, currentPeriodStart: boundary.toISOString() },
+    });
+
+    const free = await change({ priceId: "free", preview: true });
+    expect((await change({ priceId: "free", key: free.body.key })).status).toBe(200);
+    expect((await overview()).body.plan).toBe("pro");
+    await makeDue();
+    await renewal.tick();
+    expect((await overview()).body).toMatchObject({ plan: "free", limits: { rooms: 5 }, subscription: null });
   });
 
   /* ------------------------------------------------- stand showcase (ADR-280) -- */

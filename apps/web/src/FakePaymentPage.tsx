@@ -61,7 +61,9 @@ export function FakePaymentPage({ paymentId }: { paymentId: string }) {
         method: "POST",
         body: { paymentId, outcome },
       });
-      const next = new URL(window.location.href);
+      const here = new URL(window.location.href);
+      const requested = new URL(here.searchParams.get("return") ?? here.href, here);
+      const next = requested.origin === here.origin ? requested : here;
       next.searchParams.delete("fake_pay");
       next.searchParams.set("billing", "return");
       next.searchParams.set("payment", paymentId);

@@ -28,6 +28,8 @@ import {
 import { ApiError } from "./apiCall";
 import { billingReturnUrl } from "./organisationRoute";
 import { BillingPaymentMethod } from "./BillingPaymentMethod";
+import { useBillingChange } from "./useBillingChange";
+import { BillingChangePayment, BillingChangeQuote, BillingScheduledChange } from "./BillingPlanChange";
 import { BillingRooms } from "./BillingRooms";
 import { checkoutErrorKey } from "./billingCheckoutError";
 import { formatDate } from "./format";
@@ -113,7 +115,6 @@ export function BillingPanel({
   orgSlug,
   initial,
   isOrgAdmin,
-  orgKind,
   onUnavailable,
 }: {
   orgId: string;
@@ -122,7 +123,6 @@ export function BillingPanel({
   /** The dialog's availability probe; without it the panel reads the route itself. */
   initial: OrgBilling | null;
   isOrgAdmin: boolean;
-  orgKind: "personal" | "shared";
   /** The route answered `404`: billing is off on this installation (or the org is gone). */
   onUnavailable: () => void;
 }) {
@@ -165,6 +165,11 @@ export function BillingPanel({
       setLoading(false);
     }
   }, [onUnavailable, orgId, t]);
+
+  const refreshChange = useCallback(() => {
+    void read();
+    void billingApi.invoices(orgId).then(result => setInvoices(result.invoices)).catch(() => {});
+  }, [orgId, read]);
 
   useEffect(() => {
     setData(initial);
@@ -235,7 +240,15 @@ export function BillingPanel({
   const [catalogRequest, setCatalogRequest] = useState(0);
   const subscriptionPlan = data?.subscription?.plan;
   const billingCurrency = data?.currency ?? null;
-  const canBuy = isOrgAdmin && orgKind === "shared";
+  const canBuy = isOrgAdmin;
+  const { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay,
+    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled } = useBillingChange({
+    orgId, method, busy, setBusy, setActionError, setCheckout, setChoosing, read, refreshChange,
+  });
+  const isChanging = data?.subscription?.status === "active" && data.plan !== "free";
+  const targetPriceId = isChanging && plan === "free" ? "free" : selectedPrice ? priceId(selectedPrice) : null;
+  const pendingPaymentId = data?.pendingPlanPayment?.paymentId ?? paymentId;
+  const showPayment = pendingPaymentId && pendingPaymentId !== dismissedPayment ? pendingPaymentId : null;
   useEffect(() => {
     if (!canBuy) return;
     let alive = true;
@@ -248,7 +261,7 @@ export function BillingPanel({
       if (!available) return;
       const current = available.prices.some(price => price.plan === subscriptionPlan) ? subscriptionPlan : null;
       setPlan(current ?? available.prices[0]?.plan ?? "team");
-      setChoosing(true);
+      if (!subscriptionPlan) setChoosing(true);
     }).catch((failure: unknown) => {
       if (alive) setCatalogError(failure instanceof Error ? failure.message : t("billing.noCatalog"));
     });
@@ -256,8 +269,10 @@ export function BillingPanel({
   }, [canBuy, orgId, billingCurrency, subscriptionPlan, catalogRequest, t]);
 
   const choosePlan = () => {
+    if (!data?.pendingPlanPayment && showPayment) setDismissedPayment(showPayment);
     setChoosing(true);
     setCheckout(null);
+    setChangeQuote(null);
     setActionError(null);
     if (!catalog?.currencies.length) setCatalogRequest(value => value + 1);
     else requestAnimationFrame(() => document.getElementById("billing-choose-plan")?.focus());
@@ -356,7 +371,6 @@ export function BillingPanel({
   const planLabel = (name: string) => t(PLAN_LABEL[name] ?? "billing.plan.free");
   const statusLabel = (status: string) =>
     t(STATUS_LABEL[status] ?? "billing.subscription.active");
-  const personal = orgKind === "personal";
   const methodOptions = offer?.methodGroups ?? [];
   const checkoutNumber = checkout
     ? (invoices?.find((invoice) => invoice.id === checkout.invoiceId)?.number ??
@@ -423,20 +437,55 @@ export function BillingPanel({
     hint = "billing.trialHint";
   }
 
+  if (changeQuote) return (
+    <section className="billing-panel">
+      {actionError && <p className="auth-error" role="alert">{actionError}</p>}
+      <BillingChangeQuote quote={changeQuote} method={method}
+        methods={methodOptions.map(value => ({ value, title: t(METHOD_LABEL[value] ?? "billing.method.invoice") }))}
+        onMethod={value => { setMethod(value); setChangeAutopay(false); }}
+        autopay={changeAutopay} onAutopay={setChangeAutopay} termsHref={termsHref}
+        use={{ seats: data.usage.seats, rooms: data.usage.rooms, bytes: data.storage?.usedBytes ?? 0 }}
+        busy={busy} expired={quoteExpired} onRefresh={() => void previewChange(changeQuote.priceId)}
+        onBack={() => { setChangeQuote(null); setActionError(null); requestAnimationFrame(() => document.getElementById("billing-choose-plan")?.focus()); }}
+        onConfirm={() => void submitChange()} />
+    </section>
+  );
+
   return (
     <section className="billing-panel">
       {error && <p className="auth-error">{error}</p>}
       {actionError && <p className="auth-error" role="alert">{actionError}</p>}
 
+      {isOrgAdmin && showPayment && (
+        <BillingChangePayment key={showPayment} orgId={orgId} paymentId={showPayment}
+          onSettled={refreshChange}
+          onRetry={() => { setDismissedPayment(showPayment); choosePlan(); }} />
+      )}
       <div className="billing-layout">
+      {data.scheduledChange && subscription && (
+        <BillingScheduledChange change={data.scheduledChange} current={subscription}
+          canCancel={!busy && Date.parse(data.scheduledChange.at) > Date.now()}
+          onCancel={() => void cancelScheduled()}>
+          {data.changeInvoice && !data.pendingPlanPayment && (
+            <>
+              <Segmented label={t("billing.method")} value={method} onChange={setMethod}
+                options={methodOptions.map(value => ({ value, label: t(METHOD_LABEL[value] ?? "billing.method.invoice") }))} />
+              <Button variant="primary" disabled={busy || !method} onClick={() => void submitChange(data.changeInvoice?.id)}>
+                {t("billing.change.payInvoice", { amount: formatMoney(data.changeInvoice.amount, data.changeInvoice.currency, lang) })}
+              </Button>
+            </>
+          )}
+        </BillingScheduledChange>
+      )}
+
       <div className="billing-summary">
       <section className="billing-status-card" data-status={status}>
         <div>
           <strong>{planLabel(data.plan)}</strong>
           <p>{t(hint)}</p>
         </div>
-        {isOrgAdmin && !personal && (
-          <Button variant="primary" onClick={onAction} disabled={busy}>{t(action)}</Button>
+        {canBuy && (
+          <Button variant="primary" onClick={onAction} disabled={busy || Boolean(data.pendingPlanPayment)}>{t(action)}</Button>
         )}
       </section>
 
@@ -526,9 +575,7 @@ export function BillingPanel({
         </section>
       )}
 
-      {personal ? (
-        <p className="muted">{t("billing.personal")}</p>
-      ) : !isOrgAdmin ? (
+      {!isOrgAdmin ? (
         <p className="muted">{t("billing.askOwner")}</p>
       ) : (
         <div className="billing-actions">
@@ -563,6 +610,12 @@ export function BillingPanel({
             // payment route; a blank card reads as a broken screen, so it says why
             // (`spec/billing.md` §2.1.1).
             <p className="muted">{t("billing.choose.unavailable")}</p>
+          )}
+
+          {!offer && isChanging && (
+            <Button onClick={() => void previewChange("free")} disabled={busy}>
+              {t("billing.change.schedule", { plan: planLabel("free") })}
+            </Button>
           )}
 
           {offer && (
@@ -603,13 +656,22 @@ export function BillingPanel({
                 label={t("billing.plan")}
                 value={plan}
                 onChange={value => { setPlan(value); setPromo(null); setPromoError(null); }}
-                options={plans.flatMap(name => {
+                options={[...plans.flatMap(name => {
                   const amount = priceAmount(offer, name, interval);
                   if (amount === null) return [];
                   return [{ value: name, title: planLabel(name), hint: formatMoney(amount, offer.currency, lang) }];
-                })}
+                }), ...(isChanging ? [{ value: "free", title: planLabel("free"), hint: t("billing.change.noCharge") }] : [])]}
               />
 
+              {isChanging ? (
+                <div className="billing-actions">
+                  <Button variant="primary"
+                    disabled={busy || !targetPriceId || subscription?.plan === plan && subscription.interval === interval}
+                    onClick={() => targetPriceId && void previewChange(targetPriceId)}>
+                    {t("billing.change.preview")}
+                  </Button>
+                </div>
+              ) : <>
               <details className="billing-promo-disclosure"><summary>{t("billing.promo.title")}</summary>
               <div className="billing-promo">
                 <Input
@@ -687,6 +749,7 @@ export function BillingPanel({
                       : t("billing.pay", { amount: "—" })}
                 </Button>
               </div>
+              </>}
             </>
           )}
         </section>

@@ -425,7 +425,25 @@ create table if not exists orgs (
 alter table orgs add column if not exists suspended_at timestamptz;
 alter table orgs add column if not exists suspension_ref text;
 
-alter table orgs add column if not exists kind text not null default 'shared';
+-- Infer the legacy classification only when introducing the column. A current
+-- user's first organisation can have been explicitly created as shared (ADR-317).
+do $$
+begin
+  if not exists (
+    select 1 from pg_attribute
+     where attrelid = 'orgs'::regclass and attname = 'kind' and not attisdropped
+  ) then
+    alter table orgs add column kind text not null default 'shared';
+    with first_org as (
+      select distinct on (created_by) id
+        from orgs
+       where created_by is not null
+       order by created_by, created_at, id
+    )
+    update orgs o set kind = 'personal' from first_org f where o.id = f.id;
+  end if;
+end $$;
+
 do $$
 begin
   alter table orgs
@@ -433,18 +451,6 @@ begin
 exception
   when duplicate_object then null;
 end $$;
-
--- Existing deployments: the first organisation a person created was their personal one.
-with first_org as (
-  select distinct on (created_by) id, created_by
-    from orgs
-   where created_by is not null
-   order by created_by, created_at, id
-)
-update orgs o
-   set kind = 'personal'
-  from first_org f
- where o.id = f.id and o.kind = 'shared';
 
 create table if not exists org_memberships (
   org_id uuid not null references orgs (id) on delete cascade,
@@ -1980,5 +1986,5 @@ create index if not exists boards_cover_due_idx on boards (cover_next_at, id)
   where owner_id is not null and archived_at is null
     and (cover_source_at is null or cover_source_at < cover_dirty_at);
 
-insert into schema_meta (id, version) values (1, 42)
+insert into schema_meta (id, version) values (1, 43)
 on conflict (id) do update set version = excluded.version, updated_at = now();

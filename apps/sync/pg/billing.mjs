@@ -21,7 +21,7 @@ function mapPrice(row) {
 }
 
 export const billingMethods = {
-  /** The kind decides Free-ness: a personal organisation cannot buy a plan (§2.2). */
+  /** The organisation row used by the billing summary. */
   async billingOrg(orgId) {
     const { rows } = await this.pool.query("select id, kind from orgs where id = $1", [orgId]);
     return rows[0] ?? null;
@@ -120,10 +120,10 @@ export const billingMethods = {
    * them again (§2.5). Ordering by `updated_at` is what "the last N rooms I worked in"
    * means; the frozen room keeps its content and loses only the right to change it.
    */
-  async reconcileFrozenRooms(orgId, maxRooms) {
-    const client = await this.pool.connect();
+  async reconcileFrozenRooms(orgId, maxRooms, { transaction = null } = {}) {
+    const client = transaction ?? await this.pool.connect();
     try {
-      await client.query("begin");
+      if (!transaction) await client.query("begin");
       if (maxRooms === null || maxRooms === undefined) {
         await client.query(
           "update boards set frozen_at = null where org_id = $1 and frozen_at is not null",
@@ -158,12 +158,12 @@ export const billingMethods = {
           [orgId, maxRooms],
         );
       }
-      await client.query("commit");
+      if (!transaction) await client.query("commit");
     } catch (error) {
-      await client.query("rollback");
+      if (!transaction) await client.query("rollback");
       throw error;
     } finally {
-      client.release();
+      if (!transaction) client.release();
     }
   },
 

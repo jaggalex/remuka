@@ -12211,3 +12211,44 @@ Opening the viewer requests headers from the original-file route. The route chec
 **Decision.** Scope: only the three sign-in states named above (New password, Email confirmed, EU sign-up) and only the ten T23 agent and organisation-AI states listed in `remuka-internal/delivery/character/T23-visual-review.md`. The three sign-in screens keep the product's behaviour and wording; the mockup is the one to change. The ten agent states ship in 0.9 as they work today; matching their structure to App-Agent / App-OrgAI is release 0.10 work. Geometry (class B) and every other screen are not covered by this decision.
 
 **Consequences.** Visual comparison of these three sign-in states treats the listed differences as accepted, not as defects. The agent structure is tracked in the internal tech-debt register with a completion criterion. No baseline is changed by this ADR.
+
+## ADR-317 — Personal and shared organisations use the same paid plans
+
+**Status:** accepted (2026-11-27). Plan change rules supersede any draft that keeps the old renewal date after an upgrade.
+
+**Context.** A schema replay could reclassify the first explicitly shared organisation
+of a user as personal. A paid invoice and an active Pro subscription then appeared
+alongside effective Free access. Personal organisations are now eligible for paid
+plans. The organisation kind still matters for account and organisation lifecycle.
+
+**Decision.** Any organisation administrator can buy and manage the organisation's
+plan through the same checkout. Effective rights come from the live subscription
+and its status for either kind. An organisation without a live paid subscription or
+trial uses Free. Billing summaries compute plan and limits from the same subscription
+row they display. Enforcement reads the tenant's current subscription from PostgreSQL.
+
+An upgrade starts a new period once payment is confirmed. The amount due is the new
+period's price with credit for the unused part of the old period. A downgrade takes
+effect at the end of the current period. The plan-change workflow is a separate
+delivery step.
+
+**Migration.** Infer the first personal organisation only while adding the legacy
+`kind` column. Schema replay preserves existing classifications and money records.
+Investigate any earlier reclassification using installation evidence before
+changing organisation metadata.
+
+**Acceptance.** A personal organisation checks out and gains paid features after
+settlement. Reapplying the schema to an already-paid shared organisation preserves
+its kind, invoice and effective access.
+
+## ADR-318 — Plan changes use a quoted invoice or a scheduled renewal
+
+**Status:** accepted (2026-11-27).
+
+**Context.** Checkout created a full-price invoice independently of the current subscription. A plan change needs an explicit amount, a renewal date and a single application point.
+
+**Decision.** An administrator previews a change against the current subscription and a published price. The quote is recalculated under a per-organisation transaction lock. An upgrade has one outstanding payment. Its invoice records the price, unused service credit and the original period. Settlement records payment and applies the new plan in one transaction. The new period starts when settlement confirms payment. A zero-total upgrade applies in the same way without a provider call.
+
+A downgrade stores a scheduled price snapshot on the subscription. At the old period boundary Free takes effect without payment. A paid target is billed at its pinned price as the next renewal. It starts at the boundary on successful settlement. A failed charge retains the old access during the existing grace period. Payment attempts reuse the same invoice. Changes and renewals share the organisation lock. The same rules apply to personal and shared organisations.
+
+**Consequences.** The billing UI reads the quote, pending payment and scheduled change from the server. It does not derive amounts from displayed prices. An unknown payment outcome blocks another charge until confirmation or a terminal refusal.

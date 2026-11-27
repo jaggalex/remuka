@@ -48,13 +48,11 @@ import { assertMailConfig, mailCapabilities, mailDriver, resolveMailConfig } fro
 import { createMailDrain } from "./mail-drain.mjs";
 import { createAccountPurge } from "./account-purge.mjs";
 import { resolveSupportConfig } from "./support.mjs";
-import { createBillingLoops, openPaymentMethodRef } from "./billing-renewals.mjs";
+import { createBillingLoops } from "./billing-renewals.mjs";
+import { createBillingCharge } from "./billing-charge.mjs";
 import { createBillingInbox } from "./billing-inbox.mjs";
 import { createBillingNotify } from "./billing-notify.mjs";
 import { assertFakeProviderGate } from "./pay-fake.mjs";
-import { paymentAdapters } from "./payment-adapters.mjs";
-import { openConnectionSecret } from "./payment-connections.mjs";
-import { kekFromEnv } from "./secrets.mjs";
 import { handleBilling } from "./billing-api.mjs";
 import { buildInfo } from "./build-info.mjs";
 import { productName, productNameOverride, warnDeprecatedProductName } from "./product-name.mjs";
@@ -353,37 +351,7 @@ const supportConfig = resolveSupportConfig();
 const billingNotify = createBillingNotify({ store, mailConfig, log: console });
 const billing = createBillingLoops({
   store,
-  async charge({ subscription, invoice, idempotencyKey }) {
-    if (process.env.REMO_BILLING !== "on") throw new Error("billing is off");
-    const connection = await store.connectionById(subscription.connection_id);
-    const adapter = connection ? paymentAdapters()[connection.provider] : null;
-    if (!connection || typeof adapter?.chargeSaved !== "function") {
-      throw new Error("this connection cannot renew");
-    }
-    const method = await store.withTenant(subscription.org_id, () =>
-      store.paymentMethod(subscription.org_id),
-    );
-    if (!method) throw new Error("no saved payment method");
-    const kek = kekFromEnv();
-    const sealed = {
-      ciphertext: method.ref_ciphertext,
-      nonce: method.ref_nonce,
-      dek_wrapped: method.ref_dek_wrapped,
-      dek_nonce: method.ref_dek_nonce,
-    };
-    const payment = await adapter.chargeSaved(
-      { ...connection, secret: openConnectionSecret(connection, { kek }) },
-      {
-        paymentId: invoice.id,
-        idempotencyKey,
-        methodRef: openPaymentMethodRef({ sealed }, { kek }),
-        amount: Number(invoice.total),
-        currency: invoice.currency,
-        description: `Subscription ${subscription.plan}`,
-      },
-    );
-    return { status: payment.status, failureCode: payment.failureCode };
-  },
+  charge: createBillingCharge(store),
   notify: billingNotify,
 });
 

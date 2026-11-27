@@ -11,7 +11,6 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { handleBilling } from "./billing-api.mjs";
-import { resetEntitlementCache } from "./billing.mjs";
 import { hashToken } from "./iam.mjs";
 import { testDatabaseStore } from "./test-db.mjs";
 
@@ -33,7 +32,6 @@ let base = "";
 
 beforeAll(async () => {
   if (!store) return;
-  resetEntitlementCache();
   server = createServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
     const orgId = /^\/orgs\/([^/]+)\//.exec(url.pathname)?.[1];

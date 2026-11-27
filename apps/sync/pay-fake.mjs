@@ -148,9 +148,17 @@ export const fakeAdapter = {
       saveMethod: Boolean(req.savePaymentMethod),
       status: "pending",
     });
+    const query = new URLSearchParams({ fake_pay: req.paymentId });
+    if (req.returnUrl) {
+      const url = new URL(req.returnUrl, origin);
+      if (url.origin === origin && url.searchParams.has("payment")) {
+        query.set("return", url.pathname + url.search);
+        query.set("lang", req.locale === "ru" ? "ru" : "en");
+      }
+    }
     return {
       providerPaymentId,
-      redirectUrl: `${origin}/?fake_pay=${encodeURIComponent(req.paymentId)}`,
+      redirectUrl: `${origin}/?${query}`,
     };
   },
 
