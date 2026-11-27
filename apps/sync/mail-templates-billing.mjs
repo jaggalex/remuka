@@ -315,7 +315,7 @@ function downgradeApplied(lang, values) {
   if (lang === "ru") {
     return letter({
       lang,
-      subject: `«${space}» перешла на ${plan}`,
+      subject: `«${space}» теперь на ${plan}`,
       body: [
         `С ${date} в «${space}» действует ${plan}${charged}.`,
         `Места: ${seats}.`,

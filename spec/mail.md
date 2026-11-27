@@ -498,7 +498,7 @@ export const MAIL_MAX_ATTEMPTS = 6;
 - `{planNote}` — «{plan} начнёт действовать после оплаты продления — {amount} в месяц.» или «Списаний больше не будет.» для Бесплатного.
 
 **downgrade_applied**
-- RU тема: `«{space}» перешла на {plan}`
+- RU тема: `«{space}» теперь на {plan}` (решение владельца 27.11.2026, как у `subscription_suspended`)
 - RU текст: `С {date} в «{space}» действует {plan}{charged}. Места: {seats}. Активные комнаты: {activeRooms}; остальные {readOnly} — только для чтения, экспорт работает. Открыть «{space}»: {link}`
 - EN тема: `“{space}” is now on {plan}`
 - EN текст: `From {date}, “{space}” is on {plan}{charged}. Seats: {seats}. Active rooms: {activeRooms}; the other {readOnly} are read-only and export still works. Open “{space}”: {link}`

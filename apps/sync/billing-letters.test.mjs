@@ -76,7 +76,7 @@ describe("plan decisions become letters to every admin", () => {
     }] });
     await loop(s).tick();
     const [mail] = rendered(s);
-    expect(mail.subject).toBe("«Ромашка» перешла на Pro");
+    expect(mail.subject).toBe("«Ромашка» теперь на Pro");
     expect(mail.text.startsWith(
       "С 27 декабря в «Ромашка» действует Pro — списали 290 ₽ за месяц. Места: 4 из 5. Активные комнаты: 8; остальные 4 — только для чтения, экспорт работает.",
     )).toBe(true);
