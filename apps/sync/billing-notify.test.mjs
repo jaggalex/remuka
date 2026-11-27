@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBillingNotify, letterId } from "./billing-notify.mjs";
+import { createBillingNotify, letterId, paidLetterType } from "./billing-notify.mjs";
 import { renewalSchedule } from "./billing-renewals.mjs";
 import { render } from "./mail-templates.mjs";
 import { formatMailDate, formatMailMoney } from "./billing-format.mjs";
@@ -111,5 +111,42 @@ describe("the grace letters carry the renewal calendar (ADR-319)", () => {
     expect(letterId("payment_failed", "inv-1")).toBe(letterId("payment_failed", "inv-1"));
     expect(letterId("payment_failed", "inv-1")).not.toBe(letterId("payment_succeeded", "inv-1"));
     expect(letterId("payment_failed", "inv-1")).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-a[0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+describe("a purchase is thanked for, a renewal is reported (ADR-319 §4)", () => {
+  const purchase = { lines: [{ kind: "subscription", plan: "team" }] };
+  const renewal = { lines: [{ kind: "subscription", plan: "team", renewal: true }] };
+  const upgrade = { lines: [{ kind: "subscription", plan: "business", planChange: { type: "upgrade" } }] };
+
+  it.each([
+    ["a first purchase", purchase, null, "plan_activated"],
+    ["an upgrade", upgrade, "active", "plan_activated"],
+    ["a renewal", renewal, "active", "payment_succeeded"],
+    ["a renewal paid during the grace", renewal, "past_due", "payment_succeeded"],
+    ["a renewal paid after the suspension", renewal, "suspended", "payment_recovered"],
+    ["a new purchase after the suspension", purchase, "suspended", "payment_recovered"],
+  ])("%s", (_name, invoice, prior, type) => {
+    expect(paidLetterType(invoice, prior)).toBe(type);
+  });
+
+  it("writes plan_activated with the limits, the summary and the next charge", async () => {
+    const store = storeDouble({ lang: "ru" });
+    const notify = createBillingNotify({ store, mailConfig: MAIL, kek: "unused", now: () => new Date("2026-11-27T09:00:00Z") });
+    await notify("plan_activated", {
+      orgId: "org-1",
+      invoice: {
+        id: "inv-9", number: "RU-2026-000120", total: 59000, subtotal: 59000, currency: "RUB",
+        period_start: "2026-11-27T00:00:00Z", period_end: "2026-12-27T00:00:00Z",
+        lines: [{ kind: "subscription", plan: "team", interval: "month", amount: 59000, autopayConsent: { version: "v1" } }],
+      },
+    });
+    const row = store.sent[0];
+    const mail = render(row.template, row.locale, row.params);
+    expect(mail.subject).toBe("Спасибо за оплату — Team подключён в «Ромашка»");
+    expect(mail.text).toBe(
+      "С 27 ноября в «Ромашка» действует Team: 20 мест, комнаты без ограничений. Team, месяц. Счёт RU-2026-000120. Карта •••• 4242. Оплачено 590\u00a0₽. Следующее списание — 27 декабря, 590\u00a0₽. Открыть «Ромашка»: https://app.example/"
+        + mail.text.slice(mail.text.indexOf("\n\n")),
+    );
   });
 });

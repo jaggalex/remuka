@@ -213,9 +213,11 @@ async function billingEventRows(orgId, type) {
   });
 }
 
+/** Every payment letter to the address: a purchase is plan_activated (ADR-319). */
 async function mailRows(email) {
   const { rows } = await store.pool.query(
-    "select * from mail_outbox where to_email = $1 and template = 'payment_succeeded'",
+    `select * from mail_outbox where to_email = $1
+        and template in ('plan_activated', 'payment_succeeded', 'payment_recovered')`,
     [email],
   );
   return rows;
@@ -305,6 +307,8 @@ describe.skipIf(!store)("db:billing inbox (ADR-248 §5)", () => {
 
     const mail = await mailRows(fixture.email);
     expect(mail).toHaveLength(1);
+    // A first purchase is thanked for, not reported as a renewal (ADR-319).
+    expect(mail[0].template).toBe("plan_activated");
 
     const [event] = await eventRows(fixture.connection.id);
     expect(event).toMatchObject({
@@ -323,6 +327,22 @@ describe.skipIf(!store)("db:billing inbox (ADR-248 §5)", () => {
     expect(await billingEventRows(fixture.orgId, "invoice.paid")).toHaveLength(1);
     expect(await mailRows(fixture.email)).toHaveLength(1);
     expect(await paymentRows(fixture.invoice.id)).toHaveLength(1);
+  });
+
+  it("queues one letter for five deliveries of one payment (ADR-319)", async () => {
+    const fixture = await checkout("five", { kind: "personal" });
+    const drain = inbox();
+    for (let delivery = 0; delivery < 5; delivery += 1) {
+      await deliver(fixture.connection, fixture.payment.id);
+      await drain.drain();
+    }
+    // The same letter asked for twice by two paths (the loop and the inbox) is one row.
+    const notify = createBillingNotify({ store, mailConfig: MAIL, kek: KEK });
+    const invoice = await invoiceOf(fixture.invoice.id);
+    await notify("plan_activated", { orgId: fixture.orgId, invoice, dedupeKey: invoice.id });
+    const mail = await mailRows(fixture.email);
+    expect(mail).toHaveLength(1);
+    expect(mail[0].template).toBe("plan_activated");
   });
 
   it("does not un-pay an invoice when a cancellation arrives after a success", async () => {

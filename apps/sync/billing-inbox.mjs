@@ -22,6 +22,7 @@
  */
 import { backoffMs } from "./backoff.mjs";
 import { subscriptionLine } from "./pg/billing-change.mjs";
+import { paidLetterType } from "./billing-notify.mjs";
 import { settleInvoice } from "./billing-settle.mjs";
 import { paymentAdapters } from "./payment-adapters.mjs";
 import { openConnectionSecret } from "./payment-connections.mjs";
@@ -212,6 +213,11 @@ export async function applyPaymentEvent({
       }
     }
 
+    // The letter depends on what the payment ends: a suspension, a renewal or nothing yet.
+    const prior = typeof store.liveSubscription === "function"
+      ? await store.liveSubscription(orgId)
+      : null;
+
     const settled = await settleInvoice({
       store,
       invoice,
@@ -222,15 +228,17 @@ export async function applyPaymentEvent({
 
     if (notify) {
       try {
-        await notify("payment_succeeded", {
+        await notify(paidLetterType(settled.invoice, prior?.status ?? null), {
           orgId,
           invoice: settled.invoice,
           subscription: settled.subscription,
+          // One payment, one letter: a repeated delivery finds the letter already queued.
+          dedupeKey: settled.invoice.id,
         });
       } catch (error) {
         // The money is stored; a letter that failed must not make the provider repeat an
         // event whose ledger consequences are already applied.
-        log.error?.(`[billing] inbox: payment_succeeded letter failed (${error?.code ?? "ERROR"})`);
+        log.error?.(`[billing] inbox: the payment letter failed (${error?.code ?? "ERROR"})`);
       }
     }
     log.log?.(`[billing] inbox: payment ${short(chain.payment_id)} succeeded`);

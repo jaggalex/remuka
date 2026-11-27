@@ -44,6 +44,47 @@ const PERSONAL = { ru: "Личное", en: "Personal" };
 /** Provider codes that mean "the bank said no to this card" rather than "something failed". */
 const DECLINED = new Set(["card_declined", "card_expired", "insufficient_funds", "declined", "payment_method_rejected"]);
 
+/**
+ * Which letter a confirmed payment deserves (ADR-319 §4): a renewal is `payment_succeeded`,
+ * a purchase or an upgrade is `plan_activated`, and any payment that ends a suspension is
+ * `payment_recovered`. `priorStatus` is the subscription's status before the settlement.
+ */
+export function paidLetterType(invoice, priorStatus = null) {
+  if (priorStatus === "suspended") return "payment_recovered";
+  const lines = Array.isArray(invoice?.lines) ? invoice.lines : [];
+  const line = lines.find((item) => item?.kind === "subscription");
+  return line?.renewal === true ? "payment_succeeded" : "plan_activated";
+}
+
+const INTERVAL = { ru: { month: "месяц", year: "год" }, en: { month: "month", year: "year" } };
+
+/** «20 мест, комнаты без ограничений» — the limits a paid plan opens. */
+function limitsOf(plan, lang) {
+  const limits = PLANS[plan];
+  if (!limits) return "";
+  if (lang === "ru") {
+    const rooms = limits.rooms === null ? "комнаты без ограничений" : `${limits.rooms} комнат`;
+    return `${limits.seats} мест, ${rooms}`;
+  }
+  const rooms = limits.rooms === null ? "unlimited rooms" : `${limits.rooms} rooms`;
+  return `${limits.seats} seats, ${rooms}`;
+}
+
+/** The summary block of `plan_activated`: plan and period, credit, invoice, card, paid. */
+function summaryOf({ invoice, line, label, last4, lang }) {
+  const money = (value) => formatMailMoney(value, invoice.currency, lang);
+  const interval = INTERVAL[lang][line?.interval ?? "month"] ?? INTERVAL[lang].month;
+  const credit = Number(invoice.credit_applied ?? invoice.creditApplied ?? 0);
+  const ru = lang === "ru";
+  return [
+    `${label}, ${interval}`,
+    ...(credit > 0 ? [ru ? `Зачёт ${money(credit)}` : `Credit ${money(credit)}`] : []),
+    ...(invoice.number ? [ru ? `Счёт ${invoice.number}` : `Invoice ${invoice.number}`] : []),
+    ...(last4 ? [ru ? `Карта •••• ${last4}` : `Card •••• ${last4}`] : []),
+    ru ? `Оплачено ${money(invoice.total)}` : `Paid ${money(invoice.total)}`,
+  ];
+}
+
 export function planLabel(plan, lang) {
   return PLAN_LABEL[lang]?.[plan] ?? PLAN_LABEL.en[plan] ?? String(plan ?? "");
 }
@@ -141,6 +182,18 @@ export function createBillingNotify({
       failureCode: failureCode ?? "",
       ...extra,
     };
+    if (type === "plan_activated" && invoice) {
+      const lines = Array.isArray(invoice.lines) ? invoice.lines : [];
+      const line = lines.find((item) => item?.kind === "subscription");
+      params.limits = limitsOf(plan, locale);
+      params.summary = summaryOf({ invoice, line, label: params.plan, last4: facts?.last4, lang: locale });
+      // The next charge is a promise only when autopay was agreed to (ADR-247 rule 9).
+      if (line?.autopayConsent && periodEnd) {
+        params.nextDate = date(periodEnd);
+        params.nextAmount = formatMailMoney(line.amount ?? invoice.subtotal, invoice.currency, locale);
+      }
+      Object.assign(params, extra);
+    }
     // Amount-bearing templates read the same `amount`; a suspension letter ignores it.
     if (AMOUNT_TYPES.has(type) && !invoice && extra.amount === undefined) params.amount = "";
 
