@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import { samePicture } from "./brand-build.mjs";
 import { ROOT } from "./brand-source.mjs";
 

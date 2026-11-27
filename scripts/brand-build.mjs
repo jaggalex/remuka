@@ -12,7 +12,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { APPLE_TOUCH, brandModule, readMark, ROOT, SERVED_MARKS, SMILE_DARK } from "./brand-source.mjs";
+import { APPLE_TOUCH, brandModule, ROOT, readMark, SERVED_MARKS, SMILE_DARK } from "./brand-source.mjs";
 
 const require = createRequire(join(ROOT, "apps/sync/package.json"));
 const sharp = require("sharp");
