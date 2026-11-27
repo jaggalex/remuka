@@ -1,16 +1,19 @@
 /**
  * Renewal decisions and the loop around them (ADR-247 §2.5, §3.3).
  *
- * The database is absent on purpose: what is pinned here is the calendar of §3.3 (1, 3,
- * 6 days of retries, suspension on the seventh), the idempotency of two ticks, and the
+ * The database is absent on purpose: what is pinned here is the calendar of §3.3 (retries
+ * on days 1, 3, 7 and 13, suspension on the fourteenth, ADR-319), the letters of every
+ * day from 0 to 15, the idempotency of two ticks, and the
  * rule that a charge other than an explicit success never marks a period paid.
  */
 import { randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  RENEWAL_FINAL_NOTICE_MS,
   RENEWAL_GRACE_MS,
   RENEWAL_RETRIES_MS,
   createBillingLoops,
+  renewalSchedule,
   openPaymentMethodRef,
   renewalStep,
 } from "./billing-renewals.mjs";
@@ -126,9 +129,16 @@ function recorder() {
 const loopClock = () => NOW;
 
 describe("the renewal calendar (§3.3)", () => {
-  it("offers 1, 3 and 6 days of retries and a seven-day grace", () => {
-    expect(RENEWAL_RETRIES_MS).toEqual([1 * DAY, 3 * DAY, 6 * DAY]);
-    expect(RENEWAL_GRACE_MS).toBe(7 * DAY);
+  it("offers retries on days 1, 3, 7 and 13 and a fourteen-day grace (ADR-319)", () => {
+    expect(RENEWAL_RETRIES_MS).toEqual([1 * DAY, 3 * DAY, 7 * DAY, 13 * DAY]);
+    expect(RENEWAL_GRACE_MS).toBe(14 * DAY);
+    expect(RENEWAL_FINAL_NOTICE_MS).toBe(12 * DAY);
+    expect(renewalSchedule(at(0))).toEqual({
+      retries: [at(1), at(3), at(7), at(13)],
+      finalNotice: at(12),
+      finalAttempt: at(13),
+      graceEnd: at(14),
+    });
   });
 
   const cases = [
@@ -193,23 +203,38 @@ describe("the renewal calendar (§3.3)", () => {
       action: "retry",
     },
     {
-      name: "the third retry is on day six",
-      input: { status: "past_due", pastDueSince: at(0), attempts: 2, now: at(6) },
+      name: "the third retry is on day seven",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 2, now: at(7) },
       action: "retry",
     },
     {
-      name: "after the third retry there is nothing left before the grace ends",
-      input: { status: "past_due", pastDueSince: at(0), attempts: 3, now: at(6) },
+      name: "the third retry does not happen on day six",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 2, now: at(6) },
       action: "none",
     },
     {
-      name: "the seventh day suspends even with no retry made",
-      input: { status: "past_due", pastDueSince: at(0), attempts: 0, now: at(7) },
+      name: "day twelve announces the last retry",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 3, now: at(12) },
+      action: "final_notice",
+    },
+    {
+      name: "the fourth retry is on day thirteen",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 3, now: at(13) },
+      action: "retry",
+    },
+    {
+      name: "after the fourth retry there is nothing left before the grace ends",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 4, now: at(13) },
+      action: "none",
+    },
+    {
+      name: "the fourteenth day suspends even with no retry made",
+      input: { status: "past_due", pastDueSince: at(0), attempts: 0, now: at(14) },
       action: "suspend",
     },
     {
       name: "suspension wins over the last retry on the same instant",
-      input: { status: "past_due", pastDueSince: at(0), attempts: 2, now: at(7) },
+      input: { status: "past_due", pastDueSince: at(0), attempts: 3, now: at(14) },
       action: "suspend",
     },
     {
@@ -364,12 +389,14 @@ describe("one tick (§3.3)", () => {
     const [action] = (await loops.tick()).actions;
 
     expect(store.calls).toContainEqual(["openInvoiceFor", "sub-1"]);
-    expect(charged[0].idempotencyKey).toBe("invoice:inv-sub-1:attempt:2");
-    expect(charged[0].attempt).toBe(2);
+    // One failed retry is behind; this is the second retry, the third charge of the invoice.
+    expect(charged[0].idempotencyKey).toBe("invoice:inv-sub-1:attempt:3");
+    expect(charged[0].attempt).toBe(3);
     expect(action.status).toBe("failed");
     expect(store.calls).toContainEqual(["bumpRenewalAttempts", "sub-1"]);
     expect(store.calls.some((call) => call[0] === "markPastDue")).toBe(false);
-    expect(notify.calls[0][0]).toBe("payment_failed");
+    // The calendar was in the day-0 letter; a failed retry sends nothing (ADR-319).
+    expect(notify.calls).toHaveLength(0);
   });
 
   it("does not charge a retry whose invoice vanished", async () => {
@@ -384,15 +411,15 @@ describe("one tick (§3.3)", () => {
     expect(store.calls.some((call) => call[0] === "bumpRenewalAttempts")).toBe(false);
   });
 
-  it("suspends after seven days and freezes the rooms beyond the Free plan", async () => {
-    const store = fakeStore({ subscriptions: [pastDue()], attempts: 3 });
+  it("suspends after fourteen days and freezes the rooms beyond the Free plan", async () => {
+    const store = fakeStore({ subscriptions: [pastDue()], attempts: 4 });
     const notify = recorder();
     const charge = vi.fn();
     const loops = createBillingLoops({
       store,
       notify,
       log: silent,
-      now: () => NOW + 7 * DAY,
+      now: () => NOW + 14 * DAY,
       charge,
     });
 
@@ -506,6 +533,111 @@ describe("one tick (§3.3)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Days 0–15 of one unpaid renewal, tick by tick (ADR-319): which charge runs, which letter
+ * leaves, and when the plan ends. Every day is ticked twice, as the ten-minute loop would.
+ */
+describe("fourteen days of grace, day by day (ADR-319)", () => {
+  function dayStore() {
+    const subscription = active();
+    const invoice = invoiceFor(subscription);
+    const row = { ...subscription };
+    let attempts = 0;
+    return {
+      row,
+      async dueSubscriptions() {
+        return row.status === "active" || row.status === "past_due" ? [{ ...row }] : [];
+      },
+      async renewalInvoice() { return invoice; },
+      async openInvoiceFor() { return invoice; },
+      async advanceSubscription({ periodEnd }) {
+        row.status = "active";
+        row.current_period_end = periodEnd;
+        row.past_due_since = null;
+        attempts = 0;
+      },
+      async markPastDue() { row.status = "past_due"; row.past_due_since = new Date(NOW); },
+      async bumpRenewalAttempts() { attempts += 1; return attempts; },
+      async renewalAttempts() { return attempts; },
+      async suspendSubscription() { row.status = "suspended"; },
+      async cancelSubscription() {},
+      async reconcileFrozenRooms() { return 0; },
+      async withTenant(_orgId, fn) { return fn(); },
+    };
+  }
+
+  const EXPECTED = {
+    0: { charges: [1], letters: ["payment_failed"] },
+    1: { charges: [2], letters: [] },
+    3: { charges: [3], letters: [] },
+    7: { charges: [4], letters: [] },
+    12: { charges: [], letters: ["payment_final_attempt", "payment_final_attempt"] },
+    13: { charges: [5], letters: [] },
+    14: { charges: [], letters: ["subscription_suspended"] },
+  };
+
+  it("charges on days 0, 1, 3, 7 and 13, writes on 0, 12 and 14, and stops on 15", async () => {
+    const store = dayStore();
+    const notify = recorder();
+    let day = 0;
+    const charges = [];
+    const loops = createBillingLoops({
+      store,
+      notify,
+      log: silent,
+      now: () => NOW + day * DAY,
+      charge: async ({ attempt }) => {
+        charges.push([day, attempt]);
+        return { status: "failed", failureCode: "card_declined" };
+      },
+    });
+
+    for (day = 0; day <= 15; day += 1) {
+      const before = { charges: charges.length, letters: notify.calls.length };
+      await loops.tick();
+      await loops.tick();
+      const today = {
+        charges: charges.slice(before.charges).map(([, attempt]) => attempt),
+        letters: notify.calls.slice(before.letters).map(([type]) => type),
+      };
+      expect(today, `day ${day}`).toEqual(EXPECTED[day] ?? { charges: [], letters: [] });
+    }
+    expect(store.row.status).toBe("suspended");
+  });
+
+  it("passes the calendar and a deduplication key with every letter", async () => {
+    const store = dayStore();
+    const notify = recorder();
+    let day = 0;
+    const loops = createBillingLoops({
+      store, notify, log: silent, now: () => NOW + day * DAY,
+      charge: async () => ({ status: "failed", failureCode: "card_declined" }),
+    });
+    for (day = 0; day <= 14; day += 1) await loops.tick();
+
+    const [failed, final, suspended] = notify.calls.map(([, payload]) => payload);
+    expect(failed.schedule).toEqual(renewalSchedule(at(0)));
+    expect(failed.dedupeKey).toBe("inv-sub-1");
+    expect(final.schedule.finalAttempt).toEqual(at(13));
+    expect(final.dedupeKey).toBe("inv-sub-1:final");
+    expect(suspended.dedupeKey).toBe(`sub-1:${NOW}`);
+  });
+
+  it("returns to active and announces the renewal when a retry succeeds", async () => {
+    const store = dayStore();
+    const notify = recorder();
+    let day = 0;
+    const loops = createBillingLoops({
+      store, notify, log: silent, now: () => NOW + day * DAY,
+      charge: async () => (day === 7 ? { status: "succeeded" } : { status: "failed" }),
+    });
+    for (day = 0; day <= 15; day += 1) await loops.tick();
+
+    expect(store.row.status).toBe("active");
+    expect(notify.calls.map(([type]) => type)).toEqual(["payment_failed", "payment_succeeded"]);
   });
 });
 

@@ -8,9 +8,10 @@ import { subscriptionLine } from "./pg/billing-change.mjs";
  * store calls, and `charge` / `notify` are injected so a test can pin every branch without
  * pretend money or mail.
  *
- * Two rules shape the machine. Suspension is checked before a retry, because the seventh
- * day ends the grace period even if fewer than three retries were made — the schedule is
- * "1, 3, 6 days, suspended at 7", not "three retries however long they take". And every
+ * Two rules shape the machine. Suspension is checked before a retry, because the fourteenth
+ * day ends the grace period even if fewer than four retries were made — the schedule is
+ * "1, 3, 7, 13 days, suspended at 14" (ADR-319), not "four retries however long they
+ * take". And every
  * step is idempotent: the invoice is keyed by `(subscription_id, period_start)`, the charge
  * carries `invoice:{id}:attempt:{n}`, and a repeated tick on an unchanged row does nothing.
  */
@@ -18,11 +19,31 @@ import { periodEnd } from "./billing-money.mjs";
 import { PLANS } from "./billing-catalog.mjs";
 import { decryptSecret } from "./secrets.mjs";
 
-/** The days after `past_due_since` on which a charge is retried (§3.3). */
-export const RENEWAL_RETRIES_MS = Object.freeze([1, 3, 6].map((days) => days * 86_400_000));
+const DAY_MS = 86_400_000;
 
-/** After seven days of an unpaid invoice the plan is gone, not extended (§3.1). */
-export const RENEWAL_GRACE_MS = 7 * 86_400_000;
+/** The days after `past_due_since` on which a charge is retried (§3.3, ADR-319). */
+export const RENEWAL_RETRIES_MS = Object.freeze([1, 3, 7, 13].map((days) => days * DAY_MS));
+
+/** After fourteen days of an unpaid invoice the plan is gone, not extended (§3.1). */
+export const RENEWAL_GRACE_MS = 14 * DAY_MS;
+
+/** The eve of the last retry: the day the payer hears «завтра последняя попытка» (§3.3). */
+export const RENEWAL_FINAL_NOTICE_MS = RENEWAL_RETRIES_MS.at(-1) - DAY_MS;
+
+/**
+ * The whole grace calendar from its start, as instants: what the letters promise is the
+ * same calendar the machine below follows, so a letter cannot name a day the loop skips.
+ */
+export function renewalSchedule(pastDueSince) {
+  const since = instantOf(pastDueSince, "pastDueSince");
+  if (since === null) return null;
+  return {
+    retries: RENEWAL_RETRIES_MS.map((offset) => new Date(since + offset)),
+    finalNotice: new Date(since + RENEWAL_FINAL_NOTICE_MS),
+    finalAttempt: new Date(since + RENEWAL_RETRIES_MS.at(-1)),
+    graceEnd: new Date(since + RENEWAL_GRACE_MS),
+  };
+}
 
 /** How many due subscriptions one tick takes; the next tick continues the list. */
 const BATCH = 50;
@@ -86,7 +107,13 @@ export function renewalStep({
     if (since === null) return { action: "none" };
     if (clock >= since + RENEWAL_GRACE_MS) return { action: "suspend" };
     if (made >= RENEWAL_RETRIES_MS.length) return { action: "none" };
-    return clock >= since + RENEWAL_RETRIES_MS[made] ? { action: "retry" } : { action: "none" };
+    if (clock >= since + RENEWAL_RETRIES_MS[made]) return { action: "retry" };
+    // Only the last retry is announced in advance; its letter is deduplicated, so every
+    // tick of day 12 may ask and one letter leaves.
+    const last = made === RENEWAL_RETRIES_MS.length - 1;
+    return last && clock >= since + RENEWAL_FINAL_NOTICE_MS
+      ? { action: "final_notice" }
+      : { action: "none" };
   }
 
   // trialing, suspended and canceled have no renewal of their own: the first is ended by
@@ -177,7 +204,7 @@ export function createBillingLoops({
     const id = subscription.id;
     const orgId = field(subscription, "orgId", "org_id");
     const status = result?.status;
-    const attempt = countOf(attempts) + 1;
+    const attempt = retry ? countOf(attempts) + 2 : 1;
 
     if (status === "pending") {
       // The provider is still deciding. A retry would be a second charge for one invoice.
@@ -192,7 +219,7 @@ export function createBillingLoops({
       await safeNotify(
         notify,
         "payment_succeeded",
-        { orgId, subscription, invoice, attempt },
+        { orgId, subscription, invoice, attempt, dedupeKey: invoice.id },
         log,
       );
       return { id, action: retry ? "retry" : "invoice", status: "succeeded" };
@@ -201,14 +228,20 @@ export function createBillingLoops({
     // Any answer other than an explicit success is treated as a failure: marking a
     // subscription paid on an undefined result would be the worst possible guess.
     const failureCode = result?.failureCode ?? "unknown";
-    if (retry) await store.bumpRenewalAttempts(id);
-    else await store.markPastDue(id);
-    await safeNotify(
-      notify,
-      "payment_failed",
-      { orgId, subscription, invoice, failureCode, attempt },
-      log,
-    );
+    if (retry) {
+      // The calendar was in the first letter; a failed retry adds no letter of its own.
+      await store.bumpRenewalAttempts(id);
+    } else {
+      await store.markPastDue(id);
+      // The grace starts now: `markPastDue` stamps `past_due_since` with this instant.
+      const schedule = renewalSchedule(clock());
+      await safeNotify(
+        notify,
+        "payment_failed",
+        { orgId, subscription, invoice, failureCode, attempt, schedule, dedupeKey: invoice.id },
+        log,
+      );
+    }
     return { id, action: retry ? "retry" : "invoice", status: "failed", failureCode };
   }
 
@@ -217,7 +250,10 @@ export function createBillingLoops({
    * a crash is deduplicated by the provider, while a retry is a new attempt on purpose.
    */
   async function attempt(subscription, invoice, { retry, attempts }) {
-    const attemptCount = countOf(attempts) + 1;
+    // The renewal charge is attempt 1; the n-th retry is attempt n + 1. Counting retries
+    // from 1 gave the first retry the renewal's own key, and the provider answered it
+    // with the old refusal instead of charging again.
+    const attemptCount = retry ? countOf(attempts) + 2 : 1;
     if (!charge) {
       return { id: subscription.id, action: retry ? "retry" : "invoice", status: "unattempted" };
     }
@@ -258,11 +294,33 @@ export function createBillingLoops({
     return attempt(subscription, invoice, { retry: true, attempts });
   }
 
+  /** Day 12: one letter about tomorrow's last retry, with the sum of the open invoice. */
+  async function finalNoticeAction(subscription) {
+    const id = subscription.id;
+    const orgId = field(subscription, "orgId", "org_id");
+    const invoice = await store.openInvoiceFor(id);
+    if (!invoice) return { id, action: "final_notice", status: "skipped" };
+    const schedule = renewalSchedule(field(subscription, "pastDueSince", "past_due_since"));
+    await safeNotify(
+      notify,
+      "payment_final_attempt",
+      { orgId, subscription, invoice, schedule, dedupeKey: `${invoice.id}:final` },
+      log,
+    );
+    return { id, action: "final_notice", status: "announced" };
+  }
+
   async function suspendAction(subscription) {
     const id = subscription.id;
     const orgId = field(subscription, "orgId", "org_id");
+    const since = field(subscription, "pastDueSince", "past_due_since");
     await store.suspendSubscription(id);
-    await safeNotify(notify, "subscription_suspended", { orgId, subscription }, log);
+    await safeNotify(
+      notify,
+      "subscription_suspended",
+      { orgId, subscription, dedupeKey: `${id}:${instantOf(since, "pastDueSince") ?? "unknown"}` },
+      log,
+    );
     // A suspended plan is Free, so the rooms beyond the Free limit become read-only
     // (§2.5). The freeze is best-effort: a failed reconcile must not undo the suspension,
     // and the next billing change runs it again.
@@ -314,6 +372,7 @@ export function createBillingLoops({
     if (action === "invoice") return invoiceAction(subscription);
     if (action === "retry") return retryAction(subscription, attempts);
     if (action === "suspend") return suspendAction(subscription);
+    if (action === "final_notice") return finalNoticeAction(subscription);
     if (action === "cancel") return cancelAction(subscription);
     return { id: subscription.id, action: "none" };
   }
