@@ -86,6 +86,32 @@ test("a personal organisation can open the plan chooser with an empty price book
   await expect(panel.getByRole("button", { name: /^Pay / })).toHaveCount(0);
 });
 
+test("a late installation config leaves the loaded invoices visible", async ({ page }) => {
+  const account = await freshBoard(page, "billing-invoices");
+  const config = Promise.withResolvers<void>();
+  await page.route("**/api/config", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await config.promise;
+    await route.fulfill({ response, json: { ...body, productName: "Remuka Billing QA" } });
+  });
+  await page.route("**/billing/invoices", (route) => route.fulfill({ json: { invoices: [{
+    id: "qa-invoice", number: "RU-QA-000003", created_at: "2026-11-27T14:02:00Z",
+    total: 32_627, currency: "RUB", status: "paid", payments: [],
+  }] } }));
+
+  await page.goto(`/org/billing?org=${account.orgId}&lang=ru`);
+  const invoices = page.locator(".billing-invoices");
+  const row = invoices.getByRole("row").filter({ hasText: "RU-QA-000003" });
+  try {
+    await expect(row).toContainText("Оплачен");
+  } finally {
+    config.resolve();
+  }
+  await expect(page).toHaveTitle("Remuka Billing QA");
+  await expect(row).toContainText("Оплачен");
+});
+
 test("the tab is absent when the billing family answers 404", async ({ page }) => {
   await freshBoard(page, "billing-off");
   await goAllRooms(page);

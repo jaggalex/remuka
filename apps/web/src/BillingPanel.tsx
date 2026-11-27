@@ -174,7 +174,6 @@ export function BillingPanel({
   useEffect(() => {
     setData(initial);
     setLoading(!initial);
-    setInvoices(null);
     setChoosing(false);
     setCheckout(null);
     setActionError(null);
@@ -187,6 +186,9 @@ export function BillingPanel({
       setInvoices([]);
       return;
     }
+    // The list belongs to the billing account and role. A new translation function
+    // may refresh the summary, but does not start a new invoice request.
+    setInvoices(null);
     let alive = true;
     billingApi
       .invoices(orgId)
