@@ -15,10 +15,9 @@
  * letters, the schedule step for reminders. The outbox id is derived from it, so five
  * deliveries of one webhook queue one letter (ADR-319 §4).
  */
-import { createHash } from "node:crypto";
 import { PLANS } from "./billing-catalog.mjs";
 import { formatMailDate, formatMailMoney } from "./billing-format.mjs";
-import { enqueueMail } from "./mail.mjs";
+import { enqueueMail, letterId } from "./mail.mjs";
 import { kekFromEnv } from "./secrets.mjs";
 
 /** What the templates require for the amount-bearing events (§7). */
@@ -102,11 +101,8 @@ function reasonOf(failureCode, last4, lang) {
   return declined ? `The bank declined card •••• ${last4}` : "The payment didn't go through";
 }
 
-/** A stable outbox id for one letter of one operation: a UUID-shaped SHA-256 prefix. */
-export function letterId(template, key) {
-  const hex = createHash("sha256").update(`billing-letter:${template}:${key}`).digest("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-}
+/** Billing letters reuse the outbox's derived id (`mail.mjs`). */
+export { letterId };
 
 function planOf(invoice, subscription) {
   const lines = Array.isArray(invoice?.lines) ? invoice.lines : [];

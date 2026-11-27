@@ -210,6 +210,13 @@ suite("password recovery (ADR-246)", () => {
     const again = await anonymous("POST", "/auth/email/verify", { token });
     expect(again.status).toBe(200);
 
+    // One welcome letter after the first confirmation, not after the repeated click (ADR-319).
+    const welcome = await store.pool.query(
+      "select locale from mail_outbox where user_id = $1 and template = 'welcome'",
+      [user.id],
+    );
+    expect(welcome.rows).toHaveLength(1);
+
     const me = await api("GET", "/auth/me");
     expect(me.body.user.emailVerified).toBe(true);
 

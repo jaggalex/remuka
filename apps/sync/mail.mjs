@@ -6,7 +6,7 @@
  * installation that silently drops password resets is worse than one that refuses to
  * start.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createDriver, MAIL_DRIVERS } from "./mail-drivers.mjs";
 import { BRAND, brandName } from "@remo/brand";
 import { productNameOverride } from "./product-name.mjs";
@@ -181,6 +181,16 @@ const SECRET_PARAMS = new Set(["link", "token"]);
  * KEK; `params` holds what may sit in clear text. The id is generated here so the AAD is
  * known before the row exists.
  */
+/**
+ * A stable outbox id for one letter of one operation: a UUID-shaped SHA-256 prefix of
+ * `(template, key)`. The outbox insert ignores a repeated id, so a letter keyed this way
+ * is queued once however often it is asked for (ADR-319).
+ */
+export function letterId(template, key) {
+  const hex = createHash("sha256").update(`billing-letter:${template}:${key}`).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 export async function enqueueMail(store, message, { config, kek = null } = {}) {
   if (!config) throw new Error("enqueueMail needs the resolved mail configuration");
   if (config.driver === "disabled") return { queued: false, id: null };

@@ -15,7 +15,7 @@ import {
 import { hashQueue } from "./hash-queue.mjs";
 import { fail, json, readBody } from "./iam-http.mjs";
 import { hashPassword, normalizeEmail, passwordProblem } from "./iam.mjs";
-import { enqueueMail, pickLocale } from "./mail.mjs";
+import { enqueueMail, letterId, pickLocale } from "./mail.mjs";
 
 const FORGOT_IP_LIMIT = 10;
 const FORGOT_EMAIL_LIMIT = 3;
@@ -197,6 +197,25 @@ export async function handleRecoveryRoutes(ctx) {
     }
     await store.setEmailVerified(owner.id, owner.email);
     await audit({ actorId: owner.id, action: "auth.email_verified", subject: owner.id });
+    // The welcome letter (ADR-319): once per account, its id derived from the user, so a
+    // later re-confirmation after an address change queues nothing. A failed letter
+    // never fails the confirmation itself.
+    try {
+      await enqueueMail(
+        store,
+        {
+          id: letterId("welcome", owner.id),
+          userId: owner.id,
+          toEmail: owner.email,
+          template: "welcome",
+          locale: pickLocale({ userLang: owner.lang, acceptLanguage: request.headers["accept-language"] }),
+          params: { name: owner.name ?? "", appUrl: `${mailConfig.appOrigin}/` },
+        },
+        { config: mailConfig },
+      );
+    } catch (error) {
+      log.error("[auth] welcome letter failed:", error.message);
+    }
     return json(response, 200, { ok: true }), true;
   }
 
