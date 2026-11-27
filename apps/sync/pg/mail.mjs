@@ -35,7 +35,10 @@ export const mailMethods = {
     return rows[0]?.lang ?? null;
   },
 
-  /** The id comes from the caller: it is the AAD of the sealed parameters (ADR-246). */
+  /**
+   * The id comes from the caller: it is the AAD of the sealed parameters (ADR-246), and for
+   * billing letters it is the deduplication key, so a repeated insert is a no-op.
+   */
   async enqueueMail({
     id,
     userId = null,
@@ -50,7 +53,10 @@ export const mailMethods = {
       `insert into mail_outbox
          (id, user_id, to_email, template, locale, params, valid_until,
           sealed_ciphertext, sealed_nonce, sealed_dek_wrapped, sealed_dek_nonce, sealed_kek_id)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)
+       -- A billing letter carries an id derived from its event (ADR-319): the second
+       -- webhook for one payment finds its letter already queued and adds nothing.
+       on conflict (id) do nothing`,
       [
         id,
         userId,

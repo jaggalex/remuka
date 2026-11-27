@@ -489,7 +489,7 @@ function paymentRefunded(lang, values) {
  * one loud letter; the three steps are the first session, not a tour of the product.
  */
 function welcome(lang, values) {
-  const link = param(values, "link");
+  const link = param(values, "appUrl");
   const name = param(values, "name", { required: false });
   const product = values.product;
   if (lang === "ru") {

@@ -122,7 +122,7 @@ Object.assign(CASES, {
   plan_activated: {
     plan: "Team", space: "Ромашка", date: "27 ноября", limits: "20 мест, комнаты без ограничений",
     summary: ["Team, месяц", "Счёт RU-2026-000120", "Оплачено 590 ₽"],
-    nextDate: "27 декабря", nextAmount: "590 ₽", link: "https://app.example.com/",
+    nextDate: "27 декабря", nextAmount: "590 ₽", spaceUrl: "https://app.example.com/",
   },
   payment_final_attempt: {
     plan: "Team", date: "9 января", amount: "290 ₽", currency: "RUB", last4: "4242",
@@ -130,33 +130,33 @@ Object.assign(CASES, {
   },
   payment_recovered: {
     plan: "Team", space: "Ромашка", amount: "290 ₽", currency: "RUB",
-    period: "12 января — 12 февраля", link: "https://app.example.com/",
+    period: "12 января — 12 февраля", spaceUrl: "https://app.example.com/",
   },
   downgrade_scheduled: {
     date: "27 декабря", space: "Ромашка", plan: "Pro", currentPlan: "Team",
     planNote: "Pro начнёт действовать после оплаты продления — 290 ₽ в месяц.",
-    impact: "Мест станет 5 вместо 20.", link: BILLING_URL,
+    impact: "Мест станет 5 вместо 20.", spaceUrl: BILLING_URL,
   },
   downgrade_applied: {
     date: "27 декабря", space: "Ромашка", plan: "Pro", charged: "— списали 290 ₽ за месяц",
-    seats: "4 из 5", activeRooms: "8", readOnly: "0", link: "https://app.example.com/",
+    seats: "4 из 5", activeRooms: "8", readOnly: "0", spaceUrl: "https://app.example.com/",
   },
-  autopay_disabled: { plan: "Team", space: "Ромашка", date: "27 декабря", link: BILLING_URL },
+  autopay_disabled: { plan: "Team", space: "Ромашка", date: "27 декабря", spaceUrl: BILLING_URL },
   seats_over_limit: {
     space: "Ромашка", used: "7", plan: "Pro", limit: "5", date: "11 декабря",
-    link: "https://app.example.com/?people=1",
+    spaceUrl: "https://app.example.com/?people=1",
   },
-  welcome: { name: "Анна", link: "https://app.example.com/" },
+  welcome: { name: "Анна", appUrl: "https://app.example.com/" },
 });
 
 const LINK_PARAMS = {
-  plan_activated: "link",
-  payment_recovered: "link",
-  downgrade_scheduled: "link",
-  downgrade_applied: "link",
-  autopay_disabled: "link",
-  seats_over_limit: "link",
-  welcome: "link",
+  plan_activated: "spaceUrl",
+  payment_recovered: "spaceUrl",
+  downgrade_scheduled: "spaceUrl",
+  downgrade_applied: "spaceUrl",
+  autopay_disabled: "spaceUrl",
+  seats_over_limit: "spaceUrl",
+  welcome: "appUrl",
   password_changed: "forgotLink",
   payment_succeeded: "invoiceUrl",
   operator_action: "appeal",

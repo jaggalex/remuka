@@ -9,6 +9,9 @@
  */
 import { bodyHtml, escapeHtml, money, param } from "./mail-template-kit.mjs";
 
+// The link into the space is `spaceUrl`, not `link`: `link` is reserved for one-time
+// tokens and must be sealed (`mail.mjs`), while these letters carry an ordinary address.
+
 const LABELS = {
   ru: {
     open: (space) => `Открыть «${space}»`,
@@ -68,7 +71,7 @@ function planActivated(lang, values) {
   const limits = param(values, "limits");
   const nextDate = param(values, "nextDate", { required: false });
   const nextAmount = param(values, "nextAmount", { required: false });
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   const rows = linesOf(values, "summary");
   const next = nextDate && nextAmount;
   if (lang === "ru") {
@@ -249,7 +252,7 @@ function paymentRecovered(lang, values) {
   const space = param(values, "space");
   const amount = money(values);
   const period = param(values, "period");
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   if (lang === "ru") {
     return letter({
       lang,
@@ -277,7 +280,7 @@ function downgradeScheduled(lang, values) {
   const currentPlan = param(values, "currentPlan");
   const planNote = param(values, "planNote");
   const impact = param(values, "impact", { required: false });
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   if (lang === "ru") {
     return letter({
       lang,
@@ -308,7 +311,7 @@ function downgradeApplied(lang, values) {
   const seats = param(values, "seats");
   const activeRooms = param(values, "activeRooms");
   const readOnly = param(values, "readOnly");
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   if (lang === "ru") {
     return letter({
       lang,
@@ -341,7 +344,7 @@ function autopayDisabled(lang, values) {
   const plan = param(values, "plan");
   const space = param(values, "space");
   const date = param(values, "date");
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   if (lang === "ru") {
     return letter({
       lang,
@@ -371,7 +374,7 @@ function seatsOverLimit(lang, values) {
   const plan = param(values, "plan");
   const limit = param(values, "limit");
   const date = param(values, "date");
-  const link = param(values, "link");
+  const link = param(values, "spaceUrl");
   if (lang === "ru") {
     return letter({
       lang,
