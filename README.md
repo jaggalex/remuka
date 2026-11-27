@@ -9,7 +9,7 @@ static client over PostgreSQL.
 
 ![Remuka room](spec/baselines/board.png)
 
-> **Status: 0.8.0 alpha.** The product is usable and self-hosted, but interfaces and
+> **Status: 0.9.0 alpha.** The product is usable and self-hosted, but interfaces and
 > formats may still change. It is provided **as is**, without warranty — see the
 > [disclaimer](https://docs.remuka.com/guide/en/support/disclaimer.html).
 

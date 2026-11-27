@@ -1,12 +1,16 @@
 # Changelog
 
-Ремука (Remuka) is at **0.8.0**. The user-facing history, with dates and the decisions
+Ремука (Remuka) is at **0.9.0**. The user-facing history, with dates and the decisions
 behind each step, is maintained in the product guide:
 
 - [Changelog (EN)](guide/support/changelog/en.md)
 - [История изменений (RU)](guide/support/changelog/ru.md)
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-11-27
+
+UI redesign: paper and ink, one rail and side panel, command search, the run panel.
 
 **Objects turn (ADR-271, ADR-283).** A shape, sticky note, free text, image and frame can be
 turned with the round handle above the selection: `Shift` rounds to 15°, without it the angle
