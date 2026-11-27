@@ -215,13 +215,18 @@ export function createBillingLoops({
       const start = field(subscription, "currentPeriodEnd", "current_period_end");
       const next =
         invoice.period_end ?? invoice.periodEnd ?? periodEnd(start, subscription.interval);
-      if (!subscriptionLine(invoice)?.planChange) await store.advanceSubscription({ id, periodEnd: next });
-      await safeNotify(
-        notify,
-        "payment_succeeded",
-        { orgId, subscription, invoice, attempt, dedupeKey: invoice.id },
-        log,
-      );
+      const change = subscriptionLine(invoice)?.planChange;
+      if (!change) {
+        await store.advanceSubscription({ id, periodEnd: next });
+        await safeNotify(
+          notify,
+          "payment_succeeded",
+          { orgId, subscription, invoice, attempt, dedupeKey: invoice.id },
+          log,
+        );
+      }
+      // A renewal that applies a scheduled downgrade is announced by downgrade_applied
+      // from its billing event (`billing-letters.mjs`), with the charge in the same letter.
       return { id, action: retry ? "retry" : "invoice", status: "succeeded" };
     }
 

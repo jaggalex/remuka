@@ -134,8 +134,9 @@ export function createBillingNotify({
 
   /**
    * `schedule` is the renewal schedule of a past-due subscription (`retries`, `graceEnd`,
-   * `finalAttempt`, all instants); `params` are event-specific values the caller already
-   * formatted (a downgrade's impact sentence, a seat count); `dedupeKey` names the
+   * `finalAttempt`, all instants); `params` are event-specific values, or a function that
+   * writes them from `{ locale, date, money, plan }`; `toEmail` overrides the billing
+   * address (plan letters go to each admin); `dedupeKey` names the
    * operation. Without a key the letter is not deduplicated (a test, an operator command).
    */
   return async function notify(
@@ -158,6 +159,15 @@ export function createBillingNotify({
     const periodEnd = invoice?.period_end ?? invoice?.periodEnd;
     const retries = (schedule?.retries ?? []).filter((time) => new Date(time) > at);
     const link = `${mailConfig.appOrigin}/?billing=1`;
+    // Event letters pass a function: their values need the letter's language to be written.
+    const extraParams = typeof extra === "function"
+      ? extra({
+          locale,
+          date,
+          money: (amount, currency) => formatMailMoney(amount, currency, locale),
+          plan: (code) => planLabel(code, locale),
+        })
+      : extra;
 
     const params = {
       amount: invoice ? formatMailMoney(invoice.total, invoice.currency, locale) : "",
@@ -180,7 +190,7 @@ export function createBillingNotify({
       invoiceUrl: link,
       billingUrl: link,
       failureCode: failureCode ?? "",
-      ...extra,
+      ...extraParams,
     };
     if (type === "plan_activated" && invoice) {
       const lines = Array.isArray(invoice.lines) ? invoice.lines : [];
@@ -192,10 +202,10 @@ export function createBillingNotify({
         params.nextDate = date(periodEnd);
         params.nextAmount = formatMailMoney(line.amount ?? invoice.subtotal, invoice.currency, locale);
       }
-      Object.assign(params, extra);
+      Object.assign(params, extraParams);
     }
     // Amount-bearing templates read the same `amount`; a suspension letter ignores it.
-    if (AMOUNT_TYPES.has(type) && !invoice && extra.amount === undefined) params.amount = "";
+    if (AMOUNT_TYPES.has(type) && !invoice && extraParams.amount === undefined) params.amount = "";
 
     await enqueueMail(
       store,

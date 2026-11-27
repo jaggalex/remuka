@@ -51,6 +51,7 @@ import { resolveSupportConfig } from "./support.mjs";
 import { createBillingLoops } from "./billing-renewals.mjs";
 import { createBillingCharge } from "./billing-charge.mjs";
 import { createBillingInbox } from "./billing-inbox.mjs";
+import { createBillingLetters } from "./billing-letters.mjs";
 import { createBillingNotify } from "./billing-notify.mjs";
 import { assertFakeProviderGate } from "./pay-fake.mjs";
 import { handleBilling } from "./billing-api.mjs";
@@ -354,6 +355,10 @@ const billing = createBillingLoops({
   charge: createBillingCharge(store),
   notify: billingNotify,
 });
+
+// Letters that follow a plan decision or the calendar (ADR-319): a downgrade, auto-renewal
+// off, a trial, a yearly renewal, a card. Each has a derived id, so a repeated tick is free.
+const billingLetters = createBillingLetters({ store, notify: billingNotify, log: console });
 
 // The inbound journal (`spec/payment-providers.md` §5): webhooks only record, this loop
 // applies money every two seconds and reconciles pending payments once an hour on the
@@ -720,6 +725,7 @@ server.listen(PORT, () => {
   if (databaseUrl) { filesGc.start(); roomCovers.start(); }
   if (process.env.REMO_BILLING === "on") {
     billing.start();
+    billingLetters.start();
     billingInbox.start();
   }
   // The Pulse writes in the background; the catch-up inside `start` does not block here.
@@ -742,6 +748,7 @@ const shutdown = async (signal, exitCode = 0) => {
   for (const loop of [agents, events, mail, accountPurge, legal.retention, legal.notices]) loop.stop();
   filesGc.stop(); roomCovers.stop();
   billing.stop();
+  billingLetters.stop();
   billingInbox.stop();
   pulse.loop.stop();
   pulse.peerCollector.stop();
