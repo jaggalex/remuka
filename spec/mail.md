@@ -445,6 +445,81 @@ export const MAIL_MAX_ATTEMPTS = 6;
 - `{targetKind}`: «организацию» / «комнату», `organisation` / `room`. `{expires}` — дата в
   локали письма.
 
+### Письма об оплате и тарифе (ADR-319)
+
+Нормативные тексты; макеты — Figma «Ремука — дизайн-система», «Mail · Письма». Даты — словами в
+локали письма, суммы — с символом валюты («590 ₽»), `{space}` — название пространства.
+Кнопка — первое действие из текста; та же ссылка текстом под ней.
+
+**plan_activated**
+- RU тема: `Спасибо за оплату — {plan} подключён в «{space}»`
+- RU текст: `С {date} в «{space}» действует {plan}: {limits}. {summary} Следующее списание — {nextDate}, {nextAmount}. Открыть «{space}»: {link}`
+- EN тема: `Thanks for your payment — {plan} is on for “{space}”`
+- EN текст: `From {date}, “{space}” is on {plan}: {limits}. {summary} Next charge: {nextAmount} on {nextDate}. Open “{space}”: {link}`
+- `{summary}` — строки сводки: тариф и период, зачёт (если есть), счёт, способ оплаты, «Оплачено {amount}».
+
+**payment_succeeded**
+- RU тема: `Подписка {plan} продлена до {periodEnd}`
+- RU текст: `Списали {amount} с карты •••• {last4} — «{space}» работает без перерыва. Период: {period}. Счёт {invoice}: {link}`
+- EN тема: `Your {plan} subscription is renewed until {periodEnd}`
+- EN текст: `We charged {amount} to card •••• {last4} — “{space}” carries on without a break. Period: {period}. Invoice {invoice}: {link}`
+- Только продление; покупка и повышение — `plan_activated`.
+
+**payment_failed**
+- RU тема: `Оплата за {plan} не прошла — обновите карту до {graceEnd}`
+- RU текст: `{reason}, и мы не смогли списать {amount} за продление {plan}. До {graceEnd} всё работает как прежде: комнаты, участники и данные на месте. Повторим попытку {retries}. Если оплата не пройдёт, {graceEnd} «{space}» перейдёт на Бесплатный: активными останутся {freeRooms} комнат, остальные станут только для чтения. Обновить карту: {link}`
+- EN тема: `Payment for {plan} didn't go through — update your card by {graceEnd}`
+- EN текст: `{reason}, so we couldn't charge {amount} for the {plan} renewal. Until {graceEnd} everything works as before: rooms, people and data stay. We'll try again on {retries}. If the payment still fails, on {graceEnd} “{space}” moves to Free: {freeRooms} rooms stay active, the rest become read-only. Update card: {link}`
+- `{reason}` — «Банк отклонил карту •••• {last4}» или «Платёж не прошёл», если причины нет; `{retries}` — даты повторов словами.
+
+**payment_final_attempt**
+- RU тема: `Завтра последняя попытка оплатить {plan}`
+- RU текст: `{date} ещё раз попробуем списать {amount} с карты •••• {last4}. Если не получится, {graceEnd} «{space}» перейдёт на Бесплатный: активными останутся {freeRooms} комнат из {rooms}, данные сохранятся. Обновить карту: {link}`
+- EN тема: `Tomorrow is the last try to pay for {plan}`
+- EN текст: `On {date} we'll try once more to charge {amount} to card •••• {last4}. If it fails, on {graceEnd} “{space}” moves to Free: {freeRooms} of {rooms} rooms stay active, data stays. Update card: {link}`
+
+**subscription_suspended**
+- RU тема: `«{space}» перешла на Бесплатный`
+- RU текст: `Оплата за {plan} так и не прошла, поэтому с {date} в «{space}» действует Бесплатный. Активными остались {freeRooms} комнат из {rooms}, остальные — только для чтения, экспорт работает. Участники на месте, новые приглашения закрыты. Ничего не удалено: оплата вернёт {plan} сразу. Оплатить {plan}: {link}`
+- EN тема: `“{space}” has moved to Free`
+- EN текст: `The {plan} payment never went through, so from {date} “{space}” is on Free. {freeRooms} of {rooms} rooms stay active, the rest are read-only and export still works. People stay; new invitations are paused. Nothing is deleted: paying brings {plan} back at once. Pay for {plan}: {link}`
+
+**payment_recovered**
+- RU тема: `Доступ к {plan} в «{space}» вернулся`
+- RU текст: `Оплата {amount} прошла — в «{space}» снова действует {plan}, все комнаты активны. Период: {period}. Открыть «{space}»: {link}`
+- EN тема: `{plan} is back for “{space}”`
+- EN текст: `The {amount} payment went through — “{space}” is on {plan} again and every room is active. Period: {period}. Open “{space}”: {link}`
+
+**downgrade_scheduled**
+- RU тема: `С {date} в «{space}» — {plan}`
+- RU текст: `До {date} действует {currentPlan}. {planNote} {impact} Выбрать активные комнаты или отменить изменение можно до {date}: {link}`
+- EN тема: `From {date}, “{space}” moves to {plan}`
+- EN текст: `{currentPlan} stays on until {date}. {planNote} {impact} You can choose active rooms or cancel the change until {date}: {link}`
+- `{planNote}` — «{plan} начнёт действовать после оплаты продления — {amount} в месяц.» или «Списаний больше не будет.» для Бесплатного.
+
+**downgrade_applied**
+- RU тема: `«{space}» перешла на {plan}`
+- RU текст: `С {date} в «{space}» действует {plan}{charged}. Места: {seats}. Активные комнаты: {activeRooms}; остальные {readOnly} — только для чтения, экспорт работает. Открыть «{space}»: {link}`
+- EN тема: `“{space}” is now on {plan}`
+- EN текст: `From {date}, “{space}” is on {plan}{charged}. Seats: {seats}. Active rooms: {activeRooms}; the other {readOnly} are read-only and export still works. Open “{space}”: {link}`
+- `{charged}` — « — списали {amount} за месяц» или пусто для Бесплатного.
+
+**autopay_disabled**
+- RU тема: `Автопродление {plan} выключено`
+- RU текст: `Списаний больше не будет. Доступ к {plan} в «{space}» — до {date}, потом пространство перейдёт на Бесплатный. Если выключили не вы, включите автопродление снова и сообщите администраторам пространства: {link}`
+- EN тема: `Auto-renewal for {plan} is off`
+- EN текст: `There will be no more charges. “{space}” keeps {plan} until {date}, then moves to Free. If this wasn't you, turn auto-renewal back on and tell the workspace admins: {link}`
+- Всем администраторам пространства.
+
+**seats_over_limit**
+- RU тема: `В «{space}» мест больше, чем в тарифе`
+- RU текст: `В «{space}» {used} человек, а в {plan} — {limit} мест. Никого не удаляем, но новые приглашения пока закрыты. Если до {date} не освободить места или не сменить тариф, все комнаты станут только для чтения — содержимое сохранится. Открыть участников: {link}`
+- EN тема: `“{space}” has more people than its plan allows`
+- EN текст: `“{space}” has {used} people and {plan} includes {limit} seats. Nobody is removed, but new invitations are paused. If seats aren't freed or the plan isn't changed by {date}, all rooms become read-only — their content stays. Open people: {link}`
+
+Правки существующих текстов (ADR-319, глоссарий remuka-voice): в `invitation`,
+`trial_ending`, `subscription_canceled` «организация» → «пространство», «Free» → «Бесплатный».
+
 ## 7. Интерфейс (`apps/web`)
 
 Все строки идут через `apps/web/src/i18n` (ru и en, иначе не пройдёт `tsc`). Цвета и размеры

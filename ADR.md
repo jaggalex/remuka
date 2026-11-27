@@ -12252,3 +12252,16 @@ its kind, invoice and effective access.
 A downgrade stores a scheduled price snapshot on the subscription. At the old period boundary Free takes effect without payment. A paid target is billed at its pinned price as the next renewal. It starts at the boundary on successful settlement. A failed charge retains the old access during the existing grace period. Payment attempts reuse the same invoice. Changes and renewals share the organisation lock. The same rules apply to personal and shared organisations.
 
 **Consequences.** The billing UI reads the quote, pending payment and scheduled change from the server. It does not derive amounts from displayed prices. An unknown payment outcome blocks another charge until confirmation or a terminal refusal.
+
+## ADR-319 — Billing communications: one letter per operation, fourteen days of grace, an even tone
+
+**Context (2026-11-27).** The owner asked for a thank-you letter after payment, a letter after every plan change, and a letter plus an in-app message when an automatic renewal fails, «а в UI сообщение что оплаты тарифа не удалась и через 14 дней тариф поменяется на Free». The code sent one identical `payment_succeeded` for a purchase, an upgrade and a renewal, nothing on plan changes, and suspended a past-due subscription after 7 days (retries on days 1, 3, 6). Four templates (`trial_ending`, `renewal_upcoming`, `price_change`, `payment_method_expiring`) existed but were never sent. Asked «Срок до перехода на Бесплатный … Я за 14 дней с повторами на 1-й, 3-й, 7-й и 13-й день» and «Оставляем ровный тон, как в черновике выше, или вам важна именно эмоция?», the owner answered: «1. Да - 14 дней с повторами на 1-й, 3-й, 7-й и 13-й день 2. Оставляем ровный тон, как в черновике выше … принято».
+
+**Decision.**
+1. Grace period after a failed renewal — 14 days; retries on days 1, 3, 7 and 13; suspension on day 14 (`spec/billing.md` §3.1, §3.3). The same fourteen days as for seats over the limit (§2.5).
+2. One operation — one letter. A purchase or an upgrade sends `plan_activated` («Спасибо за оплату — {plan} подключён»); a renewal sends `payment_succeeded`. New letters: `plan_activated`, `payment_final_attempt`, `payment_recovered`, `downgrade_scheduled`, `downgrade_applied`, `autopay_disabled`, `seats_over_limit`; the four unsent templates are wired. A failed renewal sends one letter on day 0 and one on the eve of the last retry, not one per retry.
+3. Tone: money is the «ровно» zone of the voice (ADR-265 §2): facts, dates, what is kept; no «грустим», no jokes, no «!». Warmth is the first fact — «до {date} всё работает как прежде».
+4. In the app: administrators see the past-due banner on every page of the space; members see nothing until the switch and then a money-free message.
+5. Letters go in the recipient's language with dates and amounts formatted for that language.
+
+**Consequences.** Change `RENEWAL_RETRIES_MS` / `RENEWAL_GRACE_MS` and their tests; add templates to `mail_outbox.template` and `mail-templates*.mjs` with RU and EN texts from `spec/mail.md` §6; fix the locale, the date and amount formatting and the retry date in `billing-notify.mjs`. Mockups: Figma «Ремука — дизайн-система», page «Mail · Письма» (M01–M25); hand-off: `remuka-internal/delivery/communications/TZ.md`.
