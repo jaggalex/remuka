@@ -17,14 +17,27 @@ const TRIAL_KEYS: [TranslationKey, TranslationKey, TranslationKey] = [
   "billing.trialLeft.many",
 ];
 
-/** «24 декабря», with the year only when it is not this one — as the letters write it. */
+/**
+ * «24 декабря», with the year only when it is not this one — as the letters write it. The
+ * day is read in UTC, like the letters (`billing-format.mjs`): a period that ends at UTC
+ * midnight must not become «23 декабря» on a computer west of Greenwich.
+ */
 export function formatDay(value: string, lang: "ru" | "en", now = new Date()): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const sameYear = date.getFullYear() === now.getFullYear();
+  const sameYear = date.getUTCFullYear() === now.getUTCFullYear();
   return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-GB", {
-    day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }),
+    day: "numeric", month: "long", timeZone: "UTC", ...(sameYear ? {} : { year: "numeric" }),
   });
+}
+
+/** «590 ₽», not «590,00 ₽»: kopecks are written only when there are some. */
+export function formatSum(minor: number, currency: string, lang: "ru" | "en"): string {
+  const whole = minor % 100 === 0;
+  return new Intl.NumberFormat(lang === "ru" ? "ru-RU" : "en-GB", {
+    style: "currency", currency, currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2,
+  }).format(minor / 100);
 }
 
 /** Whole days left in a trial, counting a started day as a day; `null` without a trial. */

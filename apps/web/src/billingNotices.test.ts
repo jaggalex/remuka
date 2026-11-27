@@ -37,7 +37,8 @@ describe("the cancelled downgrade notice (ADR-319)", () => {
   };
 
   it("names the plan that carries on and the next charge", () => {
-    expect(cancelledNotice(tr("ru") as never, current, "ru")).toMatch(/^Изменение отменено\. Team продолжится, 24 декабря( 2026 г\.)? спишем 590/);
+    // The day is UTC whatever the computer's zone (the suite also runs under TZ=America/New_York).
+    expect(cancelledNotice(tr("ru") as never, current, "ru")).toMatch(/^Изменение отменено\. Team продолжится, 24 декабря( 2026 г\.)? спишем 590\u00a0₽$/);
   });
 
   it("drops the charge when auto-renewal is off", () => {

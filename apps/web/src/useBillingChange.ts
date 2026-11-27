@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { billingApi, formatMoney, TERMS_VERSION, type BillingSubscription, type CheckoutResult, type PlanChangeQuote } from "./apiBilling";
-import { formatDay } from "./BillingStatusNotice";
+import { billingApi, TERMS_VERSION, type BillingSubscription, type CheckoutResult, type PlanChangeQuote } from "./apiBilling";
+import { formatDay, formatSum } from "./BillingStatusNotice";
 import { ApiError } from "./apiCall";
 import { checkoutErrorKey } from "./billingCheckoutError";
 import { useI18n, type TranslationKey } from "./i18n";
@@ -26,7 +26,7 @@ export function cancelledNotice(
   return t("billing.change.cancelled", {
     plan,
     date: formatDay(current.currentPeriodEnd, lang),
-    amount: formatMoney(current.amount, current.currency, lang),
+    amount: formatSum(current.amount, current.currency, lang),
   });
 }
 
