@@ -61,6 +61,20 @@
   background: var(--bg-canvas);
   font: var(--type-label);
   white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* A long organisation name ends in an ellipsis; the badge beside it stays whole. */
+.home-org-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-org-chip > .org-badge {
+  flex: none;
 }
 
 .home-org-initial {
@@ -129,10 +143,15 @@
   flex-direction: column;
   gap: var(--space-3);
   flex: 1 1 520px;
+  min-width: 0;
+  /* The marker reaches 6 % past its word; on a full-width name it must not widen the page. */
+  overflow-x: clip;
 }
 
 .home-hero h1 {
   margin: 0;
+  /* A person's name may be one long word: it breaks rather than widen the page. */
+  overflow-wrap: anywhere;
   font: var(--type-page-hero);
   letter-spacing: -0.035em;
 }
@@ -141,6 +160,7 @@
 .home-name {
   position: relative;
   display: inline-block;
+  max-width: 100%;
 }
 
 .home-name-text {
@@ -491,6 +511,12 @@
   white-space: nowrap;
   font: var(--type-subtitle);
   font-weight: 600;
+}
+
+.home-tile-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home-tile-icon {

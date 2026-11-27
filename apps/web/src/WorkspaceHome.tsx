@@ -354,7 +354,7 @@ export function WorkspaceHome({
               <span className="home-org-initial" aria-hidden="true">
                 {activeOrg.name.slice(0, 1).toUpperCase()}
               </span>
-              {activeOrg.name}
+              <span className="home-org-name">{activeOrg.name}</span>
               {activeOrg.kind === "personal" && (
                 <span className="org-badge personal">{t("org.personal")}</span>
               )}

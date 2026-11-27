@@ -94,6 +94,15 @@ export async function surfaceViolations(page: Page, surface: string, selector: s
             const a = controls[i]!;
             const b = controls[j]!;
             if (a.contains(b) || b.contains(a)) continue;
+            // A control laid over another on purpose (a tile's menu over its picture) is
+            // positioned; two controls that collide in the flow are the defect.
+            const placed = (el: Element, other: Element) => {
+              for (let x: Element | null = el; x && x !== root && !x.contains(other); x = x.parentElement) {
+                if (/absolute|fixed/.test(getComputedStyle(x).position)) return true;
+              }
+              return false;
+            };
+            if (placed(a, b) || placed(b, a)) continue;
             const p = seen(a, root);
             const q = seen(b, root);
             const w = Math.min(p.right, q.right) - Math.max(p.left, q.left);

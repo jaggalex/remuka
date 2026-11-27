@@ -184,7 +184,7 @@ export function HomeRooms({
                   <span className="home-tile-body">
                     <span className="home-tile-title">
                       {board.icon && <span className="home-tile-icon">{board.icon}</span>}
-                      {boardTitle(board)}
+                      <span className="home-tile-name">{boardTitle(board)}</span>
                     </span>
                     <span className="home-tile-meta muted">
                       {board.createdByName
