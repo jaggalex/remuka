@@ -221,4 +221,13 @@ export const ruBilling = {
   "billing.change.unavailable": "Переход пока недоступен. Проверьте текущий тариф и состояние подписки.",
   "billing.change.pending": "Платёж ещё проверяется. Второй платёж пока недоступен.",
   "billing.change.payInvoice": "Оплатить счёт · {amount}",
+  // ADR-319: the past_due banner, the member notice, the cancelled change, the trial.
+  "billing.banner.pastDue": "Оплата за {plan} не прошла. До {date} всё работает как прежде — обновите карту, чтобы пространство не перешло на Бесплатный",
+  "billing.banner.updateCard": "Обновить карту",
+  "billing.banner.memberFree": "Пространство на Бесплатном: лишние комнаты только для чтения. Тарифом управляют администраторы",
+  "billing.change.cancelled": "Изменение отменено. {plan} продолжится, {date} спишем {amount}",
+  "billing.change.cancelledPlain": "Изменение отменено. {plan} продолжится",
+  "billing.trialLeft.one": "Пробный период: остался {n} день. Выберите тариф, чтобы продолжить работу после его окончания.",
+  "billing.trialLeft.few": "Пробный период: осталось {n} дня. Выберите тариф, чтобы продолжить работу после его окончания.",
+  "billing.trialLeft.many": "Пробный период: осталось {n} дней. Выберите тариф, чтобы продолжить работу после его окончания.",
 };

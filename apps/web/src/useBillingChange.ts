@@ -1,8 +1,33 @@
 import { useEffect, useState } from "react";
-import { billingApi, TERMS_VERSION, type CheckoutResult, type PlanChangeQuote } from "./apiBilling";
+import { billingApi, formatMoney, TERMS_VERSION, type BillingSubscription, type CheckoutResult, type PlanChangeQuote } from "./apiBilling";
+import { formatDay } from "./BillingStatusBanner";
 import { ApiError } from "./apiCall";
 import { checkoutErrorKey } from "./billingCheckoutError";
-import { useI18n } from "./i18n";
+import { useI18n, type TranslationKey } from "./i18n";
+
+const PLAN_KEY: Record<string, TranslationKey> = {
+  free: "billing.plan.free", pro: "billing.plan.pro", team: "billing.plan.team",
+  business: "billing.plan.business", unlimited: "billing.plan.unlimited",
+};
+
+/**
+ * The toast after a scheduled downgrade is cancelled (ADR-319): no letter is sent, so
+ * the screen says what carries on and what the next charge is.
+ */
+export function cancelledNotice(
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string,
+  current: BillingSubscription | null | undefined,
+  lang: "ru" | "en",
+): string {
+  if (!current) return "";
+  const plan = t(PLAN_KEY[current.plan] ?? "billing.plan.free");
+  if (current.cancelAtPeriodEnd || !current.amount) return t("billing.change.cancelledPlain", { plan });
+  return t("billing.change.cancelled", {
+    plan,
+    date: formatDay(current.currentPeriodEnd, lang),
+    amount: formatMoney(current.amount, current.currency, lang),
+  });
+}
 
 type Props = {
   orgId: string;
@@ -28,6 +53,7 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
   const [quoteExpired, setQuoteExpired] = useState(false);
   const [changeAutopay, setChangeAutopay] = useState(false);
   const [paymentId, setPaymentId] = useState(() => returningPayment(orgId));
+  const [changeNotice, setChangeNotice] = useState<string | null>(null);
   const [dismissedPayment, setDismissedPayment] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,13 +123,15 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
     }
   };
 
-  const cancelScheduled = async () => {
+  const cancelScheduled = async (notice = "") => {
     if (busy) return;
     setBusy(true);
     setActionError(null);
+    setChangeNotice(null);
     try {
       await billingApi.cancelChange(orgId);
       await read();
+      if (notice) setChangeNotice(notice);
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : "";
       setActionError(t(checkoutErrorKey(code)));
@@ -113,5 +141,5 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
   };
 
   return { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay, paymentId,
-    dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled };
+    dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled, changeNotice };
 }

@@ -115,6 +115,10 @@ export interface OrgBilling {
    */
   storage: { usedBytes: number; limitBytes: number | null };
   subscription: BillingSubscription | null;
+  /** Whether the viewer is an admin of the space: the past_due banner is theirs (ADR-319). */
+  viewerIsAdmin?: boolean;
+  /** The day a past-due space moves to Free; `null` while the plan is paid. */
+  graceEnd?: string | null;
   currency: string | null;
   /** Rooms the plan cannot keep active. Empty until the chooser ships (server §6). */
   frozenRooms: string[];

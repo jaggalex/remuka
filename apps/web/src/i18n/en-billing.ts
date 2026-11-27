@@ -223,4 +223,13 @@ export const enBilling = {
   "billing.change.unavailable": "This change isn't available. Check the current plan and subscription status.",
   "billing.change.pending": "A payment is being checked. Another payment is unavailable for now.",
   "billing.change.payInvoice": "Pay invoice · {amount}",
+  // ADR-319: the past_due banner, the member notice, the cancelled change, the trial.
+  "billing.banner.pastDue": "The {plan} payment didn't go through. Until {date} everything works as before — update your card so the workspace doesn't move to Free",
+  "billing.banner.updateCard": "Update card",
+  "billing.banner.memberFree": "The workspace is on Free: rooms beyond the plan are read-only. Admins manage the plan",
+  "billing.change.cancelled": "Change cancelled. {plan} carries on; we'll charge {amount} on {date}",
+  "billing.change.cancelledPlain": "Change cancelled. {plan} carries on",
+  "billing.trialLeft.one": "Trial: {n} day left. Choose a plan to keep working after it ends.",
+  "billing.trialLeft.few": "Trial: {n} days left. Choose a plan to keep working after it ends.",
+  "billing.trialLeft.many": "Trial: {n} days left. Choose a plan to keep working after it ends.",
 };

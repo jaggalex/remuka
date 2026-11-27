@@ -10,6 +10,7 @@
  * `REMO_BILLING=off` is the self-host default. Every route in this family is then a
  * `404`, not an empty catalogue: the feature is absent, not "not configured yet".
  */
+import { renewalSchedule } from "./billing-renewals.mjs";
 import { billingEnabled, entitlementsFor, entitlementsFromSubscription } from "./billing.mjs";
 import { handleFakeBilling } from "./billing-fake-api.mjs";
 import { checkPromo, handleCheckoutRoutes } from "./billing-checkout-api.mjs";
@@ -405,6 +406,12 @@ export async function handleBilling({
       credit,
       cancelAtPeriodEnd: isAdmin && Boolean(subscription?.cancel_at_period_end),
       trialEnd: subscription?.trial_end ?? null,
+      // The past_due banner names the day the space moves to Free (ADR-319, §8.5), and
+      // only admins see it: the client cannot work either out for itself.
+      viewerIsAdmin: isAdmin,
+      graceEnd: subscription?.status === "past_due"
+        ? (renewalSchedule(subscription.past_due_since)?.graceEnd ?? null)
+        : null,
       // Per-room freeze state comes from the access-filtered directory.
       frozenRooms: [],
       ...(isAdmin ? { frozenCount } : {}),

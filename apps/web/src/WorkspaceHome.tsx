@@ -24,6 +24,7 @@ import { NewBoardDialog } from "./NewBoardDialog";
 import { OrganisationEntry } from "./OrganisationPage";
 import { SessionsDialog } from "./SessionsDialog";
 import { AccountDeletionBanner } from "./AccountDeletion";
+import { BillingStatusBanner } from "./BillingStatusBanner";
 import type { DeletionSchedule } from "./accountDeletionApi";
 import { AccountMenu } from "./topbar/AccountMenu";
 import { InterfaceToggles } from "./topbar/InterfaceToggles";
@@ -330,6 +331,7 @@ export function WorkspaceHome({
   return (
     <div className="home">
       <AccountDeletionBanner schedule={deletion} onCancelled={() => setDeletion(null)} />
+      <BillingStatusBanner orgId={me ? (activeOrg?.id ?? null) : null} onOpenBilling={() => { setOrgTab("billing"); setOrgTargetId(null); setOrgOpen(true); }} />
       <header className="home-topbar">
         <div className="home-topbar-inner">
         <a className="home-brand" href="/" aria-label={t("boards.title")}>

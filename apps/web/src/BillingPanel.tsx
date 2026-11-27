@@ -28,7 +28,8 @@ import {
 import { ApiError } from "./apiCall";
 import { billingReturnUrl } from "./organisationRoute";
 import { BillingPaymentMethod } from "./BillingPaymentMethod";
-import { useBillingChange } from "./useBillingChange";
+import { trialDaysLeft, trialKey } from "./BillingStatusBanner";
+import { cancelledNotice, useBillingChange } from "./useBillingChange";
 import { BillingChangePayment, BillingChangeQuote, BillingScheduledChange } from "./BillingPlanChange";
 import { BillingRooms } from "./BillingRooms";
 import { checkoutErrorKey } from "./billingCheckoutError";
@@ -242,7 +243,7 @@ export function BillingPanel({
   const billingCurrency = data?.currency ?? null;
   const canBuy = isOrgAdmin;
   const { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay,
-    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled } = useBillingChange({
+    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled, changeNotice } = useBillingChange({
     orgId, method, busy, setBusy, setActionError, setCheckout, setChoosing, read, refreshChange,
   });
   const isChanging = data?.subscription?.status === "active" && data.plan !== "free";
@@ -455,7 +456,7 @@ export function BillingPanel({
     <section className="billing-panel">
       {error && <p className="auth-error">{error}</p>}
       {actionError && <p className="auth-error" role="alert">{actionError}</p>}
-
+      {changeNotice && <p className="billing-change-notice" role="status">{changeNotice}</p>}
       {isOrgAdmin && showPayment && (
         <BillingChangePayment key={showPayment} orgId={orgId} paymentId={showPayment}
           onSettled={refreshChange}
@@ -465,7 +466,7 @@ export function BillingPanel({
       {data.scheduledChange && subscription && (
         <BillingScheduledChange change={data.scheduledChange} current={subscription}
           canCancel={!busy && Date.parse(data.scheduledChange.at) > Date.now()}
-          onCancel={() => void cancelScheduled()}>
+          onCancel={() => void cancelScheduled(cancelledNotice(t, subscription, lang))}>
           {data.changeInvoice && !data.pendingPlanPayment && (
             <>
               <Segmented label={t("billing.method")} value={method} onChange={setMethod}
@@ -482,7 +483,7 @@ export function BillingPanel({
       <section className="billing-status-card" data-status={status}>
         <div>
           <strong>{planLabel(data.plan)}</strong>
-          <p>{t(hint)}</p>
+          <p>{status === "trial" && trialDaysLeft(data.subscription?.trialEnd) !== null ? t(trialKey(lang, trialDaysLeft(data.subscription?.trialEnd)!), { n: trialDaysLeft(data.subscription?.trialEnd)! }) : t(hint)}</p>
         </div>
         {canBuy && (
           <Button variant="primary" onClick={onAction} disabled={busy || Boolean(data.pendingPlanPayment)}>{t(action)}</Button>

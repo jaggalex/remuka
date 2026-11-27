@@ -319,6 +319,9 @@ suite("billing subscription routes (ADR-247 §3.4, §6)", () => {
     expect(before.body.credit).toBeNull();
     expect(before.body.cancelAtPeriodEnd).toBe(false);
     expect(before.body.trialEnd).toBeNull();
+    // The banner inputs of ADR-319: who is looking, and no grace while the plan is paid.
+    expect(before.body.viewerIsAdmin).toBe(true);
+    expect(before.body.graceEnd).toBeNull();
     const raw = JSON.stringify(before.body);
     expect(raw).not.toContain("pm_");
     expect(raw).not.toContain("ciphertext");
@@ -391,6 +394,7 @@ suite("billing subscription routes (ADR-247 §3.4, §6)", () => {
         expect(view.body.rooms).toEqual([{ boardId, title, bytes: stored + cover }]);
         const plan = await call(`/orgs/${org.id}/billing`, { cookie: memberCookie });
         expect(plan.body.storage.usedBytes).toBe(stored + cover);
+        expect(plan.body.viewerIsAdmin).toBe(false);
         expect((await call(`/orgs/${org.id}/storage`, { cookie: memberCookie })).status).toBe(403);
       }
     } finally {

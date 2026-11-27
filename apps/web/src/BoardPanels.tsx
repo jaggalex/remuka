@@ -7,6 +7,7 @@ import { TagsPanel } from "./BoardObjectPanels";
 import { TidyDialog } from "./TidyDialog";
 import type { TidyCommand } from "./useTidyCommand";
 import { BoardDeleteDialog } from "./BoardDeleteDialog";
+import { BillingStatusBanner } from "./BillingStatusBanner";
 import { OrganisationEntry } from "./OrganisationPage";
 import { SettingsPanel } from "./SettingsPanel";
 import { useI18n } from "./i18n";
@@ -109,6 +110,8 @@ function PanelsBody({
   useEffect(() => onBillingTabRequest(() => setBillingOpen(true)), []);
   return (
     <>
+      {/* ADR-319: the past_due banner and the member notice follow the person into the room. */}
+      {me && <div className="room-billing-banner"><BillingStatusBanner orgId={boardOrgId} onOpenBilling={() => setBillingOpen(true)} /></div>}
       {me && (
         <OrganisationEntry
           open={accountOpen || billingOpen}
