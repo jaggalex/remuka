@@ -16,8 +16,8 @@ export function aiExports({ ordered, sections, brand, guide, app, updated, schem
       ? `Обновлено: ${updated}. Версия схемы: ${schema}. Страниц: ${ordered.length}.`
       : `Content updated: ${updated}. Schema version: ${schema}. Pages: ${ordered.length}.`;
     const intro = ru
-      ? "Публичное руководство по совместной работе в Ремуке."
-      : "Public documentation for teams working together in Remuka.";
+      ? `Публичное руководство по совместной работе в ${brand.cases?.ru?.prepositional ?? brand.name.ru}.`
+      : `Public documentation for teams working together in ${brand.name.en}.`;
     const map = [`# ${title}`, "", `> ${intro}`, "",
       `${ru ? "Полный текст" : "Full text"}: ${guide}/llms-full.${locale}.txt`, date, ""];
     const full = [ru ? `# Документация: ${title}` : `# ${title} documentation`, "",
