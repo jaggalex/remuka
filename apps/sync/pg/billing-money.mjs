@@ -110,6 +110,8 @@ export const billingMoneyMethods = {
         `select o.name, o.kind,
                 (select count(*)::int from boards b
                   where b.org_id = o.id and b.archived_at is null) as rooms,
+                (select count(*)::int from boards b
+                  where b.org_id = o.id and b.archived_at is null and b.frozen_at is not null) as frozen,
                 (select pm.display->>'last4' from payment_methods pm
                   where pm.org_id = o.id and pm.state = 'active'
                   order by pm.created_at desc, pm.id desc limit 1) as last4
@@ -118,7 +120,7 @@ export const billingMoneyMethods = {
       );
       const row = rows[0];
       return row
-        ? { name: row.name, kind: row.kind, rooms: row.rooms, last4: row.last4 ?? null }
+        ? { name: row.name, kind: row.kind, rooms: row.rooms, frozen: row.frozen, last4: row.last4 ?? null }
         : null;
     });
   },
