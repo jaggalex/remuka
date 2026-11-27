@@ -517,6 +517,13 @@ export const MAIL_MAX_ATTEMPTS = 6;
 - EN тема: `“{space}” has more people than its plan allows`
 - EN текст: `“{space}” has {used} people and {plan} includes {limit} seats. Nobody is removed, but new invitations are paused. If seats aren't freed or the plan isn't changed by {date}, all rooms become read-only — their content stays. Open people: {link}`
 
+**welcome**
+- RU тема: `Добро пожаловать в {product}`
+- RU текст: `Здравствуйте, {name}! Почта подтверждена — можно собирать первую комнату и звать коллег. 1. Создайте комнату — пустую или из шаблона ретро. 2. Позовите коллег: ссылкой или по почте. 3. Включите таймер в «Провести» — и начинайте. Открыть {product}: {link} Появился вопрос — просто ответьте на это письмо, его прочитает человек.`
+- EN тема: `Welcome to {product}`
+- EN текст: `Hi {name}, your email is confirmed — you can start your first room and invite people. 1. Create a room — blank or from the retro template. 2. Invite people by link or by email. 3. Turn on the timer in Run — and begin. Open {product}: {link} Got a question? Just reply to this email — a person reads it.`
+- Один раз, после первого подтверждения почты. Единственное письмо громкой зоны с «!» в заголовке.
+
 Правки существующих текстов (ADR-319, глоссарий remuka-voice): в `invitation`,
 `trial_ending`, `subscription_canceled` «организация» → «пространство», «Free» → «Бесплатный».
 
