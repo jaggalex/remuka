@@ -47,3 +47,14 @@ for (const width of [1440, 390]) {
     await expect(field).toHaveValue("");
   });
 }
+
+/** On a phone the panel covers the canvas; while a new comment is being placed it steps aside. */
+test("a new comment can be placed on a phone", async ({ page }) => {
+  await freshBoard(page, "comments-phone", { template: "empty" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openComments(page);
+  await page.locator(".comments-panel").getByRole("button", { name: "New comment" }).click();
+  await expect(page.locator(".comments-panel")).toBeHidden();
+  await page.mouse.click(120, 420);
+  await expect(page.getByRole("dialog", { name: "New comment" })).toBeVisible();
+});

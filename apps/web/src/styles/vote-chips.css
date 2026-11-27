@@ -337,6 +337,12 @@ button.peer:disabled {
   .comments-panel { animation: none; }
 }
 
+/* On a narrow screen the panel covers the canvas, so while a new comment is being
+   placed it steps aside and comes back with the composer. */
+@media (max-width: 719px) {
+  .comments-panel.is-placing { display: none; }
+}
+
 .comments-panel header {
   display: flex;
   align-items: center;
@@ -749,10 +755,12 @@ html[data-motion="calm"] .reaction-burst {
   margin-top: var(--space-2);
 }
 
+/* Placing a comment is a mode: it sits over the canvas and its prompts (the empty-room
+   start is on the bar level) until a click places the pin or Escape cancels. */
 .comment-placement {
   position: fixed;
   inset: 0;
-  z-index: var(--z-canvas-overlay);
+  z-index: calc(var(--z-bar) + 1);
   cursor: crosshair;
 }
 

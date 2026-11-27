@@ -337,7 +337,7 @@ export function CommentsPanel({
 
       {open && (
         <aside
-          className="comments-panel"
+          className={placing ? "comments-panel is-placing" : "comments-panel"}
           aria-label={t("comments.title")}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
