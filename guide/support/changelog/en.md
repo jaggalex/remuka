@@ -13,6 +13,22 @@ installations (ADR-254). A backup made by an older version still restores, and a
 written as `.remuka-backup.json`. An installation's own name is set with
 `REMO_PRODUCT_NAME`.
 
+## Version 0.9.0
+
+Version 0.9.0 is the redesign of the interface: paper and ink, one tool rail, one side panel, a command search and the run panel. Schema 42.
+
+- **Paper and ink.** The chrome, the canvas and the objects share one look in the light and the dark theme. The colour of text, lines and icons follows the surface they lie on, so a room reads in both themes; a colour you chose yourself is kept and gets a thin halo when it is hard to read.
+- **One rail and one side panel.** Seven tools and **More** (card, table, kanban, comment, templates) sit in one rail with undo and redo; a tool remembers its last colour or kind. Each selection has its own short bar ending with **…**, which opens the properties. Properties, comments and the agent share one side panel, and `Esc` closes it.
+- **Shapes.** Rectangle, rounded rectangle, ellipse, diamond and triangle; the kind changes in place and keeps text, style and connectors. A drag draws a shape to size (`Shift` for a square or a circle, `Alt` from the centre).
+- **Turning objects.** A shape, sticky note, text, image and frame turn with the round handle above the selection; `Shift` rounds to 15°, `⌘⇧←`/`⌘⇧→` turn by 15°.
+- **Command search.** `⌘K` finds any action of the room; the canvas menu is built from the same list.
+- **The run panel.** **Run** opens **Timer**, **Vote**, **Follow** and **Show** in one panel. The **Show** tab names every slide in words — an unnamed frame reads «Frame without a name» — and long names stay inside the panel.
+- **Reactions.** A reaction stays readable for five seconds, floats straight up and then fades; with calm animations it holds in place and fades.
+- **Comments.** Thread text is set for reading, the reply field is wide, `Enter` sends and `Shift+Enter` starts a new line. A new comment can be placed on a phone too.
+- **Keys with a panel open.** Room shortcuts (`⌘D`, `⌘Z` and others) work while the run panel, the comments or the properties stay open; they pause only in a dialog, a menu or a field.
+- **Calm animations and hints.** **Calm animations** is an account setting. A hint stops showing once you have used its action a few times, and **Show the hints again** brings them back.
+- **Screens.** Sign-up, the home page, the empty room and the invitation follow the new mockups; long room and organisation names stay inside the page.
+
 ## Version 0.8.0
 
 Everything listed under 0.5.0–0.8.0 shipped as one release, **0.8.0** (22 November 2026).

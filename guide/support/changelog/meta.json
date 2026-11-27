@@ -17,11 +17,11 @@
     "capabilities/apps",
     "admin/deploy"
   ],
-  "updated": "2026-11-22",
+  "updated": "2026-11-26",
   "translations": {
     "en": {
-      "sourceHash": "sha256:91ca9f700df9957072b5a72261a08ab3fee1298625b02d118a971a98ff5bd028",
-      "targetHash": "sha256:b7a714e25f5966d642167b62f45997a01a719c3925aa5c934146fcf4acc96826"
+      "sourceHash": "sha256:b7777ff81564d3fc16261b745e9f171419cdda1992af6736fbe5e083d7f2d994",
+      "targetHash": "sha256:1f0d76e8dd52c7fac2e6329b4869113c56b224370fa86ca026d1acf9fd335198"
     }
   }
 }
