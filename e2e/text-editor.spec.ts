@@ -128,12 +128,12 @@ test("a heading from `# ` ends at Enter, Tab starts a list and ⌘⌥2 toggles a
   });
 
   // The second line gets a heading from the keyboard, and the same keys remove it.
-  await page.keyboard.press("Meta+Alt+2");
+  await page.keyboard.press("ControlOrMeta+Alt+2");
   await expect(editor.locator(':scope > div[data-block="h2"]')).toHaveText("обычная строка");
   await expect.poll(() => noteView(page)).toMatchObject({
     lines: [{ block: "h1" }, { block: "h2" }],
   });
-  await page.keyboard.press("Meta+Alt+2");
+  await page.keyboard.press("ControlOrMeta+Alt+2");
   await expect.poll(() => noteView(page)).toMatchObject({
     lines: [{ block: "h1" }, { block: null }],
   });
@@ -145,22 +145,22 @@ test("⌘⇧7 numbers the line and is exactly one undo step", async ({ page }) =
   // Let the typing undo step close, so undo can only take the format step.
   await page.waitForTimeout(500);
 
-  await page.keyboard.press("Meta+Shift+7");
+  await page.keyboard.press("ControlOrMeta+Shift+7");
   await expect(editor.locator(':scope > div[data-block="ordered"]')).toHaveCount(1);
   await expect.poll(() => noteView(page)).toMatchObject({
     lines: [{ block: "ordered", ordinal: 1, text: "строка" }],
   });
 
   // The repeat takes the format away.
-  await page.keyboard.press("Meta+Shift+7");
+  await page.keyboard.press("ControlOrMeta+Shift+7");
   await expect.poll(() => noteView(page)).toMatchObject({ text: "строка", lines: [] });
 
   // Set it again, leave the editor, and undo once: the text stays, the format goes.
-  await page.keyboard.press("Meta+Shift+7");
+  await page.keyboard.press("ControlOrMeta+Shift+7");
   await expect.poll(() => noteView(page)).toMatchObject({ lines: [{ block: "ordered" }] });
   await page.keyboard.press("Escape");
   await expect(page.locator(".inline-editor")).toHaveCount(0);
-  await page.keyboard.press("Meta+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(() => noteView(page)).toMatchObject({ text: "строка", lines: [] });
 });
 
@@ -174,7 +174,7 @@ test("⌘⇧9 and `[ ] ` make a checklist", async ({ page }) => {
   // Enter in an empty check item leaves the list; the shortcut makes the next one.
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
-  await page.keyboard.press("Meta+Shift+9");
+  await page.keyboard.press("ControlOrMeta+Shift+9");
   await page.keyboard.type("сок");
 
   await expect.poll(() => noteView(page)).toMatchObject({
@@ -192,7 +192,7 @@ test("Backspace at the start unwraps a list: level first, then the format", asyn
   await page.keyboard.press("Tab");
   await expect.poll(() => noteView(page)).toMatchObject({ lines: [{ indent: 1 }] });
 
-  await page.keyboard.press("Meta+ArrowLeft");
+  await page.keyboard.press("ControlOrMeta+ArrowLeft");
   await page.keyboard.press("Backspace");
   await expect.poll(() => noteView(page)).toMatchObject({
     lines: [{ block: "bullet", indent: 0, text: "пункт" }],

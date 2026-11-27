@@ -224,8 +224,8 @@ test("copying formatted text and pasting it into another note keeps the lines", 
   await page.keyboard.type("one");
   await page.keyboard.press("Enter");
   await page.keyboard.type("two");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+Shift+8");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+Shift+8");
   await expect(page.locator(".inline-editor [data-block=bullet]")).toHaveCount(2);
 
   const payload = await copySelection(page);
@@ -259,7 +259,7 @@ test("a remo fragment pasted into an open note becomes objects, not text", async
   const [alpha] = await selectedIds(page);
   const point = await pointOf(page, alpha!);
   await page.mouse.click(point.x, point.y);
-  await page.keyboard.press("Meta+c");
+  await page.keyboard.press("ControlOrMeta+c");
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain("remo/fragment");
@@ -267,7 +267,7 @@ test("a remo fragment pasted into an open note becomes objects, not text", async
   // A second note with its own text stays as it is; the objects land beside it.
   await openNote(page);
   await page.locator(".inline-editor").fill("beta");
-  await page.keyboard.press("Meta+v");
+  await page.keyboard.press("ControlOrMeta+v");
 
   await expect.poll(async () => (await notes(page)).length).toBe(3);
   const all = await notes(page);
@@ -280,9 +280,9 @@ test("⌘⇧X strikes the selection and keeps the text", async ({ page }) => {
   await freshBoard(page, "text-strike", { template: "empty" });
   await openNote(page);
   await page.locator(".inline-editor").fill("note");
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
 
-  await page.keyboard.press("Meta+Shift+X");
+  await page.keyboard.press("ControlOrMeta+Shift+X");
 
   await expect(page.locator(".inline-editor s, .inline-editor strike")).toHaveText("note");
   await expect.poll(() => noteText(page)).toBe("note");
@@ -292,11 +292,11 @@ test("⌘\\ clears the marks of the selection and keeps the text", async ({ page
   await freshBoard(page, "text-clear-format", { template: "empty" });
   await openNote(page);
   await page.locator(".inline-editor").fill("note");
-  await page.keyboard.press("Meta+a");
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+b");
   await expect(page.locator(".inline-editor b")).toHaveCount(1);
 
-  await page.keyboard.press("Meta+Backslash");
+  await page.keyboard.press("ControlOrMeta+Backslash");
 
   await expect(page.locator(".inline-editor b")).toHaveCount(0);
   await expect.poll(() => noteText(page)).toBe("note");
