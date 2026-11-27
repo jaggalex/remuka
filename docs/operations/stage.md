@@ -168,12 +168,18 @@ After every rendered-file change: `docker exec stage-nginx nginx -t && docker ex
 stage-nginx nginx -s reload`. The template uses `http2 on;` (nginx 1.25.1+); an older
 distribution nginx needs `listen 443 ssl http2` instead.
 
+When Caddy terminates TLS for `app.stage.remuka.ru`, the Nginx app vhost must trust
+only that proxy. Use its Docker DNS name (`set_real_ip_from remo-edge;` on the shared
+host) with `real_ip_header X-Forwarded-For;`. Forward the resulting `$remote_addr`
+to the app so YooKassa's sender check sees the original address. Reload Nginx after
+recreating the edge container so it resolves the name again.
+
 What the template guarantees (`spec/stage.md` §4.1):
 
 - `auth_basic` on all four hosts of both zones, one shared `htpasswd`.
-- No basic auth on exactly two application paths: `/api/billing/webhooks/` (the provider
-  cannot send a password; the handler verifies the signature) and `/api/health` (the release
-  script's check). `/mcp` and the agent routes stay behind it. The ACME challenge paths are
+- No basic auth on exactly two application paths, `/api/billing/webhooks/` and
+  `/api/health`. The app verifies provider notifications and the release script checks
+  health. `/mcp` and the agent routes stay behind basic auth. The ACME challenge paths are
   also open: a certificate authority does not log in.
 - `X-Robots-Tag: noindex, nofollow` on every host and a `robots.txt` with `Disallow: /`.
 - `/sync/` passes through with the upgrade headers; the credentials the browser used for the

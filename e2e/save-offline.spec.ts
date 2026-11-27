@@ -1,6 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { freshBoard, objectCount } from "./helpers";
 import { PROXY_PORT } from "./ports";
+
+async function setRoomOffline(page: Page, boardId: string, offline: boolean) {
+  const action = offline ? "pause" : "resume";
+  const control = `http://localhost:${PROXY_PORT}/__control/${action}?board=${encodeURIComponent(boardId)}`;
+  expect((await page.request.post(control)).ok()).toBe(true);
+}
 
 /**
  * Offline is a socket condition, not an HTTP one (ADR-084, ADR-266 §3).
@@ -17,7 +23,8 @@ test("an offline edit is queued and replayed after reconnect", async ({ page }) 
   // does not affect localhost. The port follows the run (ADR-130).
   const offlineNotice = page.locator(".offline-notice[role=status]");
   try {
-    expect((await page.request.post(`http://localhost:${PROXY_PORT}/__control/pause`)).ok()).toBe(true);
+    await setRoomOffline(page, boardId, true);
+    expect((await page.request.get("/api/health")).ok()).toBe(true);
     await expect(page.locator(".save-state")).toHaveAttribute("data-state", "offline", {
       timeout: 2_000,
     });
@@ -48,7 +55,7 @@ test("an offline edit is queued and replayed after reconnect", async ({ page }) 
     expect(await banner.evaluate((element) => element.isConnected)).toBe(true);
     await expect(chip).toHaveText("No connection · " + queued);
   } finally {
-    expect((await page.request.post(`http://localhost:${PROXY_PORT}/__control/resume`)).ok()).toBe(true);
+    await setRoomOffline(page, boardId, false);
   }
   await expect(page.locator(".save-state")).toHaveAttribute("data-state", "saved", {
     timeout: 30_000,
@@ -76,7 +83,7 @@ test("an offline reader on a phone sees when shared changes will return", async 
     await name.getByRole("textbox").press("Enter");
     await expect(reader.locator(".save-state")).toHaveAttribute("data-state", "saved");
     await expect(reader.locator(".rm-readonly")).toBeVisible();
-    expect((await page.request.post(`http://localhost:${PROXY_PORT}/__control/pause`)).ok()).toBe(true);
+    await setRoomOffline(page, account.boardId, true);
     await expect(reader.locator(".save-state")).toHaveText("Нет связи");
     await expect(reader.locator(".offline-notice[role=status]")).toHaveText(
       "Нет связи. Новые изменения появятся, когда соединение восстановится.",
@@ -88,7 +95,7 @@ test("an offline reader on a phone sees when shared changes will return", async 
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);
   } finally {
-    await page.request.post(`http://localhost:${PROXY_PORT}/__control/resume`);
+    await setRoomOffline(page, account.boardId, false);
     await guest.close();
   }
 });

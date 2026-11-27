@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import type { AgentPlan, AppliedAgentPlan, BoardDocument, PlanWarning, TidyStrategy } from "@remo/doc";
 import { useMediaQuery } from "./useMediaQuery";
 import type { Widget } from "@remo/model";
@@ -138,6 +138,13 @@ export function AgentPlanPanel({
   }, [load]);
 
   const status = data?.status ?? "proposed";
+  useLayoutEffect(() => {
+    // React has committed the replacement for Apply. Opening an old result still
+    // uses the panel's initial focus.
+    if (status === "applied" && (applied.current || appliedElsewhere)) {
+      document.getElementById(showOnBoardId)?.focus();
+    }
+  }, [status, appliedElsewhere, showOnBoardId]);
   const open = status === "proposed" || status === "approved";
   const isTidy = data?.task.skillSlug === "tidy-selection";
   const objects = data?.plan?.objects ?? [];
@@ -265,9 +272,6 @@ export function AgentPlanPanel({
             );
             setAppliedElsewhere(true);
             onApplied();
-            window.requestAnimationFrame(() => {
-              document.getElementById(showOnBoardId)?.focus();
-            });
             return;
           }
         }
@@ -303,11 +307,6 @@ export function AgentPlanPanel({
           : current,
       );
       onApplied();
-      // The Apply button is gone; without this the focus falls to the page behind the
-      // dialog. "Show on board" is the next action, so it takes the focus.
-      window.requestAnimationFrame(() => {
-        document.getElementById(showOnBoardId)?.focus();
-      });
     } catch (failure) {
       setError(planFailureText(failure, t));
     } finally {

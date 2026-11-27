@@ -3,10 +3,9 @@
  * A controllable proxy in front of the sync service, for the offline scenario (ADR-090).
  *
  * Chromium's offline emulation does not affect connections to localhost, so a local e2e
- * run cannot lose its WebSocket by `setOffline`. This proxy can be paused over HTTP: it
- * refuses new requests, destroys live sockets, and resumes on command — the same
- * observable condition as a tunnel going away. It exists only in the test harness and is
- * never part of the product.
+ * run cannot lose its WebSocket by `setOffline`. The proxy can drop and refuse WebSockets
+ * for one room while other tests keep using HTTP and their own room connections. It exists
+ * only in the test harness.
  */
 import { createServer, request as httpRequest } from "node:http";
 import net from "node:net";
@@ -16,32 +15,35 @@ const TARGET = new URL(process.env.E2E_PROXY_TARGET ?? "http://localhost:1235");
 const targetPort = Number(TARGET.port);
 const targetHost = TARGET.hostname;
 
-let paused = false;
-const live = new Set();
+const pausedRooms = new Set();
+const live = new Map();
 
-function control(request, response) {
-  if (request.url === "/__control/pause") paused = true;
-  else if (request.url === "/__control/resume") paused = false;
-  else {
+function control(request, response, url) {
+  const boardId = url.searchParams.get("board");
+  const pause = url.pathname === "/__control/pause";
+  const resume = url.pathname === "/__control/resume";
+  if (request.method !== "POST" || !boardId || (!pause && !resume)) {
     response.writeHead(404, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ error: "unknown control" }));
     return;
   }
-  if (paused) {
-    for (const socket of live) socket.destroy();
-    live.clear();
+  const room = `/${encodeURIComponent(boardId)}`;
+  if (pause) {
+    pausedRooms.add(room);
+    for (const [socket, path] of live) {
+      if (path === room) socket.destroy();
+    }
+  } else {
+    pausedRooms.delete(room);
   }
   response.writeHead(200, { "Content-Type": "application/json" });
-  response.end(JSON.stringify({ paused }));
-  console.log(`[e2e-proxy] ${paused ? "paused" : "resumed"}`);
+  response.end(JSON.stringify({ paused: pause }));
+  console.log(`[e2e-proxy] ${pause ? "paused" : "resumed"} ${room}`);
 }
 
 const server = createServer((request, response) => {
-  if (request.url?.startsWith("/__control/")) return control(request, response);
-  if (paused) {
-    response.writeHead(503, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ error: "OFFLINE_FOR_TEST" }));
-    return;
+  if (request.url?.startsWith("/__control/")) {
+    return control(request, response, new URL(request.url, TARGET));
   }
   const upstream = httpRequest(
     {
@@ -61,7 +63,8 @@ const server = createServer((request, response) => {
 });
 
 server.on("upgrade", (request, socket, head) => {
-  if (paused) {
+  const room = new URL(request.url, TARGET).pathname;
+  if (pausedRooms.has(room)) {
     socket.destroy();
     return;
   }
@@ -74,8 +77,8 @@ server.on("upgrade", (request, socket, head) => {
     socket.pipe(upstream);
     upstream.pipe(socket);
   });
-  live.add(socket);
-  live.add(upstream);
+  live.set(socket, room);
+  live.set(upstream, room);
   const clean = () => {
     live.delete(socket);
     live.delete(upstream);

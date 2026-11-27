@@ -1,9 +1,13 @@
+import { randomBytes } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 
 export const PASSWORD = "e2e-password-123";
 
 function uniqueEmail(tag: string): string {
-  return `e2e-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
+  // Signup derives the handle from at most 32 characters of the local part.
+  const label = tag.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 7);
+  const local = ["e2e", randomBytes(10).toString("hex"), label].filter(Boolean).join("-");
+  return `${local}@example.com`;
 }
 
 export interface Account {
