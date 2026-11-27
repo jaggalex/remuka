@@ -100,31 +100,6 @@ function jsonValue(value) {
 }
 
 export const billingMoneyMethods = {
-  /**
-   * What a billing letter says about the space (ADR-319): its name or «Личное», how many
-   * rooms it has, and the last four digits of the card that pays. One read, under the tenant.
-   */
-  async billingLetterFacts(orgId) {
-    return this.withTenant(orgId, async () => {
-      const { rows } = await this.pool.query(
-        `select o.name, o.kind,
-                (select count(*)::int from boards b
-                  where b.org_id = o.id and b.archived_at is null) as rooms,
-                (select count(*)::int from boards b
-                  where b.org_id = o.id and b.archived_at is null and b.frozen_at is not null) as frozen,
-                (select pm.display->>'last4' from payment_methods pm
-                  where pm.org_id = o.id and pm.state = 'active'
-                  order by pm.created_at desc, pm.id desc limit 1) as last4
-           from orgs o where o.id = $1`,
-        [orgId],
-      );
-      const row = rows[0];
-      return row
-        ? { name: row.name, kind: row.kind, rooms: row.rooms, frozen: row.frozen, last4: row.last4 ?? null }
-        : null;
-    });
-  },
-
   async billingAccount(orgId) {
     const { rows } = await this.pool.query(
       "select * from billing_accounts where org_id = $1",
