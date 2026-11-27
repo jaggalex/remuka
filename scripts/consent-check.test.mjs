@@ -206,6 +206,7 @@ describe("consent check: the real tree", () => {
       "remo.inspector",
       "remo.moveBanner.dismissed",
       "remo.verifyBanner.*",
+      "remo.billingNotice.*",
       "remo_session",
       "remo_csrf",
       "remo_link_unlock",
@@ -213,6 +214,6 @@ describe("consent check: the real tree", () => {
     ]) {
       expect(names, `${expected} is used by the code`).toContain(expected);
     }
-    expect(result.entries).toBe(24);
+    expect(result.entries).toBe(25);
   });
 });

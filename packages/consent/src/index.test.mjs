@@ -41,6 +41,7 @@ describe("the storage registry (ADR-255 §2)", () => {
     expect(names).toEqual(
       [
         "guide.theme",
+        "remo.billingNotice.*",
         "remo.canvas.hint",
         "remo.commands.recent",
         "remo.identity",
