@@ -11,6 +11,7 @@
  * email and the webhook has no session. No address means no letter, which is the honest
  * state, not an error that would block the money.
  */
+import { formatMailDate, formatMailMoney } from "./billing-format.mjs";
 import { enqueueMail } from "./mail.mjs";
 import { kekFromEnv } from "./secrets.mjs";
 
@@ -30,7 +31,15 @@ export function createBillingNotify({
   kek = null,
   now = () => new Date(),
 }) {
-  return async function notify(type, { orgId, invoice, failureCode } = {}) {
+  /** `users.lang` of the payer, otherwise English (`spec/mail.md` §5.5): no request here. */
+  async function localeFor(toEmail) {
+    const lang = typeof store.mailLangByEmail === "function"
+      ? await store.mailLangByEmail(toEmail)
+      : null;
+    return lang === "ru" || lang === "en" ? lang : "en";
+  }
+
+  return async function notify(type, { orgId, invoice, failureCode, retryAt = null } = {}) {
     if (!mailConfig || mailConfig.driver === "disabled") return;
     const account = orgId
       ? await store.withTenant(orgId, () => store.billingAccount(orgId))
@@ -39,15 +48,15 @@ export function createBillingNotify({
     if (!toEmail) return;
 
     const at = now();
-    const amount = invoice ? `${Number(invoice.total) / 100} ${invoice.currency}` : "";
+    const locale = await localeFor(toEmail);
+    const date = (value) => (value ? formatMailDate(value, locale, at) : "");
     const params = {
-      amount,
+      amount: invoice ? formatMailMoney(invoice.total, invoice.currency, locale) : "",
       currency: invoice?.currency ?? "",
-      period: invoice?.period_end
-        ? new Date(invoice.period_end).toISOString().slice(0, 10)
-        : "",
-      retryAt: new Date(at.getTime() + 24 * 3600_000).toISOString().slice(0, 10),
-      date: at.toISOString().slice(0, 10),
+      period: date(invoice?.period_end ?? invoice?.periodEnd),
+      // The retry date belongs to the renewal schedule; the caller passes it (ADR-319 §3).
+      retryAt: date(retryAt),
+      date: date(at),
       invoiceUrl: `${mailConfig.appOrigin}/?billing=1`,
       billingUrl: `${mailConfig.appOrigin}/?billing=1`,
       failureCode: failureCode ?? "",
@@ -57,7 +66,7 @@ export function createBillingNotify({
 
     await enqueueMail(
       store,
-      { toEmail, template: type, locale: "ru", params },
+      { toEmail, template: type, locale, params },
       { config: mailConfig, kek: kek ?? kekFromEnv() },
     );
   };

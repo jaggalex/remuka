@@ -26,6 +26,15 @@ export function sealedMailRow(row) {
 }
 
 export const mailMethods = {
+  /** The language a letter to this address is written in (`spec/mail.md` §5.5). */
+  async mailLangByEmail(email) {
+    const { rows } = await this.pool.query(
+      "select lang from users where lower(email) = lower($1) limit 1",
+      [String(email ?? "")],
+    );
+    return rows[0]?.lang ?? null;
+  },
+
   /** The id comes from the caller: it is the AAD of the sealed parameters (ADR-246). */
   async enqueueMail({
     id,

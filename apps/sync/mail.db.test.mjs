@@ -77,6 +77,12 @@ describe.skipIf(!store)("db:mail (ADR-246)", () => {
     await store.close();
   });
 
+  it("reads the letter language of an address, ignoring case (spec/mail.md §5.5)", async () => {
+    await store.pool.query("update users set lang = 'ru' where id = $1", [userId]);
+    expect(await store.mailLangByEmail(`ANNA-${userId}@example.test`)).toBe("ru");
+    expect(await store.mailLangByEmail("nobody@example.test")).toBeNull();
+  });
+
   it("applies schema 29 and installs the claim function for the app role", async () => {
     // The suite database is migrated by the same path the service uses (ADR-089).
     const { rows } = await store.pool.query("select version from schema_meta where id = 1");
