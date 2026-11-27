@@ -316,16 +316,3 @@
   }
 }
 
-/* ADR-319: the past_due banner and the member notice over the room, under the top bar. */
-.room-billing-banner:empty {
-  display: none;
-}
-
-.room-billing-banner {
-  position: fixed;
-  top: calc(var(--topbar-height, 56px) + var(--space-2, 8px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(720px, calc(100vw - 2 * var(--space-4, 16px)));
-  z-index: var(--z-popover);
-}

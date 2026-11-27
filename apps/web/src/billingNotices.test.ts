@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trialDaysLeft, trialKey } from "./BillingStatusBanner";
+import { trialDaysLeft, trialKey } from "./BillingStatusNotice";
 import { cancelledNotice } from "./useBillingChange";
 import { enBilling } from "./i18n/en-billing";
 import { ruBilling } from "./i18n/ru-billing";

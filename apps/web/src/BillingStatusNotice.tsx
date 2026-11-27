@@ -1,6 +1,6 @@
-import { Banner } from "@remo/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { billingApi, type OrgBilling } from "./apiBilling";
+import { useNotices } from "./notices";
 import { pluralForm, useI18n, type TranslationKey } from "./i18n";
 
 const PLAN_KEY: Record<string, TranslationKey> = {
@@ -41,15 +41,23 @@ export function trialKey(lang: "ru" | "en", n: number): TranslationKey {
 
 /**
  * Two states of the plan that a person must see on every page of the space (ADR-319,
- * `spec/billing.md` §8.5): an admin whose renewal failed learns the day the space moves to
- * Free, with one action; a member of a suspended space learns why rooms are read-only and
- * who can change it. During the grace members see nothing: nothing has changed for them.
+ * `spec/billing.md` §8.5), shown as floating messages of the page's toaster: an admin
+ * whose renewal failed learns the day the space moves to Free, with one action; a member
+ * of a suspended space learns why rooms are read-only and who can change it. During the
+ * grace members see nothing: nothing has changed for them.
  *
- * A server without billing answers `404`, and the banner then simply is not there.
+ * Both stay until closed (a warning is never timed out). Closing hides the message for
+ * this browser session and this state only: the next session, or a new grace end, shows
+ * it again. When the state is gone — paid, or another space opened — it leaves by itself.
+ *
+ * A server without billing answers `404`, and there is simply no message.
  */
-export function BillingStatusBanner({ orgId, onOpenBilling }: { orgId: string | null; onOpenBilling: () => void }) {
+export function BillingStatusNotice({ orgId, onOpenBilling }: { orgId: string | null; onOpenBilling: () => void }) {
   const { t, lang } = useI18n();
+  const { notify, dismiss } = useNotices();
   const [billing, setBilling] = useState<OrgBilling | null>(null);
+  const openBilling = useRef(onOpenBilling);
+  openBilling.current = onOpenBilling;
 
   useEffect(() => {
     setBilling(null);
@@ -59,17 +67,42 @@ export function BillingStatusBanner({ orgId, onOpenBilling }: { orgId: string | 
     return () => { alive = false; };
   }, [orgId]);
 
-  if (!billing) return null;
-  const plan = t(PLAN_KEY[billing.subscription?.plan ?? billing.plan] ?? "billing.plan.free");
-  if (billing.viewerIsAdmin && billing.status === "past_due" && billing.graceEnd) {
-    return (
-      <Banner tone="warning" action={{ label: t("billing.banner.updateCard"), onClick: onOpenBilling }}>
-        {t("billing.banner.pastDue", { plan, date: formatDay(billing.graceEnd, lang) })}
-      </Banner>
-    );
-  }
-  if (!billing.viewerIsAdmin && billing.status === "suspended") {
-    return <Banner tone="info">{t("billing.banner.memberFree")}</Banner>;
-  }
+  const plan = billing ? t(PLAN_KEY[billing.subscription?.plan ?? billing.plan] ?? "billing.plan.free") : "";
+  const state = !billing || !orgId
+    ? null
+    : billing.viewerIsAdmin && billing.status === "past_due" && billing.graceEnd
+      ? { key: `past_due:${billing.graceEnd}`, tone: "warning" as const, kind: "billing" as const,
+          body: t("billing.banner.pastDue", { plan, date: formatDay(billing.graceEnd, lang) }),
+          action: { label: t("billing.banner.updateCard"), onClick: () => openBilling.current() } }
+      : !billing.viewerIsAdmin && billing.status === "suspended"
+        ? { key: "suspended", tone: "info" as const, kind: "billing" as const, body: t("billing.banner.memberFree"), action: undefined }
+        : null;
+  const id = orgId ? `billing-state:${orgId}` : "billing-state";
+  const hiddenKey = state ? `remuka.billingNotice.${orgId}.${state.key}` : null;
+
+  useEffect(() => {
+    if (!state || !hiddenKey || readHidden(hiddenKey)) return;
+    notify(state.kind, {
+      id,
+      tone: state.tone,
+      body: state.body,
+      action: state.action,
+      duration: null,
+      onClose: () => writeHidden(hiddenKey),
+    });
+    return () => dismiss(id);
+    // The body is derived from the state key and the language; re-show only when they change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, hiddenKey, lang, notify, dismiss]);
+
   return null;
+}
+
+/** Session-scoped "closed" marks; storage may be unavailable, and then nothing is remembered. */
+function readHidden(key: string): boolean {
+  try { return window.sessionStorage.getItem(key) === "1"; } catch { return false; }
+}
+
+function writeHidden(key: string): void {
+  try { window.sessionStorage.setItem(key, "1"); } catch { /* the message simply returns next time */ }
 }

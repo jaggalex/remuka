@@ -28,7 +28,7 @@ import {
 import { ApiError } from "./apiCall";
 import { billingReturnUrl } from "./organisationRoute";
 import { BillingPaymentMethod } from "./BillingPaymentMethod";
-import { trialDaysLeft, trialKey } from "./BillingStatusBanner";
+import { trialDaysLeft, trialKey } from "./BillingStatusNotice";
 import { cancelledNotice, useBillingChange } from "./useBillingChange";
 import { BillingChangePayment, BillingChangeQuote, BillingScheduledChange } from "./BillingPlanChange";
 import { BillingRooms } from "./BillingRooms";
@@ -243,7 +243,7 @@ export function BillingPanel({
   const billingCurrency = data?.currency ?? null;
   const canBuy = isOrgAdmin;
   const { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay,
-    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled, changeNotice } = useBillingChange({
+    paymentId, dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled } = useBillingChange({
     orgId, method, busy, setBusy, setActionError, setCheckout, setChoosing, read, refreshChange,
   });
   const isChanging = data?.subscription?.status === "active" && data.plan !== "free";
@@ -456,7 +456,7 @@ export function BillingPanel({
     <section className="billing-panel">
       {error && <p className="auth-error">{error}</p>}
       {actionError && <p className="auth-error" role="alert">{actionError}</p>}
-      {changeNotice && <p className="billing-change-notice" role="status">{changeNotice}</p>}
+
       {isOrgAdmin && showPayment && (
         <BillingChangePayment key={showPayment} orgId={orgId} paymentId={showPayment}
           onSettled={refreshChange}

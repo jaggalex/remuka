@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ToastProvider } from "@remo/ui";
 import { App } from "./App";
 import { OperatorConsole } from "./operator/OperatorConsole";
 import { ConsentProvider } from "./ConsentProvider";
@@ -53,9 +54,12 @@ if (window.location.pathname === "/help" || window.location.pathname.startsWith(
     <StrictMode>
       <I18nProvider>
         <StageBanner />
-        <ConsentProvider>
-          <App />
-        </ConsentProvider>
+        {/* One toaster for the workspace and the rooms: floating messages (ADR-319). */}
+        <ToastProvider>
+          <ConsentProvider>
+            <App />
+          </ConsentProvider>
+        </ToastProvider>
       </I18nProvider>
     </StrictMode>,
   );

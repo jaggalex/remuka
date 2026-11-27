@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { billingApi, formatMoney, TERMS_VERSION, type BillingSubscription, type CheckoutResult, type PlanChangeQuote } from "./apiBilling";
-import { formatDay } from "./BillingStatusBanner";
+import { formatDay } from "./BillingStatusNotice";
 import { ApiError } from "./apiCall";
 import { checkoutErrorKey } from "./billingCheckoutError";
 import { useI18n, type TranslationKey } from "./i18n";
+import { useNotices } from "./notices";
 
 const PLAN_KEY: Record<string, TranslationKey> = {
   free: "billing.plan.free", pro: "billing.plan.pro", team: "billing.plan.team",
@@ -53,7 +54,7 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
   const [quoteExpired, setQuoteExpired] = useState(false);
   const [changeAutopay, setChangeAutopay] = useState(false);
   const [paymentId, setPaymentId] = useState(() => returningPayment(orgId));
-  const [changeNotice, setChangeNotice] = useState<string | null>(null);
+  const { notify } = useNotices();
   const [dismissedPayment, setDismissedPayment] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,11 +128,11 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
     if (busy) return;
     setBusy(true);
     setActionError(null);
-    setChangeNotice(null);
     try {
       await billingApi.cancelChange(orgId);
       await read();
-      if (notice) setChangeNotice(notice);
+      // No letter follows a cancelled downgrade; this message is the whole answer (ADR-319).
+      if (notice) notify("success", { id: `plan-change-cancelled:${orgId}`, body: notice });
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : "";
       setActionError(t(checkoutErrorKey(code)));
@@ -141,5 +142,5 @@ export function useBillingChange({ orgId, method, busy, setBusy, setActionError,
   };
 
   return { changeQuote, setChangeQuote, quoteExpired, changeAutopay, setChangeAutopay, paymentId,
-    dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled, changeNotice };
+    dismissedPayment, setDismissedPayment, previewChange, submitChange, cancelScheduled };
 }
