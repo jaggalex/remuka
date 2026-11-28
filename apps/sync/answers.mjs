@@ -4,8 +4,8 @@
  * The model and the document own the text and the frame state; this module owns the
  * command surface: the back-side fields of `board.item.*` and `board.frame.answers`.
  */
-import { answersKey, backTextKey } from "@remo/model";
 import { displayTextOf } from "@remo/text";
+import { answersKey, backTextKey } from "./answer-keys.mjs";
 import {
   MARKDOWN_TYPES,
   markdownDelta,

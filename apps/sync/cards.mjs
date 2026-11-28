@@ -8,7 +8,7 @@
  * (spec/skills/cards.md).
  */
 import { insertNewWidget } from "@remo/model/stacking";
-import { backTextKey } from "@remo/model";
+import { backTextKey } from "./answer-keys.mjs";
 import { Y } from "./y.mjs";
 import { growKanbanToFit } from "./kanban-size.mjs";
 
