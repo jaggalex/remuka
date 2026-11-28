@@ -14,7 +14,8 @@
  * documents: a published revision may not change or still carry placeholders (ADR-256).
  *
  *   pnpm verify            the gate
- *   pnpm verify --e2e      the gate plus browser acceptance (ADR-090)
+ *   pnpm verify --e2e      the gate plus browser acceptance (ADR-090); the 10 000-object
+ *                          scale budget is a separate nightly/labelled run
  *   pnpm verify --fast     skip the database preflight for the inner loop
  */
 import { spawnSync } from "node:child_process";
@@ -55,6 +56,9 @@ steps.push(
   { name: "tests", cmd: pnpm, args: ["test"] },
 );
 if (withE2e) {
+  // `perf-scale.spec.ts` is excluded by `playwright.config.ts`: a shared runner is noisy
+  // against the 16 ms budget. It runs via `pnpm e2e:perf-scale`, the `perf` label or the
+  // nightly `perf` workflow, not in front of every PR.
   steps.push({ name: "e2e", cmd: pnpm, args: ["e2e"] });
   steps.push({
     name: "billing e2e",

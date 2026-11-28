@@ -99,7 +99,15 @@ its own disposable stack and never touches your dev servers:
 pnpm exec playwright install chromium   # once
 pnpm e2e                                # the scenarios below, ~3 min
 pnpm verify --e2e                       # the full gate CI runs
+pnpm e2e:perf-scale                     # the 10 000-object budget, separate
 ```
+
+The 10 000-object scale budget (`e2e/perf-scale.spec.ts`) is **not** part of
+`pnpm e2e` / `pnpm verify --e2e`: a shared GitHub runner measured 17.3 ms against the
+16 ms budget, while the same test passes on a quiet host. It runs with
+`pnpm e2e:perf-scale`, by the `perf` PR label, on every push to `main`, and nightly in
+the `perf` workflow. A red `perf` run is a signal for a quiet runner or a real painter
+regression; it does not block an unrelated PR.
 
 <!-- generated:state:begin -->
 _Tree facts, checked by `pnpm state:check`; run facts are printed by the commands themselves._
@@ -108,7 +116,7 @@ _Tree facts, checked by `pnpm state:check`; run facts are printed by the command
 |---|---|
 | ADR | 320, latest ADR-320 |
 | Schema version | 44 |
-| Browser scenarios | 408 in 87 files |
+| Browser scenarios | 407 in 86 files |
 | Help topics | 46 (RU + EN) |
 | Portal pages | 86 |
 | Baselines | 66 product + 12 DS |
@@ -160,6 +168,7 @@ groups, tools and object panels, and unit suites cover the rest.
 | `visual` | three connector routings differ; room/export/timer/vote fit 1440×900; PNGs compared in the Linux browser (ADR-222) | stage-1 baselines, visual part of FAC/EXP |
 | `a11y` | axe on room, export, timer and vote dialogs | accessibility gate |
 | `perf` | 120 connectors inside the frame budget | stage-1 FPS debt |
+| `perf-scale` | 10 000 objects inside the paint budget; nightly/labelled, not the PR gate | T18 acceptance 11 |
 | `cards` | card status, assignee, date range survive a reload | M1 |
 | `tags-links` | tag vocabulary, selection by tag, external and internal link | M2 |
 | `presentation`, `presentation-viewer` | slide order of any object, presenter/followers, late viewer, camera restore | M3 |
