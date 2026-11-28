@@ -17,7 +17,10 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The full gate is ~25 minutes (unit, e2e, visual, build, docs, guide). A 25-minute
+    # job limit cancelled the Gate step on every PR before it could report; leave room
+    # for a slow runner instead of turning a real test into a cancelled check.
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16-alpine
