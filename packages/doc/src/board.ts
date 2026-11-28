@@ -1,7 +1,15 @@
 import { creationLayers, withLayer } from "@remo/model/stacking";
-import { paintOrder } from "@remo/model";
+import { backTextKey, frameIdOfAnswersKey, paintOrder } from "@remo/model";
 import * as Y from "yjs";
-import { deltaOf, linesOf, plainOf, runsOf, seedTextField, withMaterializedText } from "./text";
+import {
+  deltaOf,
+  linesOf,
+  plainOf,
+  runsOf,
+  seedTextField,
+  withMaterializedBack,
+  withMaterializedText,
+} from "./text";
 import { readKanban, writeKanbanState } from "./kanbanState";
 import { settleTables } from "./tableReflow";
 import {
@@ -70,6 +78,8 @@ export interface BoardSnapshot {
    * is the only thing about following that is persisted.
    */
   allowBringEveryone: boolean;
+  /** Frame ids whose answers are shown, sorted (ADR-320). */
+  answersVisible: string[];
 }
 
 type Listener = () => void;
@@ -167,19 +177,10 @@ export class BoardDocument {
     // Everything below is read through the wire readers (ADR-171): any client can write
     // any value into the shared maps, and one malformed object must not blank the room
     // for everyone who syncs it.
-    const widgets: Widget[] = [];
-    this.widgets.forEach((raw, id) => {
-      const widget = readWidget(raw, id);
-      if (!widget) return;
-      const text = this.texts.get(id);
-      // `Y.XmlText` extends `Y.Text`; anything else under `texts` is not text.
-      if (!(text instanceof Y.Text)) {
-        widgets.push(widget);
-        return;
-      }
-      // A hostile note may hold megabytes of text; layout is per object and would
-      // stall every frame for every peer. Paint the first MAX_TEXT_CHARS and drop the
-      // formatting runs when the text was cut, so offsets cannot point past the end.
+    // A hostile note may hold megabytes of text; layout is per object and would stall
+    // every frame for every peer. Paint the first MAX_TEXT_CHARS and drop the formatting
+    // runs when the text was cut, so offsets cannot point past the end.
+    const materialize = (text: Y.Text) => {
       const plain = plainOf(text);
       const capped = plain.length > MAX_TEXT_CHARS ? plain.slice(0, MAX_TEXT_CHARS) : plain;
       // A cut text has no reliable offsets, so neither derived view is materialized:
@@ -189,15 +190,39 @@ export class BoardDocument {
       // and the snapshot's cost stays what it was (ADR-252, rule 2).
       const lines =
         delta && delta.some((op) => op.attributes?.block) ? linesOf(delta) : undefined;
-      widgets.push(
-        withMaterializedText(
-          widget,
-          capped,
-          capped === plain ? runsOf(text) : undefined,
-          lines,
-        ),
-      );
+      return { text: capped, runs: capped === plain ? runsOf(text) : undefined, lines };
+    };
+
+    const widgets: Widget[] = [];
+    this.widgets.forEach((raw, id) => {
+      const widget = readWidget(raw, id);
+      if (!widget) return;
+      let next = widget;
+      const text = this.texts.get(id);
+      // `Y.XmlText` extends `Y.Text`; anything else under `texts` is not text.
+      if (text instanceof Y.Text) {
+        const value = materialize(text);
+        next = withMaterializedText(widget, value.text, value.runs, value.lines);
+      }
+      // The back side is its own `Y.Text`; a missing or empty value means one-sided
+      // (ADR-320). `readWidget` has already dropped any client-written back fields.
+      if (next.type === "sticky_note") {
+        const back = this.texts.get(backTextKey(id));
+        const value = back instanceof Y.Text ? materialize(back) : null;
+        next = value
+          ? withMaterializedBack(next, value.text, value.runs, value.lines)
+          : withMaterializedBack(next, "", undefined, undefined);
+      }
+      widgets.push(next);
     });
+
+    const answersVisible: string[] = [];
+    this.meta.forEach((value, key) => {
+      if (value !== "1") return;
+      const frameId = frameIdOfAnswersKey(key);
+      if (frameId) answersVisible.push(frameId);
+    });
+    answersVisible.sort();
 
     const kanbanStates: Record<string, KanbanState> = {};
     this.kanbans.forEach((kanban, kanbanId) => {
@@ -226,6 +251,7 @@ export class BoardDocument {
         .toArray()
         .filter((id): id is string => typeof id === "string"),
       allowBringEveryone: this.meta.get("allow_bring_everyone") === "1",
+      answersVisible,
     };
     return this.cache;
   };
@@ -319,26 +345,32 @@ export class BoardDocument {
     this.transact(() => this.meta.set("title", title));
   }
 
-  /** Current text of a widget: the shared text if it exists, else the imported one. */
-  textOf(id: string): string {
-    const shared = this.texts.get(id);
+  /**
+   * Current text of a widget: the shared text if it exists, else the imported one.
+   *
+   * `key` names the `texts` entry; the back side passes `${id}#back` (ADR-320).
+   */
+  textOf(id: string, key = id): string {
+    const shared = this.texts.get(key);
     if (shared) return plainOf(shared);
     const widget = this.readWidget(id);
+    if (key !== id) return widget?.backContent ?? "";
     return widget?.title ?? widget?.content ?? "";
   }
 
   /** Formatted runs of a widget, or undefined when it has no formatting at all. */
-  runsOf(id: string): TextRun[] | undefined {
-    const shared = this.texts.get(id);
+  runsOf(id: string, key = id): TextRun[] | undefined {
+    const shared = this.texts.get(key);
     return shared ? runsOf(shared) : undefined;
   }
 
   /** Serialized rich text of a widget, for the clipboard and the editor. */
-  deltaOf(id: string): TextDeltaOp[] {
-    const shared = this.texts.get(id);
+  deltaOf(id: string, key = id): TextDeltaOp[] {
+    const shared = this.texts.get(key);
     if (shared) return deltaOf(shared);
     const widget = this.readWidget(id);
-    const fallback = widget?.title ?? widget?.content ?? "";
+    const fallback =
+      key === id ? (widget?.title ?? widget?.content ?? "") : (widget?.backContent ?? "");
     return fallback ? [{ insert: fallback }] : [];
   }
 

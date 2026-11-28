@@ -69,6 +69,17 @@ describe("socket edit audit (ADR-175)", () => {
     expect(rows[0].after.fields).toContain("x");
   });
 
+  it("attributes a back text to its widget, not to a suffixed object id", async () => {
+    const { rows, audit, doc, socket } = makeAudit();
+    const back = new Y.Text();
+    back.insert(0, "Answer");
+    doc.transact(() => doc.getMap("texts").set("w1#back", back), socket);
+    await audit.flush();
+    expect(rows[0].after.objects).toContain("w1");
+    expect(rows[0].after.objects).not.toContain("w1#back");
+    expect(rows[0].after.fields).toContain("text");
+  });
+
   it("keeps two sessions apart", async () => {
     const { rows, audit, doc, socket, authBySocket } = makeAudit();
     const other = {};

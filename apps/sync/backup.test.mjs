@@ -281,6 +281,49 @@ describe("board backup (ADR-071)", () => {
     target.destroy();
   });
 
+  it("restores both sides and the shown frames", () => {
+    const source = new Y.Doc();
+    const frame = new Y.Map();
+    frame.set("id", "frame-1");
+    frame.set("type", "frame");
+    frame.set("x", 0);
+    frame.set("y", 0);
+    frame.set("width", 600);
+    frame.set("height", 400);
+    source.getMap("widgets").set("frame-1", frame);
+    const note = new Y.Map();
+    note.set("id", "note-1");
+    note.set("type", "sticky_note");
+    note.set("parentId", "frame-1");
+    note.set("x", 10);
+    note.set("y", 20);
+    note.set("width", 180);
+    note.set("height", 140);
+    source.getMap("widgets").set("note-1", note);
+    const front = new Y.Text();
+    front.insert(0, "Question");
+    source.getMap("texts").set("note-1", front);
+    const back = new Y.Text();
+    back.insert(0, "Answer");
+    source.getMap("texts").set("note-1#back", back);
+    source.getMap("meta").set("answers:frame-1", "1");
+    const state = Y.encodeStateAsUpdate(source);
+    source.destroy();
+
+    const bundle = buildBoardBackup({ state, boardId: "board-1" });
+    expect(bundle.texts["note-1#back"]).toBe("Answer");
+    expect(bundle.meta["answers:frame-1"]).toBe("1");
+
+    const target = new Y.Doc();
+    target.getMap("meta").set("answers:stale", "1");
+    applyBoardBackup(target, bundle);
+    expect(target.getMap("texts").get("note-1").toString()).toBe("Question");
+    expect(target.getMap("texts").get("note-1#back").toString()).toBe("Answer");
+    expect(target.getMap("meta").get("answers:frame-1")).toBe("1");
+    expect(target.getMap("meta").has("answers:stale")).toBe(false);
+    target.destroy();
+  });
+
   it("detects a changed bundle", () => {
     const backup = buildBoardBackup({ state: fixture(), boardId: "board-1" });
     const changed = structuredClone(backup);

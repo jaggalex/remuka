@@ -26,3 +26,4 @@ export * from "./stylePresets";
 export * from "./shapeFill";
 export * from "./externalUrl";
 export * from "./sanitize";
+export * from "./answers";

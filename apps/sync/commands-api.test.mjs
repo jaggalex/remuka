@@ -5,6 +5,7 @@
  * and that a 200 means the update reached the log.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { answersKey } from "@remo/model";
 import { createServer } from "node:http";
 import { accessForBoard, handleIam, sessionFromRequest } from "./iam-api.mjs";
 import { handleCommands } from "./commands-api.mjs";
@@ -314,5 +315,86 @@ suite("command API", () => {
     });
     expect(bad.status).toBe(422);
     expect(bad.body.error).toBe("BAD_INPUT");
+  });
+
+  it("shows a frame's answers for a facilitator and refuses a viewer", async () => {
+    const { owner, orgId, boardId } = await setup("answers");
+    const frame = await run(owner, boardId, {
+      command: "board.item.create",
+      input: { type: "frame", x: 0, y: 0, width: 600, height: 400 },
+    });
+    const frameId = frame.body.result.id;
+    const note = await run(owner, boardId, {
+      command: "board.item.create",
+      input: {
+        type: "sticky_note",
+        x: 20,
+        y: 20,
+        parentId: frameId,
+        content: "Question",
+        back: "Answer",
+      },
+    });
+    expect(note.status).toBe(200);
+
+    const viewer = client();
+    const registered = await viewer("POST", "/auth/register", {
+      email: email("answers-viewer"),
+      password,
+      name: "Viewer",
+    });
+    const invite = await owner("POST", `/orgs/${orgId}/invitations`, {
+      email: registered.body.user.email,
+    });
+    await viewer("POST", "/invitations/accept", {
+      token: new URL(invite.body.url).searchParams.get("invite"),
+    });
+    await owner("POST", `/boards/${boardId}/grants`, {
+      subjectType: "user",
+      subjectId: registered.body.user.id,
+      role: "viewer",
+    });
+
+    const denied = await run(viewer, boardId, {
+      command: "board.frame.answers",
+      input: { frameId, target: "answers" },
+    });
+    expect(denied.status).toBe(403);
+
+    const key = "answers-1";
+    const shown = await run(
+      owner,
+      boardId,
+      { command: "board.frame.answers", input: { frameId, target: "answers" } },
+      key,
+    );
+    expect(shown.status).toBe(200);
+    expect(shown.body.result).toMatchObject({ frameId, changed: true, count: 1 });
+
+    const replay = await run(
+      owner,
+      boardId,
+      { command: "board.frame.answers", input: { frameId, target: "answers" } },
+      key,
+    );
+    expect(replay.body.replayed).toBe(true);
+
+    const noop = await run(owner, boardId, {
+      command: "board.frame.answers",
+      input: { frameId, target: "answers" },
+    });
+    expect(noop.body.result.changed).toBe(false);
+
+    const doc = await store.roomDocument(boardId);
+    expect(doc.getMap("meta").get(answersKey(frameId))).toBe("1");
+
+    const audit = await store.pool.query(
+      "select after from audit_events where board_id = $1 and subject = $2 and action = 'board.command' order by at asc limit 1",
+      [boardId, "board.frame.answers"],
+    );
+    const after = typeof audit.rows[0].after === "string"
+      ? JSON.parse(audit.rows[0].after)
+      : audit.rows[0].after;
+    expect(after).toMatchObject({ frameId, target: "answers", count: 1, changed: true });
   });
 });

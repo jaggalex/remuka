@@ -1,6 +1,7 @@
 import { creationLayers, withLayer } from "@remo/model/stacking";
 import * as Y from "yjs";
 import {
+  backTextKey,
   bounds,
   paintOrder,
   expandGroups,
@@ -45,6 +46,8 @@ export interface BoardFragment {
   version: 1;
   widgets: Widget[];
   texts: Record<string, FragmentText>;
+  /** Back sides keyed by the source widget id (ADR-320); absent on older fragments. */
+  backs?: Record<string, FragmentText>;
   kanbans: Record<string, KanbanState>;
   /** Placements for cards, including cards copied without their kanban. */
   placements: Record<string, KanbanPlacement>;
@@ -76,6 +79,7 @@ export function copyFragment(board: BoardDocument, ids: string[]): BoardFragment
 
   const widgets = all.filter((widget) => included.has(widget.id));
   const texts: Record<string, FragmentText> = {};
+  const backs: Record<string, FragmentText> = {};
   const kanbans: Record<string, KanbanState> = {};
   const placements: Record<string, KanbanPlacement> = {};
   const groupNames: Record<string, string> = {};
@@ -88,6 +92,10 @@ export function copyFragment(board: BoardDocument, ids: string[]): BoardFragment
   for (const widget of widgets) {
     const delta = board.deltaOf(widget.id);
     if (delta.length) texts[widget.id] = { delta };
+    if (widget.type === "sticky_note") {
+      const back = board.deltaOf(widget.id, backTextKey(widget.id));
+      if (back.length) backs[widget.id] = { delta: back };
+    }
 
     if (widget.type === "kanban") {
       const state = board.kanbans.get(widget.id);
@@ -100,7 +108,16 @@ export function copyFragment(board: BoardDocument, ids: string[]): BoardFragment
     }
   }
 
-  return { version: 1, widgets, texts, kanbans, placements, groupNames, roots };
+  return {
+    version: 1,
+    widgets,
+    texts,
+    ...(Object.keys(backs).length ? { backs } : {}),
+    kanbans,
+    placements,
+    groupNames,
+    roots,
+  };
 }
 
 export interface PasteOptions {
@@ -204,6 +221,10 @@ export function pasteFragment(
       const text = fragment.texts[widget.id];
       if (text) seedFragmentText(board, id, text.delta);
       else seedTextField(board, next, next.title ?? next.content ?? "");
+      const back = fragment.backs?.[widget.id];
+      if (back && next.type === "sticky_note") {
+        seedFragmentText(board, backTextKey(id), back.delta);
+      }
       inserted.add(id);
     }
 

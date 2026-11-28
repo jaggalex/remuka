@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { backTextKey } from "@remo/model";
 import { Y } from "./y.mjs";
 import { CardError, convertToCards, orderBetween } from "./cards.mjs";
 
@@ -22,6 +23,9 @@ function boardWithNotes(count = 2) {
     const text = new Y.Text();
     text.insert(0, `Title ${index}\nDetails ${index}`);
     texts.set(id, text);
+    const back = new Y.Text();
+    back.insert(0, `Back ${index}`);
+    texts.set(backTextKey(id), back);
   }
   return { ydoc, ids };
 }
@@ -107,6 +111,8 @@ describe("convertToCards", () => {
     expect(cards[0].parentId).toBe("kanban_1");
     expect(ydoc.getMap("widgets").has(ids[0])).toBe(false);
     expect(ydoc.getMap("texts").has(ids[0])).toBe(false);
+    // A card has one text; the back side does not travel with a move (ADR-320).
+    expect(ydoc.getMap("texts").has(backTextKey(ids[0]))).toBe(false);
 
     const placements = kanban.get("cards");
     expect(placements.size).toBe(2);
@@ -146,5 +152,27 @@ describe("convertToCards", () => {
     expect(() =>
       convertToCards(ydoc, { selectionIds: ids, target: { kind: "kanban" } }),
     ).toThrow(/no kanban/);
+  });
+
+  it("removes the back in the same undo step as the conversion", () => {
+    const { ydoc, ids } = boardWithNotes(1);
+    addKanban(ydoc);
+    const undo = new Y.UndoManager(
+      [ydoc.getMap("widgets"), ydoc.getMap("texts"), ydoc.getMap("kanbans")],
+      { trackedOrigins: new Set([null]) },
+    );
+    const result = convertToCards(ydoc, {
+      selectionIds: ids,
+      target: { kind: "kanban", kanbanId: "kanban_1", columnId: "todo" },
+      mode: "move",
+    });
+    expect(ydoc.getMap("texts").has(backTextKey(ids[0]))).toBe(false);
+    expect(undo.undoStack.length).toBe(1);
+
+    undo.undo();
+    expect(ydoc.getMap("widgets").get(ids[0])).toBeDefined();
+    expect(ydoc.getMap("texts").get(ids[0]).toString()).toContain("Title 0");
+    expect(ydoc.getMap("texts").get(backTextKey(ids[0])).toString()).toBe("Back 0");
+    expect(ydoc.getMap("widgets").get(result.created[0].id)).toBeUndefined();
   });
 });

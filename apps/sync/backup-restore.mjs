@@ -125,6 +125,18 @@ export function applyBoardBackup(doc, bundle, { fileIds = new Map() } = {}) {
           ? bundle.texts[widget.id]
           : (widget.title ?? widget.content ?? "");
       texts.set(widget.id, textValue(bundle.textDeltas?.[widget.id], fallback));
+      // The back side is the second text of a sticky note (ADR-320). Old bundles have
+      // no such key; an empty value means the sticker was one-sided.
+      if (widget.type === "sticky_note") {
+        const key = `${widget.id}#back`;
+        const backPlain = typeof bundle.texts?.[key] === "string" ? bundle.texts[key] : "";
+        const backDelta = bundle.textDeltas?.[key];
+        const hasBack =
+          backPlain.trim().length > 0 ||
+          (Array.isArray(backDelta) &&
+            backDelta.some((op) => typeof op?.insert === "string" && op.insert.length > 0));
+        if (hasBack) texts.set(key, textValue(backDelta, backPlain));
+      }
     }
 
     // A connector that lost an endpoint during remapping has nothing to join.
@@ -144,6 +156,15 @@ export function applyBoardBackup(doc, bundle, { fileIds = new Map() } = {}) {
     }
     for (const [kanbanId, state] of Object.entries(bundle.kanbans ?? {})) {
       writeKanban(kanbans, kanbanId, state);
+    }
+
+    // The confirmed side of a section is board state (ADR-320); restore returns the
+    // state the backup saw, not what the live room had a moment ago.
+    for (const key of [...meta.keys()]) {
+      if (key.startsWith("answers:")) meta.delete(key);
+    }
+    for (const [key, value] of Object.entries(bundle.meta ?? {})) {
+      if (key.startsWith("answers:") && value === "1") meta.set(key, "1");
     }
 
     const cover = bundle.meta?.coverFrameId;

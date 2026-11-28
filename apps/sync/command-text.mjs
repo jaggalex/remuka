@@ -31,9 +31,9 @@ function texts(ydoc) {
 }
 
 /** Replace a widget's text in place; a plain `Y.Text` keeps the cheap merge. */
-export function replaceText(ydoc, id, value) {
+export function replaceText(ydoc, id, value, key = id) {
   const store = texts(ydoc);
-  const current = store.get(id);
+  const current = store.get(key);
   if (current && typeof current.delete === "function") {
     current.delete(0, current.length);
     current.insert(0, value);
@@ -41,15 +41,15 @@ export function replaceText(ydoc, id, value) {
   }
   const created = new Y.Text();
   created.insert(0, value);
-  store.set(id, created);
+  store.set(key, created);
 }
 
 /** Seed the text of a new widget, when there is any. */
-export function seedText(ydoc, widget, value) {
+export function seedText(ydoc, widget, value, key = widget.id) {
   if (!TEXT_TYPES.has(widget.type) || !value) return;
   const created = new Y.Text();
   created.insert(0, value);
-  texts(ydoc).set(widget.id, created);
+  texts(ydoc).set(key, created);
 }
 
 /**
@@ -64,16 +64,16 @@ export function markdownDelta(markdown) {
 }
 
 /** The shared `Y.XmlText` a delta is written into, created on first use. */
-function xmlTextFor(ydoc, id) {
+function xmlTextFor(ydoc, id, key = id) {
   const store = texts(ydoc);
-  const current = store.get(id);
+  const current = store.get(key);
   if (current instanceof Y.XmlText) {
     current.delete(0, current.length);
     return current;
   }
   const created = new Y.XmlText();
   // The type must be in the document before anything is inserted into it.
-  store.set(id, created);
+  store.set(key, created);
   return created;
 }
 
@@ -84,20 +84,20 @@ function xmlTextFor(ydoc, id) {
  * plain painter see exactly what they always saw (ADR-252, rule 2). An empty delta
  * leaves the widget with no shared text at all, as a plain empty widget has.
  */
-export function seedTextDelta(ydoc, widget, delta) {
+export function seedTextDelta(ydoc, widget, delta, key = widget.id) {
   if (!delta.length) return;
   if (!isRichDelta(delta)) {
-    seedText(ydoc, widget, displayTextOf(delta));
+    seedText(ydoc, widget, displayTextOf(delta), key);
     return;
   }
-  xmlTextFor(ydoc, widget.id).applyDelta(insertionOps(delta));
+  xmlTextFor(ydoc, widget.id, key).applyDelta(insertionOps(delta));
 }
 
 /** Replace a widget's whole text with a delta; an empty one clears it. */
-export function replaceTextDelta(ydoc, id, delta) {
+export function replaceTextDelta(ydoc, id, delta, key = id) {
   if (!isRichDelta(delta)) {
-    replaceText(ydoc, id, displayTextOf(delta));
+    replaceText(ydoc, id, displayTextOf(delta), key);
     return;
   }
-  xmlTextFor(ydoc, id).applyDelta(insertionOps(delta));
+  xmlTextFor(ydoc, id, key).applyDelta(insertionOps(delta));
 }

@@ -14,6 +14,8 @@
 const WINDOW_MS = 60_000;
 const MAX_IDS = 50;
 const MAX_FIELDS = 20;
+/** The second text of a two-sided sticker (ADR-320); the audit names the widget. */
+const BACK_TEXT_SUFFIX = "#back";
 
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -119,7 +121,12 @@ export function createEditAudit({
       }
       if (type === texts) {
         for (const raw of keys) {
-          const id = String(raw);
+          const key = String(raw);
+          // A back side belongs to its widget; the suffix is storage, not an object id.
+          const id = key.endsWith(BACK_TEXT_SUFFIX)
+            ? key.slice(0, -BACK_TEXT_SUFFIX.length)
+            : key;
+          if (!id) continue;
           if (buffer.ids.size >= maxIds && !buffer.ids.has(id)) continue;
           buffer.ids.add(id);
           buffer.fields.add("text");

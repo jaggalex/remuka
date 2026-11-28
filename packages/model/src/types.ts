@@ -175,6 +175,17 @@ export interface Widget extends Rect {
    */
   lines?: TextLine[];
 
+  /**
+   * The back side, materialised from `texts[`${id}#back`]` for painting (ADR-320).
+   *
+   * Never stored on the widget: `readWidget` drops it and `snapshot()` rebuilds it from
+   * the shared text. Absent means a one-sided sticker. `backRuns`/`backLines` follow
+   * the same rule as `runs`/`lines` for the front.
+   */
+  backContent?: string;
+  backRuns?: TextRun[];
+  backLines?: TextLine[];
+
   /** Short caption under a sticker, or the title of a vertical lane label. */
   label?: string;
 

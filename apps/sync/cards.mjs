@@ -8,6 +8,7 @@
  * (spec/skills/cards.md).
  */
 import { insertNewWidget } from "@remo/model/stacking";
+import { backTextKey } from "./answer-keys.mjs";
 import { Y } from "./y.mjs";
 import { growKanbanToFit } from "./kanban-size.mjs";
 
@@ -259,6 +260,9 @@ export function convertToCards(
       for (const item of planned) {
         ydoc.getMap("widgets").delete(item.sourceId);
         ydoc.getMap("texts").delete(item.sourceId);
+        // A card has one text; the back side does not travel with a converted note
+        // (ADR-320, out of scope), and an orphaned `#back` would stay in the backup.
+        ydoc.getMap("texts").delete(backTextKey(item.sourceId));
       }
     }
   });

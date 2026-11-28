@@ -1,7 +1,9 @@
 import * as Y from "yjs";
 import {
+  backTextKey,
   kindOf,
   type LineFormat,
+  type StickySide,
   type TextDeltaOp,
   type TextLine,
   type TextMarks,
@@ -86,6 +88,30 @@ export function withMaterializedText(
   if (widget.type === "card") return next("title");
   if (widget.type === "connector") return next("content");
   return widget;
+}
+
+/**
+ * Materialize the back side of a two-sided note (ADR-320).
+ *
+ * The back is never stored on the widget: it is the `Y.Text` under `${id}#back`, and
+ * an empty or whitespace-only value means the sticker has no back side at all.
+ */
+export function withMaterializedBack(
+  widget: Widget,
+  text: string,
+  runs: TextRun[] | undefined,
+  lines?: TextLine[],
+): Widget {
+  const next: Widget = { ...widget, backContent: text };
+  delete next.backRuns;
+  delete next.backLines;
+  if (!text.trim()) {
+    delete next.backContent;
+    return next;
+  }
+  if (runs?.some(hasMarks)) next.backRuns = runs;
+  if (lines?.some((line) => line.block)) next.backLines = lines;
+  return next;
 }
 
 /**
@@ -228,8 +254,13 @@ function charsOf(delta: readonly TextDeltaOp[]): MarkedChar[] {
 }
 
 /** The shared text value as `Y.XmlText`, upgrading a plain one in place. */
-function ensureXmlText(board: BoardDocument, id: string, plain: string): Y.XmlText {
-  const existing = board.texts.get(id);
+function ensureXmlText(
+  board: BoardDocument,
+  id: string,
+  plain: string,
+  key = id,
+): Y.XmlText {
+  const existing = board.texts.get(key);
   if (existing instanceof Y.XmlText) return existing;
 
   // Lazy migration: a note that never had formatting keeps its `Y.Text` until the
@@ -237,7 +268,7 @@ function ensureXmlText(board: BoardDocument, id: string, plain: string): Y.XmlTe
   // carries the same text. Must run inside a transaction, and the type must be in
   // the document before anything is inserted into it.
   const text = new Y.XmlText();
-  board.texts.set(id, text);
+  board.texts.set(key, text);
   if (plain) text.insert(0, plain, {});
   return text;
 }
@@ -255,22 +286,25 @@ export function setWidgetDelta(
   board: BoardDocument,
   id: string,
   delta: readonly TextDeltaOp[],
-  options: { height?: number | null } = {},
+  options: { height?: number | null; side?: StickySide } = {},
 ): void {
   const widget = board.readWidget(id);
   if (!widget || widget.locked) return;
 
+  const key = options.side === "back" ? backTextKey(id) : id;
   const next = normalizeDelta(delta);
-  const existing = board.texts.get(id);
+  const existing = board.texts.get(key);
 
   if (!isRichDelta(next) && !(existing instanceof Y.XmlText)) {
     setWidgetText(board, id, plainTextOf(next), options);
     return;
   }
 
-  const current = board.deltaOf(id);
+  const current = board.deltaOf(id, key);
   const heightDiffers =
-    options.height != null && Math.abs(widget.height - options.height) > 0.5;
+    options.side !== "back" &&
+    options.height != null &&
+    Math.abs(widget.height - options.height) > 0.5;
 
   board.transact(() => {
     if (heightDiffers && options.height != null) {
@@ -282,7 +316,7 @@ export function setWidgetDelta(
       }
     }
 
-    const text = ensureXmlText(board, id, plainTextOf(current));
+    const text = ensureXmlText(board, id, plainTextOf(current), key);
     const currentChars = charsOf(current);
     const nextChars = charsOf(next);
 
@@ -325,7 +359,7 @@ export function setWidgetDelta(
       text.insert(index, value, insertionAttributes(attributes));
       index += value.length;
     }
-  }, LOCAL_ORIGIN, { merge: true, textId: id });
+  }, LOCAL_ORIGIN, { merge: true, textId: key });
 }
 
 /**
@@ -341,17 +375,19 @@ export function setLineFormat(
   id: string,
   lineIndex: number,
   format: LineFormatInput | null,
+  side: StickySide = "front",
 ): void {
   const widget = board.readWidget(id);
   if (!widget || widget.locked || !kindOf(widget.type).richBlocks) return;
 
+  const key = side === "back" ? backTextKey(id) : id;
   const next = canonicalLineFormat(format ?? undefined);
   const clearing = Object.keys(next).length === 0;
   // An unknown or incomplete format (a block this build does not know, `checked`
   // without `check`, indent without a list) is ignored, not read as "clear it".
   const requested = format != null && Object.values(format).some((value) => value != null);
   if (clearing && requested) return;
-  const delta = board.deltaOf(id);
+  const delta = board.deltaOf(id, key);
   const lines = linesOf(delta);
   if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) return;
 
@@ -382,7 +418,7 @@ export function setLineFormat(
   if (newline < 0) {
     if (clearing) return;
     board.transact(() => {
-      const text = ensureXmlText(board, id, plain);
+      const text = ensureXmlText(board, id, plain, key);
       text.insert(text.length, "\n", insertionAttributes(next));
     });
     return;
@@ -392,14 +428,14 @@ export function setLineFormat(
   // clear deletes it, so plain text stays plain rather than gaining an empty line.
   if (clearing && newline === plain.length - 1) {
     board.transact(() => {
-      const text = ensureXmlText(board, id, plain);
+      const text = ensureXmlText(board, id, plain, key);
       text.delete(newline, 1);
     });
     return;
   }
 
   board.transact(() => {
-    const text = ensureXmlText(board, id, plain);
+    const text = ensureXmlText(board, id, plain, key);
     text.format(newline, 1, insertionAttributes(next));
   });
 }
@@ -426,16 +462,23 @@ export function setWidgetText(
   board: BoardDocument,
   id: string,
   value: string,
-  options: { height?: number | null } = {},
+  options: { height?: number | null; side?: StickySide } = {},
 ): void {
   const widget = board.readWidget(id);
   if (!widget || widget.locked) return;
 
-  const sharedText = board.texts.get(id);
-  const currentText = sharedText ? plainOf(sharedText) : (widget.title ?? widget.content ?? "");
+  const key = options.side === "back" ? backTextKey(id) : id;
+  const sharedText = board.texts.get(key);
+  const currentText = sharedText
+    ? plainOf(sharedText)
+    : options.side === "back"
+      ? (widget.backContent ?? "")
+      : (widget.title ?? widget.content ?? "");
   const textDiffers = currentText !== value;
   const heightDiffers =
-    options.height != null && Math.abs(widget.height - options.height) > 0.5;
+    options.side !== "back" &&
+    options.height != null &&
+    Math.abs(widget.height - options.height) > 0.5;
 
   // Nothing to do: do not create a shared text or an undo step for a no-op.
   if (!textDiffers && !heightDiffers) return;
@@ -457,10 +500,10 @@ export function setWidgetText(
 
     if (!textDiffers) return;
 
-    let text = board.texts.get(id);
+    let text = board.texts.get(key);
     if (!text) {
       text = new Y.Text();
-      board.texts.set(id, text);
+      board.texts.set(key, text);
       if (currentText) text.insert(0, currentText);
     }
 
@@ -482,7 +525,7 @@ export function setWidgetText(
     if (removeLength > 0) text.delete(prefix, removeLength);
     const insertValue = value.slice(prefix, value.length - suffix);
     if (insertValue) text.insert(prefix, insertValue);
-  }, LOCAL_ORIGIN, { merge: true, textId: id });
+  }, LOCAL_ORIGIN, { merge: true, textId: key });
 }
 
 
@@ -533,9 +576,14 @@ export function setNoteTextVAlign(
 }
 
 /** Marks that every character of a note carries, or null when they differ. */
-export function noteMarksOf(board: BoardDocument, id: string): TextMarks | null {
+export function noteMarksOf(
+  board: BoardDocument,
+  id: string,
+  side: StickySide = "front",
+): TextMarks | null {
   const chars: TextMarks[] = [];
-  for (const op of board.deltaOf(id)) {
+  const key = side === "back" ? backTextKey(id) : id;
+  for (const op of board.deltaOf(id, key)) {
     const marks = canonicalMarks(op.attributes);
     // A line format lives on the newline and carries no inline mark; the bar is about
     // text, so a multi-line note can still report "all bold".
@@ -564,18 +612,20 @@ export function toggleNoteMark(
   board: BoardDocument,
   ids: string[],
   mark: keyof TextMarks,
+  side: StickySide = "front",
 ): void {
   // A link is not a toggle: the bar opens the link dialog for it (ADR-252 §5.3).
   if (mark === "href") return;
+  const key = (id: string) => (side === "back" ? backTextKey(id) : id);
   for (const id of ids) {
     if (board.readWidget(id)?.locked) continue;
-    const current = noteMarksOf(board, id);
+    const current = noteMarksOf(board, id, side);
     if (current == null) continue;
     const next: TextMarks = { ...current };
     if (next[mark]) delete next[mark];
     else next[mark] = true;
 
-    const delta: TextDeltaOp[] = board.deltaOf(id).map((op) => {
+    const delta: TextDeltaOp[] = board.deltaOf(id, key(id)).map((op) => {
       const attributes = { ...(op.attributes ?? {}), ...next };
       if (!next.bold) delete attributes.bold;
       if (!next.italic) delete attributes.italic;
@@ -586,16 +636,26 @@ export function toggleNoteMark(
         ? { insert: op.insert, attributes }
         : { insert: op.insert };
     });
-    setWidgetDelta(board, id, delta);
+    setWidgetDelta(board, id, delta, { side });
   }
 }
 
 
-export function clearContent(board: BoardDocument, ids: readonly string[]): void {
+export function clearContent(
+  board: BoardDocument,
+  ids: readonly string[],
+  side: StickySide = "front",
+): void {
   board.transact(() => {
     for (const id of ids) {
       const widget = board.readWidget(id);
       if (!widget) continue;
+      if (side === "back") {
+        // The back side exists only as its shared text; deleting the key is the whole
+        // removal, and the snapshot stops materializing it (ADR-320).
+        board.texts.delete(backTextKey(id));
+        continue;
+      }
       if (widget.type === "card") {
         board.widgets.set(id, { ...widget, title: "" });
         const text = board.texts.get(id);

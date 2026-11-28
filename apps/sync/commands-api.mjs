@@ -256,14 +256,23 @@ export async function handleCommands({
       ifVersion: body.ifVersion ? String(body.ifVersion) : undefined,
     });
 
+    const auditAfter = {
+      resultId: outcome.result?.id ?? null,
+      version: outcome.version,
+      replayed: outcome.replayed === true,
+    };
+    // A frame answer command records the scope and direction: the frame id is already
+    // the result id, and the event carries the same numbers (ADR-320).
+    if (outcome.result && typeof outcome.result.frameId === "string") {
+      auditAfter.frameId = outcome.result.frameId;
+      auditAfter.target = outcome.result.target;
+      auditAfter.count = outcome.result.count;
+      auditAfter.changed = outcome.result.changed;
+    }
     await audit({
       action: "board.command",
       subject: command,
-      after: {
-        resultId: outcome.result?.id ?? null,
-        version: outcome.version,
-        replayed: outcome.replayed === true,
-      },
+      after: auditAfter,
     });
     // A lock toggle is a coordination fact, not just a command run (ADR-107).
     if (command === "board.item.update" && outcome.result?.changed?.includes("locked")) {

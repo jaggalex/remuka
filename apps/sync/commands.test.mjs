@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { answersKey, backTextKey } from "@remo/model";
 import { linesOf, toMarkdown } from "@remo/text";
 import { Y } from "./y.mjs";
-import { CommandError, commandObjectId, docVersion, runCommand } from "./commands.mjs";
+import { COMMANDS, CommandError, commandObjectId, docVersion, runCommand } from "./commands.mjs";
 
 const actor = { type: "user", id: "u1", name: "Alex" };
 
@@ -590,5 +591,229 @@ describe("markdown text (ADR-252 §11 stage 7)", () => {
     const text = ydoc.getMap("texts").get(rich.result.id);
     expect(toMarkdown(text.toDelta())).toBe("**bold** after x");
     expect(ydoc.getMap("widgets").get(rich.result.id).content).toBe("bold after x");
+  });
+});
+
+describe("two-sided sticky notes (ADR-320)", () => {
+  function docWithFrame() {
+    const ydoc = new Y.Doc();
+    const frame = runCommand({
+      ydoc,
+      name: "board.item.create",
+      input: { type: "frame", x: 0, y: 0, width: 600, height: 400 },
+      actor,
+      boardId: "b1",
+    });
+    return { ydoc, frameId: frame.result.id };
+  }
+
+  function noteWithBack(ydoc, frameId, back = "Answer") {
+    return runCommand({
+      ydoc,
+      name: "board.item.create",
+      input: {
+        type: "sticky_note",
+        x: 20,
+        y: 20,
+        parentId: frameId,
+        content: "Question",
+        back,
+      },
+      actor,
+      boardId: "b1",
+    });
+  }
+
+  it("creates both texts in one transaction and one event", () => {
+    const { ydoc, frameId } = docWithFrame();
+    const created = noteWithBack(ydoc, frameId);
+    const id = created.result.id;
+    expect(ydoc.getMap("texts").get(id).toString()).toBe("Question");
+    expect(ydoc.getMap("texts").get(backTextKey(id)).toString()).toBe("Answer");
+    expect(ydoc.getMap("widgets").get(id).back).toBeUndefined();
+    expect(created.events).toEqual([
+      { type: "board.item.created", subject: id, payload: { objectType: "sticky_note" } },
+    ]);
+  });
+
+  it("refuses a back on anything but a sticky note, and both text paths at once", () => {
+    const { ydoc, frameId } = docWithFrame();
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.item.create",
+        input: { type: "text", x: 0, y: 0, back: "Answer" },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "NOT_TEXT" }));
+    expect(() => noteWithBack(ydoc, frameId, undefined)).not.toThrow();
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.item.create",
+        input: { type: "sticky_note", x: 0, y: 0, back: "A", backMarkdown: "**A**" },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "TEXT_CONFLICT" }));
+  });
+
+  it("updates, preserves, clears and formats the back side", () => {
+    const { ydoc, frameId } = docWithFrame();
+    const id = noteWithBack(ydoc, frameId).result.id;
+
+    const updated = runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { back: "Second" } },
+      actor,
+      boardId: "b1",
+    });
+    expect(updated.result.changed).toContain("back");
+    expect(ydoc.getMap("texts").get(backTextKey(id)).toString()).toBe("Second");
+
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { x: 30 } },
+      actor,
+      boardId: "b1",
+    });
+    expect(ydoc.getMap("texts").get(backTextKey(id)).toString()).toBe("Second");
+
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { backMarkdown: "**Bold**" } },
+      actor,
+      boardId: "b1",
+    });
+    const richBack = ydoc.getMap("texts").get(backTextKey(id));
+    expect(richBack.toDelta().map((op) => op.insert).join("")).toBe("Bold");
+
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { back: null } },
+      actor,
+      boardId: "b1",
+    });
+    expect(ydoc.getMap("texts").has(backTextKey(id))).toBe(false);
+  });
+
+  it("refuses a back update on a locked sticker", () => {
+    const { ydoc, frameId } = docWithFrame();
+    const id = noteWithBack(ydoc, frameId).result.id;
+    runCommand({
+      ydoc,
+      name: "board.item.update",
+      input: { id, patch: { locked: true } },
+      actor,
+      boardId: "b1",
+    });
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.item.update",
+        input: { id, patch: { back: "No" } },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "OBJECT_LOCKED" }));
+  });
+
+  it("shows and hides answers with one state and one event", () => {
+    const { ydoc, frameId } = docWithFrame();
+    noteWithBack(ydoc, frameId);
+
+    const shown = runCommand({
+      ydoc,
+      name: "board.frame.answers",
+      input: { frameId, target: "answers" },
+      actor,
+      boardId: "b1",
+    });
+    expect(shown.result).toMatchObject({
+      id: frameId,
+      frameId,
+      target: "answers",
+      changed: true,
+      count: 1,
+    });
+    expect(ydoc.getMap("meta").get(answersKey(frameId))).toBe("1");
+    expect(shown.events).toEqual([
+      {
+        type: "board.frame.answers",
+        subject: frameId,
+        payload: { target: "answers", count: 1 },
+      },
+    ]);
+
+    const again = runCommand({
+      ydoc,
+      name: "board.frame.answers",
+      input: { frameId, target: "answers" },
+      actor,
+      boardId: "b1",
+    });
+    expect(again.result.changed).toBe(false);
+    expect(again.events).toEqual([]);
+
+    const hidden = runCommand({
+      ydoc,
+      name: "board.frame.answers",
+      input: { frameId, target: "questions" },
+      actor,
+      boardId: "b1",
+    });
+    expect(hidden.result.changed).toBe(true);
+    expect(ydoc.getMap("meta").has(answersKey(frameId))).toBe(false);
+  });
+
+  it("allows a shown frame with no back sides and refuses a non-frame", () => {
+    const { ydoc, frameId } = docWithFrame();
+    const empty = runCommand({
+      ydoc,
+      name: "board.frame.answers",
+      input: { frameId, target: "answers" },
+      actor,
+      boardId: "b1",
+    });
+    expect(empty.result).toMatchObject({ changed: true, count: 0 });
+
+    const note = noteWithBack(ydoc, frameId);
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.frame.answers",
+        input: { frameId: note.result.id, target: "answers" },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "BAD_INPUT" }));
+  });
+
+  it("validates the target and the white list", () => {
+    const { ydoc, frameId } = docWithFrame();
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.frame.answers",
+        input: { frameId, target: "maybe" },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "BAD_INPUT" }));
+    expect(() =>
+      runCommand({
+        ydoc,
+        name: "board.frame.answers",
+        input: { frameId, target: "answers", extra: 1 },
+        actor,
+        boardId: "b1",
+      }),
+    ).toThrow(expect.objectContaining({ code: "BAD_INPUT" }));
+    expect(COMMANDS["board.frame.answers"].capabilities).toEqual(["board.facilitate"]);
   });
 });
