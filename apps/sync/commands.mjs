@@ -20,15 +20,18 @@ import {
   seedText,
   seedTextDelta,
 } from "./command-text.mjs";
+import {
+  applyBackPatch,
+  backFromCreateInput,
+  frameAnswersCommand,
+  seedBackText,
+  validateBackCreate,
+  validateBackPatch,
+} from "./answers.mjs";
+import { CommandError } from "./command-error.mjs";
 import { Y } from "./y.mjs";
 
-export class CommandError extends Error {
-  constructor(code, message, status = 422) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-}
+export { CommandError } from "./command-error.mjs";
 
 const CREATABLE = new Set(["sticky_note", "text", "shape", "frame"]);
 const CONNECTABLE = new Set(["sticky_note", "text", "shape", "image", "stamp", "card"]);
@@ -298,6 +301,9 @@ export const COMMANDS = {
       if (data.width !== undefined) number(data.width, "width", { min: 1, max: 20_000 });
       if (data.height !== undefined) number(data.height, "height", { min: 1, max: 20_000 });
       if (data.content !== undefined) text(data.content, "content");
+      // The back side is a second text on a sticky note (ADR-320); its validation lives
+      // with the rest of the feature in `answers.mjs`.
+      validateBackCreate(data);
       // Markdown is the rich path (ADR-252): the server parses it into the delta the
       // document stores. `content` stays the plain path; both together are ambiguous.
       if (data.markdown !== undefined) {
@@ -338,6 +344,7 @@ export const COMMANDS = {
       }
       const delta = input.markdown !== undefined ? markdownDelta(input.markdown) : null;
       const content = delta ? displayTextOf(delta) : (input.content ?? "");
+      const back = backFromCreateInput(input);
       const widget = {
         id: objectId,
         type: input.type,
@@ -360,6 +367,8 @@ export const COMMANDS = {
         insertNewWidget(widgets(ydoc), widget);
         if (delta) seedTextDelta(ydoc, widget, delta);
         else seedText(ydoc, widget, input.content ?? input.title);
+        // A pair is one transaction and one `board.item.created`.
+        seedBackText(ydoc, widget, back);
       });
       return { id: widget.id, type: widget.type };
     },
@@ -391,6 +400,8 @@ export const COMMANDS = {
         "title",
         "content",
         "markdown",
+        "back",
+        "backMarkdown",
         "name",
         "style",
         "locked",
@@ -411,6 +422,7 @@ export const COMMANDS = {
           throw new CommandError("TEXT_CONFLICT", "send content or markdown, not both");
         }
       }
+      validateBackPatch(patch);
       if (patch.name !== undefined) {
         text(patch.name, "name", MAX_NAME);
         patch.name = patch.name.trim();
@@ -425,7 +437,7 @@ export const COMMANDS = {
     apply({ ydoc, input, actor, capabilities }) {
       const current = existing(ydoc, input.id);
       const patch = { ...input.patch };
-      const changed = Object.keys(patch);
+      const changed = Object.keys(patch).map((key) => (key === "backMarkdown" ? "back" : key));
       let delta = null;
       if (patch.markdown !== undefined) {
         if (!MARKDOWN_TYPES.has(current.type)) {
@@ -462,7 +474,15 @@ export const COMMANDS = {
       // table is ignored rather than stored and later dropped by every reader.
       if (patch.rotation !== undefined) patch.rotation = normalizeRotation(patch.rotation);
       ydoc.transact(() => {
+        // The back is a second text in the same transaction; it also strips its input
+        // fields from `patch` before the widget record is built (ADR-320).
+        applyBackPatch(ydoc, input.id, patch, current.type);
         const next = { ...current, ...patch };
+        // A client may have written the materialised fields; they are derived from
+        // `texts` and must never be stored (ADR-320).
+        delete next.backContent;
+        delete next.backRuns;
+        delete next.backLines;
         if (patch.rotation !== undefined && !turns(current)) delete next.rotation;
         if (patch.locked === false) {
           delete next.locked;
@@ -484,6 +504,8 @@ export const COMMANDS = {
       return { id: input.id, changed };
     },
   },
+
+  "board.frame.answers": frameAnswersCommand(),
 
   "board.item.delete": {
     capabilities: ["board.edit"],

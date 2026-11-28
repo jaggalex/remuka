@@ -642,6 +642,12 @@ export function readWidget(raw: unknown, id: string): Widget | null {
     repair.drop("curve");
   }
 
+  // The back side is materialised from `texts[`${id}#back`]` (ADR-320); a client that
+  // writes these fields into the widget record is repaired, not believed.
+  for (const key of ["backContent", "backRuns", "backLines"] as const) {
+    if (key in raw) repair.drop(key);
+  }
+
   return repair.result as unknown as Widget;
 }
 
